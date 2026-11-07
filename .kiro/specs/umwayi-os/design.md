@@ -11,15 +11,15 @@ umwayi/
   memory.py     layer 1: context bundle loader
   miniyaml.py   layer 2: strict YAML subset reader (no third party YAML)
   rules.py      layer 2: rules loading and the check decision
-  queue.py      layer 3 (later)
+  taskqueue.py  layer 3: queue.md parser, writer and commands
+  logbook.py    layer 5 (minimal append writer exists, built with layer 3)
   archive.py    layer 4 (later)
-  logbook.py    layer 5 (later)
   automation/   layer 6 (later)
   helpers/      layer 7 (later)
   workflows/    layer 8 (later)
 ```
 
-Layer 5 is built after layers 3 and 4, but layers 2 to 4 are written so they call one function, `logbook.append(...)`. Until it exists, layers 2 to 4 take an optional `on_change` callback that defaults to nothing. Layer 5 then supplies the real function without changing the earlier layers' behavior.
+Layers 2 to 4 write to the logbook through one function, `logbook.append(root, Entry)`. The smallest append-only version of it was built with layer 3 because every queue change must be logged. Layer 5 adds the tamper check and the rest (see tasks.md). The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
 ## Safety model
 
@@ -145,11 +145,35 @@ Reason: AI helpers never move money. Cause: Safety rule.
 
 ### Logbook hook
 
-`check` does not write to the logbook in layer 2, because the logbook is layer 5. The `on_change` hook is reserved for it.
+`check` does not write to the logbook yet. Layer 5 wires it to `logbook.append`.
 
-## Layer 3: Queue (planned)
+## Layer 3: Queue
 
-`queue.md` is a Markdown table: `id | kind | title | status | recommendation | answered`. `kind` is task or decision. Statuses: open, answered, closed. Ids are `Q-0001` style and never reused (the next id is max plus one, and closed rows stay). Writes go to a temp file and are renamed. Each command calls the logbook hook.
+`queue.md` is plain Markdown with exactly one table. Text before and after the table is kept as it is.
+
+```
+| id | kind | title | status | recommendation | answered |
+| --- | --- | --- | --- | --- | --- |
+| Q-0001 | task | Write the spec | open | Do it today | |
+```
+
+- `id`: `Q-` and at least 4 digits. New ids are the highest number in the file plus one, so closed rows keep their ids.
+- `kind`: `task` or `decision`. `status`: `open`, `answered` or `closed`.
+- `answered`: empty or a real date `YYYY-MM-DD`. An answered row must have a date, an open row must not.
+- Cells cannot contain `|` or line breaks. Titles are limited to 200 characters, recommendations to 500.
+
+Parser rules (fail closed): exactly one table, exact column names, 6 cells per row, unique ids, valid values, plain `\n` line endings, valid UTF-8. A violation is an error with a line number (never the text of the line), exit code 1, and no change to any file.
+
+Writing:
+
+1. Parse. Build the new text by replacing one line (answer, close) or inserting one line after the last table row (add). Every other line stays byte for byte.
+2. Re-parse the result and check that only the intended row changed. If not, stop.
+3. Write `queue.md` through a temporary file and `os.replace`.
+4. Append to the logbook. If that fails, restore the old `queue.md` (or delete a file that `add` just created) and report an error.
+
+Commands: `list [--status S] [--kind K]` (reads only), `add --kind K TITLE [--recommendation R] [--date D]`, `answer ID [--date D]`, `close ID [--date D]`. `add` creates `queue.md` if it is missing. The other commands need it to exist. `answer` works only on an open row. `close` works on an open or answered row and keeps the date answered.
+
+Dates come from `--date` or the system clock, never from other rows.
 
 ## Layer 4: Archive (planned)
 

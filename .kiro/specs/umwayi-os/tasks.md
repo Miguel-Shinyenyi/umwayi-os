@@ -27,17 +27,35 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 2.5 Starter `rules.yaml`
 - [x] 2.6 Tests: no match, broken file, bad JSON, precedence, exit codes
 
-Review gate: stop here for owner review.
-
 ## Layer 3: Queue
 
-- [ ] 3.1 `queue.md` format, parser and writer (atomic write)
-- [ ] 3.2 `umwayi queue list`
-- [ ] 3.3 `umwayi queue add`
-- [ ] 3.4 `umwayi queue answer`
-- [ ] 3.5 `umwayi queue close`
-- [ ] 3.6 Logbook hook on every change
-- [ ] 3.7 Tests
+- [x] 3.1 `queue.md` format, strict parser and writer (atomic write, only the touched row is rewritten)
+- [x] 3.2 `umwayi queue list` (with `--status` and `--kind` filters)
+- [x] 3.3 `umwayi queue add`
+- [x] 3.4 `umwayi queue answer`
+- [x] 3.5 `umwayi queue close`
+- [x] 3.6 Every change appends to the logbook; a failed logbook write undoes the queue change
+- [x] 3.7 Tests (`tests/test_queue.py`, `tests/test_logbook.py`)
+
+Review gate: stop here for owner review.
+
+### Layer 5 status: what exists and what is still needed
+
+Done in `umwayi/logbook.py` (the smallest part that layer 3 needs):
+
+- `append(root, Entry)` adds one entry to `LOGBOOK.md`. The file is only opened in append mode, so earlier bytes are never edited.
+- Entry fields: date, source, added, checked, not done. Every field must be one line of plain text, so an entry cannot forge a second entry.
+- The header `# Logbook` is written only when the file is new or empty.
+- A symbolic link or an unwritable `LOGBOOK.md` is refused.
+
+Layer 5 (task 5.x) still needs:
+
+1. The tamper check: record a hash of the logbook after each write (`.umwayi/logbook.sha256`) and refuse to append if earlier lines changed. Today nothing detects a hand edit of earlier lines.
+2. A reader and validator for entries (parse them back, detect a broken entry) and a command to run the check, for example `umwayi logbook verify`.
+3. Wire layer 2 (`umwayi check`) and layer 4 (archive) to call `logbook.append`. Layer 2 does not write to the logbook yet.
+4. Decide what to do about concurrent writers (two commands at once). There is no file lock yet, in the queue or in the logbook.
+5. Decide whether the append should also check that the new entry date is not before the last entry date.
+6. Atomicity of a single append: it is one `write` plus `fsync`, but a crash in the middle could leave a partial entry. The tamper check or reader should detect that.
 
 ## Layer 4: Archive
 
@@ -49,9 +67,9 @@ Review gate: stop here for owner review.
 
 ## Layer 5: Logbook
 
-- [ ] 5.1 Append only writer and entry format
-- [ ] 5.2 Tamper check of earlier lines
-- [ ] 5.3 Wire layers 2 to 4 to the shared function
+- [x] 5.1 Append only writer and entry format (done early, in layer 3)
+- [ ] 5.2 Tamper check of earlier lines (see the list under layer 3)
+- [ ] 5.3 Wire layers 2 and 4 to the shared function (layer 3 is already wired)
 - [ ] 5.4 Tests
 
 ## Layer 6: Automation
