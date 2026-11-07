@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: layers 1 (memory), 2 (rules), 3 (queue) and 4 (archive) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: layers 1 (memory), 2 (rules), 3 (queue), 4 (archive) and 5 (logbook) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -65,6 +65,8 @@ Matchers (all must match):
 
 Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input.
 
+Every check writes one logbook entry with the rule id and the answer. The action JSON is never written, only its `type` if that is a short plain word. If the logbook cannot be written (for example it was edited by hand), the answer is Ask me first (exit 3) and the reason says why. Use `--no-log` for a dry run that writes nothing, and `--date` to set the entry date.
+
 ## Layer 3: queue
 
 `queue.md` is a Markdown table you can read and edit by hand. The columns are id, kind (task or decision), title, status (open, answered, closed), recommendation, answer, and the date answered.
@@ -102,3 +104,27 @@ umwayi archive verify
 - The source, the archive file and the index all change or none do. If the logbook write fails, the move is undone. Each move adds one logbook entry.
 - `verify` recomputes every SHA-256 and prints `ok`, `changed`, `missing` or `not in the index` for each id. It exits 0 only when all are ok, otherwise 1, and never changes a file.
 - `umwayi archive restore` is not built yet. The output of `move` names it.
+
+## Layer 5: logbook
+
+`LOGBOOK.md` is append only. Every umwayi command that changes something adds one entry:
+
+```
+## 2026-11-07
+
+- Source: umwayi queue add
+- Added: ...
+- Checked: ...
+- Not done: ...
+```
+
+```
+umwayi logbook verify
+umwayi logbook seal --by "Your name" [--date 2026-11-07]
+```
+
+- After every write the SHA-256 of the whole file is recorded in `.umwayi/logbook.sha256`. Before every write it is checked. If you edit, delete or add a line by hand, every umwayi write is refused (and `umwayi check` answers Ask me first) until you look at the file and run `umwayi logbook seal`.
+- An existing logbook with no record is refused the same way. Nothing is sealed automatically.
+- `verify` prints `ok` or each problem with a line number (never the line text) and exits 0 only when the format is valid and the hash matches. It never changes a file.
+- Entry dates must be real and never go backwards.
+- `.umwayi/logbook.lock` stops two commands from writing at once. If a command was killed and left the lock behind, delete the file.

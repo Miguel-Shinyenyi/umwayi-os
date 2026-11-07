@@ -15,7 +15,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import __version__, archive, rules, taskqueue
+from umwayi import __version__, archive, logbook, rules, taskqueue
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError
 from umwayi.memory import load_bundle
@@ -95,6 +95,15 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("action", nargs="?", help="action as JSON, or '-' to read it from standard input")
     c.add_argument("--rules", help="path to rules.yaml (default: <root>/rules.yaml)")
     c.add_argument("--json", action="store_true", help="print the answer as JSON")
+    c.add_argument("--no-log", action="store_true", help="dry run: do not write the logbook entry")
+    c.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entry (default: today)")
+
+    lg = sub.add_parser("logbook", help="logbook commands")
+    lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
+    lgsub.add_parser("verify", help="check the format and the hash record of LOGBOOK.md (changes nothing)")
+    ls = lgsub.add_parser("seal", help="record the hash of LOGBOOK.md as it is now (explicit, never automatic)")
+    ls.add_argument("--by", required=True, help="who seals it, one short line of plain text")
+    ls.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
     return p
 
 
@@ -107,12 +116,35 @@ def _cmd_check(args, out) -> int:
             action_text = sys.stdin.read(rules.MAX_ACTION_BYTES + 1)
         except Exception:
             action_text = None
-    decision = rules.check(action_text, rules_path)
+    decision, logged = rules.check_and_log(
+        action_text, rules_path, root, args.date or _today(), log=not args.no_log
+    )
     if args.json:
-        out.write(json.dumps(decision.to_dict(), indent=2) + "\n")
+        data = decision.to_dict()
+        data["logged"] = logged
+        out.write(json.dumps(data, indent=2) + "\n")
     else:
         out.write(decision.render())
+        if args.no_log:
+            out.write("Nothing was logged (--no-log, dry run).\n")
     return decision.exit_code
+
+
+def _cmd_logbook(args, out) -> int:
+    root = Path(args.root)
+    if args.logbook_command == "seal":
+        r = logbook.seal(root, args.date or _today(), args.by)
+        out.write(f"Sealed LOGBOOK.md: {r.entries_before} earlier entries, hash recorded.\n")
+        out.write(f"SHA-256: {r.sha256}\n")
+        return 0
+    report = logbook.verify(root)
+    if not report.problems:
+        out.write(f"ok: {report.entries} entries, the format is valid and the hash matches the record\n")
+        return 0
+    for p in report.problems:
+        out.write(f"problem: {p.render()}\n")
+    out.write(f"{len(report.problems)} problem(s) found\n")
+    return 1
 
 
 def _cmd_memory_bundle(args, out) -> int:
@@ -196,6 +228,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_check(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "logbook" and getattr(args, "logbook_command", None):
+            return _cmd_logbook(args, out)
         if args.command == "archive" and getattr(args, "archive_command", None):
             return _cmd_archive(args, out)
         if args.command == "memory" and getattr(args, "memory_command", None) == "bundle":

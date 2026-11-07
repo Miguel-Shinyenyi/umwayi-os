@@ -15,3 +15,6 @@ memory/journal/*-private.md
 .env.*
 *.pem
 *.key
+
+# logbook lock (exists only while an umwayi command writes)
+.umwayi/logbook.lock

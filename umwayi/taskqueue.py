@@ -273,7 +273,8 @@ def _commit(root: Path, path: Path, old_text: str | None, new_text: str, entry: 
         raise UmwayiError("queue.md cannot be written, nothing was changed") from None
     try:
         logbook.append(root, entry)
-    except Exception:
+    except Exception as e:
+        reason = f": {e}" if isinstance(e, UmwayiError) else ""
         try:
             if old_text is None:
                 os.unlink(path)
@@ -283,7 +284,7 @@ def _commit(root: Path, path: Path, old_text: str | None, new_text: str, entry: 
             raise UmwayiError(
                 "the logbook write failed AND queue.md could not be restored: check queue.md by hand"
             ) from None
-        raise UmwayiError("the logbook write failed, so the queue change was undone") from None
+        raise UmwayiError("the logbook write failed, so the queue change was undone" + reason) from None
 
 
 def _require_date(when: str) -> str:

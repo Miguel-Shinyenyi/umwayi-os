@@ -221,7 +221,7 @@ class CliTests(RulesBase):
         if stdin is not None:
             sys.stdin = io.StringIO(stdin)
         try:
-            code = main(["check", "--rules", str(self.path), *argv], out=buf)
+            code = main(["--root", str(self.dir), "check", "--rules", str(self.path), *argv], out=buf)
         finally:
             sys.stdin = old
         return code, buf.getvalue()
