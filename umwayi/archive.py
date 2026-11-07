@@ -457,7 +457,8 @@ def move(
         if not isinstance(exc, Exception):
             raise
         if phase == "logbook":
-            raise UmwayiError("the logbook write failed, so the move was undone") from None
+            reason = f": {exc}" if isinstance(exc, UmwayiError) else ""
+            raise UmwayiError("the logbook write failed, so the move was undone" + reason) from None
         if isinstance(exc, UmwayiError):
             raise UmwayiError(f"{exc}; the move was undone") from None
         raise UmwayiError("a file could not be written, so the move was undone") from None

@@ -14,6 +14,7 @@ from umwayi import archive
 from umwayi.archive import parse_index
 from umwayi.cli import main
 from umwayi.errors import UmwayiError
+from tests.helpers import entry_text, write_sealed_logbook
 
 REPO = Path(__file__).resolve().parent.parent
 REAL_WRITE = archive.atomic_write
@@ -203,6 +204,7 @@ class MoveByLinesTests(ArchiveBase):
                 if (self.root / "archive").exists():
                     import shutil
                     shutil.rmtree(self.root / "archive")
+                    shutil.rmtree(self.root / ".umwayi")  # start again with no logbook and no record
                     self.log.unlink()
                 self.ok_move("notes.md", "--lines", rng, "--reason", "r")
                 self.assertEqual(self.read("notes.md").decode(), expect)
@@ -508,9 +510,7 @@ class IdGuardTests(ArchiveBase):
         self.assertEqual([r.id for r in self.index_rows()], ["A-0004"])
 
     def test_highest_in_the_logbook_wins(self):
-        self.log.write_text(
-            "# Logbook\n\n## 2026-01-01\n\n- Source: umwayi archive move\n"
-            "- Added: A-0040 moved from old.md\n- Checked: x\n- Not done: y\n", encoding="utf-8")
+        write_sealed_logbook(self.root, "# Logbook\n" + entry_text(added="A-0040 moved from old.md"))
         self.ok_move("notes.md", "--lines", "3-4", "--reason", "r")
         self.assertEqual(self.index_rows()[0].id, "A-0041")
 
@@ -520,7 +520,7 @@ class IdGuardTests(ArchiveBase):
         self.assertEqual([r.id for r in self.index_rows()], ["A-0020", "A-0021"])
 
     def test_queue_ids_do_not_count(self):
-        self.log.write_text("# Logbook\n\n- Added: Q-0500 (task) as open: x\n", encoding="utf-8")
+        write_sealed_logbook(self.root, "# Logbook\n" + entry_text(added="Q-0500 (task) as open: x"))
         self.ok_move("notes.md", "--lines", "3-4", "--reason", "r")
         self.assertEqual(self.index_rows()[0].id, "A-0001")
 
@@ -588,7 +588,7 @@ class DateAndLogbookTests(ArchiveBase):
         )
 
     def test_logbook_is_only_appended_to(self):
-        self.log.write_text("# Logbook\n\n## 2026-01-01\n\n- hand written\n", encoding="utf-8")
+        write_sealed_logbook(self.root, "# Logbook\n" + entry_text(date="2026-01-01"))
         before = self.log.read_bytes()
         self.ok_move("notes.md", "--lines", "3-3", "--reason", "r")
         after = self.log.read_bytes()

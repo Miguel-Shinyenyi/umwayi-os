@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from umwayi import miniyaml
+from umwayi import logbook, miniyaml
 from umwayi.errors import UmwayiError
 
 YES = "Yes"
@@ -50,6 +50,11 @@ class Decision:
     rule_id: str | None
     reason: str
     matched: list[str] = field(default_factory=list)
+    # facts for the logbook entry (never the action itself)
+    action_ok: bool = False
+    rules_ok: bool = False
+    rules_count: int = 0
+    action_type: str | None = None
 
     @property
     def exit_code(self) -> int:
@@ -248,6 +253,15 @@ def parse_action(text: str) -> dict:
     return data
 
 
+_PLAIN_TYPE = re.compile(r"^[A-Za-z0-9_.:-]{1,40}$")
+
+
+def safe_action_type(action: dict) -> str | None:
+    """The action's type, only if it is a short plain string. Nothing else of the action is kept."""
+    t = action.get("type")
+    return t if isinstance(t, str) and _PLAIN_TYPE.match(t) else None
+
+
 def check(action_text: str | None, rules_path: Path) -> Decision:
     """Return the Decision for an action. Never raises."""
     try:
@@ -257,10 +271,58 @@ def check(action_text: str | None, rules_path: Path) -> Decision:
             action = parse_action(action_text)
         except UmwayiError as e:
             return Decision(ASK, None, str(e))
+        action_type = safe_action_type(action)
         try:
             rules = load_rules(rules_path)
         except UmwayiError as e:
-            return Decision(ASK, None, f"Rules could not be loaded ({e}).")
-        return decide(rules, action)
+            return Decision(ASK, None, f"Rules could not be loaded ({e}).", action_ok=True, action_type=action_type)
+        decision = decide(rules, action)
+        decision.action_ok = True
+        decision.rules_ok = True
+        decision.rules_count = len(rules)
+        decision.action_type = action_type
+        return decision
     except Exception:  # fail closed, whatever went wrong
         return Decision(ASK, None, "Unexpected error while checking.")
+
+
+def log_entry(decision: Decision, when: str) -> logbook.Entry:
+    """The logbook entry for one check. It never contains the action JSON."""
+    who = f"Rule {decision.rule_id} gave {decision.answer}" if decision.rule_id else f"No rule gave {decision.answer}"
+    what = f"action type: {decision.action_type}" if decision.action_type else "action type not recorded"
+    matched = ", ".join(decision.matched) if decision.matched else "none"
+    return logbook.Entry(
+        date=when,
+        source="umwayi check",
+        added=f"{who}; {what}",
+        checked=(
+            f"action read as a JSON object without duplicate keys: {'yes' if decision.action_ok else 'no'}; "
+            f"rules.yaml loaded: {'yes' if decision.rules_ok else 'no'}"
+            + (f" ({decision.rules_count} rules)" if decision.rules_ok else "")
+            + f"; rules matched: {matched}"
+        ),
+        not_done="The action was not run. The action JSON was not stored in the logbook.",
+    )
+
+
+def check_and_log(
+    action_text: str | None, rules_path: Path, root: Path, when: str, log: bool = True
+) -> tuple[Decision, bool]:
+    """Check an action and append one logbook entry. Returns (decision, logged).
+
+    If the entry cannot be written (lock held, tamper check failed, bad date,
+    any error), the answer becomes Ask me first and says why. It is never Yes
+    or No by accident.
+    """
+    decision = check(action_text, rules_path)
+    if not log:
+        return decision, False
+    try:
+        logbook.append(root, log_entry(decision, when))
+    except Exception as e:
+        why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+        return Decision(
+            ASK, None,
+            f"The logbook could not be written ({why}). Nothing was logged, so the answer is {ASK}.",
+        ), False
+    return decision, True

@@ -10,6 +10,7 @@ from unittest import mock
 from umwayi import taskqueue
 from umwayi.cli import main
 from umwayi.errors import UmwayiError
+from tests.helpers import entry_text, write_sealed_logbook
 from umwayi.taskqueue import MIGRATED_ANSWER, Row, format_row, parse
 
 REPO = Path(__file__).resolve().parent.parent
@@ -359,11 +360,7 @@ class IdReuseTests(QueueBase):
 
     def test_logbook_with_a_higher_id_than_the_queue_wins(self):
         self.put(HAND)
-        self.log.write_text(
-            "# Logbook\n\n## 2026-01-01\n\n- Source: umwayi queue add\n"
-            "- Added: Q-0050 (task) as open: from an older queue\n- Checked: x\n- Not done: y\n",
-            encoding="utf-8",
-        )
+        write_sealed_logbook(self.root, "# Logbook\n" + entry_text(added="Q-0050 (task) as open: from an older queue"))
         self.add("new")
         self.assertEqual(self.ids()[-1], "Q-0051")
 
@@ -717,7 +714,7 @@ class MigrateTests(QueueBase):
 
 class LogbookCouplingTests(QueueBase):
     def test_each_change_appends_exactly_one_entry_and_never_edits_earlier_text(self):
-        self.log.write_text("# Logbook\n\n## 2026-01-01\n\n- hand written entry\n", encoding="utf-8")
+        write_sealed_logbook(self.root, "# Logbook\n" + entry_text(date="2026-01-01", added="hand written entry"))
         seen = self.logtext()
         steps = [
             ("add", "--kind", "task", "one"),
@@ -785,7 +782,8 @@ class LogbookCouplingTests(QueueBase):
         self.put(HAND)
         self.run_cli("add", "--kind", "task", "x")
         self.run_cli("answer", "Q-0001", "--answer", "ok")
-        self.assertEqual(sorted(p.name for p in self.root.iterdir()), ["LOGBOOK.md", "queue.md"])
+        self.assertEqual(sorted(p.name for p in self.root.iterdir()), [".umwayi", "LOGBOOK.md", "queue.md"])
+        self.assertEqual(sorted(p.name for p in (self.root / ".umwayi").iterdir()), ["logbook.sha256"])
 
 
 class SubprocessTests(QueueBase):
@@ -807,9 +805,17 @@ class SubprocessTests(QueueBase):
         self.assertIn("[answer: Done it]", r.stdout)
         self.assertEqual(run("close", "Q-0001").returncode, 1)
         self.assertEqual(self.logtext().count("\n## "), 3)
-        run("add", "--kind", "task", "Clock run")
+
+    def test_real_process_uses_the_system_clock_when_no_date_is_given(self):
         from datetime import date
-        self.assertIn(f"## {date.today().isoformat()}", self.logtext())
+        env = dict(os.environ, PYTHONPATH=str(REPO))
+        r = subprocess.run(
+            [sys.executable, "-m", "umwayi", "--root", str(self.root), "queue", "add", "--kind", "task", "Clock run"],
+            capture_output=True, text=True, env=env, cwd=self.root,
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.logtext().count("\n## "), 1)
+        self.assertIn(f"## {date.today().isoformat()}\n", self.logtext())
 
     def test_real_process_migrate(self):
         env = dict(os.environ, PYTHONPATH=str(REPO))

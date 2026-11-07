@@ -96,8 +96,13 @@ Acceptance criteria:
 
 1. `LOGBOOK.md` is append only. The tool never edits earlier lines.
 2. Each entry has a date, a source, what was added, what was checked and what was not done.
-3. Layers 2 to 4 write entries through one shared function.
-4. Before appending, the tool checks that earlier lines are unchanged since its last write, and refuses to write if they were altered.
+3. Layers 2 to 4 write entries through one shared checked append.
+4. After every append, the SHA-256 of the whole logbook is recorded in `.umwayi/logbook.sha256`. Before every append it is recomputed, and the append is refused with a clear message if it does not match.
+5. An existing logbook without a record is refused until the owner runs `umwayi logbook seal`, which records the current hash and writes an entry that says it was sealed and by whom. Nothing is sealed automatically.
+6. `umwayi logbook verify` parses every entry and reports each problem with a line number, never the line text: a partial or broken entry, a missing field, an entry not in the format, text outside the header and entries. It exits 0 only when the format is valid and the recorded hash matches, otherwise 1. It never changes a file.
+7. Entry dates are real dates and never go backwards. A backwards date is a verify problem and an append refusal.
+8. `umwayi check` appends one entry per check with the rule id and answer. It never writes the action JSON, only its type if that is a short plain string. If the entry cannot be written, the answer is Ask me first with exit 3 and the reason says why. `--no-log` skips the entry for a dry run and says nothing was logged.
+9. A lock file stops two appends from interleaving. A held lock gives a clear message.
 
 ## Layer 6: Automation
 

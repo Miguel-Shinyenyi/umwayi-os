@@ -12,7 +12,7 @@ umwayi/
   miniyaml.py   layer 2: strict YAML subset reader (no third party YAML)
   rules.py      layer 2: rules loading and the check decision
   taskqueue.py  layer 3: queue.md parser, writer and commands
-  logbook.py    layer 5 (minimal append writer exists, built with layer 3)
+  logbook.py    layer 5: checked append, tamper check, lock, parser, verify, seal
   archive.py    layer 4: archive move and verify, INDEX.md parser
   fsutil.py     atomic file write shared by layers that write files
   automation/   layer 6 (later)
@@ -20,7 +20,7 @@ umwayi/
   workflows/    layer 8 (later)
 ```
 
-Layers 2 to 4 write to the logbook through one function, `logbook.append(root, Entry)`. The smallest append-only version of it was built with layer 3 because every queue change must be logged. Layer 5 adds the tamper check and the rest (see tasks.md). The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
+Layers 2 to 4 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
 ## Safety model
 
@@ -146,7 +146,7 @@ Reason: AI helpers never move money. Cause: Safety rule.
 
 ### Logbook hook
 
-`check` does not write to the logbook yet. Layer 5 wires it to `logbook.append`.
+Every check appends one logbook entry. See "Layer 5: Logbook" for the entry and for what happens when the logbook cannot be written.
 
 ## Layer 3: Queue
 
@@ -256,9 +256,86 @@ The pointer line is `[archived A-0001: archive/A-0001.txt]` followed by the line
 
 Exit 0 only when every line is `ok`. Otherwise exit 1. A malformed or missing index, or a missing archive folder, is an error and exits 1. The words column is not recomputed.
 
-## Layer 5: Logbook (planned)
+## Layer 5: Logbook
 
-`LOGBOOK.md` is opened in append mode only. The logbook keeps a hash of its current content in `.umwayi/logbook.sha256`. Before appending, it checks the existing content against that hash and refuses to write if earlier lines changed. Entry format: date, source, added, checked, not done.
+### Files
+
+```
+LOGBOOK.md               the logbook, append only
+.umwayi/logbook.sha256   SHA-256 of the whole LOGBOOK.md after the last umwayi write
+.umwayi/logbook.lock     exists only while an umwayi command is writing
+```
+
+### Format
+
+```
+# Logbook
+
+## 2026-11-07
+
+- Source: umwayi queue add
+- Added: Q-0001 (task) as open: Write the spec
+- Checked: ...
+- Not done: ...
+```
+
+- Line 1 is exactly `# Logbook`. One blank line, then entries.
+- An entry is a heading `## YYYY-MM-DD` (a real date), a blank line, then exactly the four fields in this order: Source, Added, Checked, Not done. Each value is one line of plain text, not empty, no spaces at either end.
+- One blank line between entries. The file ends with a newline.
+- Dates never go backwards. Equal dates are fine.
+- Anything else is a problem: text outside the header and entries, a missing or extra blank line, a missing field, fields out of order, a cut off entry, a bad heading, a backwards date, Windows line endings.
+
+### Checked append
+
+`append(root, entry)`:
+
+1. Render the entry. A bad date or a field with a line break is refused before anything is touched.
+2. Take the lock: create `.umwayi/logbook.lock` with `O_CREAT | O_EXCL`. If it exists, wait up to 3 seconds, then refuse with a message that names the lock file and says to delete it only if no umwayi command is running. The lock is removed in a `finally` block, and a lock file this call did not create is never removed.
+3. Tamper check. Read `LOGBOOK.md` and the record, and refuse unless one of these holds:
+   - there is no logbook and no record (a new logbook), or the logbook is empty and there is no record;
+   - the SHA-256 of the whole file equals the record.
+   Refused states: no record for a non-empty logbook ("run umwayi logbook seal"), a hash that does not match (an earlier line was edited, deleted or added by hand), a record with no logbook (the logbook may have been deleted), and a malformed record (not 64 lowercase hex characters, a folder, or a symbolic link).
+4. Format check: the whole file must parse with no problems. The new date must not be before the last entry's date.
+5. Append in `ab` mode, `fsync`, then compute the SHA-256 of the whole file and write the record atomically.
+6. Release the lock.
+
+If step 5 writes the entry but cannot write the record, the error says so and the next append is refused until the owner seals. The entry is never silently left unprotected.
+
+Every refusal names the reason and ends with "Nothing was written". The text of logbook lines never appears in a message.
+
+### seal
+
+`umwayi logbook seal --by NAME [--date D]` is the only way to accept a logbook that has no record, a malformed record, or a hash that does not match. It is never run automatically. It:
+
+- refuses if there is no logbook, if the logbook is already sealed and intact, if the format has problems, if the date would go backwards, or if `--by` is empty, longer than 100 characters, or not one line;
+- appends an entry with source `umwayi logbook seal`, `Seal by NAME`, the number of earlier entries, the SHA-256 of the file before this entry, and what the earlier record state was;
+- records the new hash.
+
+Sealing does not prove that earlier lines were never edited. It records that the owner accepted the file as it is now, and the entry says so.
+
+### verify
+
+`umwayi logbook verify` parses every entry and checks the record. It prints `ok: N entries, ...` and exits 0 only when there are no problems. Otherwise it prints `problem: line N: message` (or `problem: record: ...`, `problem: file: ...`) for each problem and exits 1. It never writes, never takes the lock, and never creates `.umwayi/`.
+
+### Layer 2 entries
+
+Every `umwayi check` appends one entry:
+
+```
+- Source: umwayi check
+- Added: Rule no-money gave No; action type: payment
+- Checked: action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (6 rules); rules matched: no-money, no-money-amount
+- Not done: The action was not run. The action JSON was not stored in the logbook.
+```
+
+- The action JSON is never written. Only its `type`, and only if it is a string of 1 to 40 characters from `A-Z a-z 0-9 _ . : -`. Otherwise the entry says `action type not recorded`.
+- If the entry cannot be written for any reason (tamper check, lock, format, date, disk, an unexpected error), the answer becomes Ask me first with exit 3, rule `(none)`, and a reason that starts with "The logbook could not be written" and says why. A Yes or a No is never returned without its logbook entry.
+- `--no-log` is a dry run: the rules answer is returned as usual, nothing is written, and the output ends with `Nothing was logged (--no-log, dry run).` With `--json` the output has `"logged": false`.
+- `--date` sets the entry date. The default is the system clock.
+
+### Layers 3 and 4
+
+The queue and the archive call the same checked append. If it refuses, the queue change or the move is undone as before, and the error now includes the logbook's reason.
 
 ## Layers 6 to 8 (planned)
 

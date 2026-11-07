@@ -41,25 +41,6 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 3.10 Ids are never reused: highest id in `queue.md` and in the logbook plus one, refuse to add if the logbook is unreadable
 - [x] 3.11 Old six column layout refused with a message that names the migration; `umwayi queue migrate` converts it once and logs it
 
-### Layer 5 status: what exists and what is still needed
-
-Done in `umwayi/logbook.py` (the smallest part that layer 3 needs):
-
-- `logged_ids(root, prefix)` reads back the ids with one prefix (`Q` for the queue, `A` for the archive) named at the start of `- Added:` lines, so layers 3 and 4 can avoid reusing an id. A missing file gives no ids, an unreadable file is an error.
-- `append(root, Entry)` adds one entry to `LOGBOOK.md`. The file is only opened in append mode, so earlier bytes are never edited.
-- Entry fields: date, source, added, checked, not done. Every field must be one line of plain text, so an entry cannot forge a second entry.
-- The header `# Logbook` is written only when the file is new or empty.
-- A symbolic link or an unwritable `LOGBOOK.md` is refused.
-
-Layer 5 (task 5.x) still needs:
-
-1. The tamper check: record a hash of the logbook after each write (`.umwayi/logbook.sha256`) and refuse to append if earlier lines changed. Today nothing detects a hand edit of earlier lines.
-2. A full reader and validator for entries (parse them back, detect a broken entry; today only `logged_ids` reads the file, with a single regular expression) and a command to run the check, for example `umwayi logbook verify`.
-3. Wire layer 2 (`umwayi check`) to call `logbook.append`. It does not write to the logbook yet. Layers 3 and 4 are already wired.
-4. Decide what to do about concurrent writers (two commands at once). There is no file lock yet, in the queue, the archive or the logbook.
-5. Decide whether the append should also check that the new entry date is not before the last entry date.
-6. Atomicity of a single append: it is one `write` plus `fsync`, but a crash in the middle could leave a partial entry. The tamper check or reader should detect that.
-
 ## Layer 4: Archive
 
 - [x] 4.1 Archive folder and `INDEX.md` format, strict index parser
@@ -69,16 +50,28 @@ Layer 5 (task 5.x) still needs:
 - [x] 4.5 Tests (`tests/test_archive.py`): every refusal, the id guard, the pointer line, three file rollback, verify after a hand edit
 - [x] 4.6 Shared atomic writer `umwayi/fsutil.py`; `logbook.logged_ids` takes an id prefix
 
-Review gate: stop here for owner review.
-
 Not built (later): `umwayi archive restore`. The output of `move` already names it.
 
 ## Layer 5: Logbook
 
 - [x] 5.1 Append only writer and entry format (done early, in layer 3)
-- [ ] 5.2 Tamper check of earlier lines (see the list under layer 3)
-- [ ] 5.3 Wire layer 2 to the shared function (layers 3 and 4 are already wired)
-- [ ] 5.4 Tests
+- [x] 5.2 Tamper check: SHA-256 record in `.umwayi/logbook.sha256`, checked before and written after every append
+- [x] 5.3 `umwayi logbook seal --by NAME`: the only way to accept an unrecorded or edited logbook, never automatic
+- [x] 5.4 Reader and validator for every entry; `umwayi logbook verify` (line numbers, never line text; read only)
+- [x] 5.5 Real dates that never go backwards (verify problem and append refusal)
+- [x] 5.6 Layer 2 wired: one entry per `umwayi check`, no action JSON, Ask me first if the logbook cannot be written, `--no-log` dry run
+- [x] 5.7 Lock file `.umwayi/logbook.lock` so two appends cannot interleave
+- [x] 5.8 Layers 3 and 4 use the same checked append
+- [x] 5.9 Tests (`tests/test_logbook.py`, `tests/test_check_log.py`, `tests/test_logbook_integration.py`)
+
+Review gate: stop here for owner review.
+
+Still open after layer 5 (not in this layer's scope):
+
+- A lock for `queue.md` and the archive files themselves. The logbook lock only covers the logbook append, so two queue or archive commands at once can still race on their own files.
+- A stale lock (left by a killed process) is not removed automatically. The owner deletes it, as the message says.
+- The record lives next to the logbook. Someone who edits the logbook and also rewrites the record is not detected. Sealing state outside the repo, or signing it, is not built.
+- `umwayi archive restore` (named by `archive move`, not built).
 
 ## Layer 6: Automation
 
