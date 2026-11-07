@@ -62,9 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
     qa.add_argument("--recommendation", default="", help="recommendation for the owner (optional)")
     qn = qsub.add_parser("answer", help="mark an open row as answered")
     qn.add_argument("id", help="row id, for example Q-0001")
+    qn.add_argument("--answer", required=True, help="the answer text (one line, no | character, up to 500 characters)")
     qc = qsub.add_parser("close", help="close a row")
     qc.add_argument("id", help="row id, for example Q-0001")
-    for sp in (qa, qn, qc):
+    qm = qsub.add_parser("migrate", help="convert an old six column queue.md to the current layout (once)")
+    for sp in (qa, qn, qc, qm):
         sp.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
 
     c = sub.add_parser(
@@ -113,6 +115,8 @@ def _cmd_queue(args, out) -> int:
             line = f"{r.id}  {r.kind:<8}  {r.status:<8}  {r.answered or '-':<10}  {r.title}"
             if r.recommendation:
                 line += f"  [recommendation: {r.recommendation}]"
+            if r.answer:
+                line += f"  [answer: {r.answer}]"
             out.write(line + "\n")
         return 0
     when = args.date or _today()
@@ -120,11 +124,14 @@ def _cmd_queue(args, out) -> int:
         row = taskqueue.add(root, args.kind, args.title, args.recommendation, when)
         out.write(f"Added {row.id} ({row.kind}): {row.title}\n")
     elif cmd == "answer":
-        row = taskqueue.answer(root, args.id, when)
+        row = taskqueue.answer(root, args.id, args.answer, when)
         out.write(f"Answered {row.id} on {row.answered}\n")
-    else:
+    elif cmd == "close":
         row = taskqueue.close(root, args.id, when)
         out.write(f"Closed {row.id}\n")
+    else:
+        count = taskqueue.migrate(root, when)
+        out.write(f"Migrated queue.md: {count} rows now have an answer column\n")
     return 0
 
 

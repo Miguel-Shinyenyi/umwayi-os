@@ -63,11 +63,13 @@ User story: as the owner, I want one list of tasks and decisions, so I see what 
 
 Acceptance criteria:
 
-1. `queue.md` holds tasks and decisions as rows with an id, a status, a recommendation and the date answered.
-2. `umwayi queue list`, `add`, `answer` and `close` work on that file.
-3. Ids are never reused.
-4. Every change writes an entry to the logbook.
-5. A malformed `queue.md` stops the command with an error and changes nothing.
+1. `queue.md` holds tasks and decisions as rows with an id, a kind, a title, a status, a recommendation, an answer and the date answered.
+2. `umwayi queue list`, `add`, `answer`, `close` and `migrate` work on that file.
+3. `answer` needs answer text, with the same limits as a recommendation. An open row has an empty answer, an answered row has an answer, a closed row keeps what it had.
+4. `close` works on open and answered rows.
+5. Ids are never reused, even if a row is removed by hand. `add` uses one more than the highest id in `queue.md` and in the logbook, and refuses if the logbook cannot be read.
+6. Every change writes an entry to the logbook.
+7. A malformed `queue.md` stops the command with an error and changes nothing. The old six column layout is refused with a message that names `umwayi queue migrate`.
 
 ## Layer 4: Archive
 

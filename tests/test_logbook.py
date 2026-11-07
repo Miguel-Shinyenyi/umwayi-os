@@ -88,6 +88,34 @@ class LogbookTests(unittest.TestCase):
         with self.assertRaises(UmwayiError):
             append(self.root, entry())
 
+    def test_logged_ids(self):
+        self.assertEqual(logbook.logged_ids(self.root), set())  # no logbook yet
+        self.path.write_text(
+            "# Logbook\n\n## 2026-11-07\n\n- Source: s\n- Added: Q-0003 (task) as open: see Q-0099 here\n"
+            "- Checked: Q-0042 mentioned here\n- Not done: n\n"
+            "- Added: Q-0010 closed on 2026-11-08\n"
+            "  - Added: Q-0500 indented, not an entry line\n"
+            "- Added: Q-12 too short\n"
+            "- Added: Q-00007 five digits\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(logbook.logged_ids(self.root), {3, 10, 7})
+
+    def test_logged_ids_unreadable_is_an_error_not_an_empty_set(self):
+        self.path.mkdir()
+        with self.assertRaises(UmwayiError):
+            logbook.logged_ids(self.root)
+        self.path.rmdir()
+        self.path.write_bytes(b"\xff\xfe")
+        with self.assertRaises(UmwayiError):
+            logbook.logged_ids(self.root)
+
+    def test_logged_ids_does_not_change_the_file(self):
+        append(self.root, entry(added="Q-0001 (task) as open: x"))
+        before = self.path.read_bytes()
+        self.assertEqual(logbook.logged_ids(self.root), {1})
+        self.assertEqual(self.path.read_bytes(), before)
+
     def test_render_is_pure(self):
         self.assertEqual(render(entry()), render(entry()))
         self.assertFalse(self.path.exists())

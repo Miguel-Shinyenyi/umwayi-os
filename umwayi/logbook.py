@@ -1,8 +1,8 @@
-"""Layer 5 (minimal): append-only logbook writer.
+"""Layer 5 (minimal): append-only logbook writer, plus a reader for queue ids.
 
 This is only the smallest part of layer 5 that layer 3 needs: append one
-entry to LOGBOOK.md. The file is only ever opened in append mode, so
-earlier lines are never edited. See tasks.md for what layer 5 still needs
+entry to LOGBOOK.md, and read back which queue ids were ever used. The file
+is only ever opened in append mode, so earlier lines are never edited. See tasks.md for what layer 5 still needs
 (tamper check, reading entries back, wiring layers 2 and 4).
 """
 
@@ -18,6 +18,8 @@ from umwayi.errors import UmwayiError
 LOGBOOK_NAME = "LOGBOOK.md"
 HEADER = "# Logbook\n"
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# queue entries put the row id first in the "Added" line, before any user text
+_ADDED_ID = re.compile(r"^- Added: Q-(\d{4,}) ", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -71,3 +73,24 @@ def append(root: Path, entry: Entry) -> None:
             os.fsync(f.fileno())
     except OSError:
         raise UmwayiError("logbook: cannot append to LOGBOOK.md") from None
+
+
+def logged_ids(root: Path) -> set[int]:
+    """Numbers of the queue ids (Q-0001 is 1) named in logbook entries.
+
+    A missing LOGBOOK.md means no ids. A logbook that exists but cannot be
+    read is an error, never an empty answer. Only the id at the very start of
+    an "Added" line counts, so a title that merely contains "Q-9999" is ignored.
+    """
+    path = Path(root) / LOGBOOK_NAME
+    if path.is_symlink():
+        raise UmwayiError("logbook: LOGBOOK.md must not be a symbolic link")
+    if not path.exists():
+        return set()
+    try:
+        text = path.read_bytes().decode("utf-8")
+    except OSError:
+        raise UmwayiError("logbook: LOGBOOK.md cannot be read") from None
+    except UnicodeDecodeError:
+        raise UmwayiError("logbook: LOGBOOK.md is not valid UTF-8") from None
+    return {int(m.group(1)) for m in _ADDED_ID.finditer(text)}

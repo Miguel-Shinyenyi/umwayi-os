@@ -152,28 +152,50 @@ Reason: AI helpers never move money. Cause: Safety rule.
 `queue.md` is plain Markdown with exactly one table. Text before and after the table is kept as it is.
 
 ```
-| id | kind | title | status | recommendation | answered |
-| --- | --- | --- | --- | --- | --- |
-| Q-0001 | task | Write the spec | open | Do it today | |
+| id | kind | title | status | recommendation | answer | answered |
+| --- | --- | --- | --- | --- | --- | --- |
+| Q-0001 | decision | Pick a name | answered | Use umwayi | Go with umwayi | 2026-11-05 |
 ```
 
-- `id`: `Q-` and at least 4 digits. New ids are the highest number in the file plus one, so closed rows keep their ids.
+- `id`: `Q-` and at least 4 digits.
 - `kind`: `task` or `decision`. `status`: `open`, `answered` or `closed`.
+- `recommendation`: free text, may be empty.
+- `answer`: the owner's answer. An open row must have an empty answer. An answered row must have answer text. A closed row keeps whatever it had.
 - `answered`: empty or a real date `YYYY-MM-DD`. An answered row must have a date, an open row must not.
-- Cells cannot contain `|` or line breaks. Titles are limited to 200 characters, recommendations to 500.
+- Cells cannot contain `|` or line breaks. Titles are limited to 200 characters. Recommendations and answers are limited to 500 characters each.
 
-Parser rules (fail closed): exactly one table, exact column names, 6 cells per row, unique ids, valid values, plain `\n` line endings, valid UTF-8. A violation is an error with a line number (never the text of the line), exit code 1, and no change to any file.
+Parser rules (fail closed): exactly one table, exact column names in this order, 7 cells per row, unique ids, valid values, plain `\n` line endings, valid UTF-8. A violation is an error with a line number (never the text of the line), exit code 1, and no change to any file.
 
-Writing:
+The old six column layout (no `answer` column) is refused by every command except `migrate`, with a message that names `umwayi queue migrate`.
+
+### Ids are never reused
+
+The next id is one more than the highest id found in two places: the rows of `queue.md`, and the logbook. From the logbook it takes the id at the very start of every `- Added: Q-NNNN ` line (queue add, answer, close all write one). Ids that only appear inside a title or any other text are ignored, so a title cannot inflate the counter.
+
+- A missing `LOGBOOK.md` means no ids from the logbook.
+- A logbook that exists but cannot be read (a folder, not valid UTF-8, a symbolic link) makes `add` refuse, say why, and change nothing, not even create `queue.md`.
+- This covers a row, or the whole `queue.md`, deleted by hand. It does not cover someone who also edits the logbook, which layer 5's tamper check is meant to detect.
+
+### Writing
 
 1. Parse. Build the new text by replacing one line (answer, close) or inserting one line after the last table row (add). Every other line stays byte for byte.
 2. Re-parse the result and check that only the intended row changed. If not, stop.
 3. Write `queue.md` through a temporary file and `os.replace`.
 4. Append to the logbook. If that fails, restore the old `queue.md` (or delete a file that `add` just created) and report an error.
 
-Commands: `list [--status S] [--kind K]` (reads only), `add --kind K TITLE [--recommendation R] [--date D]`, `answer ID [--date D]`, `close ID [--date D]`. `add` creates `queue.md` if it is missing. The other commands need it to exist. `answer` works only on an open row. `close` works on an open or answered row and keeps the date answered.
+### Commands
+
+- `list [--status S] [--kind K]` reads only.
+- `add --kind K TITLE [--recommendation R] [--date D]` creates `queue.md` if it is missing. The other commands need it to exist.
+- `answer ID --answer TEXT [--date D]`: `--answer` is required, with the same limits as a recommendation. Works only on an open row. Stores the answer and the date. The logbook entry records the length of the answer, not the text.
+- `close ID [--date D]`: works on an open or answered row. Keeps the answer and the date answered. A closed row cannot be closed again.
+- `migrate [--date D]`: converts the old six column layout once.
 
 Dates come from `--date` or the system clock, never from other rows.
+
+### Migration
+
+`migrate` reads the old layout with the old validation, then rewrites only the header line, the separator line and the table rows. Lines outside the table are untouched. Open and closed rows get an empty answer. Old answered rows get the fixed text `not recorded before migration`, because a current answered row must have an answer and the real text was never stored. It re-parses the result and compares every old column, writes through the same atomic write and logbook step as other commands, and refuses to run on a file that already has the current layout.
 
 ## Layer 4: Archive (planned)
 
