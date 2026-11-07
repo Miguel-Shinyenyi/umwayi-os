@@ -36,6 +36,10 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 3.5 `umwayi queue close`
 - [x] 3.6 Every change appends to the logbook; a failed logbook write undoes the queue change
 - [x] 3.7 Tests (`tests/test_queue.py`, `tests/test_logbook.py`)
+- [x] 3.8 `answer` column and required `--answer` on `umwayi queue answer`
+- [x] 3.9 `close` works on open or answered rows (tested, including that answer and date are kept)
+- [x] 3.10 Ids are never reused: highest id in `queue.md` and in the logbook plus one, refuse to add if the logbook is unreadable
+- [x] 3.11 Old six column layout refused with a message that names the migration; `umwayi queue migrate` converts it once and logs it
 
 Review gate: stop here for owner review.
 
@@ -43,6 +47,7 @@ Review gate: stop here for owner review.
 
 Done in `umwayi/logbook.py` (the smallest part that layer 3 needs):
 
+- `logged_ids(root)` reads back the queue ids named at the start of `- Added:` lines, so the queue can avoid reusing an id. A missing file gives no ids, an unreadable file is an error.
 - `append(root, Entry)` adds one entry to `LOGBOOK.md`. The file is only opened in append mode, so earlier bytes are never edited.
 - Entry fields: date, source, added, checked, not done. Every field must be one line of plain text, so an entry cannot forge a second entry.
 - The header `# Logbook` is written only when the file is new or empty.
@@ -51,7 +56,7 @@ Done in `umwayi/logbook.py` (the smallest part that layer 3 needs):
 Layer 5 (task 5.x) still needs:
 
 1. The tamper check: record a hash of the logbook after each write (`.umwayi/logbook.sha256`) and refuse to append if earlier lines changed. Today nothing detects a hand edit of earlier lines.
-2. A reader and validator for entries (parse them back, detect a broken entry) and a command to run the check, for example `umwayi logbook verify`.
+2. A full reader and validator for entries (parse them back, detect a broken entry; today only `logged_ids` reads the file, with a single regular expression) and a command to run the check, for example `umwayi logbook verify`.
 3. Wire layer 2 (`umwayi check`) and layer 4 (archive) to call `logbook.append`. Layer 2 does not write to the logbook yet.
 4. Decide what to do about concurrent writers (two commands at once). There is no file lock yet, in the queue or in the logbook.
 5. Decide whether the append should also check that the new entry date is not before the last entry date.

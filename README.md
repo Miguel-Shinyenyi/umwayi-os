@@ -67,13 +67,19 @@ Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as 
 
 ## Layer 3: queue
 
-`queue.md` is a Markdown table you can read and edit by hand. The columns are id, kind (task or decision), title, status (open, answered, closed), recommendation, and the date answered.
+`queue.md` is a Markdown table you can read and edit by hand. The columns are id, kind (task or decision), title, status (open, answered, closed), recommendation, answer, and the date answered.
 
 ```
 umwayi queue list [--status open|answered|closed] [--kind task|decision]
 umwayi queue add --kind task "Write the spec" [--recommendation "Do it today"] [--date 2026-11-07]
-umwayi queue answer Q-0001 [--date 2026-11-07]
+umwayi queue answer Q-0001 --answer "Yes, go ahead" [--date 2026-11-07]
 umwayi queue close Q-0001 [--date 2026-11-07]
+umwayi queue migrate [--date 2026-11-07]
 ```
 
-Without `--date` the system clock is used. A malformed `queue.md` is an error with a line number, and nothing is changed. Only the row a command touches is rewritten. Every change appends an entry to `LOGBOOK.md` (date, source, added, checked, not done). Earlier logbook lines are never edited.
+- `answer` needs `--answer` (one line, no `|`, up to 500 characters, the same limits as a recommendation). It works only on an open row. An open row has an empty answer, an answered row has an answer and the date answered.
+- `close` works on an open or answered row and keeps its answer and date.
+- Ids are never reused. `add` uses one more than the highest id found in `queue.md` and in the logbook, even if you delete a row by hand. If `LOGBOOK.md` exists but cannot be read, `add` refuses and says why.
+- A queue.md in the old six column layout (no answer column) is refused with a message. Run `umwayi queue migrate` once to convert it. Old answered rows get the text `not recorded before migration`.
+- Without `--date` the system clock is used. A malformed `queue.md` is an error with a line number, and nothing is changed. Only the row a command touches is rewritten.
+- Every change appends an entry to `LOGBOOK.md` (date, source, added, checked, not done). Earlier logbook lines are never edited. The logbook records the length of an answer, not its text.
