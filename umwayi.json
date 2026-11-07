@@ -1,0 +1,7 @@
+{
+  "memory_dir": "memory",
+  "private_paths": [
+    "memory/private",
+    "memory/journal/*-private.md"
+  ]
+}

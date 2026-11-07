@@ -1,0 +1,50 @@
+# umwayi rules. verdict is one of: yes, no, ask.
+# If several rules match, No beats Ask me first, and Ask me first beats Yes.
+# No match gives Ask me first. A rule without matchers never matches.
+rules:
+  - id: no-money
+    title: Never move money
+    text: AI helpers never move money or use bank or card credentials.
+    cause: Safety rule for all AI helpers.
+    verdict: no
+    matchers:
+      type: [payment, transfer, purchase, withdraw, deposit]
+
+  - id: no-money-amount
+    title: Any action with an amount
+    text: Actions that carry an amount are about money, so they are refused.
+    cause: Safety rule for all AI helpers.
+    verdict: no
+    matchers:
+      amount__exists: true
+
+  - id: no-push-main
+    title: Never push to main
+    text: Nothing is pushed to the main branch.
+    cause: Work happens on feature branches with pull requests.
+    verdict: no
+    matchers:
+      type: git_push
+      branch: [main, master]
+
+  - id: no-publish
+    title: Helpers never publish
+    text: AI helpers draft only. The owner publishes.
+    cause: Helpers draft only.
+    verdict: no
+    matchers:
+      type: [publish, post, send]
+
+  - id: read-memory
+    title: Reading memory is fine
+    text: Reading the memory folder through the loader is allowed.
+    verdict: yes
+    matchers:
+      type: read_memory
+
+  - id: write-draft
+    title: Drafts are fine
+    text: Writing a draft file is allowed. The owner reviews it.
+    verdict: yes
+    matchers:
+      type: write_draft
