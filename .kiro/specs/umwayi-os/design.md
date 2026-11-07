@@ -329,7 +329,10 @@ Every `umwayi check` appends one entry:
 ```
 
 - The action JSON is never written. Only its `type`, and only if it is a string of 1 to 40 characters from `A-Z a-z 0-9 _ . : -`. Otherwise the entry says `action type not recorded`.
-- If the entry cannot be written for any reason (tamper check, lock, format, date, disk, an unexpected error), the answer becomes Ask me first with exit 3, rule `(none)`, and a reason that starts with "The logbook could not be written" and says why. A Yes or a No is never returned without its logbook entry.
+- If the entry cannot be written for any reason (tamper check, lock, format, date, disk, an unexpected error), the reason says "The logbook could not be written", why, and that nothing was logged. Then:
+  - No stays No (exit 2) with its rule id. Turning a No into Ask me first would invite the owner to approve something a rule refuses.
+  - Yes becomes Ask me first (exit 3) with rule `(none)`. A Yes is never given without its logbook entry.
+  - Ask me first stays Ask me first (exit 3).
 - `--no-log` is a dry run: the rules answer is returned as usual, nothing is written, and the output ends with `Nothing was logged (--no-log, dry run).` With `--json` the output has `"logged": false`.
 - `--date` sets the entry date. The default is the system clock.
 

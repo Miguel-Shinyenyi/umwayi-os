@@ -65,7 +65,7 @@ Matchers (all must match):
 
 Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input.
 
-Every check writes one logbook entry with the rule id and the answer. The action JSON is never written, only its `type` if that is a short plain word. If the logbook cannot be written (for example it was edited by hand), the answer is Ask me first (exit 3) and the reason says why. Use `--no-log` for a dry run that writes nothing, and `--date` to set the entry date.
+Every check writes one logbook entry with the rule id and the answer. The action JSON is never written, only its `type` if that is a short plain word. If the logbook cannot be written (for example it was edited by hand), a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. Use `--no-log` for a dry run that writes nothing, and `--date` to set the entry date.
 
 ## Layer 3: queue
 
