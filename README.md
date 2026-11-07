@@ -1,0 +1,66 @@
+# umwayi-os
+
+An AI operating system for one person and their AI helpers.
+
+It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
+
+Status: layers 1 (memory) and 2 (rules) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+
+## Install and test
+
+Python 3.10 or newer, no third party packages.
+
+```
+pip install -e .          # optional, gives the `umwayi` command
+python -m unittest discover -s tests -t .
+```
+
+Without installing, use `python -m umwayi` from the repo root.
+
+## Layer 1: memory
+
+```
+umwayi.json                     config: memory_dir and private_paths
+memory/master.md                master context
+memory/projects/*.md            one file per project
+memory/journal/*.md             journal
+```
+
+```
+umwayi memory bundle [--format text|json]
+```
+
+Prints one context bundle for an AI helper. Anything under a path listed in `private_paths` (a file, a folder or a glob) is left out, and its name is never printed. Only a count is shown.
+
+## Layer 2: rules
+
+Rules live in `rules.yaml`. Each rule has an id, a title, text, a verdict (`yes`, `no` or `ask`), and optionally a cause and matchers.
+
+```
+umwayi check '{"type": "payment", "amount": 5}'
+```
+
+Prints the answer, the rule id and the reason:
+
+```
+No
+Rule: no-money
+Reason: AI helpers never move money or use bank or card credentials. Cause: Safety rule for all AI helpers.
+```
+
+| answer | exit code |
+| --- | --- |
+| Yes | 0 |
+| No | 2 |
+| Ask me first | 3 |
+
+Fail closed: no matching rule, a broken or missing `rules.yaml`, or bad action JSON all give Ask me first. If several rules match, No beats Ask me first, and Ask me first beats Yes. Usage errors exit with 64.
+
+Matchers (all must match):
+
+- `type: payment` equals, ignoring case
+- `type: [payment, transfer]` equals any
+- `path__contains: secret` contains text
+- `amount__exists: true` field is present
+
+Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input.

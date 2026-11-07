@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "umwayi-os"
+version = "0.1.0"
+description = "An AI operating system for one person and their AI helpers."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.scripts]
+umwayi = "umwayi.cli:main"
+
+[tool.setuptools]
+packages = ["umwayi"]

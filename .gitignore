@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+
+# private memory stays out of git
+memory/private/
+memory/journal/*-private.md
+
+# secrets
+.env
+.env.*
+*.pem
+*.key
