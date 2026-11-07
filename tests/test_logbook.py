@@ -101,6 +101,18 @@ class LogbookTests(unittest.TestCase):
         )
         self.assertEqual(logbook.logged_ids(self.root), {3, 10, 7})
 
+    def test_logged_ids_by_prefix(self):
+        self.path.write_text(
+            "# Logbook\n- Added: Q-0003 (task) x\n- Added: A-0007 moved from a.md\n- Added: A-0002 moved\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(logbook.logged_ids(self.root), {3})
+        self.assertEqual(logbook.logged_ids(self.root, "Q"), {3})
+        self.assertEqual(logbook.logged_ids(self.root, "A"), {7, 2})
+        for bad in ("", "a", "AB", "A-", ".*", "A|Q"):
+            with self.assertRaises(UmwayiError):
+                logbook.logged_ids(self.root, bad)
+
     def test_logged_ids_unreadable_is_an_error_not_an_empty_set(self):
         self.path.mkdir()
         with self.assertRaises(UmwayiError):

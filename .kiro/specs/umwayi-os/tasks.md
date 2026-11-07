@@ -41,13 +41,11 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 3.10 Ids are never reused: highest id in `queue.md` and in the logbook plus one, refuse to add if the logbook is unreadable
 - [x] 3.11 Old six column layout refused with a message that names the migration; `umwayi queue migrate` converts it once and logs it
 
-Review gate: stop here for owner review.
-
 ### Layer 5 status: what exists and what is still needed
 
 Done in `umwayi/logbook.py` (the smallest part that layer 3 needs):
 
-- `logged_ids(root)` reads back the queue ids named at the start of `- Added:` lines, so the queue can avoid reusing an id. A missing file gives no ids, an unreadable file is an error.
+- `logged_ids(root, prefix)` reads back the ids with one prefix (`Q` for the queue, `A` for the archive) named at the start of `- Added:` lines, so layers 3 and 4 can avoid reusing an id. A missing file gives no ids, an unreadable file is an error.
 - `append(root, Entry)` adds one entry to `LOGBOOK.md`. The file is only opened in append mode, so earlier bytes are never edited.
 - Entry fields: date, source, added, checked, not done. Every field must be one line of plain text, so an entry cannot forge a second entry.
 - The header `# Logbook` is written only when the file is new or empty.
@@ -57,24 +55,29 @@ Layer 5 (task 5.x) still needs:
 
 1. The tamper check: record a hash of the logbook after each write (`.umwayi/logbook.sha256`) and refuse to append if earlier lines changed. Today nothing detects a hand edit of earlier lines.
 2. A full reader and validator for entries (parse them back, detect a broken entry; today only `logged_ids` reads the file, with a single regular expression) and a command to run the check, for example `umwayi logbook verify`.
-3. Wire layer 2 (`umwayi check`) and layer 4 (archive) to call `logbook.append`. Layer 2 does not write to the logbook yet.
-4. Decide what to do about concurrent writers (two commands at once). There is no file lock yet, in the queue or in the logbook.
+3. Wire layer 2 (`umwayi check`) to call `logbook.append`. It does not write to the logbook yet. Layers 3 and 4 are already wired.
+4. Decide what to do about concurrent writers (two commands at once). There is no file lock yet, in the queue, the archive or the logbook.
 5. Decide whether the append should also check that the new entry date is not before the last entry date.
 6. Atomicity of a single append: it is one `write` plus `fsync`, but a crash in the middle could leave a partial entry. The tamper check or reader should detect that.
 
 ## Layer 4: Archive
 
-- [ ] 4.1 Archive folder and index format
-- [ ] 4.2 `umwayi archive move` with pointer left behind
-- [ ] 4.3 `umwayi archive verify`
-- [ ] 4.4 Logbook hook on every move
-- [ ] 4.5 Tests including tamper detection and failed writes
+- [x] 4.1 Archive folder and `INDEX.md` format, strict index parser
+- [x] 4.2 `umwayi archive move` (line range or markers, pointer line left behind)
+- [x] 4.3 `umwayi archive verify` (ok, changed, missing, not in the index; exit 0 only when all ok; read only)
+- [x] 4.4 One logbook entry per move; a failed logbook write undoes the move
+- [x] 4.5 Tests (`tests/test_archive.py`): every refusal, the id guard, the pointer line, three file rollback, verify after a hand edit
+- [x] 4.6 Shared atomic writer `umwayi/fsutil.py`; `logbook.logged_ids` takes an id prefix
+
+Review gate: stop here for owner review.
+
+Not built (later): `umwayi archive restore`. The output of `move` already names it.
 
 ## Layer 5: Logbook
 
 - [x] 5.1 Append only writer and entry format (done early, in layer 3)
 - [ ] 5.2 Tamper check of earlier lines (see the list under layer 3)
-- [ ] 5.3 Wire layers 2 and 4 to the shared function (layer 3 is already wired)
+- [ ] 5.3 Wire layer 2 to the shared function (layers 3 and 4 are already wired)
 - [ ] 5.4 Tests
 
 ## Layer 6: Automation

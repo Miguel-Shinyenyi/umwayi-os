@@ -77,11 +77,16 @@ User story: as the owner, I want to move old text out of a file without losing i
 
 Acceptance criteria:
 
-1. `umwayi archive move` takes a block of text out of a file and writes it to the archive folder with an id, the reason, a word count and a SHA-256 fingerprint.
-2. The source file keeps a pointer to the archive id.
-3. `umwayi archive verify` recomputes every fingerprint and compares it with the index. Any mismatch or missing file gives a non zero exit code.
-4. The move is safe: if writing fails, the source file is unchanged.
-5. Every move writes an entry to the logbook.
+1. `umwayi archive move` takes a source file, a line range or a start and end marker, and a required reason. It cuts that exact block out of the file and writes it to its own file in `archive/`.
+2. `archive/INDEX.md` is a plain Markdown table with id, source file, date moved, reason, word count and the SHA-256 fingerprint of the exact bytes of the archive file.
+3. The source file keeps one pointer line with the id and the archive path.
+4. Ids look like A-0001 and are never reused: one more than the highest id in the index and in the logbook. If the logbook cannot be read, `move` refuses.
+5. `move` refuses and changes nothing if the source is missing, is a symbolic link, is a private path from `umwayi.json`, the range is empty or outside the file, the markers are missing or appear twice, or the reason is empty.
+6. The source, the archive file and the index all change or none do. A failed logbook write undoes the move.
+7. Every move writes one logbook entry with date, source, what was added, what was checked and what was not done.
+8. `umwayi archive verify` recomputes every SHA-256 fingerprint and reports each id as ok, changed, missing or not in the index. It exits 0 only when all are ok, otherwise 1. It never changes a file.
+9. A malformed index is an error with a clear message and no change.
+10. The output of `move` says which command would put the block back. That command is not built yet.
 
 ## Layer 5: Logbook
 

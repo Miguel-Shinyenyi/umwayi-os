@@ -18,8 +18,7 @@ from umwayi.errors import UmwayiError
 LOGBOOK_NAME = "LOGBOOK.md"
 HEADER = "# Logbook\n"
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-# queue entries put the row id first in the "Added" line, before any user text
-_ADDED_ID = re.compile(r"^- Added: Q-(\d{4,}) ", re.MULTILINE)
+# entries put the id first in the "Added" line, before any user text
 
 
 @dataclass(frozen=True)
@@ -75,13 +74,16 @@ def append(root: Path, entry: Entry) -> None:
         raise UmwayiError("logbook: cannot append to LOGBOOK.md") from None
 
 
-def logged_ids(root: Path) -> set[int]:
-    """Numbers of the queue ids (Q-0001 is 1) named in logbook entries.
+def logged_ids(root: Path, prefix: str = "Q") -> set[int]:
+    """Numbers of the ids with this prefix (Q-0001 is 1, A-0001 is 1) named in logbook entries.
 
     A missing LOGBOOK.md means no ids. A logbook that exists but cannot be
     read is an error, never an empty answer. Only the id at the very start of
     an "Added" line counts, so a title that merely contains "Q-9999" is ignored.
     """
+    if not re.fullmatch(r"[A-Z]", prefix):
+        raise UmwayiError("logbook: id prefix must be one capital letter")
+    pattern = re.compile(rf"^- Added: {prefix}-(\d{{4,}}) ", re.MULTILINE)
     path = Path(root) / LOGBOOK_NAME
     if path.is_symlink():
         raise UmwayiError("logbook: LOGBOOK.md must not be a symbolic link")
@@ -93,4 +95,4 @@ def logged_ids(root: Path) -> set[int]:
         raise UmwayiError("logbook: LOGBOOK.md cannot be read") from None
     except UnicodeDecodeError:
         raise UmwayiError("logbook: LOGBOOK.md is not valid UTF-8") from None
-    return {int(m.group(1)) for m in _ADDED_ID.finditer(text)}
+    return {int(m.group(1)) for m in pattern.finditer(text)}

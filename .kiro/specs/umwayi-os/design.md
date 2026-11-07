@@ -13,7 +13,8 @@ umwayi/
   rules.py      layer 2: rules loading and the check decision
   taskqueue.py  layer 3: queue.md parser, writer and commands
   logbook.py    layer 5 (minimal append writer exists, built with layer 3)
-  archive.py    layer 4 (later)
+  archive.py    layer 4: archive move and verify, INDEX.md parser
+  fsutil.py     atomic file write shared by layers that write files
   automation/   layer 6 (later)
   helpers/      layer 7 (later)
   workflows/    layer 8 (later)
@@ -197,9 +198,63 @@ Dates come from `--date` or the system clock, never from other rows.
 
 `migrate` reads the old layout with the old validation, then rewrites only the header line, the separator line and the table rows. Lines outside the table are untouched. Open and closed rows get an empty answer. Old answered rows get the fixed text `not recorded before migration`, because a current answered row must have an answer and the real text was never stored. It re-parses the result and compares every old column, writes through the same atomic write and logbook step as other commands, and refuses to run on a file that already has the current layout.
 
-## Layer 4: Archive (planned)
+## Layer 4: Archive
 
-`archive/index.json` maps id to `{source, reason, words, sha256, created}`. Each block is stored as `archive/<id>.txt`. `move` writes the archive file and index first, then replaces the block in the source with a pointer line `[archived: <id>]`. If any step fails, the source is untouched. `verify` re-reads every archive file and compares SHA-256.
+```
+archive/
+  INDEX.md       plain Markdown table, one row per archive file
+  A-0001.txt     the exact bytes of one moved block
+```
+
+`archive/INDEX.md`:
+
+```
+| id | source | moved | reason | words | sha256 |
+| --- | --- | --- | --- | --- | --- |
+| A-0001 | notes.md | 2026-11-07 | old stuff | 5 | 3f2c...64 hex characters |
+```
+
+- `id`: `A-` and at least 4 digits. `source`: root relative path with forward slashes, no `..`. `moved`: a real date. `reason`: non-empty. `words`: whole number. `sha256`: 64 lowercase hex characters, computed over the exact bytes of the archive file.
+- The index parser is as strict as the queue's: exactly one table, exact columns in this order, unique ids, valid values, plain `\n` line endings. A violation is an error with a line number (never the text of the line), exit code 1, and no change.
+
+### move
+
+`umwayi archive move SOURCE --reason TEXT (--lines FIRST-LAST | --start MARKER --end MARKER) [--date D]`
+
+Choosing the block:
+
+- `--lines 3-4` is a 1-based, inclusive range of lines. A line is everything up to and including its `\n`, and a `\r` stays part of the line.
+- `--start` and `--end` each match one whole line (compared after trimming spaces at both ends). Both marker lines are part of the block. Each marker must appear exactly once, the markers must differ, and the start must come before the end.
+- Give exactly one way. Anything else is a usage error (exit 64).
+
+Refusals (exit 1, nothing changed, nothing logged): config missing or invalid; source missing, not a regular file, a symbolic link or inside a linked folder, outside the root, or a path with `..` or `|`; source is a private path from `umwayi.json`; source is a protected file (`LOGBOOK.md`, `queue.md`, `rules.yaml`, `umwayi.json`, anything under `archive/`, `.umwayi/` or `.git/`); source is not valid UTF-8; range empty or outside the file; markers missing, repeated, equal or in the wrong order; the block has no words; reason empty, longer than 500 characters, with a line break or a `|`; the index is malformed or a symbolic link; `archive` is not a normal folder; the logbook cannot be read; the archive file for the new id already exists.
+
+Id rule, same as the queue: one more than the highest id in the index and in the logbook (the id at the start of each `- Added: A-NNNN ` line). A missing logbook gives no ids, an unreadable logbook makes `move` refuse.
+
+Order of work:
+
+1. Check everything and build all three new files in memory. Re-parse the new index and compare the new source with the old one. Nothing is written yet.
+2. Write the archive file (copy first), then read it back and compare its SHA-256.
+3. Write the index.
+4. Check that the source file is still the one that was read, then write the source with the block replaced by the pointer line (delete last).
+5. Append one logbook entry.
+
+Every write goes through a temporary file and `os.replace`. If any step fails, including step 5, the finished steps are undone in reverse order: the source and the index are written back, the archive file is removed, and an archive folder created for this move is removed. If an undo step itself fails, the error names the files that must be checked by hand.
+
+The pointer line is `[archived A-0001: archive/A-0001.txt]` followed by the line ending of the last block line (none if the block ended the file without one). The output of `move` ends with the note `To put it back later: umwayi archive restore A-0001 (this command is not built yet)`. `restore` is not a command yet.
+
+### verify
+
+`umwayi archive verify` recomputes the SHA-256 of every archive file and compares it with the index. It prints one line per id and a summary, and never writes anything (no file, no logbook entry).
+
+| status | meaning |
+| --- | --- |
+| ok | file exists and its fingerprint matches |
+| changed | file exists but the fingerprint differs, or it is a symbolic link or not a file |
+| missing | the index has the id, the file is not there |
+| not in the index | a file or folder in `archive/` that the index does not list (other than `INDEX.md`) |
+
+Exit 0 only when every line is `ok`. Otherwise exit 1. A malformed or missing index, or a missing archive folder, is an error and exits 1. The words column is not recomputed.
 
 ## Layer 5: Logbook (planned)
 

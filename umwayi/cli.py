@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import __version__, rules, taskqueue
+from umwayi import __version__, archive, rules, taskqueue
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError
 from umwayi.memory import load_bundle
@@ -32,6 +33,13 @@ def _date_arg(value: str) -> str:
     if not taskqueue.is_valid_date(value):
         raise argparse.ArgumentTypeError("must be a real date in the form YYYY-MM-DD")
     return value
+
+
+def _lines_arg(value: str) -> tuple[int, int]:
+    m = re.fullmatch(r"(\d+)-(\d+)", value)
+    if not m:
+        raise argparse.ArgumentTypeError("must look like 10-20 (first and last line, counting from 1)")
+    return int(m.group(1)), int(m.group(2))
 
 
 class _Parser(argparse.ArgumentParser):
@@ -68,6 +76,17 @@ def build_parser() -> argparse.ArgumentParser:
     qm = qsub.add_parser("migrate", help="convert an old six column queue.md to the current layout (once)")
     for sp in (qa, qn, qc, qm):
         sp.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    ar = sub.add_parser("archive", help="archive commands")
+    arsub = ar.add_subparsers(dest="archive_command", parser_class=_Parser)
+    am = arsub.add_parser("move", help="move a block of text out of a file into the archive")
+    am.add_argument("source", help="the file to cut the block from, relative to the root")
+    am.add_argument("--reason", required=True, help="why the block is moved (one line, no | character)")
+    am.add_argument("--lines", type=_lines_arg, help="first and last line to move, for example 10-20")
+    am.add_argument("--start", help="a line that starts the block (the whole line must match, the line is included)")
+    am.add_argument("--end", help="a line that ends the block (the whole line must match, the line is included)")
+    am.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+    arsub.add_parser("verify", help="recompute every SHA-256 fingerprint and compare with archive/INDEX.md")
 
     c = sub.add_parser(
         "check",
@@ -135,6 +154,36 @@ def _cmd_queue(args, out) -> int:
     return 0
 
 
+def _cmd_archive(args, out) -> int:
+    root = Path(args.root)
+    if args.archive_command == "move":
+        has_markers = args.start is not None or args.end is not None
+        if (args.lines is None) == (not has_markers) or (has_markers and (args.start is None or args.end is None)):
+            sys.stderr.write("umwayi archive move: error: give either --lines, or both --start and --end\n")
+            return EXIT_USAGE
+        r = archive.move(
+            root, args.source, args.reason, args.date or _today(),
+            lines=args.lines, start=args.start, end=args.end,
+        )
+        out.write(f"Moved lines {r.first_line}-{r.last_line} of {r.source} to {r.archive_path}\n")
+        out.write(f"Id: {r.id}\n")
+        out.write(f"Words: {r.words}\n")
+        out.write(f"SHA-256: {r.sha256}\n")
+        out.write(f"Pointer line left in {r.source}: {r.pointer}\n")
+        out.write(f"To put it back later: umwayi archive restore {r.id} (this command is not built yet)\n")
+        return 0
+    results = archive.verify(root)
+    counts = {s: 0 for s in (archive.OK, archive.CHANGED, archive.MISSING, archive.NOT_IN_INDEX)}
+    for r in results:
+        counts[r.status] += 1
+        out.write(f"{r.id}  {r.status}  {r.path}\n")
+    out.write(
+        f"Checked {len(results)} archive files: {counts[archive.OK]} ok, {counts[archive.CHANGED]} changed, "
+        f"{counts[archive.MISSING]} missing, {counts[archive.NOT_IN_INDEX]} not in the index\n"
+    )
+    return 0 if counts[archive.OK] == len(results) else 1
+
+
 def main(argv: list[str] | None = None, out=None) -> int:
     out = out or sys.stdout
     parser = build_parser()
@@ -147,6 +196,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_check(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "archive" and getattr(args, "archive_command", None):
+            return _cmd_archive(args, out)
         if args.command == "memory" and getattr(args, "memory_command", None) == "bundle":
             return _cmd_memory_bundle(args, out)
     except UmwayiError as e:
