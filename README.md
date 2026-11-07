@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: layers 1 (memory) and 2 (rules) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: layers 1 (memory), 2 (rules) and 3 (queue) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -64,3 +64,16 @@ Matchers (all must match):
 - `amount__exists: true` field is present
 
 Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input.
+
+## Layer 3: queue
+
+`queue.md` is a Markdown table you can read and edit by hand. The columns are id, kind (task or decision), title, status (open, answered, closed), recommendation, and the date answered.
+
+```
+umwayi queue list [--status open|answered|closed] [--kind task|decision]
+umwayi queue add --kind task "Write the spec" [--recommendation "Do it today"] [--date 2026-11-07]
+umwayi queue answer Q-0001 [--date 2026-11-07]
+umwayi queue close Q-0001 [--date 2026-11-07]
+```
+
+Without `--date` the system clock is used. A malformed `queue.md` is an error with a line number, and nothing is changed. Only the row a command touches is rewritten. Every change appends an entry to `LOGBOOK.md` (date, source, added, checked, not done). Earlier logbook lines are never edited.
