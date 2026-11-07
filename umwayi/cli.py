@@ -15,9 +15,9 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import __version__, archive, logbook, rules, taskqueue
+from umwayi import __version__, archive, jobs, logbook, publish, report, rules, taskqueue
 from umwayi.config import load_config
-from umwayi.errors import UmwayiError
+from umwayi.errors import UmwayiError, UsageError
 from umwayi.memory import load_bundle
 
 EXIT_USAGE = 64
@@ -98,6 +98,20 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--no-log", action="store_true", help="dry run: do not write the logbook entry")
     c.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entry (default: today)")
 
+    rn = sub.add_parser("run", help="run one job from a jobs file (asks the rules first)")
+    rn.add_argument("jobfile", help="the jobs file, for example jobs.yaml")
+    rn.add_argument("--job", help="the job name (needed when the file has more than one job)")
+    rn.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    rp = sub.add_parser("report", help="write a progress report draft from git history")
+    rp.add_argument("--since", type=_date_arg, required=True, help="first day, YYYY-MM-DD")
+    rp.add_argument("--date", type=_date_arg, help="today, YYYY-MM-DD (default: the system clock)")
+
+    pd = sub.add_parser("publish-draft", help="copy a draft to outbox/ for the owner to post by hand")
+    pd.add_argument("draft", help="a file directly inside drafts/")
+    pd.add_argument("--approved-by", help="the owner's name, needed when the rules say Ask me first")
+    pd.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
     lgsub.add_parser("verify", help="check the format and the hash record of LOGBOOK.md (changes nothing)")
@@ -128,6 +142,25 @@ def _cmd_check(args, out) -> int:
         if args.no_log:
             out.write("Nothing was logged (--no-log, dry run).\n")
     return decision.exit_code
+
+
+def _cmd_run(args, out) -> int:
+    r = jobs.run(Path(args.root), Path(args.jobfile), args.job, args.date or _today())
+    out.write("\n".join(r.lines) + "\n")
+    return r.code
+
+
+def _cmd_report(args, out) -> int:
+    rep, rel = report.make(Path(args.root), args.since, args.date or _today())
+    out.write(f"Wrote {rel}: {len(rep.commits)} commits from {rep.since} to {rep.until}.\n")
+    out.write("It is a draft. Nothing was published or pushed.\n")
+    return 0
+
+
+def _cmd_publish(args, out) -> int:
+    r = publish.publish(Path(args.root), args.draft, args.date or _today(), args.approved_by)
+    out.write("\n".join(r.lines) + "\n")
+    return r.code
 
 
 def _cmd_logbook(args, out) -> int:
@@ -228,12 +261,21 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_check(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "run":
+            return _cmd_run(args, out)
+        if args.command == "report":
+            return _cmd_report(args, out)
+        if args.command == "publish-draft":
+            return _cmd_publish(args, out)
         if args.command == "logbook" and getattr(args, "logbook_command", None):
             return _cmd_logbook(args, out)
         if args.command == "archive" and getattr(args, "archive_command", None):
             return _cmd_archive(args, out)
         if args.command == "memory" and getattr(args, "memory_command", None) == "bundle":
             return _cmd_memory_bundle(args, out)
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
     except UmwayiError as e:
         sys.stderr.write(f"umwayi: {e}\n")
         return EXIT_ERROR

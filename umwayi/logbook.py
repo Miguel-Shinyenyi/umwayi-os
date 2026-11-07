@@ -466,6 +466,29 @@ def verify(root: Path) -> Report:
     return Report(len(entries), problems)
 
 
+# ------------------------------------------------------------ checked read
+
+
+def read_checked(root: Path) -> list:
+    """All entries of an intact logbook, oldest first. Reads only, takes no lock.
+
+    No logbook gives an empty list. A logbook that fails the tamper check or
+    has format problems is an error, so callers can refuse before they act.
+    """
+    data = _read_logbook(root)
+    state = _record_state(root, data)
+    if state not in ("ok", "none"):
+        raise UmwayiError("logbook: " + _STATE_MESSAGES[state])
+    if not data:
+        return []
+    entries, problems = parse(_decode(data))
+    if problems:
+        raise UmwayiError(
+            f"logbook: LOGBOOK.md has {len(problems)} format problem(s). See 'umwayi logbook verify'."
+        )
+    return [p.entry for p in entries]
+
+
 # --------------------------------------------------------------- id reader
 
 

@@ -64,9 +64,7 @@ Not built (later): `umwayi archive restore`. The output of `move` already names 
 - [x] 5.8 Layers 3 and 4 use the same checked append
 - [x] 5.9 Tests (`tests/test_logbook.py`, `tests/test_check_log.py`, `tests/test_logbook_integration.py`)
 
-Review gate: stop here for owner review.
-
-Still open after layer 5 (not in this layer's scope):
+Still open after layer 5:
 
 - A lock for `queue.md` and the archive files themselves. The logbook lock only covers the logbook append, so two queue or archive commands at once can still race on their own files.
 - A stale lock (left by a killed process) is not removed automatically. The owner deletes it, as the message says.
@@ -75,10 +73,19 @@ Still open after layer 5 (not in this layer's scope):
 
 ## Layer 6: Automation
 
-- [ ] 6.1 Schedule runner scripts
-- [ ] 6.2 Weekly progress report from git history
-- [ ] 6.3 Draft only publish step that never pushes
-- [ ] 6.4 Tests
+- [x] 6.1 Schedule runner: `umwayi run JOBFILE [--job NAME]`, `jobs.yaml`, fixed allow list (report, check, queue-list), gap rule, rules asked first, one logbook entry per run
+- [x] 6.2 Weekly progress report from git history: `umwayi report --since DATE`, one fixed git log command, numbered drafts that never overwrite, no emails
+- [x] 6.3 Draft only publish step: `umwayi publish-draft DRAFT` to `outbox/`, rule `publish-ask` (Ask me first), `--approved-by`
+- [x] 6.4 Tests (`tests/test_automation.py`) with mutation checks
+- [x] 6.5 Layer 2 fix (separate commit): when the logbook cannot be written, a No stays No (exit 2)
+
+Review gate: stop here for owner review.
+
+Still open after layer 6:
+
+- No lock around a whole run, so two runs of the same job at the same moment can both pass the gap rule.
+- `--approved-by` is not a security boundary. Layer 7 must make sure helpers never pass it.
+- A deleted last draft number can be used again (numbering reads `drafts/`, not the logbook).
 
 ## Layer 7: Helpers
 

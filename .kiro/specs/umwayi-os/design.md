@@ -15,7 +15,9 @@ umwayi/
   logbook.py    layer 5: checked append, tamper check, lock, parser, verify, seal
   archive.py    layer 4: archive move and verify, INDEX.md parser
   fsutil.py     atomic file write shared by layers that write files
-  automation/   layer 6 (later)
+  jobs.py       layer 6: umwayi run, the jobs file, the gap rule
+  report.py     layer 6: umwayi report, the one fixed git log command
+  publish.py    layer 6: umwayi publish-draft
   helpers/      layer 7 (later)
   workflows/    layer 8 (later)
 ```
@@ -340,9 +342,67 @@ Every `umwayi check` appends one entry:
 
 The queue and the archive call the same checked append. If it refuses, the queue change or the move is undone as before, and the error now includes the logbook's reason.
 
-## Layers 6 to 8 (planned)
+## Layer 6: Automation
 
-- Automation: scripts plus a schedule file. The weekly report reads `git log` and writes a draft file. The publish step writes drafts to a folder and never calls `git push`.
+Nothing in umwayi installs a schedule. A cron line (or any scheduler the owner picks) calls `umwayi run`. Exit codes for all layer 6 commands: 0 done, 1 refused or failed (nothing changed), 2 No, 3 Ask me first, 64 usage error.
+
+### jobs.yaml and umwayi run
+
+```yaml
+jobs:
+  - name: weekly-report
+    command: report
+    since_days: 7
+    min_gap_days: 7
+  - name: open-queue
+    command: queue-list
+    status: open
+    min_gap_days: 1
+```
+
+- Read with the existing `miniyaml` reader. Strict: one `jobs` list, at least one job, unique names (lowercase letters, digits, `-`, up to 40), no unknown fields.
+- `command` must be one word from the fixed allow list in `jobs.py`: `report`, `check`, `queue-list`. Each word picks a Python function inside umwayi. There is no field for a shell string, a program or arguments, so a job cannot name another program.
+- `min_gap_days`: whole number from 1 to 366. Options per command: `report` needs `since_days` (1 to 366); `check` needs `action_type` (one plain word); `queue-list` may have `status`.
+- `umwayi run JOBFILE [--job NAME] [--date D]`. `--job` is needed when the file has more than one job (otherwise a usage error, exit 64).
+
+Order of work:
+
+1. Read the jobs file and pick the job.
+2. Read the logbook through `logbook.read_checked` (tamper check and format check, no lock). If it fails, refuse (exit 1) before anything else.
+3. Gap rule: the last run is the latest entry with source `umwayi run` whose Added line starts with `Job NAME ran `. Stopped runs do not count. If fewer than `min_gap_days` days have passed, refuse (exit 1, no entry). A last run after today is also refused.
+4. Ask the rules with the action `{"type": "run_job", "job": NAME, "command": WORD}`. No stops the job (exit 2) and Ask me first stops it (exit 3); either way one entry `Job NAME stopped before running` is written. If that entry fails, the verdict still stands and the output says nothing was logged.
+5. Do the work: build the report and write the new draft, or read the queue, or check `{"type": action_type}`. Errors here exit 1 and write nothing.
+6. Append one entry `Job NAME ran (command WORD): ...`. If that fails, the draft (and a drafts folder this run made) is removed, nothing is printed and the answer is Ask me first (exit 3): a failed logbook means no run.
+7. Print the result. A `check` job exits with the inner answer (0, 2 or 3).
+
+So every run that reaches the rules writes exactly one logbook entry.
+
+### umwayi report
+
+`umwayi report --since DATE [--date D]` writes `drafts/report-NNNN.md`.
+
+- The one git command, a list of arguments with `shell=False`, stdin closed, a 30 second timeout and `GIT_TERMINAL_PROMPT=0`:
+  `git -C ROOT --no-pager -c core.pager=cat -c core.fsmonitor=false -c log.showSignature=false log --no-merges --no-color --date=short-local --format=%cd%x1f%s --max-count=50001`
+- `git log` only reads the local repository: no network, nothing written to git.
+- The format asks only for the committer date and the subject, never names or emails. Anything that looks like an email address in a subject is replaced by `[email removed]`. Control characters are removed, and subjects are cut at 200 characters.
+- There is no `--since` in the git command: git stops walking at the first commit older than the date, so a commit with an older date on top would hide newer ones. Days from `--since` to today are kept in Python instead. More than 50000 commits is a refusal, never a silent cut.
+- The draft lists commits per day (a table) and the subjects per day.
+- Numbering: one more than the highest `report-NNNN.md` in `drafts/`. Each file is created with `O_CREAT | O_EXCL`, so an existing file is never overwritten. If a name is taken meanwhile, the next number is tried.
+- One logbook entry. If it fails, the draft is removed.
+
+### umwayi publish-draft
+
+`umwayi publish-draft DRAFT [--approved-by NAME] [--date D]` copies the exact bytes of `drafts/NAME.md` (or `.txt`) to `outbox/NAME.txt` for the owner to post by hand.
+
+- Refused before the rules are asked (exit 1, no entry): config missing; the draft is not directly in `drafts/`, has `..`, is a symbolic link, is not a regular file, has another extension, is a private path, is empty, is over 1 MB, is not UTF-8 text, or has a NUL; `outbox` is not a normal folder; the outbox file already exists.
+- Then the rules are asked with `{"type": "publish_draft"}`. The starter rule `publish-ask` makes it Ask me first. No stops it (exit 2) even with approval. Ask me first stops it (exit 3) unless `--approved-by NAME` is given. Yes lets it go on. A stop writes one entry.
+- The copy is created with `O_CREAT | O_EXCL`, then one entry is written with the SHA-256 of the bytes and who approved it. If the entry fails, the copy is removed and the answer is Ask me first (exit 3).
+- It imports no program runner, so it cannot run git or anything else, and it uses no network.
+
+`--approved-by` is the owner's word on the command line. It is not a security boundary against a program that runs as the owner. Layer 7 helpers must never pass it.
+
+## Layers 7 and 8 (planned)
+
 - Helpers: each helper action is built as an action JSON and sent to `umwayi check`. Only Yes continues, and even then the result is a draft.
 - Workflows: files in `workflows/` listing steps. A flag file `KILL_SWITCH` stops every run. If the flag cannot be read, the run stops.
 

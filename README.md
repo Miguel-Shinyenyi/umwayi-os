@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: layers 1 (memory), 2 (rules), 3 (queue), 4 (archive) and 5 (logbook) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: layers 1 (memory), 2 (rules), 3 (queue), 4 (archive), 5 (logbook) and 6 (automation) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -128,3 +128,42 @@ umwayi logbook seal --by "Your name" [--date 2026-11-07]
 - `verify` prints `ok` or each problem with a line number (never the line text) and exits 0 only when the format is valid and the hash matches. It never changes a file.
 - Entry dates must be real and never go backwards.
 - `.umwayi/logbook.lock` stops two commands from writing at once. If a command was killed and left the lock behind, delete the file.
+
+## Layer 6: automation
+
+### Jobs
+
+```
+umwayi run jobs.yaml --job weekly-report [--date 2026-11-07]
+```
+
+`jobs.yaml` lists jobs. Each has a `name`, a `command` from a fixed list (`report`, `check`, `queue-list`) and `min_gap_days`. There is no way to put a shell command or another program in a job.
+
+- The rules are asked first (action type `run_job`). No stops the job (exit 2), Ask me first stops it (exit 3).
+- A job that ran fewer than `min_gap_days` days ago is refused (exit 1).
+- Every run writes one logbook entry. If the logbook cannot be written, the job does not run.
+- `--job` is needed when the file has more than one job.
+
+umwayi does not install a schedule. To run the weekly report every Monday at 08:00, the owner could add a line like this with `crontab -e` (adjust the paths):
+
+```
+0 8 * * 1  cd /path/to/umwayi-os && umwayi run jobs.yaml --job weekly-report >> drafts/cron.log 2>&1
+```
+
+### Progress report
+
+```
+umwayi report --since 2026-11-01 [--date 2026-11-07]
+```
+
+Writes `drafts/report-0001.md` (then `-0002`, and so on, never overwriting) with commits per day and their subjects, from the local git history. It reads git through one fixed `git log` command: no network, no author names or emails, nothing written to git. Merge commits are not counted.
+
+### Publish a draft
+
+```
+umwayi publish-draft drafts/report-0001.md --approved-by "Your name"
+```
+
+Copies the draft to `outbox/report-0001.txt` so you can post it by hand. It never posts, pushes, sends or runs git. The starter rule `publish-ask` makes publishing Ask me first, so without `--approved-by` it stops with exit 3. A rule that says No stops it even with approval. An existing outbox file is never overwritten.
+
+`drafts/` and `outbox/` are in `.gitignore`.

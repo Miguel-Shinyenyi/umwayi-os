@@ -48,3 +48,20 @@ rules:
     verdict: yes
     matchers:
       type: write_draft
+
+  - id: run-safe-jobs
+    title: Scheduled jobs that only read or draft
+    text: The report, check and queue-list jobs only read files or write a new draft.
+    cause: Layer 6 runs only commands from the allow list inside umwayi.
+    verdict: yes
+    matchers:
+      type: run_job
+      command: [report, check, queue-list]
+
+  - id: publish-ask
+    title: Publishing a draft needs the owner
+    text: Publishing is Ask me first. The owner approves it, then posts the copy in outbox by hand.
+    cause: Helpers draft only.
+    verdict: ask
+    matchers:
+      type: publish_draft
