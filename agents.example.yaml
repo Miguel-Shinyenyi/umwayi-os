@@ -1,0 +1,45 @@
+# Example agents for the layer 10 front door. Copy what you need into agents.yaml in
+# your umwayi root, and change the workdir paths to real folders.
+#
+#   umwayi agent validate        every problem with a line number (exit 0 or 64)
+#   umwayi agent list            the agents in the file, starts nothing
+#   umwayi agent check NAME      can NAME be gated? (0 yes, 2 no, 64 usage), starts no agent
+#
+# Only these keys exist. There is no key for extra command line arguments and no
+# shell string anywhere: umwayi builds the command line itself (design.md, layer 10).
+#
+#   name             lowercase letter, then lowercase letters, digits and -, up to 32
+#   platform         claude-code or kiro
+#   command          claude for claude-code, kiro-cli for kiro (one word, found on PATH)
+#   transport        cli (default), or acp (kiro only, for chat)
+#   workdir          absolute path to an existing folder; not the umwayi root, not inside
+#                    it, and not a folder that contains it
+#   kiro_agent       kiro only, not with acp: the Kiro agent name (--agent)
+#   trust_tools      kiro only: tool IDs a headless run may use without approval, from
+#                    read_file, grep_search, execute_bash, execute_pwsh, fs_write,
+#                    fs_append, str_replace, delete_file (never --trust-all-tools)
+#   max_turns        claude-code only: 1 to 200 (--max-turns)
+#   timeout_minutes  1 to 720, default 30
+#
+# Before a start, umwayi refuses an agent it cannot gate. For Claude Code it adds the
+# layer 9 hook itself with --settings. For Kiro you add the hook file from
+# adapters/kiro/README.md to WORKDIR/.kiro/hooks/ or ~/.kiro/hooks/ yourself.
+agents:
+  - name: reviewer
+    platform: claude-code
+    command: claude
+    workdir: /home/me/projects/site
+    max_turns: 20
+    timeout_minutes: 30
+
+  - name: kiro-helper
+    platform: kiro
+    command: kiro-cli
+    workdir: /home/me/projects/site
+    trust_tools: [read_file, grep_search]
+
+  - name: kiro-chat
+    platform: kiro
+    command: kiro-cli
+    transport: acp
+    workdir: /home/me/projects/site
