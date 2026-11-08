@@ -16,7 +16,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
-| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 to 3 built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` for Claude Code); parts 4 to 6 planned Nov 9 to Nov 10 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15 | 673 after PR 14, 697 after PR 15, on Python 3.10 to 3.13 |
+| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 to 4 built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` for Claude Code and Kiro); parts 5 and 6 (chat) planned Nov 9 to Nov 10 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16 | 673 after PR 14, 697 after PR 15, 719 after PR 16, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
 | Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
 | Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
@@ -188,7 +188,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
 - [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
-## Layer 10: Own command line and chat (in progress: parts 1 to 3 built)
+## Layer 10: Own command line and chat (in progress: parts 1 to 4 built)
 
 Planned for Nov 9 to Nov 10. Requirements 10.R1 to 10.R10, design in design.md, doc facts in `adapters/NOTES-layer10.md`. The owner approved 10.0 on Nov 8.
 
@@ -239,10 +239,11 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### Part 4: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2)
 
-- [ ] 10.12 The Kiro run list (prompt on stdin, `--v3`, `--trust-tools=` from agents.yaml, never `--trust-all-tools`) through the same steps as part 3.
-- [ ] 10.13 Tests with the fake `kiro-cli` (reads the instruction from stdin, runs the hook command from the hook file it finds, denies tools not in `--trust-tools`): Yes and in `trust_tools` runs; Yes and not in `trust_tools` is denied by the fake; No from the hook blocks; the hook file removed between two runs makes the second refused; the fake exiting 3 or 4 gives 2; the kill switch stops it; the prompt never appears in the argument list.
+- [x] 10.12 The Kiro run list (prompt on stdin, `--v3`, `--trust-tools=` from agents.yaml, never `--trust-all-tools`) through the same steps as part 3.
+- [x] 10.13 Tests (`tests/agents/test_agents_kiro_run.py`) with the fake `kiro-cli` (reads the instruction from stdin, runs the hook command from the hook file it finds, denies tools not in `--trust-tools`): Yes and in `trust_tools` runs; Yes and not in `trust_tools` is denied by the fake; No from the hook blocks; the hook file removed between two runs makes the second refused; the fake exiting 3 or 4 gives 2; the kill switch stops it; the prompt never appears in the argument list.
   - Planted faults: the Kiro hook file check skipped; the prompt passed as an argument; `--trust-all-tools` added.
   - Mutation checks: as part 3, for the Kiro branch.
+  - Result (PR 16): the 3 planted faults and 12 Kiro branch mutations all caught with every agents test; and the 23 part 3 step mutations (4 planted faults, 19 mutations) re-applied and all caught by the Kiro tests alone.
 
 ### Part 5: `umwayi agent chat` on the terminal (10.R7.1, 10.R5.3, 10.R5.5)
 
@@ -262,7 +263,7 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### After the parts
 
-- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, and the README section.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
+- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, 41 to 45 for part 4, and the README section.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
 - [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 11 to Nov 14), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
 
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)

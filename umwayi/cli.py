@@ -159,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     agl = agsub.add_parser("list", help="list the agents in agents.yaml (starts nothing)")
     agc = agsub.add_parser("check", help="can this agent be gated? runs every gate check, starts no agent")
     agc.add_argument("name", help="the agent name from agents.yaml")
-    agr = agsub.add_parser("run", help="start an agent once with a prompt (Claude Code only so far); 0, 2, 3 or 64")
+    agr = agsub.add_parser("run", help="start an agent once with a prompt (Claude Code or Kiro); 0, 2, 3 or 64")
     agr.add_argument("name", help="the agent name from agents.yaml")
     agr.add_argument("source", nargs="?", help="- to read the prompt from stdin")
     agr.add_argument("--prompt", help="the prompt text (at most 100 KB; never written to the logbook)")

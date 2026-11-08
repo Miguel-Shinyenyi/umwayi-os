@@ -4,7 +4,7 @@
     umwayi agent list [--agents PATH]         the agents in the file: 0 or 64
     umwayi agent check NAME [--agents PATH]   can NAME be gated? 0 yes, 2 no, 64 usage
     umwayi agent run NAME (--prompt TEXT | --prompt-file PATH | -)
-                                              start NAME once (Claude Code only so far): 0, 2, 3 or 64
+                                              start NAME once (Claude Code or Kiro): 0, 2, 3 or 64
 
 `agent run` takes these steps in order and the first that fails ends it: read
 agents.yaml and the prompt (64), the kill switch (3), the rules, action agent_run
@@ -38,6 +38,7 @@ import signal
 import stat
 import subprocess
 import sys
+import threading
 import time
 from contextlib import ExitStack
 from dataclasses import dataclass, field
@@ -768,6 +769,19 @@ def _exit_text(code: int) -> str:
     return f"by signal {-code}" if code < 0 else f"with code {code}"
 
 
+def _feed(pipe, data: bytes) -> None:
+    """Write the prompt to the agent's stdin and close it, so the agent sees the end of the instruction."""
+    try:
+        pipe.write(data)
+    except (OSError, ValueError):
+        pass  # the agent closed its stdin or was stopped: its exit is logged
+    finally:
+        try:
+            pipe.close()
+        except (OSError, ValueError):
+            pass
+
+
 class _Signalled(BaseException):
     """umwayi itself got SIGTERM or SIGHUP. A BaseException, so no `except Exception` swallows it."""
 
@@ -934,15 +948,10 @@ class _Run:
                                      stdin=subprocess.DEVNULL if stdin_text is None else subprocess.PIPE)
         self.started = time.monotonic()
         if stdin_text is not None:
-            try:
-                self.proc.stdin.write(stdin_text.encode("utf-8"))
-            except OSError:
-                pass  # the agent closed its stdin: it will exit, and the exit is logged
-            finally:
-                try:
-                    self.proc.stdin.close()
-                except OSError:
-                    pass
+            # Written by a helper thread: a prompt bigger than the pipe buffer, sent to an agent that does not
+            # read it, would otherwise block here, and the watcher (kill switch, timeout) would never run.
+            threading.Thread(target=_feed, args=(self.proc.stdin, stdin_text.encode("utf-8")),
+                             name="umwayi-agent-stdin", daemon=True).start()
 
     def _group_alive(self) -> bool:
         try:
@@ -1020,11 +1029,10 @@ class _Run:
 
 
 def run_agent(root, name: str, prompt: str, clock, given: str | None = None) -> Result:
-    """`umwayi agent run NAME`. Claude Code only in part 3: Kiro is part 4."""
+    """`umwayi agent run NAME`, for Claude Code (part 3) and Kiro (part 4). The same steps for both."""
     root = _root(root)
     agent = find(load(root, given), name)
-    if agent.platform != "claude-code":
-        raise UsageError(f"agent: umwayi agent run for platform {agent.platform} is not built yet "
-                         "(layer 10 part 4). Nothing was started.")
+    if agent.platform not in PLATFORMS:
+        raise UsageError("agent: unknown platform. Nothing was started.")
     prompt = check_prompt(prompt, agent.platform)
     return _Run(root, agent, prompt, clock).go()
