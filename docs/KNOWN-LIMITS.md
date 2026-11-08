@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters.
 
 ## Approval and the owner
 
@@ -94,9 +94,9 @@ umwayi's Yes becomes `allow`, and Claude Code then does not show its own permiss
 
 The files that guard the adapter (`rules.yaml`, `LOGBOOK.md`, `.umwayi/`, the `.claude/settings` files) are ordinary files. The example rules deny Write and Edit calls to them and shell commands that name them, but that is text matching (item 12), so a script can still change them. Protecting them with Unix permissions (the AI helper runs as a user that cannot write them) is layer 11.
 
-### 16. The kill switch does not stop the adapter
+### 16. Fixed in PR 12: the kill switch now stops the adapters
 
-`umwayi kill on` stops AI helpers, jobs and workflows. The adapter does not check it, so while the switch is on, Claude Code tool calls are still answered by the rules (a Yes still allows). Whether the adapter should deny everything while the switch is on is an open question for the owner (tasks.md 9.12).
+Was: the adapter did not check the kill switch. Now every adapter runs `umwayi check --kill-switch`, which answers No while the switch is on or unknown, and the adapter also denies unless the answer says `"kill_switch": "off"` (owner decision 9.12). Tests in `tests/adapters/` for all three adapters.
 
 ### 17. Only some tool input is checked
 
@@ -115,4 +115,39 @@ The adapter sends the command, path, pattern, URL, query or subagent type, depen
 
 ### 20. Kiro: the docs were read only as Markdown copies, and they disagree
 
-The Kiro hook pages render with JavaScript, so the notes come from the Markdown copies that `kiro.dev/llms.txt` lists. In those copies the Pre Tool Use JSON examples are empty. The pages disagree about other exit codes (one says any non zero code blocks a Pre Tool Use call, the others say only exit 2 does) and about the default timeout (60 seconds, or 30 seconds set with `timeout_ms`). The Kiro adapter is not built yet.
+The Kiro hook pages render with JavaScript, so the notes come from the Markdown copies that `kiro.dev/llms.txt` lists. In those copies the Pre Tool Use JSON examples are empty. The pages disagree about other exit codes (one says any non zero code blocks a Pre Tool Use call, the others say only exit 2 does) and about the default timeout (60 seconds, or 30 seconds set with `timeout_ms`). The Kiro adapter therefore only exits 0 or 2. It was never run inside a real Kiro session.
+
+## Layer 9 part 2: the Kiro and generic adapters (found while building, not fixed)
+
+### 21. Kiro: the `tool_input` field names are not confirmed
+
+The adapter sends every top level string field of `tool_input` as `input_<name>`. The example rules that look at `input_command` or `input_path` (`kiro-no-destroy`, `kiro-no-guard-shell`, `kiro-no-guard-edits`) match nothing if Kiro uses other names, and then only the type rules apply (shell and writes are Ask me first, so still denied). Check what your Kiro version sends before you rely on a field rule.
+
+### 22. Kiro: a hook that cannot start or times out may let the call run
+
+The Kiro docs say nothing about what happens when the hook command cannot start (no `python3`, a wrong path, a syntax error that makes Python exit 1) or hits its timeout, and they document no setting like Claude Code's `onFailure`. If Kiro lets the call run in those cases, umwayi cannot stop it. The adapter answers within about 15 seconds (10 for `umwayi check`, 5 for a queue item), under both documented timeouts.
+
+### 23. Kiro: Ask me first is always a deny
+
+Kiro has no ask, so an Ask me first denies the call and adds one queue item (`Kiro asks first: may it do TYPE?`). Answering that item does not allow the call, now or later: to allow calls like it, the owner adds a Yes rule. With the example rules, every shell command and every file write is denied until then. Kiro also only sees the reason on stderr; the agent may retry.
+
+### 24. Kiro: the input must say `PreToolUse`, and the command runs in a shell
+
+- The adapter blocks input whose `hook_event_name` is not exactly `PreToolUse` (the name in the one example shown). If a Kiro version sends another spelling, every tool call is blocked. Fail closed, but not confirmed.
+- A Kiro command action is one command string run by a shell, so the paths in the snippet must not contain spaces or shell characters. Claude Code's exec form does not have this problem.
+
+### 25. Queue items are matched by exact title
+
+`queue add --if-not-open` skips a new item only while an open item of the same kind has exactly the same title. Once the owner answers or closes it, the next Ask me first for that type adds a new one. A title edited by hand in `queue.md` is not matched. The title has only the action type, so two different shell commands share one item.
+
+### 26. The generic adapter trusts its caller to read the answer
+
+The generic adapter only answers; it cannot stop anything itself. A caller that ignores the exit code, or treats exit 3 or a missing answer as allow, gets no protection. Callers must treat anything but exit 0 with `"decision": "allow"` as a deny. The platform name (`--platform`) is set by whoever writes the command line, so rules with `platform: NAME` are only as good as that setup.
+
+### 27. Kiro and the generic adapter send more of the tool input
+
+Because the field names are not known, `generic_action` sends every top level string field, which can include file contents. They reach `umwayi check` (not the logbook, which gets only the type). A tool input bigger than 64 KB as an action is denied. Rules cannot see nested fields, numbers or lists.
+
+### 28. The owner's own `umwayi check` ignores the kill switch
+
+By design, `umwayi check` without `--kill-switch` answers by the rules even while the switch is on, so the owner can still test rules. Only the adapters pass the flag. A platform set up to call `umwayi check` directly, not through an adapter, is not stopped by the kill switch.

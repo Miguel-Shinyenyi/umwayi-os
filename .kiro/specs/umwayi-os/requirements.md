@@ -155,7 +155,7 @@ Acceptance criteria:
 
 ## Layer 9: Adapters
 
-Status: in progress. Part 1 (the notes, the shared code, the Claude Code adapter) is built in PR 11. Planned for Nov 8 to Nov 9.
+Status: built. Part 1 (the notes, the shared code, the Claude Code adapter) in PR 11; part 2 (the Kiro adapter, the generic stdin and stdout adapter, the kill switch in all adapters) in PR 12. Planned for Nov 8 to Nov 9. Open: starter rules in the repo rules.yaml, and the whole-system test with the adapters (Nov 11 to Nov 14).
 
 User story: as the owner, I want the AI platforms I already use to ask umwayi before they act, so the same rules, queue and logbook cover them, and a broken adapter never lets an action through.
 
@@ -171,6 +171,11 @@ Acceptance criteria:
 8. Adapter packages may use third party packages, pinned and listed in their own README. The core `umwayi` package stays standard library only.
 9. Each adapter has tests: No blocks, Ask me first asks or denies, Yes passes, a broken rules file blocks, a crash blocks.
 10. Every check an adapter makes goes through `umwayi check`, so it writes one logbook entry like any other check.
+11. While the kill switch is on, or its state cannot be read, every adapter denies every action (owner decision, 9.12). The logbook entry says the kill switch gave No.
+12. The umwayi root is given on the adapter's command line (`--root`), never taken from the hook input.
+13. Where Ask me first becomes a queue item, a repeated call adds no second item while the first is open (same kind, same title).
+14. The generic adapter reads `{"tool_name", "tool_input"}` on stdin, writes one JSON line `{"decision", "reason"}` on stdout, and exits 0 for allow, 2 for deny, 3 for ask (or deny plus a queue item with `--no-ask`). The platform name comes from its command line only.
+15. No adapter creates or changes a platform settings or hook file (`.claude`, `.kiro/hooks`); its README shows the snippet the owner adds.
 
 ## Layer 10: Own command line and chat (outline)
 
