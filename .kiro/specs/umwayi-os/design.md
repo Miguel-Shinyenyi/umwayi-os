@@ -35,7 +35,7 @@ Layers 2 to 8 write to the logbook through one function, `logbook.append(root, E
 - Exit codes, for every command:
   - 0: Yes, or done.
   - 1: a refusal. Something was checked and found wrong (a malformed queue.md, an id that does not exist, a tampered logbook) and nothing was changed.
-  - 2: No. Also every unexpected error: `main` catches every exception (and Ctrl-C) and exits 2, so a crash is never read as Yes or as a non blocking error by a hook. The message is not printed, only the error type, because it may hold file content.
+  - 2: No. Also every unexpected error: `main` catches every exception (and Ctrl-C) and exits 2, so a crash is never read as Yes or as a non blocking error by a hook. Inner catch blocks only catch known failures (`UmwayiError`, and `OSError` where a disk write can fail); they undo their work and let anything else through to `main`. The message is not printed, only the error type, because it may hold file content.
   - 3: Ask me first.
   - 64: a usage error or a config error. Wrong arguments, an argument value that is not allowed (for example a title with `|`, an empty reason, an id like `q-1`), or a missing or invalid `umwayi.json`, jobs file or workflow file. `ConfigError` is a kind of `UsageError`.
   - rules.yaml is not config in this sense: a missing or broken rules file gives Ask me first (3), as before.
@@ -153,7 +153,7 @@ Reason: AI helpers never move money. Cause: Safety rule.
 
 `--json` prints `{"answer", "rule_id", "reason", "matched"}`. The action comes from an argument, or from standard input when the argument is `-`. Input is limited to 64 KB.
 
-`check` never raises. Any unexpected error is turned into Ask me first.
+Bad inputs (the action, rules.yaml) give Ask me first. An unexpected error inside `check` (a bug, not a bad input) is not hidden as Ask me first: it reaches `main`, which exits 2, so a hook always blocks on it. (Until the hardening branch it gave Ask me first, exit 3, which a hook that blocks only on 2 would not block.)
 
 ### Logbook hook
 
@@ -340,10 +340,11 @@ Every `umwayi check` appends one entry:
 ```
 
 - The action JSON is never written. Only its `type`, and only if it is a string of 1 to 40 characters from `A-Z a-z 0-9 _ . : -`. Otherwise the entry says `action type not recorded`.
-- If the entry cannot be written for any reason (tamper check, lock, format, date, disk, an unexpected error), the reason says "The logbook could not be written", why, and that nothing was logged. Then:
+- If the entry cannot be written (tamper check, lock, format, date, disk: any known logbook failure), the reason says "The logbook could not be written", why, and that nothing was logged. Then:
   - No stays No (exit 2) with its rule id. Turning a No into Ask me first would invite the owner to approve something a rule refuses.
   - Yes becomes Ask me first (exit 3) with rule `(none)`. A Yes is never given without its logbook entry.
   - Ask me first stays Ask me first (exit 3).
+  - An unexpected error while writing the entry is not a known failure: it exits 2 and prints no answer.
 - `--no-log` is a dry run: the rules answer is returned as usual, nothing is written, and the output ends with `Nothing was logged (--no-log, dry run).` With `--json` the output has `"logged": false`.
 - `--date` sets the entry date. The default is the system clock.
 
@@ -423,7 +424,7 @@ A helper asks for one step at a time: `helper.step(type, work, channel=...)`.
 2. The action goes through `rules.check`, the same check as `umwayi check`.
 3. No: one logbook entry, stop with exit 2. The work does not run.
 4. Ask me first, or anything that is not Yes: one queue item of kind decision, titled `AI helper NAME asks first: may it do TYPE?`, then one logbook entry, then stop with exit 3. If an open decision with that title already exists, no second one is added. If the queue cannot be written, the helper still stops with exit 3 and says so.
-5. Yes: the work runs, then one logbook entry. If the work fails, the entry says the step failed and the helper stops with exit 1. If the entry cannot be written, the work is undone (the draft is removed) and the helper stops with exit 3.
+5. Yes: the work runs, then one logbook entry. If the work fails with a known refusal, the entry says the step failed and the helper stops with exit 1. If it fails with an unexpected error, the failed step is logged the same way and the error goes on to exit 2. If the entry cannot be written, the work is undone (the draft is removed) and the helper stops with exit 3, or exits 2 if the cause was an unexpected error.
 
 Every checked step adds exactly one logbook entry (source `umwayi steward` or `umwayi social`), written through the checked append. An Ask me first step also adds the queue item's own entry (source `umwayi queue add`), as every queue change does.
 

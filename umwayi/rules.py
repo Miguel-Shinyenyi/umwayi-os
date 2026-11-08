@@ -263,27 +263,29 @@ def safe_action_type(action: dict) -> str | None:
 
 
 def check(action_text: str | None, rules_path: Path) -> Decision:
-    """Return the Decision for an action. Never raises."""
+    """Return the Decision for an action.
+
+    Anything unknown, missing or broken (the action, rules.yaml) is Ask me first.
+    An unexpected error (a bug, not a bad input) is not hidden as Ask me first:
+    it is raised, and the command line exits 2, so a hook always blocks on it.
+    """
+    if action_text is None:
+        return Decision(ASK, None, "No action was given.")
     try:
-        if action_text is None:
-            return Decision(ASK, None, "No action was given.")
-        try:
-            action = parse_action(action_text)
-        except UmwayiError as e:
-            return Decision(ASK, None, str(e))
-        action_type = safe_action_type(action)
-        try:
-            rules = load_rules(rules_path)
-        except UmwayiError as e:
-            return Decision(ASK, None, f"Rules could not be loaded ({e}).", action_ok=True, action_type=action_type)
-        decision = decide(rules, action)
-        decision.action_ok = True
-        decision.rules_ok = True
-        decision.rules_count = len(rules)
-        decision.action_type = action_type
-        return decision
-    except Exception:  # fail closed, whatever went wrong
-        return Decision(ASK, None, "Unexpected error while checking.")
+        action = parse_action(action_text)
+    except UmwayiError as e:
+        return Decision(ASK, None, str(e))
+    action_type = safe_action_type(action)
+    try:
+        rules = load_rules(rules_path)
+    except UmwayiError as e:
+        return Decision(ASK, None, f"Rules could not be loaded ({e}).", action_ok=True, action_type=action_type)
+    decision = decide(rules, action)
+    decision.action_ok = True
+    decision.rules_ok = True
+    decision.rules_count = len(rules)
+    decision.action_type = action_type
+    return decision
 
 
 def log_entry(decision: Decision, when: str) -> logbook.Entry:
@@ -321,8 +323,8 @@ def check_and_log(
         return decision, False
     try:
         logbook.append(root, log_entry(decision, when))
-    except Exception as e:
-        why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+    except UmwayiError as e:  # a known logbook failure; an unexpected error goes on to exit 2
+        why = str(e).rstrip(". ")
         note = f"The logbook could not be written ({why}). Nothing was logged"
         if decision.answer == NO:
             return Decision(NO, decision.rule_id, f"{decision.reason} {note}.", list(decision.matched)), False

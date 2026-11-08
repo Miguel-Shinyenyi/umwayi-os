@@ -177,8 +177,8 @@ def run(root: Path, jobfile: Path, name: str | None, today: str) -> Result:
                 today, "umwayi run", f"A job run was stopped before the jobs file was read: {kill.short(st)}",
                 "the kill switch was checked before anything else",
                 "The job did not run. Nothing was read, written, published or pushed."))
-        except Exception as e:
-            why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+        except UmwayiError as e:
+            why = str(e).rstrip(". ")
             lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
         return Result(3, lines)
 
@@ -196,8 +196,8 @@ def run(root: Path, jobfile: Path, name: str | None, today: str) -> Result:
                 today, "umwayi run", f"A job run was stopped before the jobs file was read: {short}",
                 "the kill switch, then the run lock, before anything else",
                 "The job did not run. Nothing was read, written, published or pushed."))
-        except Exception as e2:
-            why = str(e2).rstrip(". ") if isinstance(e2, UmwayiError) else "an unexpected error"
+        except UmwayiError as e2:
+            why = str(e2).rstrip(". ")
             lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
         return Result(3, lines)
 
@@ -242,8 +242,8 @@ def _run_locked(root: Path, jobfile: Path, name: str | None, today: str) -> Resu
         )
         try:
             logbook.append(root, entry)
-        except Exception as e:
-            why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+        except UmwayiError as e:
+            why = str(e).rstrip(". ")
             lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
         lines.append(f"Job {job.name} did not run.")
         return Result(decision.exit_code, lines)
@@ -287,6 +287,8 @@ def _run_locked(root: Path, jobfile: Path, name: str | None, today: str) -> Resu
                 report.remove_draft(root, draft)
             except OSError:
                 raise UmwayiError(f"the logbook write failed AND {draft.rel} could not be removed, delete it by hand") from None
+        if not isinstance(e, UmwayiError):
+            raise  # the draft was removed; an unexpected error exits 2
         return Result(3, [
             rules.ASK,
             "Rule: (none)",

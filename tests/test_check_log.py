@@ -267,14 +267,14 @@ class FailingLogbookTests(CheckLogBase):
         self.assertEqual((code, data["answer"], data["rule_id"], data["logged"]), (3, "Ask me first", None, False))
 
     def test_unexpected_error_in_the_logbook(self):
+        # (until the hardening branch a Yes became Ask me first, exit 3; an unexpected error must exit 2)
         with mock.patch("umwayi.rules.logbook.append", side_effect=RuntimeError("boom " + SECRET)):
-            code, out, _ = self.check('{"type": "read"}')
-            self.assertEqual(code, 3)
-            self.assertIn("an unexpected error", out)
-            self.assertNotIn(SECRET, out)
-            code, out, _ = self.check('{"type": "payment"}')
-            self.assertEqual(code, 2)
-            self.assertNotIn(SECRET, out)
+            for action in ('{"type": "read"}', '{"type": "payment"}', '{"type": "dance"}'):
+                code, out, err = self.check(action)
+                self.assertEqual(code, 2)
+                self.assertEqual(out, "")  # no answer is printed, so nothing looks like Yes
+                self.assertIn("stopped by an unexpected error (RuntimeError)", err)
+                self.assertNotIn(SECRET, out + err)
 
     def test_bad_date_for_the_entry_is_ask_me_first(self):
         # a clock that returns nonsense must not turn into Yes or No

@@ -454,8 +454,8 @@ def move(
             raise UmwayiError(
                 "the move failed AND these could not be restored, check them by hand: " + ", ".join(failed)
             ) from None
-        if not isinstance(exc, Exception):
-            raise
+        if not isinstance(exc, (UmwayiError, OSError)):
+            raise  # Ctrl-C or an unexpected error: undone above, then exit 2
         if phase == "logbook":
             reason = f": {exc}" if isinstance(exc, UmwayiError) else ""
             raise UmwayiError("the logbook write failed, so the move was undone" + reason) from None

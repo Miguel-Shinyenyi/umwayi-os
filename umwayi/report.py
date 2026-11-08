@@ -179,6 +179,8 @@ def make(root: Path, since: str, today: str) -> tuple[Report, str]:
             remove_draft(root, draft)
         except OSError:
             raise UmwayiError(f"the logbook write failed AND {rel} could not be removed, delete it by hand") from None
+        if not isinstance(e, UmwayiError):
+            raise  # the draft was removed; an unexpected error exits 2
         raise UmwayiError("the logbook write failed, so the draft was removed" + reason) from None
     return rep, rel
 

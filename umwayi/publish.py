@@ -125,8 +125,8 @@ def publish(root: Path, draft: str, today: str, approved_by: str | None = None) 
         lines = [decision.answer, f"Rule: {decision.rule_id or '(none)'}", f"Reason: {decision.reason}"]
         try:
             logbook.append(root, _stop_entry(today, rel, decision, note))
-        except Exception as e:
-            why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+        except UmwayiError as e:
+            why = str(e).rstrip(". ")
             lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
         lines.append(f"Nothing was copied. {note}")
         return Result(code, lines)
@@ -165,6 +165,8 @@ def publish(root: Path, draft: str, today: str, approved_by: str | None = None) 
         why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
         if not _unlink(target):
             raise UmwayiError(f"the logbook write failed AND {target_rel} could not be removed, delete it by hand") from None
+        if not isinstance(e, UmwayiError):
+            raise  # the copy was removed; an unexpected error exits 2
         return Result(3, [
             rules.ASK,
             "Rule: (none)",
