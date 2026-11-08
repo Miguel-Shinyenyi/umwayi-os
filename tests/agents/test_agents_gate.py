@@ -321,8 +321,9 @@ class ArgumentListTests(unittest.TestCase):
     PY = "/usr/bin/python3"
 
     def shapes(self):
-        for max_turns, timeout in itertools.product((None, 1, 200), (1, 30, 720)):
-            yield agents.Agent("a", "claude-code", "claude", "cli", "/w", max_turns=max_turns, timeout_minutes=timeout)
+        for transport, max_turns, timeout in itertools.product(("cli", "acp"), (None, 1, 200), (1, 30, 720)):
+            yield agents.Agent("a", "claude-code", "claude", transport, "/w", max_turns=max_turns,
+                               timeout_minutes=timeout)
         for transport, kiro_agent, tools in itertools.product(
                 ("cli", "acp"), (None, "site-agent"), ((), ("read_file",), agents.KIRO_TOOL_IDS)):
             if transport == "acp" and kiro_agent:
@@ -343,7 +344,11 @@ class ArgumentListTests(unittest.TestCase):
                             self.assertNotIn(bad, flags)
                         self.assertNotIn("bypassPermissions", " ".join(flags))
                         self.assertEqual(argv[0], "/bin/x")
-                        if agent.platform == "claude-code":
+                        if agent.platform == "claude-code" and agent.transport == "acp" and mode == agents.CHAT:
+                            # node and the fixed adapter path, nothing else: no max_turns, no npx, no shell
+                            self.assertEqual(argv, ["/bin/x", str(REPO / agents.CLAUDE_ACP_ADAPTER)])
+                            self.assertIsNone(stdin)
+                        elif agent.platform == "claude-code":
                             self.assertEqual(argv[argv.index("--permission-mode") + 1], "default")
                             self.assertEqual(argv.count("--settings"), 1)
                             self.assertIsNone(stdin)
@@ -358,6 +363,33 @@ class ArgumentListTests(unittest.TestCase):
                         else:
                             self.assertEqual(argv[1:3], ["chat", "--v3"])
         self.assertGreater(n, 50)
+
+    def test_the_claude_acp_self_test_lists(self):
+        adapter = Path("/u/adapters/claude_acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js")
+        want = {"node version": ["/bin/node", "--version"],
+                "adapter version": ["/bin/node", str(adapter), "--version"],
+                "claude code version": ["/bin/node", str(adapter), "--cli", "--version"],
+                "sign-in": ["/bin/node", str(adapter), "--cli", "auth", "status"]}
+        self.assertEqual(set(want) - {"node version"}, set(agents.CLAUDE_ACP_PROBES))
+        for name, argv in want.items():
+            with self.subTest(probe=name):
+                got = agents.probe_argv("/bin/node", adapter, name)
+                self.assertEqual(got, argv)
+                for bad in agents.FORBIDDEN_FLAGS:
+                    self.assertNotIn(bad, got)
+                self.assertFalse(any(w in ("npx", "npm", "sh", "-c", "--login") for w in got))
+        self.assertEqual(agents.CLAUDE_ACP_ORDER, ["node", "node version", "adapter file", "adapter package",
+                                                  "adapter version", "claude code version", "sign-in",
+                                                  "hook script", "hook self-test"])
+
+    def test_agent_run_of_a_claude_acp_agent_stays_claude_p(self):
+        a = agents.Agent("a", "claude-code", "claude", "acp", "/w", max_turns=5)
+        argv, _ = agents.build_argv(a, agents.RUN, "/bin/claude", self.ROOT, self.PY, prompt="x")
+        self.assertEqual(argv[:2], ["/bin/claude", "-p"])
+        self.assertIn("--max-turns", argv)
+        self.assertFalse(agents.is_claude_acp(a, agents.RUN))
+        self.assertTrue(agents.is_claude_acp(a, agents.CHAT))
+        self.assertFalse(agents.is_claude_acp(agents.Agent("k", "kiro", "kiro-cli", "acp", "/w"), agents.CHAT))
 
     def test_trust_tools_never_widens_to_all(self):
         a = agents.Agent("k", "kiro", "kiro-cli", "cli", "/w", trust_tools=agents.KIRO_TOOL_IDS)
@@ -396,7 +428,15 @@ class ArgumentListTests(unittest.TestCase):
         self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro"])
         self.assertEqual(agents.PLATFORMS["claude-code"].commands, ("claude",))
         self.assertEqual(agents.PLATFORMS["kiro"].commands, ("kiro-cli",))
-        self.assertEqual(agents.PLATFORMS["claude-code"].transports, ("cli",))
+        self.assertEqual(agents.PLATFORMS["claude-code"].transports, ("cli", "acp"))
+        self.assertEqual(agents.PLATFORMS["kiro"].transports, ("cli", "acp"))
+        self.assertEqual(agents.CLAUDE_ACP_PACKAGE, "@agentclientprotocol/claude-agent-acp")
+        self.assertEqual(agents.CLAUDE_ACP_VERSION, "0.101.0")
+        self.assertEqual(agents.NODE_MIN, (22, 0, 0))
+        self.assertEqual(agents.CLAUDE_ACP_ADAPTER,
+                         "adapters/claude_acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js")
+        self.assertEqual(agents.CLAUDE_ACP_CANARY, "adapters/claude_acp/canary.py")
+        self.assertTrue((REPO / agents.CLAUDE_ACP_CANARY).is_file())
         self.assertEqual(agents.PLATFORMS["claude-code"].min_version, (2, 1, 295))
         self.assertEqual(agents.PLATFORMS["kiro"].min_version, (2, 27, 1))
         for p in agents.PLATFORMS.values():
@@ -432,6 +472,7 @@ class CodeGuardTests(unittest.TestCase):
                 if attr == "run":
                     self.assertIn("timeout", kw)
                     self.assertIn("input", kw)
+                    self.assertEqual(kw["env"].id, "env")  # the allow list reaches the Claude ACP programs
                 else:
                     # run: its own session and process group, so all of it can be stopped; chat: umwayi's group,
                     # because an interactive screen needs the controlling terminal

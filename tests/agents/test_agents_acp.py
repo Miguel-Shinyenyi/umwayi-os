@@ -16,6 +16,7 @@ import time
 import unittest
 
 from umwayi import acp, agents, runlock, taskqueue
+from umwayi.errors import UsageError
 
 from tests.agents.support import CODES, SECRET, AgentCase, alive
 
@@ -537,13 +538,22 @@ class UnitTests(unittest.TestCase):
 
     def test_the_permission_action(self):
         a = agents.permission_action("k", {"title": "TRAP", "kind": "execute", "name": "execute_bash", "rawInput": {"x": 1},
-                                           "locations": [{"path": "/etc"}]})
+                                           "locations": [{"path": "/etc"}]}, "kiro")
         self.assertEqual(a, {"type": "acp_permission", "agent": "k", "platform": "kiro", "kind": "execute",
                              "tool": "execute_bash"})
-        self.assertEqual(agents.permission_action("k", {"kind": "Execute!", "name": "a b"}),
+        self.assertEqual(agents.permission_action("k", {"kind": "Execute!", "name": "a b"}, "kiro"),
                          {"type": "acp_permission", "agent": "k", "platform": "kiro"})
-        self.assertEqual(agents.permission_action("k", "not a dict"), {"type": "acp_permission", "agent": "k",
-                                                                        "platform": "kiro"})
+        self.assertEqual(agents.permission_action("k", "not a dict", "kiro"), {"type": "acp_permission", "agent": "k",
+                                                                                "platform": "kiro"})
+
+    def test_the_permission_action_says_the_platform(self):
+        call = {"title": "TRAP", "kind": "execute", "name": "Bash", "rawInput": {"command": "ls"}}
+        self.assertEqual(agents.permission_action("c", call, "claude-code"),
+                         {"type": "acp_permission", "agent": "c", "platform": "claude-code", "kind": "execute",
+                          "tool": "Bash"})
+        self.assertEqual(agents.permission_action("k", call, "kiro")["platform"], "kiro")
+        with self.assertRaises(UsageError):
+            agents.permission_action("x", call, "codex")
 
     def test_safe_text_keeps_newline_and_tab(self):
         self.assertEqual(acp.safe_text("a\nb\tc é ✓"), "a\nb\tc é ✓")

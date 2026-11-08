@@ -26,7 +26,13 @@ The argument lists the front door will use (parts 3 to 5) are built here, from t
 fixed platform table and the validated fields only. Nothing from agents.yaml is
 pasted into a string, and no list may hold a flag on FORBIDDEN_FLAGS.
 
-The core knows where the layer 9 hook scripts are, but never imports `adapters`.
+Part 7a (10.R11): agents.yaml accepts claude-code with transport acp, and `agent check`
+runs the gate checks of a Claude Code ACP chat (node, the pinned adapter in
+adapters/claude_acp/, the bundled Claude Code version, sign-in by exit code, the hook),
+each program with the allow-listed environment of child_env(). The chat itself is part
+7b; until then `agent chat` refuses it with exit 64.
+
+The core knows where the layer 9 hook scripts and the adapter are, but never imports `adapters`.
 See design.md (layer 10) and adapters/NOTES-layer10.md.
 """
 
@@ -79,11 +85,42 @@ class Platform:
 
 
 PLATFORMS = {
-    "claude-code": Platform("claude-code", ("claude",), ("cli",), "adapters/claude_code/hook.py",
+    "claude-code": Platform("claude-code", ("claude",), ("cli", "acp"), "adapters/claude_code/hook.py",
                             (2, 1, 295), "-v", "onFailure: block needs Claude Code 2.1.295 or later"),
     "kiro": Platform("kiro", ("kiro-cli",), ("cli", "acp"), "adapters/kiro/hook.py",
                      (2, 27, 1), "--version", "V3 headless runs load hooks from Kiro CLI 2.27.1"),
 }
+
+# Part 7: Claude Code over ACP (10.R11). The adapter is a pinned npm package in adapters/claude_acp/,
+# installed by the owner (`npm ci --ignore-scripts`); umwayi never runs npm. An ACP chat runs
+# [NODE, ADAPTER]; `command: claude` stays for `agent run` and the cli chat.
+CLAUDE_ACP_PACKAGE = "@agentclientprotocol/claude-agent-acp"
+CLAUDE_ACP_VERSION = "0.101.0"  # also in adapters/claude_acp/package.json and its lockfile (a test checks)
+NODE_MIN = (22, 0, 0)
+CLAUDE_ACP_DIR = "adapters/claude_acp"
+CLAUDE_ACP_PACKAGE_DIR = CLAUDE_ACP_DIR + "/node_modules/" + CLAUDE_ACP_PACKAGE
+CLAUDE_ACP_ADAPTER = CLAUDE_ACP_PACKAGE_DIR + "/dist/index.js"
+CLAUDE_ACP_CANARY = CLAUDE_ACP_DIR + "/canary.py"
+NODE_COMMAND = "node"
+SIGNIN_TIMEOUT = 15.0  # seconds for `NODE ADAPTER --cli auth status`
+SIGNIN_TEXT = "Sign in to Claude Code first (claude, then /login), then try again."
+CLAUDE_ACP_PROBES = {  # the self-test programs after `node --version`, each [NODE, ADAPTER, *tail]
+    "adapter version": ("--version",),
+    "claude code version": ("--cli", "--version"),
+    "sign-in": ("--cli", "auth", "status"),
+}
+_NODE_VERSION = re.compile(rb"v(\d{1,6})\.(\d{1,6})\.(\d{1,6})\s*")
+
+# The child environment of every Claude Code ACP program (10.R11.9): only these names, each only if
+# set, then CLAUDE_AGENT_ACP_PROTOCOL=v1. Everything else is dropped, among them ANTHROPIC_API_KEY,
+# ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, CLAUDE_CODE_EXECUTABLE, CLAUDE_AGENT_LOGS, IS_SANDBOX,
+# NODE_OPTIONS, NODE_PATH and every npm_config_*.
+CHILD_ENV_NAMES = ("HOME", "USER", "LOGNAME", "PATH", "SHELL", "LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE",
+                   "LC_MESSAGES", "TZ", "TMPDIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+                   "XDG_STATE_HOME", "XDG_RUNTIME_DIR", "CLAUDE_CONFIG_DIR",
+                   "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy",
+                   "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR")
+CHILD_ENV_SET = {"CLAUDE_AGENT_ACP_PROTOCOL": "v1"}
 
 # The built-in Kiro tool IDs the Kiro hook docs name (adapters/NOTES.md). Nothing else may be trusted.
 KIRO_TOOL_IDS = ("read_file", "grep_search", "execute_bash", "execute_pwsh",
@@ -423,6 +460,30 @@ def hook_path(platform: str, src: Path | None = None) -> Path:
     return (src or umwayi_src()) / PLATFORMS[platform].hook
 
 
+def claude_acp_path(relative: str, src: Path | None = None) -> Path:
+    """A fixed path in adapters/claude_acp/ (the adapter, its package.json, the canary)."""
+    return (src or umwayi_src()) / relative
+
+
+def is_claude_acp(agent: Agent, mode: str | None) -> bool:
+    """A Claude Code ACP chat: node and the pinned adapter, not `claude`. `agent run` stays `claude -p`."""
+    return agent.platform == "claude-code" and agent.transport == ACP and mode != RUN
+
+
+def child_env(environ) -> dict:
+    """The allow-listed environment for every Claude Code ACP program (10.R11.9). Nothing else is passed."""
+    env = {k: environ[k] for k in CHILD_ENV_NAMES if isinstance(environ.get(k), str)}
+    env.update(CHILD_ENV_SET)
+    return env
+
+
+def probe_argv(node: str, adapter: Path, name: str) -> list:
+    """The argument list of one self-test program of a Claude Code ACP chat (design.md, part 7)."""
+    if name == "node version":
+        return _assert_allowed([node, "--version"])
+    return _assert_allowed([node, str(adapter), *CLAUDE_ACP_PROBES[name]])
+
+
 def claude_settings(python: str, hook: Path, root: Path) -> str:
     """The --settings JSON for Claude Code, from a fixed template (design.md, layer 10)."""
     settings = {
@@ -465,6 +526,9 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
     if mode not in (RUN, CHAT):
         raise UsageError("agent: the mode must be run or chat")
     root = Path(root)
+    if is_claude_acp(agent, mode):
+        # command_path is node here; the adapter is the fixed path, never looked up through PATH or npx
+        return _assert_allowed([command_path, str(claude_acp_path(CLAUDE_ACP_ADAPTER, src))]), None
     if agent.platform == "claude-code":
         settings = claude_settings(python, hook_path("claude-code", src), root)
         if mode == RUN:
@@ -518,19 +582,23 @@ class Gate:
         return ""
 
 
-def _run_child(argv: list, stdin: bytes, timeout: float, cwd: str) -> tuple:
-    """(exit code or None, stdout bytes). The only place this module starts a program.
+def _run_child(argv: list, stdin: bytes, timeout: float, cwd: str, env: dict | None = None,
+               keep_output: bool = True) -> tuple:
+    """(exit code or None, stdout bytes). The only place this module starts a short program.
 
-    None means it could not start or did not finish in time (it is then killed).
+    None means it could not start or did not finish in time (it is then killed). env None: umwayi's
+    environment; else exactly env. keep_output False: stdout goes to /dev/null and is never read.
+    stderr is never read.
     """
     try:
-        proc = subprocess.run(argv, input=stdin, capture_output=True, timeout=timeout, cwd=cwd,
+        proc = subprocess.run(argv, input=stdin, stdout=subprocess.PIPE if keep_output else subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=timeout, cwd=cwd, env=env,
                               shell=False, check=False)
     except subprocess.TimeoutExpired:
         return None, b""
     except (OSError, ValueError):
         return None, b""
-    return proc.returncode, proc.stdout
+    return proc.returncode, (proc.stdout or b"") if keep_output else b""
 
 
 def parse_version(output: bytes) -> tuple | None:
@@ -612,19 +680,171 @@ def find_kiro_hook(workdir: str, root: Path, src: Path | None = None, home: Path
     return None, skipped
 
 
-def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None = None) -> Gate:
-    """Every check from 10.R6.1, in order. The first that fails ends it; the rest are 'not run'."""
-    root = _root(root)
-    plat = PLATFORMS[agent.platform]
-    gate = Gate()
-    order = ["command", "version", "hook script", "hook self-test"] + (["kiro hook file"] if agent.platform == "kiro" else [])
-
+def _recorder(gate: Gate, order: list):
     def done(name: str, ok: bool, detail: str) -> bool:
         gate.checks.append(Check(name, ok, detail))
         if not ok:
             for rest in order[order.index(name) + 1:]:
                 gate.checks.append(Check(rest, None, "an earlier check failed"))
         return ok
+    return done
+
+
+def _hook_checks(platform: str, root: Path, src: Path | None, done, env: dict | None = None) -> bool:
+    """The layer 9 hook script and its self-test (10.R6), the same for every platform and transport."""
+    hook = hook_path(platform, src)
+    try:
+        hst = os.lstat(hook)
+        hook_ok = stat.S_ISREG(hst.st_mode)
+    except OSError:
+        hook_ok = False
+    if not done("hook script", hook_ok, f"{hook}" + ("" if hook_ok else " is missing or not a regular file")):
+        return False
+    python = python_path()
+    if python is None:
+        return done("hook self-test", False, "the path of the Python running umwayi is not known")
+    code, _ = _run_child([python, str(hook), "--root", str(root)], SELFTEST_INPUT, SELFTEST_TIMEOUT, str(root),
+                         env=env)
+    if code != SELFTEST_EXIT:
+        what = f"did not answer within {SELFTEST_TIMEOUT:.0f} s or could not start" if code is None else f"exited {code}"
+        return done("hook self-test", False,
+                    f"the hook {what}; it must block the self-test event with exit {SELFTEST_EXIT}")
+    return done("hook self-test", True, f"the hook started and blocked the self-test event (exit {SELFTEST_EXIT})")
+
+
+CLAUDE_ACP_ORDER = ["node", "node version", "adapter file", "adapter package", "adapter version",
+                    "claude code version", "sign-in", "hook script", "hook self-test"]
+
+
+def _regular_file(path: Path) -> bool:
+    """A regular file, and no link anywhere in the path (the real path is the path itself)."""
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    return stat.S_ISREG(st.st_mode) and os.path.realpath(path) == str(path)
+
+
+def _claude_acp_checks(agent: Agent, root: Path, src: Path | None, gate: Gate) -> Gate:
+    """The gate checks of a Claude Code ACP chat, in the order of design.md part 7 (10.R11.6)."""
+    done = _recorder(gate, CLAUDE_ACP_ORDER)
+    env = child_env(os.environ)
+
+    # 1. node on PATH, an absolute path
+    node = shutil.which(NODE_COMMAND)
+    if not node or not os.path.isabs(node):
+        done("node", False, f"{NODE_COMMAND} was not found on PATH (Node.js {NODE_MIN[0]} or later is needed)")
+        return gate
+    gate.command_path = node
+    done("node", True, f"{NODE_COMMAND} found at {node}")
+
+    # 2. node --version: vN.N.N, at least 22
+    code, out = _run_child(probe_argv(node, Path(), "node version"), b"", VERSION_TIMEOUT, agent.workdir, env=env)
+    m = _NODE_VERSION.fullmatch(out[:MAX_VERSION_OUTPUT]) if code == 0 else None
+    version = tuple(int(x) for x in m.groups()) if m else None
+    if code is None:
+        ok = done("node version", False, f"node --version did not answer within {VERSION_TIMEOUT:.0f} s")
+    elif code != 0:
+        ok = done("node version", False, f"node --version exited {code}")
+    elif version is None:
+        ok = done("node version", False, "node --version did not print a version like v22.0.0")
+    elif version < NODE_MIN:
+        ok = done("node version", False, f"{_show(version)} is older than {_show(NODE_MIN)} "
+                                         f"(the adapter needs Node.js {NODE_MIN[0]})")
+    else:
+        ok = done("node version", True, f"{_show(version)} (at least {_show(NODE_MIN)})")
+    if not ok:
+        return gate
+
+    # 3. the adapter file, at the fixed path, a regular file and not a link
+    adapter = claude_acp_path(CLAUDE_ACP_ADAPTER, src)
+    adapter_ok = _regular_file(adapter)
+    if not done("adapter file", adapter_ok,
+                f"{adapter}" + ("" if adapter_ok else
+                                " is missing, a link or not a regular file. Install it yourself: in "
+                                f"{CLAUDE_ACP_DIR}/ run npm ci --ignore-scripts (see its README.md)")):
+        return gate
+
+    # 4. its package.json: exactly the pinned name and version
+    pkg = claude_acp_path(CLAUDE_ACP_PACKAGE_DIR + "/package.json", src)
+    data = None
+    if _regular_file(pkg):
+        try:
+            if os.lstat(pkg).st_size <= MAX_FILE_BYTES:
+                with open(pkg, "rb") as f:
+                    raw = f.read(MAX_FILE_BYTES + 1)
+                if len(raw) <= MAX_FILE_BYTES:
+                    data = json.loads(raw.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, ValueError, RecursionError):
+            data = None
+    if not isinstance(data, dict):
+        done("adapter package", False, f"{pkg} is missing, a link, too big or not valid JSON")
+        return gate
+    if data.get("name") != CLAUDE_ACP_PACKAGE or data.get("version") != CLAUDE_ACP_VERSION:
+        done("adapter package", False, f"the installed package is not {CLAUDE_ACP_PACKAGE} {CLAUDE_ACP_VERSION}; "
+                                       f"in {CLAUDE_ACP_DIR}/ run npm ci --ignore-scripts")
+        return gate
+    done("adapter package", True, f"{CLAUDE_ACP_PACKAGE} {CLAUDE_ACP_VERSION}")
+
+    # 5. NODE ADAPTER --version prints exactly the pin
+    code, out = _run_child(probe_argv(node, adapter, "adapter version"), b"", VERSION_TIMEOUT, agent.workdir,
+                           env=env)
+    if code != 0 or out[:MAX_VERSION_OUTPUT].rstrip(b"\r\n") != CLAUDE_ACP_VERSION.encode("ascii"):
+        what = ("did not answer in time or could not start" if code is None else
+                f"exited {code}" if code != 0 else f"did not print exactly {CLAUDE_ACP_VERSION}")
+        done("adapter version", False, f"the adapter --version {what}")
+        return gate
+    done("adapter version", True, f"the adapter says {CLAUDE_ACP_VERSION}")
+
+    # 6. NODE ADAPTER --cli --version: the bundled Claude Code, at least 2.1.295
+    plat = PLATFORMS["claude-code"]
+    code, out = _run_child(probe_argv(node, adapter, "claude code version"), b"", VERSION_TIMEOUT, agent.workdir,
+                           env=env)
+    version = parse_version(out) if code == 0 else None
+    if code is None:
+        ok = done("claude code version", False, f"the adapter --cli --version did not answer within "
+                                                f"{VERSION_TIMEOUT:.0f} s")
+    elif code != 0:
+        ok = done("claude code version", False, f"the adapter --cli --version exited {code}")
+    elif version is None:
+        ok = done("claude code version", False, "no version number in the output of the adapter --cli --version")
+    elif version < plat.min_version:
+        ok = done("claude code version", False, f"{_show(version)} is older than {_show(plat.min_version)} "
+                                                f"({plat.why_version})")
+    else:
+        gate.version = version
+        ok = done("claude code version", True, f"{_show(version)} (at least {_show(plat.min_version)})")
+    if not ok:
+        return gate
+
+    # 7. sign-in: the exit code of auth status only; its output is never read, printed or logged
+    code, _ = _run_child(probe_argv(node, adapter, "sign-in"), b"", SIGNIN_TIMEOUT, agent.workdir, env=env,
+                         keep_output=False)
+    if code != 0:
+        what = f"did not answer within {SIGNIN_TIMEOUT:.0f} s" if code is None else f"exited {code}"
+        done("sign-in", False, f"auth status {what}. {SIGNIN_TEXT}")
+        return gate
+    done("sign-in", True, "auth status exited 0 (its output was not read)")
+
+    # 8. the layer 9 Claude Code hook and its self-test, with the same environment
+    _hook_checks("claude-code", root, src, done, env=env)
+    return gate
+
+
+def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None = None,
+                mode: str | None = None) -> Gate:
+    """Every check from 10.R6.1 (or 10.R11.6 for a Claude Code ACP chat), in order.
+
+    The first that fails ends it; the rest are 'not run'. mode RUN for a Claude Code agent with
+    transport acp: the checks of `claude -p`, because `agent run` stays headless `claude -p`.
+    """
+    root = _root(root)
+    plat = PLATFORMS[agent.platform]
+    gate = Gate()
+    if is_claude_acp(agent, mode):
+        return _claude_acp_checks(agent, root, src, gate)
+    order = ["command", "version", "hook script", "hook self-test"] + (["kiro hook file"] if agent.platform == "kiro" else [])
+    done = _recorder(gate, order)
 
     found = shutil.which(agent.command)
     if not found or not os.path.isabs(found):
@@ -649,25 +869,9 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     if not ok:
         return gate
 
+    if not _hook_checks(agent.platform, root, src, done):
+        return gate
     hook = hook_path(agent.platform, src)
-    try:
-        hst = os.lstat(hook)
-        hook_ok = stat.S_ISREG(hst.st_mode)
-    except OSError:
-        hook_ok = False
-    if not done("hook script", hook_ok, f"{hook}" + ("" if hook_ok else " is missing or not a regular file")):
-        return gate
-
-    python = python_path()
-    if python is None:
-        done("hook self-test", False, "the path of the Python running umwayi is not known")
-        return gate
-    code, _ = _run_child([python, str(hook), "--root", str(root)], SELFTEST_INPUT, SELFTEST_TIMEOUT, str(root))
-    if code != SELFTEST_EXIT:
-        what = f"did not answer within {SELFTEST_TIMEOUT:.0f} s or could not start" if code is None else f"exited {code}"
-        done("hook self-test", False, f"the hook {what}; it must block the self-test event with exit {SELFTEST_EXIT}")
-        return gate
-    done("hook self-test", True, f"the hook started and blocked the self-test event (exit {SELFTEST_EXIT})")
 
     if agent.platform == "kiro":
         want = kiro_hook_command("python3", hook, root)
@@ -695,6 +899,10 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
     agent = find(load(root, given), name)
     gate = gate_checks(agent, root, home=home)
     lines = [f"Agent {agent.name}: {agent.platform}, transport {agent.transport}, workdir {agent.workdir}"]
+    if is_claude_acp(agent, CHAT):
+        lines.append("These are the checks of a Claude Code ACP chat (node and the pinned adapter "
+                     f"{CLAUDE_ACP_PACKAGE} {CLAUDE_ACP_VERSION}); 'umwayi agent run' for this agent "
+                     "starts claude -p and runs the checks of transport cli.")
     st = kill.state(root)
     lines.append(f"kill switch: {st}" + ("" if st == kill.OFF else " (a start would stop now with exit 3)"))
     for c in gate.checks:
@@ -704,6 +912,12 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
         lines.append(f"Not gated: agent {agent.name} would be refused (exit 2). Nothing was started.")
         return Result(2, lines)
     python = python_path()
+    if is_claude_acp(agent, CHAT):
+        argv, _ = build_argv(agent, CHAT, gate.command_path, root, python)
+        lines.append(f"chat would start: {json.dumps(argv)} with the allow-listed environment "
+                     "(the chat itself comes in layer 10 part 7b; until then 'umwayi agent chat' refuses it, exit 64)")
+        lines.append(f"Gated: the checks for a Claude Code ACP chat of agent {agent.name} passed. Nothing was started.")
+        return Result(0, lines)
     modes = [RUN, CHAT]
     for mode in modes:
         argv, stdin = build_argv(agent, mode, gate.command_path, root, python,
@@ -999,7 +1213,7 @@ class _Run:
             return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {reason}", not_started], why)
 
         # 5. every gate check, again, just before the start
-        gate = gate_checks(a, root)
+        gate = gate_checks(a, root, mode=self.mode)
         if not gate.gated:
             why = self.log(f"Refused agent {a.name}: not gated ({gate.reason()})",
                            "the kill switch, the rules (Yes), the run lock, then the gate checks", "Nothing was started.")
@@ -1239,7 +1453,7 @@ class _Run:
         The action never holds the agent-written title. While the kill switch is on (or unknown) the
         answer is No. A check that could not be logged, or any error, is a reject.
         """
-        action = permission_action(self.agent.name, tool_call)
+        action = permission_action(self.agent.name, tool_call, self.agent.platform)
         try:
             st = kill.state(self.root)
             stop = kill.reason(st) if kill.stopped(st) else None
@@ -1297,12 +1511,15 @@ _PLAIN_KIND = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 _PLAIN_TOOL = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,39}$")
 
 
-def permission_action(agent_name: str, tool_call) -> dict:
+def permission_action(agent_name: str, tool_call, platform: str) -> dict:
     """The action for an ACP permission request. kind and tool only when they are short plain words.
 
-    The title is written by the agent (ACP says not to approve on it), so it is never in the action.
+    platform is the agent's (kiro or claude-code). The title is written by the agent (ACP says not
+    to approve on it), so it is never in the action.
     """
-    action = {"type": "acp_permission", "agent": agent_name, "platform": "kiro"}
+    if platform not in PLATFORMS:
+        raise UsageError("agent: unknown platform")
+    action = {"type": "acp_permission", "agent": agent_name, "platform": platform}
     if isinstance(tool_call, dict):
         kind, tool = tool_call.get("kind"), tool_call.get("name")
         if isinstance(kind, str) and _PLAIN_KIND.match(kind):
@@ -1328,11 +1545,16 @@ def _owner_input():
 
 def chat_agent(root, name: str, clock, given: str | None = None, out=None) -> Result:
     """`umwayi agent chat NAME`: the same steps as run, then the owner's terminal (transport cli, part 5)
-    or umwayi's own ACP client (transport acp, Kiro only, part 6)."""
+    or umwayi's own ACP client (transport acp, part 6 for Kiro). A Claude Code ACP chat is refused
+    with exit 64 until layer 10 part 7b (the session and the canary) is built, so nothing starts ungated."""
     root = _root(root)
     agent = find(load(root, given), name)
     if agent.platform not in PLATFORMS:
         raise UsageError("agent: unknown platform. Nothing was started.")
+    if is_claude_acp(agent, CHAT):
+        raise UsageError(f"agent: the Claude Code ACP chat comes in layer 10 part 7b and is not built yet, so "
+                         f"agent {agent.name} was refused. 'umwayi agent check {agent.name}' runs its gate checks; "
+                         "'umwayi agent run' and transport cli work today. Nothing was started.")
     if agent.transport == ACP and agent.platform != "kiro":
         raise UsageError("agent: ACP chat is only for platform kiro. Nothing was started.")
     return _Run(root, agent, None, clock, mode=CHAT, out=out).go()
