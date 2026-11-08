@@ -143,6 +143,17 @@ class BundleTests(MemoryBase):
         self.assertEqual([e.path for e in bundle.entries], ["memory/master.md"])
         self.assertEqual(bundle.skipped_count, 1)
 
+    def test_memory_dir_that_is_a_link_loop_is_a_config_error(self):
+        # found by the corrupt state sweep in tests/test_system.py: it used to crash (exit 2)
+        try:
+            os.symlink("memory", self.root / "memory")
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks not supported")
+        with self.assertRaises(UmwayiError):
+            load_bundle(self.config())
+        code, out = MemoryCliTests.run_cli(self, "memory", "bundle")
+        self.assertEqual((code, out), (64, ""))
+
     def test_missing_memory_dir_is_error(self):
         with self.assertRaises(UmwayiError):
             load_bundle(self.config())
