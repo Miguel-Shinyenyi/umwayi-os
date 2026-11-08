@@ -2,7 +2,7 @@
 
 umwayi-os is an AI operating system for one person and their AI helpers. It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change.
 
-It is built in eight layers. Each layer works alone and is tested before the next starts.
+It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is planned for Dec 3. Layers 10 and 11 come after Dec 3.
 
 ## Glossary
 
@@ -11,6 +11,8 @@ It is built in eight layers. Each layer works alone and is tested before the nex
 - **Answer**: one of Yes, No, Ask me first.
 - **Action**: a JSON object that describes what an AI helper wants to do.
 - **Root**: the folder that holds `umwayi.json`, `rules.yaml`, `queue.md` and `LOGBOOK.md`.
+- **Platform**: an AI tool the owner uses that can run a hook before it acts, for example Claude Code or Kiro.
+- **Adapter**: a thin program that sits between a platform's hook and `umwayi check` (layer 9).
 
 ## Cross-cutting requirements
 
@@ -151,8 +153,52 @@ Acceptance criteria:
 7. The kill switch `.umwayi/KILL` (`umwayi kill on`, `umwayi kill off`, `umwayi kill status`) makes every AI helper, job and workflow stop before doing anything, with exit 3 and one logbook entry. A state of the kill file that cannot be read fails closed (stop).
 8. Workflows write no file outside drafts/, except the queue and the logbook.
 
+## Layer 9: Adapters
+
+Status: not started. Starts only when the owner says so. Planned for Nov 15 to Nov 21.
+
+User story: as the owner, I want the AI platforms I already use to ask umwayi before they act, so the same rules, queue and logbook cover them, and a broken adapter never lets an action through.
+
+Acceptance criteria:
+
+1. There is one thin adapter per platform. It turns the platform's hook input into `umwayi check` input, and turns the answer back into the platform's allow, deny or ask.
+2. Targets, in this order: Claude Code PreToolUse hooks, Kiro hooks, and a generic stdin and stdout adapter.
+3. Before any adapter is built, the official Claude Code hook documentation and the Kiro hook actions and hook types pages are read, and what they say about input fields, output format and which exit code blocks is written down with links.
+4. Yes passes (allow). No blocks (deny).
+5. Ask me first maps to the platform's ask where the platform has one. Where it does not, it maps to deny plus one queue item of kind decision for the owner.
+6. A missing or broken rules file blocks.
+7. Every adapter catches every error and blocks (exit 2, or deny). On Claude Code exit 1 blocks nothing, so an adapter never exits 1, and a crash never looks like allow.
+8. Adapter packages may use third party packages, pinned and listed in their own README. The core `umwayi` package stays standard library only.
+9. Each adapter has tests: No blocks, Ask me first asks or denies, Yes passes, a broken rules file blocks, a crash blocks.
+10. Every check an adapter makes goes through `umwayi check`, so it writes one logbook entry like any other check.
+
+## Layer 10: Own command line and chat (outline)
+
+Status: not started. After Dec 3. Starts only when the owner says so.
+
+User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them.
+
+Outline:
+
+- One front door starts an agent through the agent's own command line or the Agent Client Protocol (ACP).
+- The queue, rules and logbook stay in front of every agent it starts, through the layer 9 adapters.
+- It reuses the platforms' command lines and ACP. It does not build a model client.
+
+## Layer 11: Linux-like features (outline)
+
+Status: not started. After Dec 3. Starts only when the owner says so.
+
+User story: as the owner, I want umwayi-os to schedule, watch, limit and remember like an operating system, using the tools Linux already has.
+
+Outline:
+
+- Scheduling, file watching, process limits, a small database and terminal sessions.
+- Reuse cron or systemd timers, inotify, SQLite, tmux, Unix permissions, and bubblewrap or containers.
+- Do not build a new scheduler, file system or shell.
+
 ## Non goals for Dec 3
 
 - Budget governor
 - Finance and marketing loops
 - Web interface
+- Layer 10 (own command line and chat) and layer 11 (Linux-like features): they come after Dec 3

@@ -1,6 +1,36 @@
 # Tasks: umwayi-os
 
-Each layer works alone and is tested before the next starts. Stop for owner review after layer 2.
+Each layer works alone and is tested before the next starts. A layer that is not started begins only when the owner says so.
+
+## Status
+
+| layer | status | pull request | tests on main after it |
+| --- | --- | --- | --- |
+| 1 Memory | done | PR 1 | 50 (with layer 2) |
+| 2 Rules | done | PR 1 | 50 |
+| 3 Queue | done | PR 2, then PR 3 (answer column, id guard, migrate) | 98 after PR 2, 134 after PR 3 |
+| 4 Archive | done | PR 4 | 217 |
+| 5 Logbook | done | PR 5 | 322 |
+| 6 Automation | done | PR 6 (with the layer 2 fix: a No stays No) | 393 |
+| 7 Helpers | done | PR 7 | 461 |
+| 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
+| Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
+| 9 Adapters | not started | | |
+| 10 Own command line and chat | not started, after Dec 3 | | |
+| 11 Linux-like features | not started, after Dec 3 | | |
+
+Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 11).
+
+## Schedule to Dec 3
+
+| dates | work |
+| --- | --- |
+| Nov 15 to Nov 21 | Layer 9 adapters, when the owner says to start |
+| Nov 22 to Nov 28 | Whole-system test again (with the adapters), README, demo, Devpost text |
+| Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
+| Dec 3 | Submit |
+
+Layers 10 and 11 come after Dec 3.
 
 ## Setup
 
@@ -10,7 +40,7 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 0.4 CI workflow that runs tests on every pull request
 - [x] 0.5 `.gitignore` that keeps private memory out of the repo
 
-## Layer 1: Memory
+## Layer 1: Memory (done, PR 1)
 
 - [x] 1.1 Config loader and validator for `umwayi.json`
 - [x] 1.2 Private path matching (exact, folder, glob, parents, case-insensitive)
@@ -18,7 +48,11 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 1.4 `umwayi memory bundle` with `--format text|json`
 - [x] 1.5 Tests: private paths never appear, symlinks skipped, bad config stops, order is stable
 
-## Layer 2: Rules
+Still open:
+
+- There is no `umwayi memory add` command; memory is plain files the owner writes (KNOWN-LIMITS 10).
+
+## Layer 2: Rules (done, PR 1)
 
 - [x] 2.1 Strict YAML subset reader
 - [x] 2.2 Rules loader and validator
@@ -27,7 +61,7 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 2.5 Starter `rules.yaml`
 - [x] 2.6 Tests: no match, broken file, bad JSON, precedence, exit codes
 
-## Layer 3: Queue
+## Layer 3: Queue (done, PR 2 and PR 3)
 
 - [x] 3.1 `queue.md` format, strict parser and writer (atomic write, only the touched row is rewritten)
 - [x] 3.2 `umwayi queue list` (with `--status` and `--kind` filters)
@@ -36,12 +70,12 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 3.5 `umwayi queue close`
 - [x] 3.6 Every change appends to the logbook; a failed logbook write undoes the queue change
 - [x] 3.7 Tests (`tests/test_queue.py`, `tests/test_logbook.py`)
-- [x] 3.8 `answer` column and required `--answer` on `umwayi queue answer`
-- [x] 3.9 `close` works on open or answered rows (tested, including that answer and date are kept)
-- [x] 3.10 Ids are never reused: highest id in `queue.md` and in the logbook plus one, refuse to add if the logbook is unreadable
-- [x] 3.11 Old six column layout refused with a message that names the migration; `umwayi queue migrate` converts it once and logs it
+- [x] 3.8 `answer` column and required `--answer` on `umwayi queue answer` (PR 3)
+- [x] 3.9 `close` works on open or answered rows (tested, including that answer and date are kept) (PR 3)
+- [x] 3.10 Ids are never reused: highest id in `queue.md` and in the logbook plus one, refuse to add if the logbook is unreadable (PR 3)
+- [x] 3.11 Old six column layout refused with a message that names the migration; `umwayi queue migrate` converts it once and logs it (PR 3)
 
-## Layer 4: Archive
+## Layer 4: Archive (done, PR 4)
 
 - [x] 4.1 Archive folder and `INDEX.md` format, strict index parser
 - [x] 4.2 `umwayi archive move` (line range or markers, pointer line left behind)
@@ -50,28 +84,30 @@ Each layer works alone and is tested before the next starts. Stop for owner revi
 - [x] 4.5 Tests (`tests/test_archive.py`): every refusal, the id guard, the pointer line, three file rollback, verify after a hand edit
 - [x] 4.6 Shared atomic writer `umwayi/fsutil.py`; `logbook.logged_ids` takes an id prefix
 
-Not built (later): `umwayi archive restore`. The output of `move` already names it.
+Still open:
 
-## Layer 5: Logbook
+- `umwayi archive restore` is not built. The output of `archive move` already names it. Not in `docs/KNOWN-LIMITS.md`.
+
+## Layer 5: Logbook (done, PR 5)
 
 - [x] 5.1 Append only writer and entry format (done early, in layer 3)
 - [x] 5.2 Tamper check: SHA-256 record in `.umwayi/logbook.sha256`, checked before and written after every append
 - [x] 5.3 `umwayi logbook seal --by NAME`: the only way to accept an unrecorded or edited logbook, never automatic
 - [x] 5.4 Reader and validator for every entry; `umwayi logbook verify` (line numbers, never line text; read only)
 - [x] 5.5 Real dates that never go backwards (verify problem and append refusal)
-- [x] 5.6 Layer 2 wired: one entry per `umwayi check`, no action JSON, Ask me first if the logbook cannot be written, `--no-log` dry run
+- [x] 5.6 Layer 2 wired: one entry per `umwayi check`, no action JSON, `--no-log` dry run
 - [x] 5.7 Lock file `.umwayi/logbook.lock` so two appends cannot interleave
 - [x] 5.8 Layers 3 and 4 use the same checked append
 - [x] 5.9 Tests (`tests/test_logbook.py`, `tests/test_check_log.py`, `tests/test_logbook_integration.py`)
 
-Still open after layer 5:
+Still open:
 
-- A lock for `queue.md` and the archive files themselves. The logbook lock only covers the logbook append, so two queue or archive commands at once can still race on their own files.
-- A stale lock (left by a killed process) is not removed automatically. The owner deletes it, as the message says.
-- The record lives next to the logbook. Someone who edits the logbook and also rewrites the record is not detected. Sealing state outside the repo, or signing it, is not built.
-- `umwayi archive restore` (named by `archive move`, not built).
+- Editing both `LOGBOOK.md` and its hash record is not detected (KNOWN-LIMITS 3).
+- Large logbooks are re-read on every append (KNOWN-LIMITS 4).
+- Owner commands (queue, archive) do not take the run lock, so two of them at once can still race on `queue.md` or the archive files (KNOWN-LIMITS 9). Each write is atomic and logged.
+- A stale `.umwayi/logbook.lock` left by a killed process is not removed automatically; the owner deletes it, as the message says. Not in `docs/KNOWN-LIMITS.md`.
 
-## Layer 6: Automation
+## Layer 6: Automation (done, PR 6)
 
 - [x] 6.1 Schedule runner: `umwayi run JOBFILE [--job NAME]`, `jobs.yaml`, fixed allow list (report, check, queue-list), gap rule, rules asked first, one logbook entry per run
 - [x] 6.2 Weekly progress report from git history: `umwayi report --since DATE`, one fixed git log command, numbered drafts that never overwrite, no emails
@@ -79,13 +115,14 @@ Still open after layer 5:
 - [x] 6.4 Tests (`tests/test_automation.py`) with mutation checks
 - [x] 6.5 Layer 2 fix (separate commit): when the logbook cannot be written, a No stays No (exit 2)
 
-Still open after layer 6:
+Still open:
 
-- Fixed after layer 8 (hardening): the run lock `.umwayi/run.lock` stops two job runs at the same moment.
-- `--approved-by` is not a security boundary. Layer 7 must make sure helpers never pass it.
-- A deleted last draft number can be used again (numbering reads `drafts/`, not the logbook).
+- `--approved-by` is self-declared (KNOWN-LIMITS 1). No AI helper, job or workflow passes it; the system test checks this.
+- `umwayi report` run directly does not check the kill switch (KNOWN-LIMITS 5).
+- A failed publish can leave an empty `outbox/` folder (KNOWN-LIMITS 8).
+- A deleted last draft number can be used again (numbering reads `drafts/`, not the logbook). Not in `docs/KNOWN-LIMITS.md`.
 
-## Layer 7: Helpers
+## Layer 7: Helpers (done, PR 7)
 
 - [x] 7.1 Helper base (`umwayi/helpers/base.py`): every step through the rules, No exit 2, Ask me first exit 3 with a queue decision, only Yes continues, one logbook entry per step, no way to set an approval
 - [x] 7.2 Steward: `umwayi steward [--waiting-days N]`, read only, one proposal under drafts/
@@ -93,13 +130,13 @@ Still open after layer 6:
 - [x] 7.4 Tests (`tests/test_helpers.py`) with mutation checks
 - [x] 7.5 Shared `umwayi/drafts.py` (moved out of report.py); optional `social_channels` in umwayi.json; helper rules in rules.yaml
 
-Still open after layer 7:
+Still open:
 
-- Answering a helper's queue item does not let it go on. There is no way for the owner to approve one single helper step; the owner changes rules.yaml instead.
-- If a later step stops, drafts from earlier steps stay (each has its own logbook entry).
-- Fixed after layer 8 (hardening): the run lock `.umwayi/run.lock` stops two helper runs at the same moment.
+- Social drafts use the same text for every channel (KNOWN-LIMITS 7).
+- Answering a helper's queue item does not let it go on; to allow an action the owner changes rules.yaml. This is on purpose. Not in `docs/KNOWN-LIMITS.md`.
+- If a later step stops, drafts from earlier steps stay (each has its own logbook entry). Not in `docs/KNOWN-LIMITS.md`.
 
-## Layer 8: Workflows
+## Layer 8: Workflows (done, PR 8)
 
 - [x] 8.1 Workflow file format `workflows/NAME.yaml` (miniyaml), fixed allow list, `umwayi workflow validate NAME` (every problem with a line number, exit 64)
 - [x] 8.2 Content loop `workflows/content-loop.yaml` (collect, brief, draft, approve) and `umwayi workflow run NAME`; approve adds a decision and stops with exit 3
@@ -107,15 +144,59 @@ Still open after layer 7:
 - [x] 8.4 Tests (`tests/test_workflows.py`) with mutation checks
 - [x] 8.5 Separate commit: config and usage errors exit 64 in every command; unexpected errors exit 2 (`tests/test_exit_codes.py`)
 
-Review gate: stop here for owner review.
+Still open:
 
-Still open after layer 8:
+- The kill switch is a file anyone with write access can remove (KNOWN-LIMITS 2).
+- YAML syntax errors show only the first problem (KNOWN-LIMITS 6).
+- Inside a workflow, the social step is one rules check for all channels, so a per channel rule only works with `umwayi social draft` (KNOWN-LIMITS 7).
 
-- Inside a workflow, the Steward and social steps are one rules check each. The social helper's per channel check (with `channel` in the action) is not repeated there.
-- A YAML syntax error stops the validator at the first one, so only that problem is reported.
-- The kill switch is a file in the repo folder. Anyone who can write the folder can remove it; it guards against runaway runs, not against a person.
-- Fixed after layer 8 (hardening): two runs at the same moment are now refused by the run lock `.umwayi/run.lock` (`umwayi/runlock.py`).
+## Hardening and whole-system test (done, PR 9)
+
+- [x] H.1 CI runs on Python 3.10, 3.11, 3.12 and 3.13
+- [x] H.2 Run lock `.umwayi/run.lock` (`umwayi/runlock.py`, `fcntl.flock`, never waits): two AI helper, job or workflow runs at once give Ask me first (exit 3) and one logbook entry; no locking means fail closed (`tests/test_runlock.py`, with two real processes)
+- [x] H.3 Whole-system test `tests/test_system.py`: one scripted run of the umwayi command as real processes, 38 logbook entries, `logbook verify` ok
+- [x] H.4 Fault tests in the same file: logbook edits, broken rules, bad config and workflow files, crashes and corrupt state in every command, unknown actions, no network import, no approver code path
+- [x] H.5 Fix: unexpected errors exit 2 in `umwayi check` and inside helper and workflow steps, never 1 or 3
+- [x] H.6 Fix: a `memory` folder that is a link loop is a config error (64), not a crash
+- [x] H.7 Proof that the tests fail: removing the lock, removing the kill switch check, and making check exit 1 on an error each make the system test fail
+- [x] H.8 `docs/KNOWN-LIMITS.md`
+- Not tested yet: Windows, macOS, network file systems for the run lock, the installed `umwayi` script (KNOWN-LIMITS 9 and 11)
+
+## Layer 9: Adapters (not started)
+
+Starts only when the owner says so. Planned for Nov 15 to Nov 21.
+
+- [ ] 9.1 Read the official Claude Code hook documentation (PreToolUse) and the Kiro hook actions and hook types pages. Write down, with links, what each says about the input fields, the output format, how to allow, deny or ask, and which exit code blocks. Put the notes in `docs/adapters/PLATFORMS.md` before any adapter code. Where the docs are unclear, the adapter blocks.
+- [ ] 9.2 Core: `umwayi check --json` gives stable fields an adapter can trust without reading the reason text: `answer`, `rule_id`, `rules_ok` (false when rules.yaml is missing or broken), `logged`. Standard library only, tested.
+- [ ] 9.3 Claude Code adapter (PreToolUse): hook input to an action, `umwayi check`, the answer back as allow, deny or ask
+- [ ] 9.4 Kiro adapter: the same for Kiro hooks
+- [ ] 9.5 Generic stdin and stdout adapter: one JSON action in, one JSON answer out, for any platform
+- [ ] 9.6 Ask me first where the platform has no ask: deny, and add one queue item of kind decision (not twice while it is open)
+- [ ] 9.7 Every adapter catches every error and blocks (exit 2 or deny). On Claude Code exit 1 blocks nothing, so an adapter never exits 1.
+- [ ] 9.8 Each adapter package has its own README. Any third party package is pinned and listed there. The core stays standard library only.
+- [ ] 9.9 Tests per adapter: No blocks, Ask me first asks or denies, Yes passes, a broken rules file blocks, a crash blocks. With mutation checks.
+- [ ] 9.10 Starter rules for adapter actions in rules.yaml
+- [ ] 9.11 Whole-system test again with the adapters (Nov 22 to Nov 28)
+
+## Layer 10: Own command line and chat (not started, after Dec 3)
+
+Outline only. Starts only when the owner says so.
+
+- [ ] 10.1 One front door that starts any agent through its own CLI or the Agent Client Protocol (ACP)
+- [ ] 10.2 The queue, rules and logbook stay in front of every agent it starts (through the layer 9 adapters)
+- [ ] 10.3 Reuse the platforms' CLIs and ACP. No model client is built.
+
+## Layer 11: Linux-like features (not started, after Dec 3)
+
+Outline only. Starts only when the owner says so.
+
+- [ ] 11.1 Scheduling with cron or systemd timers (no new scheduler)
+- [ ] 11.2 File watching with inotify
+- [ ] 11.3 Process limits with Unix permissions, bubblewrap or containers
+- [ ] 11.4 A small database with SQLite
+- [ ] 11.5 Terminal sessions with tmux
+- [ ] 11.6 No new scheduler, file system or shell is built
 
 ## Non goals for Dec 3
 
-Budget governor, finance and marketing loops, web interface.
+Budget governor, finance and marketing loops, web interface. Layers 10 and 11 come after Dec 3.
