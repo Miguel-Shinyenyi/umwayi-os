@@ -177,18 +177,136 @@ Acceptance criteria:
 14. The generic adapter reads `{"tool_name", "tool_input"}` on stdin, writes one JSON line `{"decision", "reason"}` on stdout, and exits 0 for allow, 2 for deny, 3 for ask (or deny plus a queue item with `--no-ask`). The platform name comes from its command line only.
 15. No adapter creates or changes a platform settings or hook file (`.claude`, `.kiro/hooks`); its README shows the snippet the owner adds.
 
-## Layer 10: Own command line and chat (outline)
+## Layer 10: Own command line and chat
 
-Status: not started. Planned for Nov 9 to Nov 10. Built only after the owner approves its requirements, design and tasks.
+Status: requirements, design and tasks written (tasks.md 10.0), **waiting for owner approval**. Nothing is built before the owner approves. Planned for Nov 9 to Nov 10. What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
 
-User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them.
+User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them, and an agent umwayi cannot put a gate in front of is never started.
 
-Outline:
+Items marked "proposed" depend on an open question in design.md (layer 10) and change if the owner answers differently.
 
-- One front door starts an agent through the agent's own command line or the Agent Client Protocol (ACP).
-- The queue, rules and logbook stay in front of every agent it starts, through the layer 9 adapters.
-- It reuses the platforms' command lines and ACP. It does not build a model client.
-- Layer 10 adapter packages may use third party packages, pinned and listed in their own README. The core `umwayi` package stays standard library only.
+Words used below: an **agent** is an AI platform's own program (`claude`, `kiro-cli`) started by umwayi; the **gate** is the layer 9 adapter hook for that platform; **gated** means umwayi has confirmed, before it starts the agent, that every tool call the agent makes goes through the gate.
+
+### 10.R1 One front door
+
+The owner starts every agent the same way: `umwayi agent run NAME` for one task, `umwayi agent chat NAME` for a conversation. `umwayi agent list` and `umwayi agent check NAME` show what is defined and whether it can be gated, without starting anything.
+
+Acceptance criteria:
+
+1. `umwayi agent run NAME` (with `--prompt TEXT`, `--prompt-file PATH`, or the prompt on stdin with `-`) starts the agent named NAME once, waits for it, and exits.
+2. `umwayi agent chat NAME` starts the agent for a conversation with the owner on the terminal and exits when the conversation ends.
+3. `umwayi agent list` prints every agent in agents.yaml with its platform and transport, and starts nothing.
+4. `umwayi agent check NAME` runs every check that `run` and `chat` run before a start (10.R4, 10.R6), prints each result, and starts nothing. It exits 0 only if the agent can be gated.
+5. `umwayi agent validate` reads agents.yaml, prints every problem with its line number and exits 64, or prints `ok` and exits 0.
+6. Every subcommand takes `--root DIR` like the rest of umwayi; the agents file is `agents.yaml` in the root unless `--agents PATH` is given.
+7. The front door starts agents only through their own command line or ACP (10.R5). It contains no model client: it opens no network connection, holds no model key, and imports no network module.
+
+### 10.R2 Agent definitions in agents.yaml
+
+Acceptance criteria:
+
+1. agents.yaml is read with `umwayi/miniyaml.py`, the same strict reader as rules.yaml. Tabs, anchors, flow mappings and every other construct miniyaml rejects are errors.
+2. The file has one top key, `agents`, a list. Each agent has exactly these keys, and no other key is accepted: `name` (required), `platform` (required), `command` (required), `transport` (optional, default `cli`), `workdir` (required), `kiro_agent`, `trust_tools`, `max_turns`, `timeout_minutes` (all optional).
+3. `name` is 1 to 32 characters, a lowercase letter then lowercase letters, digits and `-`, and unique in the file.
+4. `platform` is one of a fixed list in the code: `claude-code` or `kiro`. Any other value is an error, so an unknown platform is never started.
+5. `command` is one word from a fixed allow list per platform in the code: `claude` for `claude-code`, `kiro-cli` for `kiro`. A path, a word with a space, a shell character, or any other word is an error. There is no field for free command line arguments, and no shell string anywhere.
+6. `transport` is `cli` or `acp`. `acp` is accepted only for `kiro` (10.R5).
+7. `workdir` is an absolute path to an existing folder with no `..` part. It must not be the umwayi root, inside it, or contain it (proposed, design open question 5).
+8. `kiro_agent` (only for `kiro`, and not with `transport: acp`) is 1 to 64 letters, digits, `_` or `-`. `trust_tools` (only for `kiro`, `run`) is a list of tool IDs, each from a fixed list in the code of the built-in IDs the Kiro docs name. `max_turns` (only for `claude-code`) is a whole number from 1 to 200. `timeout_minutes` is a whole number from 1 to 720, default 30.
+9. A missing, unreadable or invalid agents.yaml makes every `agent` subcommand except `validate` exit 64 and start nothing. Error messages carry a line number but never the text of the line.
+
+### 10.R3 Rules, queue and logbook in front of every start
+
+Acceptance criteria:
+
+1. Before any check of the platform, the front door asks the rules with the action `{"type": "agent_run", "agent": NAME, "platform": P, "mode": "run"|"chat", "transport": "cli"|"acp"}`, through the same check as `umwayi check`, with one logbook entry.
+2. Yes goes on. No stops with exit 2. Ask me first stops with exit 3 and adds one queue item of kind decision, `Start agent NAME (MODE)?`, unless an open item with that title already exists (proposed, design open question 2). Answering the item does not start the agent; the owner adds a Yes rule for that. A broken rules.yaml gives Ask me first, as everywhere.
+3. Every start adds one logbook entry naming the agent, the platform, the transport and the full path of the command it ran. Every end adds one entry with the agent's exit code and how long it ran. Every refusal (10.R6) adds one entry with the reason. The prompt and the conversation are never written to the logbook.
+4. If the logbook cannot be written, nothing is started (exit 2), as for helpers and workflows.
+5. While the agent runs, every tool call it makes goes through its layer 9 adapter (`adapters/claude_code/hook.py` or `adapters/kiro/hook.py`) with `--root` set to the same root, so it is checked by the rules and written to the logbook, and Ask me first becomes the platform's ask or a deny plus a queue item, exactly as in layer 9.
+6. `agent run` and `agent chat` take the shared run lock (`.umwayi/run.lock`) for as long as the agent runs. If it is held, they stop with exit 3 and start nothing (proposed, design open question 1).
+
+### 10.R4 The kill switch stops every agent
+
+Acceptance criteria:
+
+1. If the kill switch is on, or its state cannot be read, when `run` or `chat` is called, nothing is started: exit 3 and one logbook entry, as for helpers.
+2. While an agent runs, the front door checks the kill switch at least once a second. When it is on or unknown, it stops the agent (SIGTERM, then SIGKILL after 10 seconds), writes one logbook entry "The kill switch stopped agent NAME", and exits 3.
+3. Independently, every tool call the agent tries while the switch is on is denied by its layer 9 adapter (decision 9.12), so a call made before the agent stops is still denied.
+
+### 10.R5 How each agent is started
+
+Acceptance criteria:
+
+1. The command word is found on `PATH` when the front door runs, and the full path found is the one started and logged. The agent is started as a child process with an argument list, never through a shell.
+2. Claude Code, `run`: `claude -p --permission-mode default --settings JSON [--max-turns N] PROMPT`, in `workdir`. JSON is built by umwayi from a fixed template: `disableAllHooks: false` and one `PreToolUse` hook, matcher `*`, exec form (`command` is the Python running umwayi, `args` is the layer 9 hook path, `--root`, the root), `timeout: 30`, `onFailure: "block"`. No settings file is created or changed. A prompt that starts with `-` is refused with exit 64, because the Claude Code docs do not say how to end the flags.
+3. Claude Code, `chat`: `claude --permission-mode default --settings JSON`, interactive, with the owner's terminal passed straight through.
+4. Kiro, `run`: `kiro-cli chat --v3 --no-interactive [--agent KIRO_AGENT] [--trust-tools=ID,...]`, in `workdir`, with the prompt on stdin. `--trust-all-tools` is never passed (proposed, design open question 3).
+5. Kiro, `chat` with `transport: cli`: `kiro-cli chat --v3 [--agent KIRO_AGENT]`, interactive, with the owner's terminal passed straight through.
+6. Kiro, `chat` with `transport: acp`: `kiro-cli acp --agent-engine=v3`, with umwayi as the ACP client (10.R7).
+7. Never passed, by any code path: `--bare`, `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions`, `bypassPermissions`, `--setting-sources`, a second `--settings`, `--trust-all-tools`, `--cloud`, `--bg`. A test checks every argument list the code can build.
+8. The agent's environment is the owner's environment, unchanged except that nothing umwayi adds holds a secret. umwayi never reads, logs or stores a model key or sign-in token.
+9. `run` stops the agent after `timeout_minutes` (SIGTERM, then SIGKILL after 10 seconds) and exits 2.
+
+### 10.R6 An agent that cannot be gated is refused, not run ungated
+
+Acceptance criteria:
+
+1. Before every start, the front door runs these checks, in this order, and refuses on the first that fails: the command word is on PATH; its version can be read and is new enough (Claude Code 2.1.295 or later, for `onFailure`; Kiro CLI 2.27.1 or later, for hooks in V3 headless runs); the layer 9 hook script for the platform exists; the hook starts and blocks a self-test event with exit 2 within 5 seconds (no rule is checked, nothing is logged by the hook); for Kiro, a hook file is found (10.R6.2).
+2. Kiro: a JSON file in `WORKDIR/.kiro/hooks/` or `~/.kiro/hooks/` has a hook with trigger `PreToolUse`, no `matcher` (or `*`), and a command action whose command is exactly `PYTHON HOOK --root ROOT` with HOOK the absolute path of `adapters/kiro/hook.py`, ROOT the absolute root and PYTHON `python3` or an absolute path to a Python. The front door only reads these files; it never writes them.
+3. A refusal prints which check failed and what the owner can do, adds one logbook entry, starts nothing, and exits 2 (No).
+4. A platform not in the fixed list is never started (10.R2.4); there is no option to start an agent ungated, and no flag skips a check.
+5. What the front door cannot check is listed in `docs/KNOWN-LIMITS.md` when it is built (for example a managed Claude Code policy that blocks non-managed hooks, see NOTES-layer10.md).
+
+### 10.R7 Chat is a thin pass through
+
+Acceptance criteria:
+
+1. With `transport: cli`, the front door prints the open queue (how many items wait for the owner, and the oldest id), then hands the terminal to the agent and does nothing else until the agent exits, except the kill switch check (10.R4.2). It does not read, change or log the conversation.
+2. With `transport: acp` (Kiro only), umwayi is a small ACP v1 client over stdio, standard library only. It sends `initialize` with protocol version 1 and no `fs` and no `terminal` capability, so it never reads, writes or runs anything for the agent. If the agent answers with another version, umwayi stops (exit 2).
+3. Each line the owner types is sent as one `session/prompt`. Agent text is printed with terminal control sequences, and bidirectional, zero-width and tag characters, made visible. Tool calls are shown as one line each.
+4. A `session/request_permission` is answered through the rules with the action `{"type": "acp_permission", "agent": NAME, "platform": "kiro", "kind": KIND, "tool": NAME_IF_GIVEN}` (one logbook entry). Yes selects an `allow_once` option; No selects a `reject_once` option; Ask me first asks the owner on the terminal, and only an explicit `y` selects `allow_once` (proposed, design open question 6). umwayi never selects `allow_always` or `reject_always`, never invents an option, and answers `reject_once` (or `cancelled` if there is no reject option) when there is no matching option or anything is unclear.
+5. Any other request from the agent gets a JSON-RPC "method not found" error. A line from the agent that is not one valid JSON-RPC message ends the chat (exit 2).
+6. umwayi's own chat commands start with `:` (`:queue`, `:quit`) so they cannot be mistaken for the agent's slash commands. Ctrl-C sends `session/cancel` and answers open permission requests with `cancelled`.
+7. The ACP permission answer is a second gate. The first gate is still the layer 9 Kiro hook, which 10.R6 requires before the chat starts.
+
+### 10.R8 Exit codes and fail closed
+
+Acceptance criteria:
+
+1. `umwayi agent run` and `umwayi agent chat` exit 0 only when the rules said Yes, the agent was gated, and the agent exited 0.
+2. Exit 2 (No): the rules said No; the agent cannot be gated (10.R6); the logbook cannot be written; the agent exited non-zero (proposed, design open question 8); the agent hit its timeout; an ACP error; any crash in umwayi.
+3. Exit 3 (Ask me first): the rules said Ask me first; the kill switch is on or unknown, before or during the run; the run lock is held.
+4. Exit 64 (usage error): bad arguments; agents.yaml missing or invalid; an unknown agent name; a prompt that cannot be passed safely.
+5. They never exit 1, and an error never leaves the agent running: on any exit path the agent is stopped first.
+6. `umwayi agent check` exits 0 if the agent can be gated, 2 if not, 64 for a usage error.
+
+### 10.R9 Standard library core, pinned packages only in adapter packages
+
+Acceptance criteria:
+
+1. Everything layer 10 adds to the core `umwayi` package uses the Python standard library only, and the core still never imports `adapters`.
+2. If a layer 10 adapter package (under `adapters/`) ever needs a third party package, it is pinned to an exact version and listed in that package's own README, and it is not needed by the core or its tests. The plan for Dec 3 needs none.
+3. A test checks that no core module imports a network module or a third party package.
+
+### 10.R10 Tests
+
+Acceptance criteria:
+
+1. Every rule above has tests that run `umwayi agent ...` as a real child process, with fake `claude` and `kiro-cli` programs (small Python scripts put first on `PATH` in a temporary folder) that record their arguments, working folder and stdin, and that call the hook from `--settings` or the hook file the way the docs describe.
+2. Planted faults (for example: the gate check skipped, the kill switch ignored, `--settings` left out, a Yes given for Ask me first) each make the tests fail, and are listed in the pull request.
+3. Mutation checks on every new rule, as for layer 9, with the count caught listed in the pull request.
+4. No test needs a network, a real agent, a model key or a sign-in.
+
+### Out of scope for layer 10 (Dec 3)
+
+- A model client, model keys, or any network call by umwayi.
+- Claude Code over ACP (it needs Zed's third party adapter), and any other ACP agent or platform (Codex, Gemini CLI and others): refused as not gated.
+- Kiro or Claude Code cloud sessions, background sessions, resuming or listing sessions, MCP configuration, model or effort choice.
+- More than one agent at a time, and agents talking to each other.
+- Spend limits (budget governor, Nov 15 to 21) and sandboxing (layer 11).
+- Windows and macOS.
+- Changing any `.claude` or `.kiro` file.
 
 ## Layer 11: Linux-like features (outline)
 
