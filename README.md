@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Layer 10 (one front door for agents) is in progress: agents.yaml, the gate checks, `umwayi agent run` and `umwayi agent chat` (on your terminal) for Claude Code and Kiro are built; ACP chat is not yet, see [Layer 10](#layer-10-front-door-for-agents-in-progress). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Layer 10 (one front door for agents) is in progress: agents.yaml, the gate checks, `umwayi agent run` and `umwayi agent chat` (on your terminal, or over ACP for Kiro) for Claude Code and Kiro are built, see [Layer 10](#layer-10-front-door-for-agents-in-progress). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -278,15 +278,17 @@ An adapter lets an AI platform ask umwayi before it acts. Each one sends every t
 
 ## Layer 10: front door for agents (in progress)
 
-One front door starts every AI agent (Claude Code, Kiro) through its own command line, with the layer 9 hook in front of every tool call, and refuses an agent it cannot gate. Built so far: the agents file, the gate checks, `umwayi agent run` and `umwayi agent chat` with transport cli, for Claude Code and Kiro. ACP chat (part 6) comes next; until then a chat with a Kiro agent whose transport is `acp` refuses with exit 64 and starts nothing.
+One front door starts every AI agent (Claude Code, Kiro) through its own command line, with the layer 9 hook in front of every tool call, and refuses an agent it cannot gate. Built: the agents file, the gate checks, `umwayi agent run` and `umwayi agent chat` for Claude Code and Kiro, with transport cli (your terminal) or, for Kiro, transport acp (umwayi's own ACP client).
 
 ```
 umwayi agent validate [--agents PATH]      check agents.yaml, every problem with a line number
 umwayi agent list [--agents PATH]          the agents in the file
 umwayi agent check NAME [--agents PATH]    can NAME be gated? runs every gate check, starts no agent
 umwayi agent run NAME --prompt TEXT        start NAME once (Claude Code or Kiro); or --prompt-file PATH, or - for stdin
-umwayi agent chat NAME                     a chat with NAME on your terminal (transport cli)
+umwayi agent chat NAME                     a chat with NAME on your terminal (transport cli), or over ACP (Kiro, transport acp)
 ```
+
+With `transport: acp` (Kiro only), `umwayi agent chat` takes the same steps and then talks to `kiro-cli acp --agent-engine=v3` itself, with a small client in `umwayi/acp.py`. It offers the agent no file and no terminal access. Each line you type is one prompt; `:queue` shows the queue and `:quit` ends the chat. Agent text is printed with control, bidirectional and zero-width characters made visible. When Kiro asks permission for a tool, the rules answer (`{"type": "acp_permission", "kind": ..., "tool": ...}`, never the title): Yes allows once, No rejects once, Ask me first asks you `Allow once? [y/N]` and only `y` allows. umwayi never picks an "always" option. Ctrl-C cancels the turn and answers open permission requests with cancelled; it does not stop umwayi. The kill switch cancels, closes the connection and stops Kiro (exit 3). Any other request from Kiro (files, terminals) is refused, and a broken line or a dropped connection ends the chat (exit 2).
 
 `umwayi agent chat NAME` takes the same steps as `run`, in the same order (the rules see `"mode": "chat"`, and Ask me first adds `Start agent NAME (chat)?`). Then it prints what waits for you in the queue and hands your terminal to the agent unchanged: `claude --permission-mode default --settings HOOK`, or `kiro-cli chat --v3 [--agent A]` (no `--trust-tools` in a chat; Kiro asks you itself). Ctrl-C goes to the agent, not to umwayi. The kill switch, the logbook and `timeout_minutes` are still checked every second; a stop sends SIGTERM to the agent and everything it started (found in `/proc`), SIGKILL after 10 seconds, and puts your terminal mode back. Nothing of the conversation is logged. In a chat on the terminal the layer 9 hook is the only gate: umwayi does not see what you or the agent type.
 
@@ -307,6 +309,6 @@ While it runs, umwayi checks the kill switch and the logbook every second and wa
 - `check` runs, in order: the command is on PATH; its version is new enough (Claude Code 2.1.295, Kiro CLI 2.27.1); the layer 9 hook script is there; the hook starts and blocks a self-test event; for Kiro, your hook file in `WORKDIR/.kiro/hooks/` or `~/.kiro/hooks/` runs exactly the layer 9 command. It prints each result and the command lines a start would use, and writes nothing.
 - Exit codes: 0 (valid, gated, or the agent finished), 2 (No, not gated, the agent failed, a logbook or timeout stop, an unexpected error), 3 (Ask me first, the kill switch, the run lock), 64 (usage or a bad agents.yaml). Never 1.
 - For Claude Code, umwayi will add the hook itself for one session (`--settings`); for Kiro you add the hook file from [adapters/kiro/README.md](adapters/kiro/README.md). umwayi never writes a `.claude` or `.kiro` file.
-- What the Claude Code, Kiro and ACP docs say about starting agents, and what they do not say: [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md). Limits: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md) items 29 to 51. No real Claude Code or kiro-cli has been run by the tests; they use fakes that run the real hooks.
+- What the Claude Code, Kiro and ACP docs say about starting agents, and what they do not say: [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md). Limits: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md) items 29 to 58. No real Claude Code or kiro-cli has been run by the tests; they use fakes that run the real hooks.
 - Kiro: a headless run can only use the tools in `trust_tools`, and only when the rules also say Yes (Kiro denies untrusted tools, the hook denies the rest). `--trust-all-tools` is never used. The hook file you added is checked before every start; without it, or if it does not match exactly, the run is refused (exit 2).
 - To keep a prompt out of every process list, give it with `--prompt-file` or `-`: `--prompt TEXT` puts it in umwayi's own arguments, and Claude Code gets it as an argument anyway (KNOWN-LIMITS 35 and 44).

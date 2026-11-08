@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro).
 
 ## Approval and the owner
 
@@ -259,3 +259,35 @@ After a chat, umwayi puts back the terminal mode (`termios`) it saw before the s
 ### 51. The queue summary is for information only
 
 Before a chat, umwayi prints how many items are open in the queue and the first five titles. If the queue cannot be read, it says so and the chat still starts: the summary is not a check. The titles are text from `queue.md`, printed as they are after replacing characters that are not printable.
+
+## Layer 10 part 6: ACP chat for Kiro (found while building, not fixed)
+
+Written Nov 8 2026. Doc facts and links: `adapters/NOTES-layer10.md`.
+
+### 52. No real `kiro-cli acp` was run
+
+Every test talks to a scripted fake ACP agent behind `kiro-cli acp`. Not confirmed against a real Kiro CLI V3 server: the shape of its `initialize` and `session/new` answers, the error it gives when the owner is signed out (umwayi takes code -32000, or "auth" in the message, as a sign in error), the permission requests it sends, whether it exits by itself when its stdin closes (if it does not, every ACP chat ends with exit 2 after `:quit`, because umwayi stops it), and what it does on SIGTERM.
+
+### 53. The hook may not run in an ACP session: the permission answer may be the only gate
+
+The gate check requires the layer 9 Kiro hook file before an ACP chat starts, but the Kiro docs do not confirm that a Pre Tool Use command hook runs inside a `kiro-cli acp` session (the ACP overview only says hooks apply "when available"). If it does not, the first gate is not active there, and the only check umwayi makes is its answer to `session/request_permission`. And ACP permission requests are advisory: the agent decides which tool calls it asks about, so a tool call it runs without asking is then not checked at all. Until a real run shows the hook entries in the logbook during an ACP chat, treat ACP chat as less gated than `agent run` and cli chat.
+
+### 54. `content` or `prompt` in session/prompt
+
+The ACP spec puts the owner's message in `prompt`; the Kiro ACP page's example (for the legacy CLI v2 server) puts it in `content`. umwayi sends `prompt`. If a real Kiro server expects `content`, the first prompt fails: the agent answers with an error and the chat ends with exit 2 (fail closed), or it ignores the message.
+
+### 55. Claude Code over ACP is not built
+
+Claude Code has no ACP mode in its own command line; it would need Zed's third party adapter (`claude-agent-acp`), a Node package. The owner decided to decide this later (tasks.md 10.0, answer 9). A Claude Code agent with `transport: acp` is a validation error.
+
+### 56. Ctrl-C gives the owner back after 10 seconds, even if the agent goes on
+
+If the agent does not answer `session/cancel` within 10 seconds, umwayi gives the owner the prompt back and ignores the late answer, but the agent may still be working on the cancelled turn. A new prompt then overlaps with it. Each tool call is still checked (by the hook, if it runs, item 53) and each permission request by the rules.
+
+### 57. What safe_text does not catch
+
+Agent text has control characters, bidirectional controls, zero-width characters and tag characters made visible. Look-alike letters from other scripts, very long lines and Markdown are shown as they are. A tool call's title is written by the agent: it describes the call, it is not proof of what the call does, and the rules never see it.
+
+### 58. One chat, one turn at a time
+
+umwayi sends one prompt at a time and holds the owner's next lines until the turn ends. It does not use `session/load`, `session/list`, modes, models or Kiro's extension methods, and it advertises no capabilities, so Kiro features that need them are not available in an ACP chat. Kiro's own interactive approvals (for tools it does not trust) arrive as permission requests and are answered by the rules and the owner as above.

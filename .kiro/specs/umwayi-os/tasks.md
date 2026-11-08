@@ -16,7 +16,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
-| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 to 5 built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro); part 6 (ACP chat) left | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, on Python 3.10 to 3.13 |
+| 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
 | Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
 | Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
@@ -188,7 +188,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
 - [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
-## Layer 10: Own command line and chat (in progress: parts 1 to 5 built, part 6 left)
+## Layer 10: Own command line and chat (all six parts built; 10.20 and 10.21 open)
 
 Planned for Nov 9 to Nov 10. Requirements 10.R1 to 10.R10, design in design.md, doc facts in `adapters/NOTES-layer10.md`. The owner approved 10.0 on Nov 8.
 
@@ -255,16 +255,17 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### Part 6: ACP chat for Kiro (10.R7.2 to 10.R7.7)
 
-- [ ] 10.16 `umwayi/acp.py`: line-delimited JSON-RPC over the child's stdin and stdout, `initialize` (version 1, no `fs`, no `terminal`), `session/new`, `session/prompt` per owner line, `session/update` printing through `safe_text`, `session/cancel` on Ctrl-C, method not found for other requests, stop on a bad line or a wrong version.
-- [ ] 10.17 Permission answers through the rules (`acp_permission`), never `allow_always` or `reject_always`, never an invented option, Ask me first asked on the terminal.
-- [ ] 10.18 `:queue` and `:quit`.
-- [ ] 10.19 Tests with the scripted fake ACP agent: a whole turn; Yes, No and Ask me first (`y`, `n`, empty) answers with the expected `optionId`; only `allow_always` offered gives reject; no reject option gives `cancelled`; an unknown outcome kind; `fs/read_text_file` and `terminal/create` get `-32601` and nothing is read or run; protocol version 2 ends the chat with 2; a garbage line ends it with 2; control characters, bidi and zero-width characters in agent text are made visible; the title is never in the action; the kill switch cancels and stops; Ctrl-C answers open permissions with `cancelled`.
+- [x] 10.16 `umwayi/acp.py`: line-delimited JSON-RPC over the child's stdin and stdout, `initialize` (version 1, no `fs`, no `terminal`), `session/new`, `session/prompt` per owner line, `session/update` printing through `safe_text`, `session/cancel` on Ctrl-C, method not found for other requests, stop on a bad line or a wrong version.
+- [x] 10.17 Permission answers through the rules (`acp_permission`), never `allow_always` or `reject_always`, never an invented option, Ask me first asked on the terminal.
+- [x] 10.18 `:queue` and `:quit`.
+- [x] 10.19 Tests (`tests/agents/test_agents_acp.py`, the owner side on pipes) with the scripted fake ACP agent (`kiro-cli acp` in `tests/agents/fake_agent.py`, driven by `FAKE_ACP`): a whole turn; Yes, No and Ask me first (`y`, `n`, empty) answers with the expected `optionId`; only `allow_always` offered gives reject; no reject option gives `cancelled`; an unknown outcome kind; `fs/read_text_file` and `terminal/create` get `-32601` and nothing is read or run; protocol version 2 ends the chat with 2; a garbage line ends it with 2; control characters, bidi and zero-width characters in agent text are made visible; the title is never in the action; the kill switch cancels and stops; Ctrl-C answers open permissions with `cancelled`.
   - Planted faults: Ask me first selects `allow_once` without asking; `allow_always` preferred; unknown requests answered with success; `fs` advertised in `initialize`.
   - Mutation checks: each row of the permission table changed; `safe_text` made a no-op; the version check removed.
+  - Result (PR 18): the 4 planted faults and 35 ACP mutations (the permission table, safe_text, the protocol, bad lines, Ctrl-C, the kill switch, exit codes) all caught; the 6 mutations of the watcher, split into `_tick` and `_tick_stop` in this part, caught by every agents test and by the ACP tests alone; and 13 part 3 start step mutations re-applied and caught by the ACP tests alone.
 
 ### After the parts
 
-- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, 41 to 45 for part 4, 46 to 51 for part 5, and the README section.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
+- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, 41 to 45 for part 4, 46 to 51 for part 5, 52 to 58 for part 6, and the README section. Left: what the first real runs show, 10.21.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
 - [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 11 to Nov 14), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
 
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
