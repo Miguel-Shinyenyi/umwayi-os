@@ -79,7 +79,7 @@ Still open after layer 5:
 - [x] 6.4 Tests (`tests/test_automation.py`) with mutation checks
 - [x] 6.5 Layer 2 fix (separate commit): when the logbook cannot be written, a No stays No (exit 2)
 
-ill open after layer 6:
+Still open after layer 6:
 
 - No lock around a whole run, so two runs of the same job at the same moment can both pass the gap rule.
 - `--approved-by` is not a security boundary. Layer 7 must make sure helpers never pass it.
