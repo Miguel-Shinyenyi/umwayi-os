@@ -216,7 +216,10 @@ class OneRunAtATimeTests(SystemBase):
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env) for _ in range(2)]
         time.sleep(0.8)  # both are up and waiting
         start.touch()
-        results = [(p.wait(timeout=60), p.stdout.read(), p.stderr.read()) for p in procs]
+        results = []
+        for p in procs:
+            out, err = p.communicate(timeout=60)  # also closes the pipes
+            results.append((p.returncode, out, err))
         codes = sorted(c for c, _, _ in results)
         self.assertEqual(codes, [0, 3], results)
         self.assertEqual(self.drafts(), ["steward-0001.md"], results)
