@@ -750,7 +750,7 @@ class CodeGuardTests(unittest.TestCase):
     def test_no_network_imports(self):
         src = Path(logbook.__file__).read_text(encoding="utf-8")
         for mod in ("socket", "urllib", "http", "requests", "smtplib"):
-            self.assertNotRegex(src, rf"^\s*(import|from) {mod}\b")
+            self.assertNotRegex(src, rf"(?m)^\s*(import|from) {mod}\b")  # (?m): every line, not only the first
 
 
 # ================================================================ id reader

@@ -1,4 +1,5 @@
 import ast
+import re
 import io
 import json
 import os
@@ -812,13 +813,12 @@ class CodeGuardTests(unittest.TestCase):
                     with self.subTest(module=name, imports=m):
                         self.assertNotIn(m.split(".")[0], banned)
 
-    def test_subprocess_only_in_report(self):
-        for name in self.MODULES:
-            src = (PKG / name).read_text(encoding="utf-8")
-            if name == "report.py":
-                continue
-            with self.subTest(module=name):
-                self.assertNotRegex(src, r"^\s*(import|from)\s+subprocess", "only report.py may start a program")
+    def test_subprocess_only_in_report_and_agents(self):
+        # Multiline: before layer 10 this pattern had no (?m), so it only looked at the first line and matched nothing.
+        pattern = r"(?m)^\s*(import|from)\s+subprocess"
+        users = sorted(n for n in self.MODULES if re.search(pattern, (PKG / n).read_text(encoding="utf-8")))
+        self.assertEqual(users, ["agents.py", "report.py"],
+                         "only report.py (git log) and agents.py (layer 10 gate checks) may start a program")
 
     def test_no_shell_anywhere(self):
         for name in self.MODULES:
