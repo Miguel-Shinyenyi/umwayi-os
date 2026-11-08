@@ -310,9 +310,11 @@ class TerminalTests(ChatCase):
         self.read_until(m, "agent ready")
         time.sleep(1.2)  # at least one watcher pass, so the children have been seen
         self.kill_on()
-        t = time.monotonic()
+        t, wall = time.monotonic(), time.time()
         self.assertEqual(self.wait_exit(p, m), 3)
-        self.assertLess(time.monotonic() - t, 5)
+        self.assertLess(time.monotonic() - t, 14)
+        term = self.wait_for(lambda c: c.get("event") == "term", what="SIGTERM to the agent")
+        self.assertLess(term["t"] - wall, 3, "umwayi did not send SIGTERM soon after the kill switch went on")
         self.assertIn("The kill switch stopped agent reviewer (exit 3).", self.screen.decode())
         self.assertEqual(len([c for c in self.calls() if c.get("event") == "spawn"]), 2)
         self.assert_agent_gone()
