@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +55,9 @@ class Decision:
     rules_ok: bool = False
     rules_count: int = 0
     action_type: str | None = None
+    # set by the command line when it was asked to honour the kill switch (layer 9 adapters)
+    kill_state: str | None = None
+    stopped_by: str | None = None
 
     @property
     def exit_code(self) -> int:
@@ -293,7 +296,10 @@ def check(action_text: str | None, rules_path: Path) -> Decision:
 
 def log_entry(decision: Decision, when: str) -> logbook.Entry:
     """The logbook entry for one check. It never contains the action JSON."""
-    who = f"Rule {decision.rule_id} gave {decision.answer}" if decision.rule_id else f"No rule gave {decision.answer}"
+    if decision.stopped_by:
+        who = f"{decision.stopped_by[0].upper()}{decision.stopped_by[1:]} gave {decision.answer}"
+    else:
+        who = f"Rule {decision.rule_id} gave {decision.answer}" if decision.rule_id else f"No rule gave {decision.answer}"
     what = f"action type: {decision.action_type}" if decision.action_type else "action type not recorded"
     matched = ", ".join(decision.matched) if decision.matched else "none"
     return logbook.Entry(
@@ -305,13 +311,15 @@ def log_entry(decision: Decision, when: str) -> logbook.Entry:
             f"rules.yaml loaded: {'yes' if decision.rules_ok else 'no'}"
             + (f" ({decision.rules_count} rules)" if decision.rules_ok else "")
             + f"; rules matched: {matched}"
+            + (f"; kill switch: {decision.kill_state}" if decision.kill_state else "")
         ),
         not_done="The action was not run. The action JSON was not stored in the logbook.",
     )
 
 
 def check_and_log(
-    action_text: str | None, rules_path: Path, root: Path, when: str, log: bool = True
+    action_text: str | None, rules_path: Path, root: Path, when: str, log: bool = True,
+    kill_state: str | None = None, stop_reason: str | None = None,
 ) -> tuple[Decision, bool]:
     """Check an action and append one logbook entry. Returns (decision, logged).
 
@@ -320,8 +328,14 @@ def check_and_log(
       * No stays No (exit 2), with the rule id, and the reason says nothing was logged.
       * Yes becomes Ask me first (exit 3): a Yes is never given without its entry.
       * Ask me first stays Ask me first (exit 3).
+
+    kill_state is recorded in the entry. stop_reason (the kill switch is on, or its
+    state is unknown) turns any answer into No, with no rule, before it is logged.
     """
     decision = check(action_text, rules_path)
+    decision.kill_state = kill_state
+    if stop_reason is not None:
+        decision = replace(decision, answer=NO, rule_id=None, reason=stop_reason, matched=[], stopped_by="the kill switch")
     if not log:
         return decision, False
     try:

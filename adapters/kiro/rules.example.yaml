@@ -1,0 +1,68 @@
+# Example rules for the Kiro adapter (layer 9). Copy the ones you want into the
+# rules.yaml of your umwayi root. Every rule has "platform: kiro".
+#
+# The adapter sends one action per tool call:
+#   {"type": "tool_execute_bash", "platform": "kiro", "tool": "execute_bash", "input_command": "npm test"}
+# The type is tool_ and the Kiro tool ID. The tool IDs below come from the Kiro hook
+# docs (read_file, grep_search, execute_bash, execute_pwsh, fs_write, fs_append,
+# str_replace, delete_file; MCP tools are mcp_SERVER_TOOL). See adapters/NOTES.md.
+#
+# NOT CONFIRMED: the Kiro docs do not name the fields inside tool_input. The adapter
+# sends every top level string field as input_<name>. The rules that use
+# input_command or input_path below only work if Kiro really uses those names;
+# check what your Kiro version sends before you rely on them.
+#
+# Kiro has no ask: every Ask me first is a deny plus one queue item for the owner.
+rules:
+  - id: kiro-read
+    title: Kiro may read and search
+    text: Reading and searching files is allowed.
+    verdict: yes
+    matchers:
+      platform: kiro
+      type: [tool_read_file, tool_grep_search]
+
+  - id: kiro-ask-write
+    title: Writing a file needs the owner
+    text: The owner confirms every file write, edit or delete.
+    verdict: ask
+    matchers:
+      platform: kiro
+      type: [tool_fs_write, tool_fs_append, tool_str_replace, tool_delete_file]
+
+  - id: kiro-ask-shell
+    title: Shell commands need the owner
+    text: The owner confirms every shell command.
+    verdict: ask
+    matchers:
+      platform: kiro
+      type: [tool_execute_bash, tool_execute_pwsh]
+
+  # Field names not confirmed (see above).
+  - id: kiro-no-destroy
+    title: No destructive shell commands
+    text: Commands that delete trees, wipe disks or change permissions widely are refused.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_command__contains: ["rm -rf", "rm -fr", "mkfs", "dd if=", "remove-item -recurse"]
+
+  - id: kiro-no-guard-shell
+    title: Shell commands that touch the guard files
+    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .kiro/hooks or umwayi kill are refused.
+    cause: An AI helper must not turn off its own rules, logbook or hook.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill"]
+
+  - id: kiro-no-guard-edits
+    title: Kiro never edits the files that guard it
+    text: rules.yaml, LOGBOOK.md, .umwayi/ and .kiro/hooks are changed by the owner only.
+    cause: An AI helper must not turn off its own rules, logbook or hook.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_path__contains: ["rules.yaml", "logbook.md", ".umwayi/", ".kiro/hooks"]
+
+  # Anything else (MCP tools, other tools) matches no rule: Ask me first, so denied plus a queue item.

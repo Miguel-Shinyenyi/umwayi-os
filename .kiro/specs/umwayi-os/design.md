@@ -25,7 +25,7 @@ umwayi/
   runlock.py    one run at a time: .umwayi/run.lock (fcntl.flock, never waits)
 ```
 
-Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters (planned) live outside the core package, in `adapters/`, so they may use pinned third party packages while `umwayi/` stays standard library only. Layers 10 and 11 come after Dec 3 and are outlined at the end of this file.
+Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters live outside the core package, in `adapters/`, so they, and layer 10 adapter packages, may use third party packages, pinned and listed in their README, while `umwayi/` stays standard library only. Layers 10 and 11 (planned Nov 9 to Nov 10, each built only after the owner approves its requirements, design and tasks) and the budget governor (planned Nov 15 to Nov 21) are outlined at the end of this file.
 
 Layers 2 to 8 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
@@ -586,15 +586,17 @@ Every AI helper (steward, social), every job (`umwayi run`) and every workflow (
 
 It is separate from `.umwayi/logbook.lock`, which guards one logbook append.
 
-## Layer 9: Adapters (in progress)
+## Layer 9: Adapters (built)
 
-Planned for Nov 15 to Nov 21. Part 1 (built): the notes, the shared code and the Claude Code adapter. Part 2 (not started): the Kiro adapter and the generic stdin and stdout adapter.
+Planned for Nov 8 to Nov 9. Part 1 (PR 11): the notes, the shared code and the Claude Code adapter. Part 2 (PR 12): the Kiro adapter, the generic stdin and stdout adapter, and the kill switch in all three adapters. Still open: starter rules in the repo rules.yaml (9.10) and the whole-system test with the adapters (9.11).
 
 ### What the platforms say
 
 `adapters/NOTES.md` has what the official Claude Code hooks reference and the Kiro hook pages say, with a link for every fact, and the action types the adapters send. The adapters are built from those notes. Where a page is silent or the pages disagree, the notes say so and the adapter blocks.
 
 The facts that shape the Claude Code adapter: exit 2 blocks a PreToolUse call; exit 1 and every other code let it run; a hook that cannot start or times out also lets it run, unless the handler sets `"onFailure": "block"`; an exit 0 JSON object with `permissionDecision` allow, deny or ask decides.
+
+The facts that shape the Kiro adapter: exit 0 allows and exit 2 blocks a Pre Tool Use call in every version of the text; the pages disagree about other exit codes (the IDE tab says any non zero blocks, the Hook types page and the CLI tab say they warn and allow); there is no ask and no JSON decision; stdout on exit 0 goes into the agent's context; the `tool_input` field names are not shown; nothing like `onFailure` is documented. So the Kiro adapter uses only exit 0 and exit 2, prints nothing on allow, and forwards every top level string field of `tool_input`.
 
 ### Layout
 
@@ -607,12 +609,18 @@ adapters/
     hook.py           the PreToolUse hook script
     README.md         set up, the settings snippet (shown only, never written), no packages
     rules.example.yaml
-  kiro/               part 2
-  stdio/              part 2
+  kiro/
+    hook.py           the Pre Tool Use command action: exit 0 or exit 2 only
+    README.md         set up, the .kiro/hooks snippet (shown only, never written), what is not confirmed
+    rules.example.yaml
+  stdio/
+    hook.py           the generic adapter: JSON in, one JSON line out, exit 0, 2 or 3
+    README.md
+    rules.example.yaml
 tests/adapters/       real child process tests per adapter
 ```
 
-The core `umwayi/` package stays standard library only and never imports `adapters`; the adapters never import `umwayi`, they run it as a child process. A test checks both directions. The Claude Code adapter needs no third party package, so its tests run in the normal CI job; a separate job is only needed once an adapter pins a package.
+The core `umwayi/` package stays standard library only and never imports `adapters`; the adapters never import `umwayi`, they run it as a child process. A test checks both directions. No adapter needs a third party package, so their tests run in the normal CI job; a separate job is only needed once an adapter pins a package.
 
 ### The umwayi root is given, never guessed
 
@@ -623,48 +631,73 @@ The hook takes `--root DIR` (required). It never uses the `cwd` field of the hoo
 Each adapter does the same five things:
 
 1. Read the platform's hook input from stdin, with a size limit. Anything it cannot read blocks.
-2. Turn it into an action: `{"type": "tool_bash", "platform": "claude-code", "tool": "Bash", "command": ...}`. The type is `tool_` and the tool name; the fields are a fixed per tool list (command, path, pattern, url, query); file contents and prompts are never sent. Every type and field is in `adapters/NOTES.md`. `umwayi check` logs only the type, never the action.
-3. Run `umwayi check - --json` as a separate process, with a timeout (default 10 seconds, shorter than the 30 second hook timeout in the settings snippet).
+2. Turn it into an action: `{"type": "tool_bash", "platform": "claude-code", "tool": "Bash", "command": ...}`. The type is `tool_` and the tool name. For Claude Code the fields are a fixed per tool list (command, path, pattern, url, query); file contents and prompts are never sent (`tool_action`). For Kiro and the generic adapter, whose field names are not documented, every top level string field with a plain key is sent as `input_<key>` (`generic_action`); the prefix means it can never replace `type`, `platform` or `tool`. Every type and field is in `adapters/NOTES.md`. `umwayi check` logs only the type, never the action.
+3. Run `umwayi check - --json --kill-switch` as a separate process, with a timeout (default 10 seconds, shorter than the 30 second hook timeout in the settings snippet).
 4. Turn the answer into the platform's reply (table below).
 5. Catch every error at the top and block: exit 2, or the platform's deny, whichever the platform documents as blocking.
 
-Allow is given only for a positive, well formed answer: exit 0, answer Yes, and `rules_ok` true. Everything else is not allow.
+Allow is given only for a positive, well formed answer: exit 0, answer Yes, `rules_ok` true and `kill_switch` off. Everything else is not allow.
 
 | what umwayi says | platform with ask | platform without ask |
 | --- | --- | --- |
+| kill switch on or unknown | deny | deny |
 | Yes (exit 0) | allow | allow |
 | No (exit 2) | deny | deny |
 | Ask me first (exit 3) | ask | deny, and one queue item of kind decision |
 | rules.yaml missing or broken (`rules_ok` false) | deny | deny |
 | a crash, a timeout, any other exit code, output that is not the expected JSON | block | block |
 
-For the queue item where the platform has no ask, the adapter runs `umwayi queue add --kind decision` with a fixed title, `Adapter NAME asks first: may it do TYPE?`, and adds no second one while an open item has that title. If the queue item cannot be added, the answer is still deny.
+For the queue item where the platform has no ask, the adapter runs `umwayi queue add --kind decision TITLE --recommendation TEXT --if-not-open` with a fixed title, `Kiro asks first: may it do TYPE?` or `The NAME platform asks first: may it do TYPE?` (generic adapter with `--no-ask`). `--if-not-open` adds nothing while an open item of the same kind has exactly that title. If the queue item cannot be added, the answer is still deny and the reason says so. Answering the item does not allow the call; the owner adds a Yes rule for that.
 
-### Core change for layer 9 (task 9.2, done)
+Platform replies:
+
+| | Claude Code | Kiro | generic |
+| --- | --- | --- | --- |
+| allow | exit 0, JSON `allow` | exit 0, empty stdout | exit 0, `{"decision": "allow"}` |
+| deny | exit 0, JSON `deny` | exit 2, reason on stderr | exit 2, `{"decision": "deny"}` |
+| ask | exit 0, JSON `ask` | exit 2 and a queue item | exit 3, `{"decision": "ask"}`; with `--no-ask` exit 2 and a queue item |
+| error | exit 2, reason on stderr | exit 2 | exit 2, a deny line if it can be written |
+
+### The kill switch stops the adapters (decision 9.12)
+
+The owner decided that every adapter denies everything while the kill switch is on. It is checked twice:
+
+1. Core: `umwayi check --kill-switch` answers No while `.umwayi/KILL` is on or its state is unknown. The logbook entry says "The kill switch gave No" and "kill switch: on" (or unknown). The check lives in `cli.py`, not in `rules.py`, because layer 2 must not import layer 8. Without the flag, `umwayi check` is unchanged: the owner's own commands are not stopped.
+2. Adapter: `check --json` always has `"kill_switch": "off"|"on"|"unknown"`, and `decide()` denies unless it is `off`, before anything else.
+
+Rejected: the adapter reading `.umwayi/KILL` itself (the logic twice, and no logbook entry), and a separate `umwayi kill status` child (one more process per tool call).
+
+### Core changes for layer 9 (done)
 
 `umwayi check --json` now also prints `rules_ok` (true only when rules.yaml was read and is valid) and `action_ok` (true only when the action was a readable JSON object), next to `answer`, `rule_id` and `logged`. An adapter reads these fields, never the reason text. No exit code changed. When the logbook cannot be written, the answer `umwayi check` gives has `rules_ok` false, so an adapter denies it; that is stricter than `umwayi check` on its own.
 
+Part 2 adds two options, both off by default, so nothing that worked before changes:
+
+- `umwayi check --kill-switch`: see above. `--json` gives `kill_switch` with or without the flag.
+- `umwayi queue add --if-not-open`: if an open item of the same kind with exactly the same title exists, nothing is added, it prints `Already open, nothing added: Q-...` and exits 0 (`taskqueue.find_open`, `taskqueue.add_once`).
+
 ### Tests per adapter
 
-Run as real processes with recorded hook inputs: No blocks, Ask me first asks (or denies and adds one queue item), Yes passes, a broken rules file blocks, a crash blocks (injected as in `tests/test_system.py`). With mutation checks.
+Run as real processes with recorded hook inputs: No blocks, Ask me first asks (or denies and adds one queue item, once), Yes passes, a broken rules file blocks, the kill switch on or unknown blocks, a crash, a hang or Ctrl-C in the adapter or in `umwayi check` blocks (injected with `UMWAYI_FAULT` through a sitecustomize file, `tests/adapters/support.py`), `--root` is never taken from the input, and no file in `.claude` or `.kiro/hooks` is created. With planted faults and mutation checks (listed in PR 11 and PR 12).
 
 ### Open questions for the owner
 
-- Should an adapter also deny everything while the kill switch is on? The kill switch stops AI helpers, jobs and workflows today, and a platform acting through an adapter is an AI helper. The proposal is yes (check `umwayi kill status` first, on or unknown means deny).
+- Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (outline, after Dec 3)
+## Layer 10: Own command line and chat (outline, planned Nov 9 to Nov 10)
 
-Starts only when the owner says so.
+Built only after the owner approves its requirements, design and tasks.
 
 - One front door, for example `umwayi agent start NAME`, starts an agent through the agent's own command line, or talks to it over the Agent Client Protocol (ACP).
 - The queue, rules and logbook stay in front of it: the agent is started with the layer 9 adapter for its platform, so every action it takes is checked and logged.
 - The front door shows the queue (what waits for the owner) next to the conversation.
 - It reuses the platforms' command lines and ACP. It does not build a model client, does not hold model keys and does not call a model API itself.
+- Layer 10 adapter packages may use third party packages, pinned and listed in their own README. The core `umwayi` package stays standard library only. The rule from layer 9 holds: a test checks that the core never imports an adapter package.
 
-## Layer 11: Linux-like features (outline, after Dec 3)
+## Layer 11: Linux-like features (outline, planned Nov 9 to Nov 10)
 
-Starts only when the owner says so. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
+Built only after the owner approves its requirements, design and tasks. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
 
 | feature | reuse | what umwayi adds |
 | --- | --- | --- |
@@ -675,6 +708,10 @@ Starts only when the owner says so. Each feature reuses a tool Linux already has
 | terminal sessions | tmux | named sessions for long running agents, started through the layer 10 front door |
 
 No new scheduler, file system or shell is built.
+
+## Budget governor (outline, planned Nov 15 to Nov 21)
+
+The owner decided to build it before Dec 3. Built only after the owner approves its requirements, design and tasks. The design is written then; nothing about it is decided here except that it fails closed and logs every change like the other layers.
 
 ## Testing
 

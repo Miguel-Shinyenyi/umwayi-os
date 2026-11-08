@@ -8,6 +8,7 @@ A Claude Code `PreToolUse` hook that asks `umwayi check` before every tool call 
 | No | `deny` (Claude sees the reason) |
 | Ask me first | `ask` (you see the reason in the permission prompt) |
 | rules.yaml missing or broken | `deny` |
+| the kill switch is on, or its state cannot be read | `deny` |
 | a timeout, a crash, bad input, anything unexpected | blocked (exit 2, reason on stderr) |
 
 The script never exits 1: on Claude Code exit 1 lets the tool call run. What Claude Code documents, with links: [../NOTES.md](../NOTES.md).

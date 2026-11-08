@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters) is in progress: the Claude Code adapter is built, see [adapters/claude_code/README.md](adapters/claude_code/README.md). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -77,7 +77,7 @@ Matchers (all must match):
 - `path__contains: secret` contains text
 - `amount__exists: true` field is present
 
-Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input.
+Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input. `--kill-switch` answers No while the kill switch is on or its state is unknown (the adapters use it; without it your own checks are not stopped).
 
 Every check writes one logbook entry with the rule id and the answer. The action JSON is never written, only its `type` if that is a short plain word. If the logbook cannot be written (for example it was edited by hand), a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. Use `--no-log` for a dry run that writes nothing, and `--date` to set the entry date.
 
@@ -94,6 +94,7 @@ umwayi queue migrate [--date 2026-11-07]
 ```
 
 - `answer` needs `--answer` (one line, no `|`, up to 500 characters, the same limits as a recommendation). It works only on an open row. An open row has an empty answer, an answered row has an answer and the date answered.
+- `add --if-not-open` adds nothing if an open row of the same kind with exactly the same title exists, and prints `Already open, nothing added: Q-...` (the adapters use it, so a repeated Ask me first does not fill the queue).
 - `close` works on an open or answered row and keeps its answer and date.
 - Ids are never reused. `add` uses one more than the highest id found in `queue.md` and in the logbook, even if you delete a row by hand. If `LOGBOOK.md` exists but cannot be read, `add` refuses and says why.
 - A queue.md in the old six column layout (no answer column) is refused with a message. Run `umwayi queue migrate` once to convert it. Old answered rows get the text `not recorded before migration`.
@@ -253,12 +254,24 @@ umwayi kill status
 umwayi kill off
 ```
 
-While the switch is on (the file `.umwayi/KILL` exists), every AI helper, job and workflow stops before doing anything, with exit 3 (Ask me first) and one logbook entry. If umwayi cannot tell whether the switch is on (for example `.umwayi` is not a normal folder), it stops too. `kill on` works even when the logbook is broken. `kill off` keeps the switch on if the logbook cannot record it. Your own commands (queue, archive, check, report, publish-draft) are not stopped.
+While the switch is on (the file `.umwayi/KILL` exists), every AI helper, job and workflow stops before doing anything, with exit 3 (Ask me first) and one logbook entry. If umwayi cannot tell whether the switch is on (for example `.umwayi` is not a normal folder), it stops too. `kill on` works even when the logbook is broken. `kill off` keeps the switch on if the logbook cannot record it. Your own commands (queue, archive, check, report, publish-draft) are not stopped. The layer 9 adapters are: they deny every tool call while the switch is on.
 
 ### One run at a time
 
 AI helpers, jobs and workflows share one lock, `.umwayi/run.lock`. If one is running and you start another, the second one does not wait: it answers Ask me first (exit 3), writes one logbook entry, and changes nothing. If locking is not available on your system, they all answer Ask me first. Your own commands (queue, check, archive, report, publish-draft) are not locked.
 
-## Layer 9: adapters (in progress)
+## Layer 9: adapters
 
-An adapter lets an AI platform ask umwayi before it acts. The first one is for Claude Code: a `PreToolUse` hook that sends every tool call through `umwayi check` and answers allow (Yes), deny (No) or ask (Ask me first). Any error blocks. Set up and the settings snippet: [adapters/claude_code/README.md](adapters/claude_code/README.md). What the Claude Code and Kiro docs say about hooks: [adapters/NOTES.md](adapters/NOTES.md). The Kiro and generic adapters come next.
+An adapter lets an AI platform ask umwayi before it acts. Each one sends every tool call through `umwayi check` (as a separate process) and turns the answer into what the platform understands. Any error blocks, and no adapter ever exits 1.
+
+| adapter | Yes | No | Ask me first | set up |
+| --- | --- | --- | --- | --- |
+| Claude Code `PreToolUse` hook | allow | deny | ask | [adapters/claude_code/README.md](adapters/claude_code/README.md) |
+| Kiro Pre Tool Use hook | exit 0 | exit 2 | exit 2, and one queue item of kind decision (Kiro has no ask) | [adapters/kiro/README.md](adapters/kiro/README.md) |
+| generic stdin and stdout, for any other tool or script | exit 0, `{"decision": "allow"}` | exit 2, `deny` | exit 3, `ask` (or with `--no-ask` deny and a queue item) | [adapters/stdio/README.md](adapters/stdio/README.md) |
+
+- While the kill switch is on, or its state cannot be read, every adapter denies every tool call.
+- The umwayi root is given with `--root`, never taken from the platform's input.
+- This repo never creates or changes a `.claude` settings file or a `.kiro/hooks` file. Each README shows the snippet you add yourself.
+- The adapters need no third party package.
+- What the Claude Code and Kiro docs say about hooks, with links, and what they do not say: [adapters/NOTES.md](adapters/NOTES.md). Some Kiro details are not confirmed by its docs; they are listed in the Kiro README and in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
