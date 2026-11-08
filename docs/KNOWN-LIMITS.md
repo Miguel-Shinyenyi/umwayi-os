@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter.
 
 ## Approval and the owner
 
@@ -73,3 +73,46 @@ Memory is plain files that the owner writes in `memory/` (`master.md`, `projects
 - Unexpected crashes are made in the tests by patching one function in the child process. The corrupt state sweep found one real crash (a `memory` folder that is a link loop), which is fixed; there may be others.
 - Tests run on Linux only, with Python 3.10 to 3.13. Windows and macOS are not tested.
 - The two-process tests make the first run sleep while it holds the lock, so the two runs are sure to overlap. Races without that pause are not forced.
+
+## Layer 9: the Claude Code adapter (found while building part 1, not fixed)
+
+Facts about Claude Code below come from its hooks reference; the links are in `adapters/NOTES.md`.
+
+### 12. Rules match plain text, not shell syntax
+
+The adapter sends the whole Bash command as one string, and a rule like `command__contains: ["rm -rf"]` looks for that text, ignoring case. A command can be written to get past it: `rm -r -f`, a variable, a script that is written first and run later, another tool. The example rules in `adapters/claude_code/rules.example.yaml` are a first layer, not a sandbox. The Claude Code docs also call hook filtering best effort and point to Claude Code's own permission deny rules for hard limits; keep those too.
+
+### 13. The adapter cannot block when it never gets to run
+
+The adapter turns every error it can see into exit 2 (a block). Some failures happen before any of its code runs: Claude Code cannot start `python3`, the script path is wrong, the hook times out, or Python cannot compile `hook.py` (a bad edit, or a Python older than 3.10), which makes the interpreter exit 1. Claude Code treats all of these as a non blocking error and runs the tool, unless the handler sets `"onFailure": "block"`, which needs Claude Code v2.1.295 or later. The settings snippet in the README sets it. On older Claude Code versions these failures let the tool call run.
+
+### 14. Yes skips Claude Code's permission prompt
+
+umwayi's Yes becomes `allow`, and Claude Code then does not show its own permission prompt for that call. Claude Code still applies its own deny and ask permission rules. If you want Claude Code's prompt as well, do not give Yes rules for those tools.
+
+### 15. An AI helper can try to turn off its own guard
+
+The files that guard the adapter (`rules.yaml`, `LOGBOOK.md`, `.umwayi/`, the `.claude/settings` files) are ordinary files. The example rules deny Write and Edit calls to them and shell commands that name them, but that is text matching (item 12), so a script can still change them. Protecting them with Unix permissions (the AI helper runs as a user that cannot write them) is layer 11.
+
+### 16. The kill switch does not stop the adapter
+
+`umwayi kill on` stops AI helpers, jobs and workflows. The adapter does not check it, so while the switch is on, Claude Code tool calls are still answered by the rules (a Yes still allows). Whether the adapter should deny everything while the switch is on is an open question for the owner (tasks.md 9.12).
+
+### 17. Only some tool input is checked
+
+The adapter sends the command, path, pattern, URL, query or subagent type, depending on the tool (`adapters/NOTES.md`). It does not send what a Write puts in a file, the text of an Edit, or a subagent's prompt, so rules cannot look at them.
+
+### 18. Two processes per tool call, and a stricter answer when the logbook fails
+
+- Every tool call starts the adapter and then `umwayi check`, two Python processes. On the build machine that took about 150 ms per call (median of 20). Not measured elsewhere.
+- When the logbook cannot be written, `umwayi check` keeps a No as No and turns a Yes into Ask me first, but its answer then has `rules_ok` false, so the adapter denies all three. Stricter than `umwayi check` alone, and a broken logbook blocks every tool call until the owner seals it.
+
+### 19. Claude Code cases the adapter does not see or decide
+
+- Files you mention with `@` in a prompt are added without a tool call, so no PreToolUse hook sees them.
+- In a non interactive `-p` run with nobody to answer, Claude Code turns an `ask` into a denial.
+- The adapter only handles `PreToolUse`; configured on another event, it blocks.
+
+### 20. Kiro: the docs were read only as Markdown copies, and they disagree
+
+The Kiro hook pages render with JavaScript, so the notes come from the Markdown copies that `kiro.dev/llms.txt` lists. In those copies the Pre Tool Use JSON examples are empty. The pages disagree about other exit codes (one says any non zero code blocks a Pre Tool Use call, the others say only exit 2 does) and about the default timeout (60 seconds, or 30 seconds set with `timeout_ms`). The Kiro adapter is not built yet.
