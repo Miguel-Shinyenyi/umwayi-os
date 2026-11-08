@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Layer 10 (one front door for agents) is in progress: agents.yaml and the gate checks are built, starting an agent is not yet, see [Layer 10](#layer-10-front-door-for-agents-in-progress). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Layer 10 (one front door for agents) is in progress: agents.yaml, the gate checks and `umwayi agent run` for Claude Code are built; Kiro runs and chat are not yet, see [Layer 10](#layer-10-front-door-for-agents-in-progress). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -278,16 +278,30 @@ An adapter lets an AI platform ask umwayi before it acts. Each one sends every t
 
 ## Layer 10: front door for agents (in progress)
 
-One front door will start every AI agent (Claude Code, Kiro) through its own command line, with the layer 9 hook in front of every tool call, and refuse an agent it cannot gate. Built so far: the agents file and the gate checks. `umwayi agent run` and `umwayi agent chat` come next; nothing in this layer starts an agent yet.
+One front door starts every AI agent (Claude Code, Kiro) through its own command line, with the layer 9 hook in front of every tool call, and refuses an agent it cannot gate. Built so far: the agents file, the gate checks and `umwayi agent run` for Claude Code. `agent run` for Kiro and `umwayi agent chat` come next; until then they refuse with exit 64 and start nothing.
 
 ```
 umwayi agent validate [--agents PATH]      check agents.yaml, every problem with a line number
 umwayi agent list [--agents PATH]          the agents in the file
 umwayi agent check NAME [--agents PATH]    can NAME be gated? runs every gate check, starts no agent
+umwayi agent run NAME --prompt TEXT        start NAME once (Claude Code); or --prompt-file PATH, or - for stdin
 ```
+
+`umwayi agent run` takes these steps in order, and the first that fails ends it:
+
+| step | if it fails | exit |
+| --- | --- | --- |
+| agents.yaml and the prompt (one way, at most 100 KB, a Claude Code prompt must not start with `-`) | message | 64 |
+| the kill switch | one logbook entry | 3 |
+| the rules, action `{"type": "agent_run", "agent": NAME, ...}` | No: 2. Ask me first: 3 and one queue item `Start agent NAME (run)?` (not a second one while it is open) | 2 or 3 |
+| the run lock | one logbook entry | 3 |
+| every gate check, again | one logbook entry "Refused agent NAME: not gated (...)" | 2 |
+| the start entry, then `claude -p --permission-mode default --settings HOOK ... PROMPT` in `workdir` | | |
+
+While it runs, umwayi checks the kill switch and the logbook every second and watches `timeout_minutes`. The kill switch stops the agent with exit 3; a logbook that can no longer be written, or the timeout, with exit 2. Stopping means SIGTERM to the agent's whole process group, then SIGKILL after 10 seconds, and it happens on every way out, including when umwayi itself gets SIGTERM, SIGHUP or Ctrl-C (exit 2). The run exits 0 only when the agent exited 0; an agent that fails is exit 2. Every start, end, stop and refusal is one logbook entry; the prompt and the conversation never are. Answering the queue item does not start the agent: add a Yes rule for `agent_run` instead.
 
 - `agents.yaml` lives in the root. Start from [agents.example.yaml](agents.example.yaml). Each agent has a fixed set of keys: `name`, `platform` (`claude-code` or `kiro`), `command` (only `claude` or `kiro-cli`, found on PATH), `transport`, `workdir` (outside the root), and a few limits. There is no key for extra arguments and no shell string.
 - `check` runs, in order: the command is on PATH; its version is new enough (Claude Code 2.1.295, Kiro CLI 2.27.1); the layer 9 hook script is there; the hook starts and blocks a self-test event; for Kiro, your hook file in `WORKDIR/.kiro/hooks/` or `~/.kiro/hooks/` runs exactly the layer 9 command. It prints each result and the command lines a start would use, and writes nothing.
-- Exit codes: 0 (valid, or gated), 2 (not gated, or an unexpected error), 64 (usage or a bad agents.yaml). Never 1.
+- Exit codes: 0 (valid, gated, or the agent finished), 2 (No, not gated, the agent failed, a logbook or timeout stop, an unexpected error), 3 (Ask me first, the kill switch, the run lock), 64 (usage or a bad agents.yaml). Never 1.
 - For Claude Code, umwayi will add the hook itself for one session (`--settings`); for Kiro you add the hook file from [adapters/kiro/README.md](adapters/kiro/README.md). umwayi never writes a `.claude` or `.kiro` file.
-- What the Claude Code, Kiro and ACP docs say about starting agents, and what they do not say: [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md). Limits: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md) items 29 to 34.
+- What the Claude Code, Kiro and ACP docs say about starting agents, and what they do not say: [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md). Limits: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md) items 29 to 40. No real Claude Code has been run by the tests; they use a fake `claude` that runs the real hook.

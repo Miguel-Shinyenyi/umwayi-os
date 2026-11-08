@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code).
 
 ## Approval and the owner
 
@@ -179,3 +179,31 @@ The self-test runs the layer 9 hook with an event other than `PreToolUse` and ex
 ### 34. A passing check can be out of date by the time an agent starts
 
 The files `check` looks at (the hook script, the Kiro hook file, the program on PATH) can change after it ran. `umwayi agent run` and `chat` (parts 3 to 5) will run every check again just before the start, but there is still a short window between that check and the platform reading its own hook files. An agent that can write those files can also change them while it runs (item 15).
+
+## Layer 10 part 3: `umwayi agent run` for Claude Code (found while building, not fixed)
+
+No real Claude Code was run. The tests use a fake `claude` that reads `--settings` and runs the real layer 9 hook the way the Claude Code hooks reference describes. Items 30 (a managed policy can turn the hook off unseen) and 31 (PATH decides the program) now apply to every run, not only to `check`.
+
+### 35. The Claude Code prompt is visible in the process list
+
+The Claude Code docs give no way to pass the `-p` prompt only on stdin (`adapters/NOTES-layer10.md`), so umwayi passes it as the last argument. While the agent runs, any user on the machine who can list processes (`ps`, `/proc/PID/cmdline`) can read it. Do not put a secret in a prompt. The logbook and umwayi's output never hold it.
+
+### 36. An agent that leaves its process group, or a SIGKILL to umwayi, is not stopped
+
+umwayi stops the agent by signalling its whole process group. A program the agent starts in a new session or process group (for example with `setsid`, or a daemon) is outside it and keeps running after the agent is stopped. If umwayi itself is killed with SIGKILL (which no program can catch), nothing stops the agent, and the run lock is released while the agent may still run. Such programs are not tool calls, so the hook does not see what they do. Running agents under a separate user or a sandbox is layer 11.
+
+### 37. The kill switch takes up to a second, plus the stop
+
+The kill switch is checked once a second while an agent runs, and stopping sends SIGTERM and waits up to 10 seconds before SIGKILL. A tool call already running when the switch goes on can finish in that time. Every new tool call is denied by the hook at once (decision 9.12), and the tests check that the next call after the switch is denied.
+
+### 38. Stopping an agent stops everything it left running
+
+After the agent exits, or on any stop, umwayi signals its whole process group, so a server or watcher the agent started in the same group is stopped too, even after a normal exit. That is on purpose (nothing the agent started runs on after umwayi), but it may surprise.
+
+### 39. A logbook that cannot be written stops the agent, including a stale lock
+
+Every second the run checks that the logbook could still take an entry (`logbook.check_writable`, under the logbook lock). A hand edit, a missing hash record, a broken format, or a `.umwayi/logbook.lock` left by a crashed command for more than 3 seconds stops the agent with exit 2. Nothing can be logged about that stop; umwayi prints why. The check reads and hashes the whole logbook once a second, which grows with every tool call; it was not measured on a large logbook.
+
+### 40. Exit 0 means the agent exited 0, not that the task was done
+
+`umwayi agent run` exits 0 when the rules said Yes, the agent was gated, and Claude Code exited 0. The Claude Code docs say a failure inside the run (for example missing sign-in) is printed as the result on stdout; whether it also exits non-zero is not confirmed for every case. umwayi does not read the agent's output, so it cannot tell a finished task from a polite refusal.
