@@ -179,11 +179,11 @@ Acceptance criteria:
 
 ## Layer 10: Own command line and chat
 
-Status: requirements, design and tasks written (tasks.md 10.0), **waiting for owner approval**. Nothing is built before the owner approves. Planned for Nov 9 to Nov 10. What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
+Status: approved by the owner on Nov 8 (tasks.md 10.0), with every open question answered as proposed. Parts 1 and 2 are built in PR 14: 10.R2 (agents.yaml), 10.R1.3 to 10.R1.5 (`list`, `check`, `validate`), 10.R5.1 and 10.R5.7 (argument lists), 10.R6 (gate checks). `agent run` and `agent chat` (10.R1.1, 10.R1.2, 10.R3, 10.R4, 10.R7, the rest of 10.R5 and 10.R8) come in parts 3 to 6, planned Nov 9 to Nov 10. What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
 
 User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them, and an agent umwayi cannot put a gate in front of is never started.
 
-Items marked "proposed" depend on an open question in design.md (layer 10) and change if the owner answers differently.
+Items marked "proposed" depended on an open question in design.md (layer 10); the owner accepted every one as proposed on Nov 8.
 
 Words used below: an **agent** is an AI platform's own program (`claude`, `kiro-cli`) started by umwayi; the **gate** is the layer 9 adapter hook for that platform; **gated** means umwayi has confirmed, before it starts the agent, that every tool call the agent makes goes through the gate.
 

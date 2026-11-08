@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks).
 
 ## Approval and the owner
 
@@ -151,3 +151,31 @@ Because the field names are not known, `generic_action` sends every top level st
 ### 28. The owner's own `umwayi check` ignores the kill switch
 
 By design, `umwayi check` without `--kill-switch` answers by the rules even while the switch is on, so the owner can still test rules. Only the adapters pass the flag. A platform set up to call `umwayi check` directly, not through an adapter, is not stopped by the kill switch.
+
+## Layer 10 parts 1 and 2: agents.yaml and the gate checks (found while building, not fixed)
+
+Doc facts and links for these items are in `adapters/NOTES-layer10.md`. No real `claude` or `kiro-cli` was run; every test uses fake programs.
+
+### 29. The version check reads output whose format is not documented
+
+`umwayi agent check` (and later every start) takes the first `N.N.N` in the output of `claude -v` or `kiro-cli --version` and refuses if there is none or it is too old (Claude Code 2.1.295 for `onFailure`, Kiro CLI 2.27.1 for hooks in V3 headless runs). Neither doc gives the output format. If a real version prints something else, every start is refused (fail closed) until `agents.parse_version` is fixed. If it prints another program's version number first (for example a runtime version), the check could pass on the wrong number.
+
+### 30. A managed Claude Code policy can turn our hook off, and umwayi cannot see it
+
+Managed settings (`allowManagedHooksOnly`, `strictPluginOnlyCustomization`) sit above `--settings` and can block every hook that is not managed. umwayi cannot read managed settings, so `check` can say "Gated" on a machine where Claude Code will not run the hook. The owner accepted this as a known limit for Dec 3 (design.md, layer 10, question 4). On a machine with managed Claude Code settings, check with `/hooks` in a Claude Code session that the umwayi hook is listed.
+
+### 31. PATH decides which program is started
+
+`command` is a word (`claude`, `kiro-cli`) found on `PATH` when umwayi runs. Whoever controls `PATH`, or a folder early on it, controls which program runs. `check` prints the full path it found (and every start will log it), but it does not check who owns that file or whether it is the real program. File permissions are layer 11.
+
+### 32. The Kiro hook file check is a text match, not proof that Kiro loads the hook
+
+umwayi only reads the hook files. It accepts a file in `WORKDIR/.kiro/hooks/` or `~/.kiro/hooks/` with a `PreToolUse` hook for every tool whose command is exactly the layer 9 command. It cannot tell whether a given Kiro version or mode really loads that file. That includes ACP sessions (not confirmed by the docs), a Kiro setting or agent configuration that turns hooks off (none is documented), and a field it does not know about, such as one that disables a hook. The match is exact on purpose: a command with anything before or after it is refused.
+
+### 33. The hook self-test proves the hook starts, not that it decides correctly
+
+The self-test runs the layer 9 hook with an event other than `PreToolUse` and expects exit 2. That shows Python and the hook script start and block. It does not check rules.yaml, the logbook, or that the hook allows and denies the right calls (the layer 9 tests do that), and it does not show that the platform will run the hook.
+
+### 34. A passing check can be out of date by the time an agent starts
+
+The files `check` looks at (the hook script, the Kiro hook file, the program on PATH) can change after it ran. `umwayi agent run` and `chat` (parts 3 to 5) will run every check again just before the start, but there is still a short window between that check and the platform reading its own hook files. An agent that can write those files can also change them while it runs (item 15).

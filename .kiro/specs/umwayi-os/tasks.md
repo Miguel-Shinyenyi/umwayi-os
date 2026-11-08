@@ -16,7 +16,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
-| 10 Own command line and chat | spec written, waiting for owner approval (10.0); build planned Nov 9 to Nov 10 in six parts | spec PR 13 | |
+| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 and 2 built (agents.yaml, gate checks, `umwayi agent check`); parts 3 to 6 planned Nov 9 to Nov 10 | spec PR 13; parts 1 and 2 PR 14 | 673 after PR 14, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
 | Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
 | Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
@@ -28,7 +28,7 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | dates | work |
 | --- | --- |
 | Nov 8 to Nov 9 | Layer 9 adapters (part 1 in PR 11, part 2 in PR 12) |
-| Nov 9 to Nov 10 | Layers 10 and 11. Each is built only after the owner approves its requirements, design and tasks. Layer 10 spec written Nov 7; parts 1 and 2 can start as soon as it is approved |
+| Nov 9 to Nov 10 | Layers 10 and 11. Each is built only after the owner approves its requirements, design and tasks. Layer 10 spec approved Nov 8; parts 1 and 2 built Nov 8 (PR 14) |
 | Nov 11 to Nov 14 | Whole-system test again (with the adapters and layers 10 and 11) and a security scan |
 | Nov 15 to Nov 21 | Budget governor (the owner decided to build it before Dec 3), after the owner approves its requirements, design and tasks |
 | Nov 22 to Nov 28 | README, demo, Devpost text |
@@ -188,32 +188,44 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
 - [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
-## Layer 10: Own command line and chat (spec written, waiting for owner approval)
+## Layer 10: Own command line and chat (in progress: parts 1 and 2 built)
 
-Planned for Nov 9 to Nov 10. Requirements 10.R1 to 10.R10, design in design.md, doc facts in `adapters/NOTES-layer10.md`. Nothing below is started before the owner approves 10.0.
+Planned for Nov 9 to Nov 10. Requirements 10.R1 to 10.R10, design in design.md, doc facts in `adapters/NOTES-layer10.md`. The owner approved 10.0 on Nov 8.
 
-- [ ] 10.0 Requirements, design and tasks written and approved by the owner. **Written** (spec pull request, with `adapters/NOTES-layer10.md`); **waiting for owner approval**. The open questions in design.md (layer 10) are answered as part of the approval.
+- [x] 10.0 Requirements, design and tasks written and approved by the owner. Written in PR 13 (with `adapters/NOTES-layer10.md`), **approved and merged Nov 8**. The ten open questions in design.md (layer 10) were answered as proposed:
+  1. Yes: `agent run` and `agent chat` take the shared run lock.
+  2. Yes: Ask me first on a start adds one queue item (`Start agent NAME (MODE)?`).
+  3. Kiro headless runs use `trust_tools` only, never `--trust-all-tools`.
+  4. A managed Claude Code policy that blocks our hook is accepted as a known limit for Dec 3; no canary.
+  5. `workdir` must be outside the umwayi root (not the root, not inside it, not containing it).
+  6. In ACP chat, Ask me first asks the owner on the terminal.
+  7. No `kiro_agent` with `transport: acp`.
+  8. An agent's own failure is exit 2.
+  9. Claude Code over ACP (Zed's third party adapter): decided later, after Dec 3.
+  10. Spend limits are left to the budget governor; no `--max-budget-usd` in layer 10.
 
 The build is split into six parts, one pull request each, each small enough to review in about 30 minutes. Every part keeps CI green on Python 3.10 to 3.13, adds no third party package, and lists its planted faults and mutation results in its pull request. Every test runs `python -m umwayi agent ...` as a real child process in a temporary root, with fake `claude` and `kiro-cli` scripts first on `PATH`; no test needs a network, a real agent or a key.
 
-**Which parts can be done today (Nov 7), once 10.0 is approved:** parts 1 and 2. They start no agent (only the fake version and hook self-test children in tests), touch no platform, and do not depend on any open question except 5 (workdir). Parts 3 and 4 on Nov 9, parts 5 and 6 on Nov 10. If time runs short, part 6 (ACP chat) is the one to cut; parts 1 to 5 still give one front door for run and chat.
+**Which parts can be done today (Nov 8), once 10.0 is approved:** parts 1 and 2 (done, PR 14). They start no agent (only the fake version and hook self-test children in tests), touch no platform, and do not depend on any open question except 5 (workdir). Parts 3 and 4 on Nov 9, parts 5 and 6 on Nov 10. If time runs short, part 6 (ACP chat) is the one to cut; parts 1 to 5 still give one front door for run and chat.
 
 ### Part 1: agents.yaml (10.R2, 10.R1.3, 10.R1.5)
 
-- [ ] 10.1 `umwayi/agents.py`: load agents.yaml with miniyaml; validate every key and value (fixed platform table, command allow list, transport per platform, workdir rules, Kiro tool ID list, number ranges, unique names); errors with line numbers, never line text.
-- [ ] 10.2 `umwayi agent validate` (0 or 64) and `umwayi agent list` (0, or 64 for a bad file); `--agents PATH`; `agents.example.yaml` at the repo root, commented.
-- [ ] 10.3 Tests: every accepted shape; every rejected key and value (unknown key, unknown platform, `command: /usr/bin/claude`, `command: "claude --bare"`, `command: bash`, `acp` for Claude Code, `kiro_agent` with `acp`, relative or missing workdir, workdir equal to, inside or containing the root, a `..` part, unknown Kiro tool ID, `max_turns: 0`, duplicate names, tabs, flow mappings); no line text in any message; `list` starts no process.
+- [x] 10.1 `umwayi/agents.py`: load agents.yaml with miniyaml; validate every key and value (fixed platform table, command allow list, transport per platform, workdir rules, Kiro tool ID list, number ranges, unique names); errors with line numbers, never line text.
+- [x] 10.2 `umwayi agent validate` (0 or 64) and `umwayi agent list` (0, or 64 for a bad file); `--agents PATH`; `agents.example.yaml` at the repo root, commented.
+- [x] 10.3 Tests (`tests/agents/test_agents_file.py`): every accepted shape; every rejected key and value (unknown key, unknown platform, `command: /usr/bin/claude`, `command: "claude --bare"`, `command: bash`, `acp` for Claude Code, `kiro_agent` with `acp`, relative or missing workdir, workdir equal to, inside or containing the root, a `..` part, unknown Kiro tool ID, `max_turns: 0`, duplicate names, tabs, flow mappings); no line text in any message; `list` starts no process.
   - Planted faults: the command allow list skipped; an unknown platform accepted; workdir containing the root accepted.
   - Mutation checks: each validation rule removed or loosened, one at a time.
+  - Result (PR 14): the 3 planted faults and 21 mutations all caught.
 
 ### Part 2: gate checks and `umwayi agent check` (10.R6, 10.R5.1, 10.R5.7, 10.R1.4)
 
-- [ ] 10.4 Gate checks in `agents.py`: command on PATH (absolute path kept), version read and compared, hook script present, hook self-test (exit 2 within 5 s, nothing logged), Kiro hook file found and matched exactly (read only).
-- [ ] 10.5 Argument list builders for all five rows of the design table, and the Claude Code `--settings` JSON from the fixed template.
-- [ ] 10.6 `umwayi agent check NAME`: one line per check, exit 0 (gated), 2 (not gated), 64 (usage); starts no agent.
-- [ ] 10.7 Tests: a missing command; an unreadable version (`claude -v` printing nothing, garbage, `2.1.294`); a missing hook; a hook that exits 0, 1 or hangs on the self-test; no Kiro hook file, a hook file with a matcher, with another root, with a relative hook path, with extra arguments, broken JSON, a 1 MB file; the hook file in `~/.kiro/hooks/` (HOME set to a temp folder) accepted; every argument list for every valid agent never contains a forbidden flag (10.R5.7) and always contains `--permission-mode default` (Claude Code) or `--v3` (Kiro); the `--settings` JSON parses and has `disableAllHooks: false`, matcher `*`, `onFailure: "block"`; no `.claude` or `.kiro` file is created or changed by any test run.
+- [x] 10.4 Gate checks in `agents.py`: command on PATH (absolute path kept), version read and compared, hook script present, hook self-test (exit 2 within 5 s, nothing logged), Kiro hook file found and matched exactly (read only).
+- [x] 10.5 Argument list builders for all five rows of the design table, and the Claude Code `--settings` JSON from the fixed template.
+- [x] 10.6 `umwayi agent check NAME`: one line per check, exit 0 (gated), 2 (not gated), 64 (usage); starts no agent.
+- [x] 10.7 Tests (`tests/agents/test_agents_gate.py`): a missing command; an unreadable version (`claude -v` printing nothing, garbage, `2.1.294`); a missing hook; a hook that exits 0, 1 or hangs on the self-test; no Kiro hook file, a hook file with a matcher, with another root, with a relative hook path, with extra arguments, broken JSON, a 1 MB file; the hook file in `~/.kiro/hooks/` (HOME set to a temp folder) accepted; every argument list for every valid agent never contains a forbidden flag (10.R5.7) and always contains `--permission-mode default` (Claude Code) or `--v3` (Kiro); the `--settings` JSON parses and has `disableAllHooks: false`, matcher `*`, `onFailure: "block"`; no `.claude` or `.kiro` file is created or changed by any test run.
   - Planted faults: the self-test result ignored; the Kiro hook match made a substring match; `--settings` left out of the Claude Code list; `--v3` left out.
   - Mutation checks: each check skipped or inverted, each comparison loosened (version `>=` to `>` and the reverse, matcher `*` check removed).
+  - Result (PR 14): the 4 planted faults and 27 mutations all caught.
 
 ### Part 3: `umwayi agent run` for Claude Code (10.R3, 10.R4, 10.R5.2, 10.R5.9, 10.R8)
 
@@ -249,7 +261,7 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### After the parts
 
-- [ ] 10.20 `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
+- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 and the README section, for parts 1 and 2.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
 - [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 11 to Nov 14), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
 
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
