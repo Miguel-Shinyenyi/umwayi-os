@@ -1,10 +1,21 @@
-"""Layer 10, parts 1 and 2: agents.yaml, the gate checks and the argument lists.
+"""Layer 10, parts 1 to 3: agents.yaml, the gate checks, the argument lists, and `agent run`.
 
     umwayi agent validate [--agents PATH]     every problem with a line number: 0 or 64
     umwayi agent list [--agents PATH]         the agents in the file: 0 or 64
     umwayi agent check NAME [--agents PATH]   can NAME be gated? 0 yes, 2 no, 64 usage
+    umwayi agent run NAME (--prompt TEXT | --prompt-file PATH | -)
+                                              start NAME once (Claude Code only so far): 0, 2, 3 or 64
 
-No agent is started by this module. The gate checks run two short programs: the
+`agent run` takes these steps in order and the first that fails ends it: read
+agents.yaml and the prompt (64), the kill switch (3), the rules, action agent_run
+(No 2, Ask me first 3 with one queue item), the run lock (3), every gate check
+(2), the start entry, the start. While the agent runs, the kill switch and the
+logbook are checked every second and the timeout is watched. The agent is
+stopped (SIGTERM to its process group, SIGKILL after 10 seconds) on every exit
+path. Every start, end, stop and refusal is one logbook entry through the
+checked append; the prompt and the conversation never are.
+
+Before `agent run`, the gate checks run two short programs: the
 agent's own version command (`claude -v`, `kiro-cli --version`) and the layer 9
 hook script with a self-test event that every hook blocks before it reads a rule.
 Both run with an argument list, never a shell, with a timeout and stdin given.
@@ -23,14 +34,17 @@ import json
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
+import time
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from umwayi import kill, miniyaml
-from umwayi.errors import ConfigError, UsageError
+from umwayi import kill, logbook, miniyaml, rules, runlock, taskqueue
+from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
 MAX_FILE_BYTES = 64 * 1024
@@ -695,3 +709,322 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
         lines.append(f"{mode} would start: {shown}" + (" with the prompt on stdin" if stdin is not None else ""))
     lines.append(f"Gated: agent {agent.name} can be started. Nothing was started.")
     return Result(0, lines)
+
+
+# --------------------------------------------- part 3: `umwayi agent run` (10.R3, 10.R4, 10.R8)
+
+SOURCE = "umwayi agent run"
+SECONDS_PER_MINUTE = 60
+WATCH_INTERVAL = 1.0  # seconds between kill switch, logbook and timeout checks while an agent runs
+STOP_GRACE = 10.0  # seconds between SIGTERM and SIGKILL
+ASK_RECOMMENDATION = ("Keep it stopped unless you trust this agent for this kind of task. To allow it, add a Yes "
+                      "rule for action type agent_run with this agent in rules.yaml. Answering this item does not "
+                      "start the agent.")
+NOT_LOGGED = "The prompt and the conversation are not written to the logbook."
+
+
+def read_prompt(prompt: str | None, prompt_file: str | None, from_stdin: bool, stdin) -> str:
+    """The prompt, given in exactly one way. Anything else is a usage error (exit 64). Never logged."""
+    ways = (prompt is not None) + (prompt_file is not None) + bool(from_stdin)
+    if ways != 1:
+        raise UsageError("agent: give the prompt in exactly one way: --prompt TEXT, --prompt-file PATH, "
+                         "or - to read it from stdin")
+    if prompt is not None:
+        return prompt
+    if prompt_file is not None:
+        try:
+            st = os.lstat(prompt_file)
+        except OSError:
+            raise UsageError("agent: the prompt file was not found or cannot be read") from None
+        if not stat.S_ISREG(st.st_mode):
+            raise UsageError("agent: the prompt file must be a regular file, not a link or a folder")
+        if st.st_size > MAX_PROMPT_BYTES:
+            raise UsageError(f"agent: the prompt is larger than {MAX_PROMPT_BYTES} bytes")
+        try:
+            with open(prompt_file, "rb") as f:
+                data = f.read(MAX_PROMPT_BYTES + 1)
+        except OSError:
+            raise UsageError("agent: the prompt file cannot be read") from None
+    else:
+        try:
+            data = stdin.read(MAX_PROMPT_BYTES + 1)
+        except Exception:
+            raise UsageError("agent: the prompt could not be read from stdin") from None
+    if len(data) > MAX_PROMPT_BYTES:
+        raise UsageError(f"agent: the prompt is larger than {MAX_PROMPT_BYTES} bytes")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise UsageError("agent: the prompt is not valid UTF-8") from None
+
+
+def _one_line(text: str, limit: int = 300) -> str:
+    """Safe for one logbook field: printable, one line, no spaces at the ends."""
+    text = "".join(ch if ch.isprintable() else "?" for ch in str(text)).strip()
+    return (text[: limit - 3] + "...") if len(text) > limit else (text or "-")
+
+
+def _exit_text(code: int) -> str:
+    return f"by signal {-code}" if code < 0 else f"with code {code}"
+
+
+class _Signalled(BaseException):
+    """umwayi itself got SIGTERM or SIGHUP. A BaseException, so no `except Exception` swallows it."""
+
+    def __init__(self, signum: int):
+        super().__init__(signum)
+        self.signum = signum
+
+
+class _Run:
+    """One `umwayi agent run`. go() returns a Result; the agent is stopped on every path out of it."""
+
+    def __init__(self, root: Path, agent: Agent, prompt: str, clock):
+        self.root = root
+        self.agent = agent
+        self.prompt = prompt
+        self.clock = clock  # today's date, asked again for every entry (a run can pass midnight)
+        self.proc = None
+        self.started = None
+        self.signalled = False
+
+    # ------------------------------------------------------------ logbook
+
+    def log(self, added: str, checked: str, not_done: str) -> str | None:
+        """One entry through the checked append. Returns None, or why it could not be written."""
+        try:
+            logbook.append(self.root, logbook.Entry(self.clock(), SOURCE, _one_line(added), _one_line(checked),
+                                                    _one_line(not_done)))
+        except UmwayiError as e:
+            return str(e).rstrip(". ")
+        return None
+
+    @staticmethod
+    def result(code: int, lines: list, why: str | None = None) -> Result:
+        if why is not None:
+            lines = lines + [f"The logbook could not be written ({why}). Nothing was logged."]
+        return Result(code, lines)
+
+    # ------------------------------------------------------------ signals
+
+    def _on_signal(self, signum, _frame):
+        if self.signalled:
+            return  # stopping already; a second signal must not interrupt the stop
+        self.signalled = True
+        raise _Signalled(signum)
+
+    def go(self) -> Result:
+        previous = {}
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            previous[sig] = signal.signal(sig, self._on_signal)
+        try:
+            with ExitStack() as stack:
+                try:
+                    return self._steps(stack)
+                except _Signalled as s:
+                    return self._stopped_by(f"umwayi got {signal.Signals(s.signum).name}")
+                except KeyboardInterrupt:
+                    return self._stopped_by("umwayi was interrupted (Ctrl-C)")
+                except BaseException as e:
+                    self.stop_agent()
+                    self.log(f"Agent {self.agent.name} stopped: umwayi hit an unexpected error ({type(e).__name__})",
+                             "the agent was stopped before umwayi exited", NOT_LOGGED)
+                    raise
+                finally:
+                    self.stop_agent()  # on every path, and anything it left in its process group; before the lock is released
+        finally:
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)
+
+    def _stopped_by(self, what: str) -> Result:
+        was_running = self.proc is not None
+        self.stop_agent()
+        a = self.agent
+        head = what[:1].upper() + what[1:]
+        if was_running:
+            why = self.log(f"Agent {a.name} was stopped: {what}", "the agent and its process group were stopped "
+                           "(SIGTERM, then SIGKILL after 10 s)", NOT_LOGGED)
+            return self.result(2, [f"{head}, so agent {a.name} was stopped (exit 2)."], why)
+        why = self.log(f"Agent {a.name} did not start: {what}", "nothing had been started", "Nothing was started.")
+        return self.result(2, [f"{head} before agent {a.name} started. Nothing was started (exit 2)."], why)
+
+    # ------------------------------------------------------------ steps
+
+    def _steps(self, stack: ExitStack) -> Result:
+        a, root = self.agent, self.root
+        not_started = f"Agent {a.name} was not started."
+
+        # 2. the kill switch, before anything else
+        st = kill.state(root)
+        if kill.stopped(st):
+            why = self.log(f"Agent {a.name} did not start: {kill.short(st)}",
+                           "the kill switch was checked before anything else",
+                           "Nothing was started. No rule was asked and no queue item was added.")
+            return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}", not_started], why)
+
+        # 3. the rules, action agent_run, one entry through the same check as `umwayi check`
+        action = {"type": "agent_run", "agent": a.name, "platform": a.platform, "mode": RUN, "transport": a.transport}
+        decision, logged = rules.check_and_log(json.dumps(action), root / "rules.yaml", root, self.clock(),
+                                               kill_state=st)
+        verdict = [decision.answer, f"Rule: {decision.rule_id or '(none)'}", f"Reason: {decision.reason}"]
+        if not logged:
+            return Result(2, verdict + [f"{not_started} The logbook could not record the check, so nothing "
+                                        "is started (exit 2)."])
+        if decision.answer == rules.NO:
+            return Result(2, verdict + [not_started])
+        if decision.answer != rules.YES:
+            return Result(3, verdict + [not_started, self._ask_owner()])
+
+        # 4. the run lock
+        try:
+            stack.enter_context(runlock.held(root))
+        except (runlock.RunLockBusy, runlock.RunLockUnavailable) as e:
+            busy = isinstance(e, runlock.RunLockBusy)
+            reason = runlock.BUSY_REASON if busy else runlock.unavailable_reason(e)
+            short = "another umwayi run holds the run lock" if busy else "the run lock could not be taken"
+            why = self.log(f"Agent {a.name} did not start: {short}", "the kill switch, the rules, then the run lock",
+                           "Nothing was started.")
+            return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {reason}", not_started], why)
+
+        # 5. every gate check, again, just before the start
+        gate = gate_checks(a, root)
+        if not gate.gated:
+            why = self.log(f"Refused agent {a.name}: not gated ({gate.reason()})",
+                           "the kill switch, the rules (Yes), the run lock, then the gate checks", "Nothing was started.")
+            lines = [f"{'ok' if c.ok else ('no' if c.ok is False else 'not run')}: {c.name}: {c.detail}"
+                     for c in gate.checks]
+            return self.result(2, lines + [f"Refused: agent {a.name} cannot be gated, so it was not started (exit 2)."],
+                               why)
+
+        # 6. the argument list, from the platform table only
+        argv, stdin_text = build_argv(a, RUN, gate.command_path, root, python_path(), prompt=self.prompt)
+
+        # 7. the start entry first, then the start
+        why = self.log(f"Started agent {a.name} ({a.platform}, {a.transport}): {gate.command_path}",
+                       f"rule {decision.rule_id or '(none)'} gave Yes for agent_run; the run lock is held; every gate "
+                       f"check passed (version {_show(gate.version)})", NOT_LOGGED)
+        if why is not None:
+            return self.result(2, [f"{not_started} The logbook could not record the start, so nothing is started "
+                                   "(exit 2)."], why)
+        try:
+            self._start(argv, a.workdir, stdin_text)
+        except OSError:
+            why = self.log(f"Agent {a.name} could not start", "the program could not be started", "Nothing ran.")
+            return self.result(2, [f"Agent {a.name} could not be started (exit 2)."], why)
+
+        # 8. watch, 9. the end
+        return self._watch()
+
+    def _ask_owner(self) -> str:
+        title = f"Start agent {self.agent.name} ({RUN})?"
+        try:
+            row, added = taskqueue.add_once(self.root, "decision", title, ASK_RECOMMENDATION, self.clock())
+        except UmwayiError as e:
+            return f"The queue item could not be added ({str(e).rstrip('. ')})."
+        if not added:
+            return f"Queue item {row.id} already asks the owner about this. Nothing was added."
+        return (f"Added queue item {row.id} (decision) for the owner. Answering it does not start the agent; "
+                "add a Yes rule for agent_run to allow it.")
+
+    # ------------------------------------------------------------ the child
+
+    def _start(self, argv: list, cwd: str, stdin_text: str | None) -> None:
+        """The only place this module starts an agent: an argument list, no shell, its own process group."""
+        self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=True,
+                                     stdin=subprocess.DEVNULL if stdin_text is None else subprocess.PIPE)
+        self.started = time.monotonic()
+        if stdin_text is not None:
+            try:
+                self.proc.stdin.write(stdin_text.encode("utf-8"))
+            except OSError:
+                pass  # the agent closed its stdin: it will exit, and the exit is logged
+            finally:
+                try:
+                    self.proc.stdin.close()
+                except OSError:
+                    pass
+
+    def _group_alive(self) -> bool:
+        try:
+            os.killpg(self.proc.pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        return True
+
+    def _signal_group(self, sig: int) -> None:
+        try:
+            os.killpg(self.proc.pid, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    def stop_agent(self) -> None:
+        """Stop the agent and everything in its process group: SIGTERM, then SIGKILL after STOP_GRACE. Idempotent."""
+        p = self.proc
+        if p is None:
+            return
+        p.poll()
+        if p.returncode is None or self._group_alive():
+            self._signal_group(signal.SIGTERM)
+            deadline = time.monotonic() + STOP_GRACE
+            while time.monotonic() < deadline:
+                p.poll()
+                if p.returncode is not None and not self._group_alive():
+                    break
+                time.sleep(0.05)
+            else:
+                self._signal_group(signal.SIGKILL)
+        try:
+            p.wait(timeout=STOP_GRACE)
+        except subprocess.TimeoutExpired:
+            pass
+
+    def _watch(self) -> Result:
+        a, root = self.agent, self.root
+        deadline = self.started + a.timeout_minutes * SECONDS_PER_MINUTE
+        while True:
+            try:
+                code = self.proc.wait(timeout=WATCH_INTERVAL)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            st = kill.state(root)
+            if kill.stopped(st):
+                self.stop_agent()
+                why = self.log(f"The kill switch stopped agent {a.name}", f"kill switch: {st}, checked every second",
+                               NOT_LOGGED)
+                return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}",
+                                       f"The kill switch stopped agent {a.name} (exit 3)."], why)
+            try:
+                logbook.check_writable(root, self.clock())
+            except UmwayiError as e:
+                self.stop_agent()
+                return Result(2, [f"The logbook can no longer be written ({str(e).rstrip('. ')}), so agent {a.name} "
+                                  "was stopped: its checks could not be recorded (exit 2). Nothing was logged."])
+            if time.monotonic() >= deadline:
+                self.stop_agent()
+                why = self.log(f"Agent {a.name} stopped after its timeout of {a.timeout_minutes} min",
+                               "the timeout from agents.yaml was reached", NOT_LOGGED)
+                return self.result(2, [f"Agent {a.name} was stopped after its timeout of {a.timeout_minutes} "
+                                       "min (exit 2)."], why)
+        seconds = round(time.monotonic() - self.started)
+        why = self.log(f"Agent {a.name} exited {_exit_text(code)} after {seconds} s",
+                       "the agent ran with every tool call checked by the layer 9 hook", NOT_LOGGED)
+        if why is not None:
+            return self.result(2, [f"Agent {a.name} exited {_exit_text(code)}, but the end could not be logged "
+                                   "(exit 2)."], why)
+        if code != 0:
+            return Result(2, [f"Agent {a.name} exited {_exit_text(code)} (exit 2)."])
+        return Result(0, [f"Agent {a.name} finished (exit 0) after {seconds} s."])
+
+
+def run_agent(root, name: str, prompt: str, clock, given: str | None = None) -> Result:
+    """`umwayi agent run NAME`. Claude Code only in part 3: Kiro is part 4."""
+    root = _root(root)
+    agent = find(load(root, given), name)
+    if agent.platform != "claude-code":
+        raise UsageError(f"agent: umwayi agent run for platform {agent.platform} is not built yet "
+                         "(layer 10 part 4). Nothing was started.")
+    prompt = check_prompt(prompt, agent.platform)
+    return _Run(root, agent, prompt, clock).go()

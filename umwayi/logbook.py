@@ -373,6 +373,17 @@ def _check_not_backwards(entries: list, when: str) -> None:
         )
 
 
+def check_writable(root: Path, when: str) -> None:
+    """Raise UmwayiError if an append dated `when` would be refused now. Adds no entry.
+
+    Runs the same checks as append (hash record, format, date order) under the same
+    lock, so a write in progress is never mistaken for a hand-edited file. Used by
+    `umwayi agent run` to stop an agent once the logbook can no longer record its checks.
+    """
+    with _lock(root):
+        _check_before_write(root, when)
+
+
 def append(root: Path, entry: Entry) -> None:
     """Append one entry. Checked: lock, hash record, format, date order."""
     block = render(entry)
