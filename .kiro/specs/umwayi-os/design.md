@@ -22,6 +22,7 @@ umwayi/
   helpers/      layer 7: base.py (every helper step), steward.py, social.py
   workflow.py   layer 8: workflows/NAME.yaml, umwayi workflow validate and run
   kill.py       layer 8: the kill switch .umwayi/KILL
+  runlock.py    one run at a time: .umwayi/run.lock (fcntl.flock, never waits)
 ```
 
 Layers 2 to 8 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
@@ -568,6 +569,19 @@ Fail closed: unknown stops runs exactly like on. Every AI helper (`start` and ev
 ### Rules
 
 The starter rules.yaml adds `workflow-steps` (Yes for `workflow_step` from the helper `workflow` with a command from the allow list or `approve`) and `helper-no-post-command` (No for any helper action whose command contains post, send or publish). Any other workflow step is Ask me first.
+
+## The run lock (`umwayi/runlock.py`)
+
+Every AI helper (steward, social), every job (`umwayi run`) and every workflow (`umwayi workflow run`) holds `.umwayi/run.lock` for its whole run, so two of them never write at the same time. It is one lock for all four, taken with `fcntl.flock(LOCK_EX | LOCK_NB)`:
+
+- Order at the start of a run: the kill switch, then the run lock, then everything else.
+- Held by another run: the run does not wait. It answers Ask me first (exit 3), writes one logbook entry ("another umwayi run holds the run lock") and changes nothing else.
+- Locking not available (no `fcntl`, for example on Windows), the OS refusing the lock, `.umwayi` not a normal folder, or `run.lock` a link or a folder: fail closed, Ask me first (exit 3), one entry.
+- Released on every exit path: the helper base releases it in a `finally` (`Helper.finish`), the job runner holds it in a `with` block, and the operating system releases it if the process dies.
+- The file is never deleted, because deleting a flock file lets two processes lock two different files with the same name.
+- Owner commands (queue, archive, check, report, publish-draft, logbook, kill, workflow validate) do not take it.
+
+It is separate from `.umwayi/logbook.lock`, which guards one logbook append.
 
 ## Testing
 

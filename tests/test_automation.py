@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, write_sealed_logbook
+from tests.helpers import entry_text, without_run_lock, write_sealed_logbook
 from umwayi import jobs, logbook, publish, report
 from umwayi.cli import main
 from umwayi.errors import UmwayiError, UsageError
@@ -139,7 +139,7 @@ class Base(unittest.TestCase):
                     out[os.path.relpath(os.path.join(dp, d), self.root) + "/"] = None
             for f in fn:
                 out[os.path.relpath(os.path.join(dp, f), self.root)] = Path(dp, f).read_bytes()
-        return out
+        return without_run_lock(out)
 
     def assert_refused(self, argv, code, fragment, clock="2026-11-07"):
         before = self.snap()

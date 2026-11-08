@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, write_sealed_logbook
+from tests.helpers import entry_text, without_run_lock, write_sealed_logbook
 from umwayi import logbook, publish, rules, taskqueue
 from umwayi.cli import main
 from umwayi.errors import UmwayiError
@@ -125,7 +125,7 @@ class Base(unittest.TestCase):
             for f in fn:
                 full = os.path.join(dp, f)
                 out[os.path.relpath(full, self.root)] = (Path(full).read_bytes(), os.stat(full).st_mtime_ns)
-        return out
+        return without_run_lock(out)
 
     def changed(self, before):
         after = self.snap()
@@ -145,8 +145,13 @@ class Base(unittest.TestCase):
 
 class BaseStepTests(Base):
     def helper(self, name="steward"):
+        # a started helper holds the run lock: finish the one before, as a real run would
+        if getattr(self, "_started", None) is not None:
+            self._started.finish()
         h = Helper(self.root, name, "2026-11-07")
         h.start()
+        self._started = h
+        self.addCleanup(h.finish)
         return h
 
     def ok_work(self):
@@ -844,7 +849,7 @@ def _imports(path):
 
 
 class CodeGuardTests(unittest.TestCase):
-    ALLOWED_IMPORTS = {"__future__", "hashlib", "json", "os", "re", "dataclasses", "datetime", "pathlib", "typing",
+    ALLOWED_IMPORTS = {"__future__", "contextlib", "hashlib", "json", "os", "re", "dataclasses", "datetime", "pathlib", "typing",
                        "umwayi", "umwayi.config", "umwayi.drafts", "umwayi.errors", "umwayi.memory",
                        "umwayi.helpers.base"}
 

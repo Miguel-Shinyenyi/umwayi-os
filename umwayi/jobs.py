@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-from umwayi import kill, logbook, miniyaml, report, rules, taskqueue
+from umwayi import kill, logbook, miniyaml, report, rules, runlock, taskqueue
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 ALLOWED_COMMANDS = ("report", "check", "queue-list")
@@ -182,6 +182,28 @@ def run(root: Path, jobfile: Path, name: str | None, today: str) -> Result:
             lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
         return Result(3, lines)
 
+    # --- 0b. one run at a time: hold the run lock for the whole run, never wait
+    try:
+        with runlock.held(root):
+            return _run_locked(root, jobfile, name, today)
+    except (runlock.RunLockBusy, runlock.RunLockUnavailable) as e:
+        busy = isinstance(e, runlock.RunLockBusy)
+        reason = runlock.BUSY_REASON if busy else runlock.unavailable_reason(e)
+        short = "another umwayi run holds the run lock" if busy else "the run lock could not be taken"
+        lines = [rules.ASK, "Rule: (none)", f"Reason: {reason}", "The job did not run. Nothing was read."]
+        try:
+            logbook.append(root, logbook.Entry(
+                today, "umwayi run", f"A job run was stopped before the jobs file was read: {short}",
+                "the kill switch, then the run lock, before anything else",
+                "The job did not run. Nothing was read, written, published or pushed."))
+        except Exception as e2:
+            why = str(e2).rstrip(". ") if isinstance(e2, UmwayiError) else "an unexpected error"
+            lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
+        return Result(3, lines)
+
+
+def _run_locked(root: Path, jobfile: Path, name: str | None, today: str) -> Result:
+    """Steps 1 to 6, while the run lock is held."""
     job = select(load_jobs(jobfile), name)
 
     # --- 2. the gap rule, from the tamper checked logbook

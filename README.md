@@ -254,3 +254,7 @@ umwayi kill off
 ```
 
 While the switch is on (the file `.umwayi/KILL` exists), every AI helper, job and workflow stops before doing anything, with exit 3 (Ask me first) and one logbook entry. If umwayi cannot tell whether the switch is on (for example `.umwayi` is not a normal folder), it stops too. `kill on` works even when the logbook is broken. `kill off` keeps the switch on if the logbook cannot record it. Your own commands (queue, archive, check, report, publish-draft) are not stopped.
+
+### One run at a time
+
+AI helpers, jobs and workflows share one lock, `.umwayi/run.lock`. If one is running and you start another, the second one does not wait: it answers Ask me first (exit 3), writes one logbook entry, and changes nothing. If locking is not available on your system, they all answer Ask me first. Your own commands (queue, check, archive, report, publish-draft) are not locked.
