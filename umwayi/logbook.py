@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from datetime import date as _date
 from pathlib import Path
 
-from umwayi.errors import UmwayiError
+from umwayi.errors import UmwayiError, UsageError
 from umwayi.fsutil import atomic_write
 
 LOGBOOK_NAME = "LOGBOOK.md"
@@ -391,10 +391,10 @@ def seal(root: Path, when: str, by: str) -> SealResult:
     logbook that is already sealed and intact.
     """
     if not real_date(when):
-        raise UmwayiError("logbook: date must be a real date YYYY-MM-DD")
+        raise UsageError("logbook: date must be a real date YYYY-MM-DD")
     by = by.strip() if isinstance(by, str) else ""
     if not by or len(by) > MAX_BY or not by.isprintable():
-        raise UmwayiError(f"logbook: --by must be one short line of plain text (1 to {MAX_BY} characters)")
+        raise UsageError(f"logbook: --by must be one short line of plain text (1 to {MAX_BY} characters)")
     with _lock(root):
         data = _read_logbook(root)
         if not data:

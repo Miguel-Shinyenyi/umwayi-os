@@ -24,7 +24,7 @@ from pathlib import Path
 
 from umwayi import logbook
 from umwayi.config import load_config
-from umwayi.errors import UmwayiError
+from umwayi.errors import UmwayiError, UsageError
 from umwayi.fsutil import atomic_write
 from umwayi.memory import is_private
 from umwayi.taskqueue import is_valid_date
@@ -203,22 +203,22 @@ def sha256_hex(data: bytes) -> str:
 def _check_reason(reason: str) -> str:
     v = reason.strip() if isinstance(reason, str) else ""
     if not v:
-        raise UmwayiError("reason must not be empty")
+        raise UsageError("reason must not be empty")
     if len(v) > MAX_REASON:
-        raise UmwayiError(f"reason is longer than {MAX_REASON} characters")
+        raise UsageError(f"reason is longer than {MAX_REASON} characters")
     if not v.isprintable():
-        raise UmwayiError("reason must be one line of plain text")
+        raise UsageError("reason must be one line of plain text")
     if "|" in v:
-        raise UmwayiError("reason must not contain the | character")
+        raise UsageError("reason must not contain the | character")
     return v
 
 
 def _check_marker(value: str, what: str) -> str:
     v = value.strip() if isinstance(value, str) else ""
     if not v:
-        raise UmwayiError(f"{what} marker must not be empty")
+        raise UsageError(f"{what} marker must not be empty")
     if len(v) > MAX_MARKER or not v.isprintable():
-        raise UmwayiError(f"{what} marker must be one short line of plain text")
+        raise UsageError(f"{what} marker must be one short line of plain text")
     return v
 
 
@@ -281,7 +281,7 @@ def _select_by_markers(lines: list[bytes], start: str, end: str) -> tuple[int, i
     start = _check_marker(start, "start")
     end = _check_marker(end, "end")
     if start == end:
-        raise UmwayiError("the start and end markers must be different")
+        raise UsageError("the start and end markers must be different")
     texts = [l.decode("utf-8").strip() for l in lines]
     starts = [i for i, t in enumerate(texts) if t == start]
     ends = [i for i, t in enumerate(texts) if t == end]
@@ -317,11 +317,11 @@ def move(
 ) -> MoveResult:
     root = Path(root)
     if not is_valid_date(when):
-        raise UmwayiError("date must be a real date in the form YYYY-MM-DD")
+        raise UsageError("date must be a real date in the form YYYY-MM-DD")
     reason = _check_reason(reason)
     by_markers = start is not None or end is not None
     if (lines is None) == (not by_markers) or (by_markers and (start is None or end is None)):
-        raise UmwayiError("give either a line range, or both a start and an end marker")
+        raise UsageError("give either a line range, or both a start and an end marker")
 
     # --- the source file: refuse anything unsafe, before reading it
     config = load_config(root)  # no config means the private paths are unknown: refuse

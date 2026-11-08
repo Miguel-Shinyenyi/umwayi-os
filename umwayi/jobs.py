@@ -6,7 +6,9 @@ no way to name another program: the command word picks a Python function
 inside umwayi.
 
 Order of work for one run:
-  1. Read the jobs file strictly. Pick the job.            (error: exit 1 or 64)
+  0. The kill switch. If it is on, or its state cannot be read, the run stops
+     before anything else with exit 3 and one logbook entry.
+  1. Read the jobs file strictly. Pick the job.            (error: exit 64)
   2. Read the logbook (tamper checked). Apply the gap rule. (refusal: exit 1)
   3. Ask the rules: action {"type": "run_job", "job": NAME, "command": WORD}.
      No stops the job (exit 2), Ask me first stops it (exit 3). Either way one
@@ -27,8 +29,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-from umwayi import logbook, miniyaml, report, rules, taskqueue
-from umwayi.errors import UmwayiError, UsageError
+from umwayi import kill, logbook, miniyaml, report, rules, taskqueue
+from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 ALLOWED_COMMANDS = ("report", "check", "queue-list")
 _COMMON = {"name", "command", "min_gap_days"}
@@ -60,7 +62,7 @@ class Result:
 
 def _int(value, what: str, low: int, high: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
-        raise UmwayiError(f"jobs file: {what} must be a whole number from {low} to {high}")
+        raise ConfigError(f"jobs file: {what} must be a whole number from {low} to {high}")
     return value
 
 
@@ -68,33 +70,33 @@ def parse_jobs(text: str) -> list:
     try:
         data = miniyaml.loads(text)
     except miniyaml.YamlError as e:
-        raise UmwayiError(f"jobs file: {e}") from None
+        raise ConfigError(f"jobs file: {e}") from None
     if not isinstance(data, dict) or set(data) != {"jobs"}:
-        raise UmwayiError("jobs file: the top level must be a single 'jobs' list")
+        raise ConfigError("jobs file: the top level must be a single 'jobs' list")
     items = data["jobs"]
     if not isinstance(items, list) or not items:
-        raise UmwayiError("jobs file: 'jobs' must be a list with at least one job")
+        raise ConfigError("jobs file: 'jobs' must be a list with at least one job")
     jobs, seen = [], set()
     for i, item in enumerate(items, 1):
         if not isinstance(item, dict):
-            raise UmwayiError(f"jobs file: job #{i} must be a mapping")
+            raise ConfigError(f"jobs file: job #{i} must be a mapping")
         name = item.get("name")
         if not isinstance(name, str) or not _NAME.match(name):
-            raise UmwayiError(f"jobs file: job #{i} needs a name of lowercase letters, digits and '-' (up to 40)")
+            raise ConfigError(f"jobs file: job #{i} needs a name of lowercase letters, digits and '-' (up to 40)")
         if name in seen:
-            raise UmwayiError(f"jobs file: duplicate job name '{name}'")
+            raise ConfigError(f"jobs file: duplicate job name '{name}'")
         seen.add(name)
         command = item.get("command")
         if command not in ALLOWED_COMMANDS:
-            raise UmwayiError(
+            raise ConfigError(
                 f"jobs file: job '{name}' has a command that is not on the allow list ({', '.join(ALLOWED_COMMANDS)})"
             )
         allowed = _COMMON | _OPTIONS[command]
         if set(item) - allowed:
-            raise UmwayiError(f"jobs file: job '{name}' has a field that is not allowed for '{command}'")
+            raise ConfigError(f"jobs file: job '{name}' has a field that is not allowed for '{command}'")
         missing = (_REQUIRED[command] | {"min_gap_days"}) - set(item)
         if missing:
-            raise UmwayiError(f"jobs file: job '{name}' is missing: {', '.join(sorted(missing))}")
+            raise ConfigError(f"jobs file: job '{name}' is missing: {', '.join(sorted(missing))}")
         gap = _int(item["min_gap_days"], f"min_gap_days of job '{name}'", 1, MAX_GAP_DAYS)
         options: dict = {}
         if command == "report":
@@ -102,11 +104,11 @@ def parse_jobs(text: str) -> list:
         elif command == "check":
             t = item["action_type"]
             if not isinstance(t, str) or not _TYPE.match(t):
-                raise UmwayiError(f"jobs file: action_type of job '{name}' must be one plain word (up to 40)")
+                raise ConfigError(f"jobs file: action_type of job '{name}' must be one plain word (up to 40)")
             options["action_type"] = t
         elif "status" in item:
             if item["status"] not in taskqueue.STATUSES:
-                raise UmwayiError(f"jobs file: status of job '{name}' must be one of: {', '.join(taskqueue.STATUSES)}")
+                raise ConfigError(f"jobs file: status of job '{name}' must be one of: {', '.join(taskqueue.STATUSES)}")
             options["status"] = item["status"]
         jobs.append(Job(name, command, gap, options))
     return jobs
@@ -115,19 +117,19 @@ def parse_jobs(text: str) -> list:
 def load_jobs(path: Path) -> list:
     path = Path(path)
     if path.is_symlink():
-        raise UmwayiError("jobs file: must not be a symbolic link")
+        raise ConfigError("jobs file: must not be a symbolic link")
     if not path.is_file():
-        raise UmwayiError("jobs file: was not found")
+        raise ConfigError("jobs file: was not found")
     try:
         data = path.read_bytes()
     except OSError:
-        raise UmwayiError("jobs file: cannot be read") from None
+        raise ConfigError("jobs file: cannot be read") from None
     if len(data) > MAX_JOBFILE_BYTES:
-        raise UmwayiError("jobs file: is too large")
+        raise ConfigError("jobs file: is too large")
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
-        raise UmwayiError("jobs file: is not valid UTF-8") from None
+        raise ConfigError("jobs file: is not valid UTF-8") from None
     return parse_jobs(text)
 
 
@@ -164,7 +166,22 @@ def days_between(earlier: str, later: str) -> int:
 def run(root: Path, jobfile: Path, name: str | None, today: str) -> Result:
     root = Path(root)
     if not taskqueue.is_valid_date(today):
-        raise UmwayiError("run: date must be a real date YYYY-MM-DD")
+        raise UsageError("run: date must be a real date YYYY-MM-DD")
+
+    # --- 0. the kill switch, before the jobs file is even read
+    st = kill.state(root)
+    if kill.stopped(st):
+        lines = [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}", "The job did not run. Nothing was read."]
+        try:
+            logbook.append(root, logbook.Entry(
+                today, "umwayi run", f"A job run was stopped before the jobs file was read: {kill.short(st)}",
+                "the kill switch was checked before anything else",
+                "The job did not run. Nothing was read, written, published or pushed."))
+        except Exception as e:
+            why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+            lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
+        return Result(3, lines)
+
     job = select(load_jobs(jobfile), name)
 
     # --- 2. the gap rule, from the tamper checked logbook

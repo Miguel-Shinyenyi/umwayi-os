@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from umwayi.config import load_config
-from umwayi.errors import UmwayiError
+from umwayi.errors import ConfigError, UmwayiError
 from umwayi.helpers.base import Helper, Outcome, Result, run as run_helper
 from umwayi.memory import is_private
 
@@ -234,7 +234,7 @@ def draft(root: Path, article: str, today: str) -> Result:
     config = load_config(root)  # no config means private paths unknown: refuse
     channels = config.social_channels
     if not channels:
-        raise UmwayiError("social: umwayi.json has no social_channels, so there is no channel to draft for")
+        raise ConfigError("social: umwayi.json has no social_channels, so there is no channel to draft for")
     path, rel = resolve_article(root, article, config.private_paths)
     helper = Helper(root, "social", today)
 

@@ -21,8 +21,10 @@ and this module:
 
 So every step that is checked adds exactly one logbook entry, written through
 the checked append. Before the first step, `start` refuses to run at all if
-the logbook fails its tamper check (exit 1, nothing written) or if
-rules.yaml cannot be loaded (exit 3, one entry, nothing else).
+the kill switch is on or its state cannot be read (exit 3, one entry, nothing
+else), if the logbook fails its tamper check (exit 1, nothing written) or if
+rules.yaml cannot be loaded (exit 3, one entry, nothing else). The kill switch
+is checked again before every step.
 
 Answering the queue item is a record for the owner. It does not let the
 helper go on. To allow an action, the owner adds a Yes rule in rules.yaml.
@@ -36,11 +38,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from umwayi import drafts, logbook, rules, taskqueue
-from umwayi.errors import UmwayiError
+from umwayi import drafts, kill, logbook, rules, taskqueue
+from umwayi.errors import UmwayiError, UsageError
 
-HELPERS = ("steward", "social")
-FIELD_KEYS = ("channel",)  # the only extra key a helper may give; "type" and "helper" are set here
+HELPERS = ("steward", "social", "workflow")
+# the only extra keys a helper may give; "type" and "helper" are set here. Values are plain names.
+FIELD_KEYS = ("channel", "workflow", "step", "command")
 _TYPE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 _VALUE = re.compile(r"^[a-z][a-z0-9-]{0,19}$")
 ASK_RECOMMENDATION = (
@@ -79,15 +82,16 @@ def _why(e: BaseException) -> str:
 
 
 class Helper:
-    def __init__(self, root: Path, name: str, today: str):
+    def __init__(self, root: Path, name: str, today: str, label: str | None = None):
         if name not in HELPERS:
             raise UmwayiError("helper: unknown AI helper name")
         if not taskqueue.is_valid_date(today):
-            raise UmwayiError("helper: date must be a real date YYYY-MM-DD")
+            raise UsageError("helper: date must be a real date YYYY-MM-DD")
         self.root = Path(root)
         self.name = name
         self.today = today
         self.source = f"umwayi {name}"
+        self.label = label or f"AI helper {name}"  # how messages and the queue name this runner
         self.rules_path = self.root / "rules.yaml"
         self.steps = 0
 
@@ -108,12 +112,27 @@ class Helper:
 
     # -------------------------------------------------------------- start
 
+    def _kill_stop(self, where: str, added: str) -> None:
+        """Stop with exit 3 and one entry if the kill switch is not known to be off."""
+        st = kill.state(self.root)
+        if not kill.stopped(st):
+            return
+        lines = [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}", where]
+        self._log_or_note(
+            lines,
+            f"{added}: {kill.short(st)}",
+            "the kill switch was checked before anything else",
+            "Nothing was read or written. No rule was asked and no queue item was added.",
+        )
+        raise Stop(3, lines)
+
     def start(self) -> None:
-        """Refuse to run at all if the logbook or the rules are broken."""
+        """Refuse to run at all if the kill switch is on, or the logbook or the rules are broken."""
+        self._kill_stop(f"{self.label} did not start. Nothing was read or written.", f"{self.label} did not start")
         try:
             logbook.read_checked(self.root)
         except UmwayiError as e:
-            raise UmwayiError(f"AI helper {self.name} did not start: {e} Nothing was written.") from None
+            raise UmwayiError(f"{self.label} did not start: {e} Nothing was written.") from None
         try:
             rules.load_rules(self.rules_path)
         except UmwayiError as e:
@@ -121,11 +140,11 @@ class Helper:
                 rules.ASK,
                 "Rule: (none)",
                 f"Reason: Rules could not be loaded ({e}).",
-                f"AI helper {self.name} did not start. Nothing was read or written.",
+                f"{self.label} did not start. Nothing was read or written.",
             ]
             self._log_or_note(
                 lines,
-                f"AI helper {self.name} did not start: rules.yaml could not be loaded",
+                f"{self.label} did not start: rules.yaml could not be loaded",
                 "the logbook passed its tamper check; rules.yaml was loaded and failed",
                 "No step ran. Nothing was read, written, posted or sent. No queue item was added.",
             )
@@ -138,10 +157,10 @@ class Helper:
             raise UmwayiError("helper: an action type must be one plain lowercase word")
         extra = set(fields) - set(FIELD_KEYS)
         if extra:
-            raise UmwayiError("helper: an AI helper may only give an action type and a channel")
+            raise UmwayiError("helper: an AI helper may only give an action type and the fields channel, workflow, step and command")
         for v in fields.values():
             if not isinstance(v, str) or not _VALUE.match(v):
-                raise UmwayiError("helper: a channel must be one plain lowercase name")
+                raise UmwayiError("helper: channel, workflow, step and command must each be one plain lowercase name")
         return {"type": type_, "helper": self.name, **fields}
 
     def step(self, type_: str, work: Callable[[], Outcome], **fields) -> Outcome:
@@ -149,10 +168,11 @@ class Helper:
         self.steps += 1
         n = self.steps
         head = f"Step {n} ({type_})"
+        stopped = f"{self.label} stopped at step {n} ({type_})."
+        self._kill_stop(stopped, f"{head} stopped before it ran")
         decision = rules.check(json.dumps(action), self.rules_path)
         who = f"rule {decision.rule_id}" if decision.rule_id else "no rule"
-        checked = f"{who} gave {decision.answer} for action type {type_} from AI helper {self.name}"
-        stopped = f"AI helper {self.name} stopped at step {n} ({type_})."
+        checked = f"{who} gave {decision.answer} for action type {type_} from {self.label}"
         verdict = [decision.answer, f"Rule: {decision.rule_id or '(none)'}", f"Reason: {decision.reason}"]
 
         if decision.answer == rules.NO:
@@ -166,7 +186,7 @@ class Helper:
             raise Stop(2, lines)
 
         if decision.answer != rules.YES:  # Ask me first, or anything unknown
-            note, short = self._ask_owner(type_)
+            note, short = self._ask_owner(type_, fields.get("command"))
             lines = verdict + [stopped, note]
             self._log_or_note(
                 lines,
@@ -206,9 +226,9 @@ class Helper:
 
     # ----------------------------------------------------------- the queue
 
-    def _ask_owner(self, type_: str) -> tuple[str, str]:
+    def _ask_owner(self, type_: str, command: str | None = None) -> tuple[str, str]:
         """Add one open decision for the owner, or point to the one already open."""
-        title = f"AI helper {self.name} asks first: may it do {type_}?"
+        title = f"{self.label} asks first: may it do {type_}" + (f" ({command})" if command else "") + "?"
         try:
             if (self.root / taskqueue.QUEUE_NAME).exists():
                 for r in taskqueue.list_rows(self.root, status="open", kind="decision"):

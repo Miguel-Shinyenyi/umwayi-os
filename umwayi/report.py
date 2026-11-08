@@ -17,7 +17,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import drafts, logbook
-from umwayi.errors import UmwayiError
+from umwayi.errors import UmwayiError, UsageError
 from umwayi.taskqueue import is_valid_date
 
 DRAFTS_DIR = drafts.DRAFTS_DIR
@@ -139,9 +139,9 @@ def render(since: str, until: str, commits: list) -> str:
 
 def build(root: Path, since: str, until: str) -> Report:
     if not is_valid_date(since) or not is_valid_date(until):
-        raise UmwayiError("report: dates must be real dates YYYY-MM-DD")
+        raise UsageError("report: dates must be real dates YYYY-MM-DD")
     if since > until:
-        raise UmwayiError("report: --since is after today, there is nothing to report")
+        raise UsageError("report: --since is after today, there is nothing to report")
     commits = read_git_log(root, since, until)
     return Report(since, until, commits, render(since, until, commits))
 

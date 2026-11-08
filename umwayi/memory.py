@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from umwayi.config import Config
-from umwayi.errors import UmwayiError
+from umwayi.errors import ConfigError, UmwayiError
 
 SECTIONS = ("master", "projects", "journal")
 _SUFFIXES = {".md", ".txt"}
@@ -97,9 +97,9 @@ def load_bundle(config: Config) -> Bundle:
         real_mem = mem.resolve()
         real_mem.relative_to(real_root)
     except (OSError, ValueError):
-        raise UmwayiError("memory: memory_dir must be inside the root") from None
+        raise ConfigError("memory: memory_dir must be inside the root") from None
     if mem.is_symlink() or not mem.is_dir():
-        raise UmwayiError("memory: memory_dir is not a folder")
+        raise ConfigError("memory: memory_dir is not a folder")
 
     bundle = Bundle()
 

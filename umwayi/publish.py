@@ -21,7 +21,7 @@ from pathlib import Path
 
 from umwayi import logbook, rules
 from umwayi.config import load_config
-from umwayi.errors import UmwayiError
+from umwayi.errors import UmwayiError, UsageError
 from umwayi.memory import is_private
 
 DRAFTS_DIR = "drafts"
@@ -96,7 +96,7 @@ def publish(root: Path, draft: str, today: str, approved_by: str | None = None) 
     if approved_by is not None:
         approved_by = approved_by.strip()
         if not approved_by or len(approved_by) > MAX_NAME or not approved_by.isprintable():
-            raise UmwayiError(f"publish: --approved-by must be one short line of plain text (1 to {MAX_NAME} characters)")
+            raise UsageError(f"publish: --approved-by must be one short line of plain text (1 to {MAX_NAME} characters)")
 
     # --- refusals before the rules are asked: nothing is logged, exit 1
     config = load_config(root)  # private paths unknown means refuse

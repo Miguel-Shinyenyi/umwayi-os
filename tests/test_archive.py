@@ -92,10 +92,10 @@ class ArchiveBase(unittest.TestCase):
         self.assertEqual(code, 0, err)
         return out
 
-    def assert_refused(self, argv, fragment, clock="2026-11-07"):
+    def assert_refused(self, argv, fragment, clock="2026-11-07", code=1):
         before = self.snap()
-        code, out, err = self.run_cli(*argv, clock=clock)
-        self.assertEqual((code, out), (1, ""), err)
+        got, out, err = self.run_cli(*argv, clock=clock)
+        self.assertEqual((got, out), (code, ""), err)
         self.assertIn(fragment, err)
         self.assertEqual(self.snap(), before, "a refused command changed something")
 
@@ -292,15 +292,17 @@ class MoveByMarkersTests(ArchiveBase):
             ("start twice", "BEGIN\nx\nBEGIN\ny\nEND\n", ["--start", "BEGIN", "--end", "END"], "start marker appears more than once"),
             ("end twice", "BEGIN\nx\nEND\ny\nEND\n", ["--start", "BEGIN", "--end", "END"], "end marker appears more than once"),
             ("end before start", "END\nx\nBEGIN\n", ["--start", "BEGIN", "--end", "END"], "end marker comes before"),
+            # the marker text itself is not allowed: a usage error (64)
             ("same marker", "X\nbody\nX\n", ["--start", "X", "--end", "X"], "must be different"),
             ("empty start", "BEGIN\nEND\n", ["--start", "  ", "--end", "END"], "start marker must not be empty"),
             ("empty end", "BEGIN\nEND\n", ["--start", "BEGIN", "--end", ""], "end marker must not be empty"),
             ("multi line marker", "BEGIN\nEND\n", ["--start", "BE\nGIN", "--end", "END"], "one short line"),
         ]
+        usage = {"same marker", "empty start", "empty end", "multi line marker"}
         for name, text, args, fragment in cases:
             with self.subTest(name=name):
                 self.write("m.md", text)
-                self.assert_refused(["move", "m.md", *args, "--reason", "r"], fragment)
+                self.assert_refused(["move", "m.md", *args, "--reason", "r"], fragment, code=64 if name in usage else 1)
 
     def test_marker_error_does_not_echo_the_marker(self):
         self.write("m.md", "a\n")
@@ -384,7 +386,7 @@ class RefusalTests(ArchiveBase):
                     cfg.unlink()
                 else:
                     cfg.write_text(text, encoding="utf-8")
-                self.assert_refused(["move", "notes.md", "--lines", "3-4", "--reason", "r"], "config")
+                self.assert_refused(["move", "notes.md", "--lines", "3-4", "--reason", "r"], "config", code=64)
                 self.write("umwayi.json", good)
 
     def test_reason_refusals(self):
@@ -396,7 +398,7 @@ class RefusalTests(ArchiveBase):
             ("x" * 501, "longer than 500"),
         ]:
             with self.subTest(reason=reason[:10]):
-                self.assert_refused(["move", "notes.md", "--lines", "3-4", "--reason", reason], fragment)
+                self.assert_refused(["move", "notes.md", "--lines", "3-4", "--reason", reason], fragment, code=64)
                 # it must be refused up front, not caught later by the index re-check
                 _, _, err = self.run_cli("move", "notes.md", "--lines", "3-4", "--reason", reason)
                 self.assertNotIn("archive index", err)

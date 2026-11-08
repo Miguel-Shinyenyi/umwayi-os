@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: layers 1 (memory), 2 (rules), 3 (queue), 4 (archive), 5 (logbook), 6 (automation) and 7 (helpers) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -16,6 +16,20 @@ python -m unittest discover -s tests -t .
 ```
 
 Without installing, use `python -m umwayi` from the repo root.
+
+## Exit codes
+
+Every command uses the same codes:
+
+| code | meaning |
+| --- | --- |
+| 0 | Yes, or done |
+| 1 | refused: something was checked and found wrong, nothing was changed |
+| 2 | No, or an unexpected error (a crash is treated like No, never like Yes) |
+| 3 | Ask me first |
+| 64 | usage or config error: wrong arguments, a value that is not allowed, or a missing or invalid `umwayi.json`, jobs file or workflow file |
+
+A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 
 ## Layer 1: memory
 
@@ -204,3 +218,39 @@ summary: One line about it (optional)
 ```
 
 It writes one draft per channel listed in `umwayi.json`, for example `"social_channels": ["linkedin", "mastodon"]`, as `drafts/post-linkedin-0001.md`. Each post comes from one fixed template: the title, the summary (or the first paragraph), and `Read more: LINK`. Posts are at most 280 characters, plain text, with no hashtags and no em dashes. There is no model call and no network. It never posts. To publish a draft, run `umwayi publish-draft drafts/post-linkedin-0001.md`, which is Ask me first.
+
+## Layer 8: workflows
+
+A workflow is a file `workflows/NAME.yaml` with a name and steps in order. Each step is one command from a fixed list inside umwayi, with its arguments written in the file:
+
+| command | arguments |
+| --- | --- |
+| `queue-list` | `status` (optional) |
+| `steward` | `waiting_days` (optional, default 7) |
+| `social-draft` | `article` (a local article file) |
+| `report` | `since_days` |
+| `check` | `action_type` |
+| `approve` | none, and only as the last step |
+
+There is no way to put a shell command, another program or an approval in a workflow.
+
+```
+umwayi workflow validate content-loop
+umwayi workflow run content-loop [--date 2026-11-07]
+```
+
+- `validate` prints every problem with its line number and exits 64, or `ok` and exits 0.
+- `run` asks the rules for every step (action type `workflow_step`). No stops it (exit 2), Ask me first stops it (exit 3). Every step adds one logbook entry. If the logbook cannot be written, the run stops.
+- The shipped content loop (`workflows/content-loop.yaml`) runs collect (`queue-list`), brief (`steward`), draft (`social-draft` from `articles/example.md`) and approve.
+- The approve step never approves anything. It adds a queue item of kind decision that lists the drafts, and stops the workflow with exit 3. The workflow will not run again until you answer or close that item. To publish a draft, you run `umwayi publish-draft DRAFT`, which is Ask me first.
+- Workflows write only under `drafts/`, plus the queue and the logbook.
+
+### Kill switch
+
+```
+umwayi kill on [--reason "taking a break"]
+umwayi kill status
+umwayi kill off
+```
+
+While the switch is on (the file `.umwayi/KILL` exists), every AI helper, job and workflow stops before doing anything, with exit 3 (Ask me first) and one logbook entry. If umwayi cannot tell whether the switch is on (for example `.umwayi` is not a normal folder), it stops too. `kill on` works even when the logbook is broken. `kill off` keeps the switch on if the logbook cannot record it. Your own commands (queue, archive, check, report, publish-draft) are not stopped.

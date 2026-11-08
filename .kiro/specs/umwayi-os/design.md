@@ -20,17 +20,24 @@ umwayi/
   publish.py    layer 6: umwayi publish-draft
   drafts.py     numbered drafts under drafts/ that never overwrite (layers 6 and 7)
   helpers/      layer 7: base.py (every helper step), steward.py, social.py
-  workflows/    layer 8 (later)
+  workflow.py   layer 8: workflows/NAME.yaml, umwayi workflow validate and run
+  kill.py       layer 8: the kill switch .umwayi/KILL
 ```
 
-Layers 2 to 7 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
+Layers 2 to 8 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
 ## Safety model
 
 - Fail closed everywhere. Parsers are strict: unknown keys, duplicate keys, bad types and unsupported syntax are errors, not guesses.
 - Errors never echo file content. They name the problem and a line number, not the text.
 - Private paths are matched case-insensitively and on every parent folder, so a rule for `memory/private` also blocks a file below it.
-- Exit codes of `umwayi check` are reserved: 0 Yes, 2 No, 3 Ask me first. All other usage errors exit 64, and runtime errors of other commands exit 1.
+- Exit codes, for every command:
+  - 0: Yes, or done.
+  - 1: a refusal. Something was checked and found wrong (a malformed queue.md, an id that does not exist, a tampered logbook) and nothing was changed.
+  - 2: No. Also every unexpected error: `main` catches every exception (and Ctrl-C) and exits 2, so a crash is never read as Yes or as a non blocking error by a hook. The message is not printed, only the error type, because it may hold file content.
+  - 3: Ask me first.
+  - 64: a usage error or a config error. Wrong arguments, an argument value that is not allowed (for example a title with `|`, an empty reason, an id like `q-1`), or a missing or invalid `umwayi.json`, jobs file or workflow file. `ConfigError` is a kind of `UsageError`.
+  - rules.yaml is not config in this sense: a missing or broken rules file gives Ask me first (3), as before.
 - No network imports in layers 1 to 5.
 
 ## Layer 1: Memory
@@ -368,7 +375,8 @@ jobs:
 
 Order of work:
 
-1. Read the jobs file and pick the job.
+0. The kill switch (layer 8). If it is on or its state cannot be read, the run stops here with exit 3 and one entry, before the jobs file is read.
+1. Read the jobs file and pick the job. A missing or invalid jobs file is a config error (exit 64).
 2. Read the logbook through `logbook.read_checked` (tamper check and format check, no lock). If it fails, refuse (exit 1) before anything else.
 3. Gap rule: the last run is the latest entry with source `umwayi run` whose Added line starts with `Job NAME ran `. Stopped runs do not count. If fewer than `min_gap_days` days have passed, refuse (exit 1, no entry). A last run after today is also refused.
 4. Ask the rules with the action `{"type": "run_job", "job": NAME, "command": WORD}`. No stops the job (exit 2) and Ask me first stops it (exit 3); either way one entry `Job NAME stopped before running` is written. If that entry fails, the verdict still stands and the output says nothing was logged.
@@ -467,9 +475,99 @@ The starter rules.yaml adds:
 
 Any other helper action matches no rule and is Ask me first. The older `write-draft` rule also gives Yes for `write_draft`, and comes first in the file, so log entries name it.
 
-## Layer 8 (planned)
+## Layer 8: Workflows
 
-- Workflows: files in `workflows/` listing steps. A flag file `KILL_SWITCH` stops every run. If the flag cannot be read, the run stops.
+### The file
+
+`workflows/NAME.yaml`, read with the existing miniyaml reader. NAME is lowercase letters, digits and `-` (up to 20).
+
+```yaml
+name: content-loop
+steps:
+  - name: collect
+    command: queue-list
+    status: open
+  - name: brief
+    command: steward
+    waiting_days: 7
+  - name: draft
+    command: social-draft
+    article: articles/week-45.md
+  - name: approve
+    command: approve
+```
+
+- Top keys: `name` (must equal NAME) and `steps` (1 to 20). Nothing else.
+- A step has a `name` (unique, same pattern) and a `command` from the fixed allow list in `workflow.py`: `report`, `steward`, `social-draft`, `queue-list`, `check`. `approve` is a fixed step built into the runner, not a command: at most one, and only as the last step.
+- Each command takes only its own fixed arguments, written in the file:
+
+| command | arguments |
+| --- | --- |
+| report | `since_days` (required, 1 to 366) |
+| steward | `waiting_days` (optional, 1 to 365, default 7) |
+| social-draft | `article` (required, a relative path to one local file) |
+| queue-list | `status` (optional: open, answered, closed) |
+| check | `action_type` (required, one plain word) |
+| approve | none |
+
+- There is no field for a shell string, a program, extra arguments or an approval. Any other key is a problem, so `approved_by` cannot be set anywhere. Each step word maps to exactly one method of the runner (`STEP_FUNCTIONS`); nothing is looked up by name at run time.
+
+### umwayi workflow validate NAME
+
+Reads only. Reports every problem at once, each with the line number of the key or step it is about, sorted by line, then exits 64. A file that is fine prints `ok: ...` and exits 0. Line numbers come from a small line map built from the miniyaml tokens after miniyaml has accepted the text. A YAML syntax error stops parsing, so only that one problem (with its line) is reported. Unknown key names are printed only if they are plain words.
+
+With the root, `social-draft` steps are also checked against `umwayi.json` (it must load and have `social_channels`) and against the article path (inside the root, not private, not a symbolic link, there).
+
+A missing, unreadable, linked, over 64 KB or non UTF-8 workflow file, and a bad NAME, are config or usage errors (exit 64).
+
+### umwayi workflow run NAME [--date D]
+
+The runner is the helper base with the helper name `workflow` (label `Workflow NAME`):
+
+1. `start`: the kill switch, then the logbook tamper check (exit 1), then rules.yaml (exit 3 if broken). See layer 7.
+2. Load and validate the workflow file. Any problem is a config error (exit 64) and nothing runs.
+3. If an open decision titled `Workflow NAME waits for the owner: ...` exists, the run stops (exit 3, one entry): the last loop still waits for the owner. A malformed queue.md stops the run (exit 1).
+4. Each step is one checked action through the helper base:
+   `{"type": "workflow_step", "helper": "workflow", "workflow": NAME, "step": STEP, "command": WORD}`.
+   No stops with exit 2, Ask me first stops with exit 3 and adds a queue decision, Yes runs the step and adds one logbook entry (source `umwayi workflow`). The kill switch is checked again before every step. If a step's entry cannot be written, its drafts are removed and the run stops with exit 3.
+5. The step work, inside umwayi:
+   - `queue-list`: read the queue (a missing queue.md is 0 rows).
+   - `steward`: the Steward proposal (`steward.proposal`), written to `drafts/steward-NNNN.md`.
+   - `social-draft`: the social helper's article check and fixed template, one `drafts/post-CHANNEL-NNNN.md` per channel.
+   - `report`: the layer 6 report, written to `drafts/report-NNNN.md`.
+   - `check`: `rules.check({"type": action_type})`. Yes goes on; No stops the workflow with exit 2 and Ask me first with exit 3, after the step's own entry.
+   - `approve`: see below.
+
+So a step is one rules check and one entry, even when it writes several drafts. Inside a workflow, the Steward and social steps do not repeat their own per-read checks; the one workflow step check covers them. Drafts from earlier steps stay if a later step stops.
+
+### The approve step
+
+It never approves anything. It adds one queue item of kind decision:
+
+- title `Workflow NAME waits for the owner: review N drafts from DATE`;
+- recommendation: the drafts written in this run (cut with "and N more" past 300 characters), that the item approves nothing, and that publishing is `umwayi publish-draft DRAFT`, which is Ask me first.
+
+Then the workflow stops with exit 3. Like every queue change, the item has its own `umwayi queue add` entry, next to the step's entry. While the item is open, every new run of that workflow stops at point 3. Answering or closing it only lets the next run start. It publishes nothing, and `umwayi publish-draft` stays Ask me first.
+
+### The kill switch (`umwayi/kill.py`)
+
+`.umwayi/KILL`. `umwayi kill on [--reason TEXT]` creates it, `umwayi kill off` removes it, `umwayi kill status` prints `off` (exit 0), `on` or `unknown` (exit 3).
+
+| state | when |
+| --- | --- |
+| off | `.umwayi` is missing, or it is a readable folder with no `KILL` in it |
+| on | anything named `KILL` exists in `.umwayi`: a file (any content), a folder, a link |
+| unknown | `.umwayi` is a file or a link, or it or `KILL` cannot be read |
+
+Fail closed: unknown stops runs exactly like on. Every AI helper (`start` and every step in the helper base), every job (`umwayi run`, before the jobs file is read) and every workflow (through the helper base, before the workflow file is read) stops with exit 3 (Ask me first) and one logbook entry. No rule is asked and nothing is read or written. If the entry cannot be written, the stop still happens and the output says nothing was logged.
+
+- `kill on` creates the file first and then logs. If the logbook is broken, the switch is still on and the output says so (exit 0).
+- `kill off` removes the file and then logs. If the logbook cannot record it, the file is put back and the switch stays on (exit 1). It refuses when the state is unknown, or when `KILL` is not a normal file.
+- Owner commands (`queue`, `archive`, `check`, `report`, `publish-draft`, `logbook`, `workflow validate`) are not stopped by the switch.
+
+### Rules
+
+The starter rules.yaml adds `workflow-steps` (Yes for `workflow_step` from the helper `workflow` with a command from the allow list or `approve`) and `helper-no-post-command` (No for any helper action whose command contains post, send or publish). Any other workflow step is Ask me first.
 
 ## Testing
 

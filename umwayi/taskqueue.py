@@ -27,7 +27,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import logbook
-from umwayi.errors import UmwayiError
+from umwayi.errors import UmwayiError, UsageError
 
 QUEUE_NAME = "queue.md"
 COLUMNS = ("id", "kind", "title", "status", "recommendation", "answer", "answered")
@@ -108,13 +108,13 @@ def is_valid_date(value: str) -> bool:
 def _check_text(value: str, what: str, limit: int, required: bool) -> str:
     v = value.strip() if isinstance(value, str) else ""
     if required and not v:
-        raise UmwayiError(f"{what} must not be empty")
+        raise UsageError(f"{what} must not be empty")
     if len(v) > limit:
-        raise UmwayiError(f"{what} is longer than {limit} characters")
+        raise UsageError(f"{what} is longer than {limit} characters")
     if not v.isprintable():
-        raise UmwayiError(f"{what} must be one line of plain text")
+        raise UsageError(f"{what} must be one line of plain text")
     if "|" in v:
-        raise UmwayiError(f"{what} must not contain the | character")
+        raise UsageError(f"{what} must not contain the | character")
     return v
 
 
@@ -289,13 +289,13 @@ def _commit(root: Path, path: Path, old_text: str | None, new_text: str, entry: 
 
 def _require_date(when: str) -> str:
     if not is_valid_date(when):
-        raise UmwayiError("date must be a real date in the form YYYY-MM-DD")
+        raise UsageError("date must be a real date in the form YYYY-MM-DD")
     return when
 
 
 def _check_id(row_id: str) -> str:
     if not isinstance(row_id, str) or not _ID.match(row_id):
-        raise UmwayiError("id must look like Q-0001")
+        raise UsageError("id must look like Q-0001")
     return row_id
 
 
@@ -310,7 +310,7 @@ def list_rows(root: Path, status: str | None = None, kind: str | None = None) ->
 def add(root: Path, kind: str, title: str, recommendation: str, when: str) -> Row:
     when = _require_date(when)
     if kind not in KINDS:
-        raise UmwayiError(f"kind must be one of: {', '.join(KINDS)}")
+        raise UsageError(f"kind must be one of: {', '.join(KINDS)}")
     title = _check_text(title, "title", MAX_TITLE, required=True)
     recommendation = _check_text(recommendation or "", "recommendation", MAX_RECOMMENDATION, required=False)
 

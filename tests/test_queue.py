@@ -275,12 +275,12 @@ class AddTests(QueueBase):
         ]:
             with self.subTest(title=title[:12]):
                 code, _, err = self.run_cli("add", "--kind", "task", title)
-                self.assertEqual(code, 1)
+                self.assertEqual(code, 64)
                 self.assertIn(fragment, err)
                 self.assertEqual(self.qtext(), HAND)
                 self.assertFalse(self.log.exists())
         code, _, err = self.run_cli("add", "--kind", "task", "ok", "--recommendation", "bad | pipe")
-        self.assertEqual(code, 1)
+        self.assertEqual(code, 64)
         self.assertIn("recommendation must not contain the | character", err)
         self.assertEqual(self.qtext(), HAND)
 
@@ -457,7 +457,7 @@ class AnswerTests(QueueBase):
         ]:
             with self.subTest(text=text[:12]):
                 code, out, err = self.run_cli("answer", "Q-0001", "--answer", text)
-                self.assertEqual((code, out), (1, ""))
+                self.assertEqual((code, out), (64, ""))
                 self.assertIn(fragment, err)
                 self.assertEqual(self.qtext(), HAND)
                 self.assertFalse(self.log.exists())
@@ -503,7 +503,7 @@ class AnswerTests(QueueBase):
         ]:
             with self.subTest(argv=argv):
                 code, out, err = self.run_cli(*argv, "--answer", "x")
-                self.assertEqual((code, out), (1, ""))
+                self.assertEqual((code, out), (64 if "id must look like" in fragment else 1, ""))
                 self.assertIn(fragment, err)
                 self.assertEqual(self.qtext(), HAND)
                 self.assertFalse(self.log.exists())
@@ -575,7 +575,7 @@ class CloseTests(QueueBase):
         ]:
             with self.subTest(argv=argv):
                 code, out, err = self.run_cli(*argv)
-                self.assertEqual((code, out), (1, ""))
+                self.assertEqual((code, out), (64 if "id must look like" in fragment else 1, ""))
                 self.assertIn(fragment, err)
                 self.assertEqual(self.qtext(), HAND)
                 self.assertFalse(self.log.exists())
