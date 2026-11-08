@@ -411,20 +411,12 @@ class RunTests(Base):
     # -- refusals and usage errors
 
     def test_refusals_exit_1_and_change_nothing(self):
-        cases = {
-            "missing jobs file": (["run", str(self.root / "nope.yaml"), "--job", "x"], "was not found"),
-            "jobs file not allowed command": None,
-            "queue malformed": None,
-            "not a git repo": (["run", str(self.root / "jobs.yaml"), "--job", "weekly-report"], "git log failed"),
-        }
-        for name, case in cases.items():
-            if case is None:
-                continue
-            with self.subTest(name=name):
-                self.assert_refused(case[0], 1, case[1])
+        # a missing or bad jobs file is a config error (64); a failure while running is a refusal (1)
+        self.assert_refused(["run", str(self.root / "nope.yaml"), "--job", "x"], 64, "was not found")
+        self.assert_refused(["run", str(self.root / "jobs.yaml"), "--job", "weekly-report"], 1, "git log failed")
         bad = self.root / "bad.yaml"
         bad.write_text("jobs:\n  - name: x\n    command: rm\n    min_gap_days: 1\n", encoding="utf-8")
-        self.assert_refused(["run", str(bad)], 1, "not on the allow list")
+        self.assert_refused(["run", str(bad)], 64, "not on the allow list")
         (self.root / "queue.md").write_text("broken\n", encoding="utf-8")
         self.assert_refused(["run", str(self.root / "jobs.yaml"), "--job", "open-queue"], 1, "queue.md")
 
@@ -436,9 +428,9 @@ class RunTests(Base):
             link.symlink_to(target)
         except (OSError, NotImplementedError):
             self.skipTest("symlinks not supported")
-        self.assert_refused(["run", str(link), "--job", "open-queue"], 1, "symbolic link")
+        self.assert_refused(["run", str(link), "--job", "open-queue"], 64, "symbolic link")
         (self.root / "dir.yaml").mkdir()
-        self.assert_refused(["run", str(self.root / "dir.yaml"), "--job", "open-queue"], 1, "was not found")
+        self.assert_refused(["run", str(self.root / "dir.yaml"), "--job", "open-queue"], 64, "was not found")
 
     def test_usage_errors_exit_64(self):
         before = self.snap()
@@ -593,7 +585,7 @@ class ReportTests(Base):
     def test_refusals(self):
         self.assert_refused(["report", "--since", "2026-11-01"], 1, "git log failed")  # not a repo
         self.make_git()
-        self.assert_refused(["report", "--since", "2026-11-08"], 1, "--since is after today")
+        self.assert_refused(["report", "--since", "2026-11-08"], 64, "--since is after today")
         (self.root / "drafts").write_text("a file\n")
         self.assert_refused(["report", "--since", "2026-11-01"], 1, "drafts must be a normal folder")
 
@@ -786,12 +778,12 @@ class PublishTests(Base):
 
     def test_config_is_required(self):
         (self.root / "umwayi.json").unlink()
-        self.assert_refused(["publish-draft", "drafts/report-0001.md", "--approved-by", "M"], 1, "config")
+        self.assert_refused(["publish-draft", "drafts/report-0001.md", "--approved-by", "M"], 64, "config")
 
     def test_bad_approver_and_usage(self):
         for by in ("", "  ", "x" * 101, "a\nb"):
             with self.subTest(by=by[:5]):
-                self.assert_refused(["publish-draft", "drafts/report-0001.md", "--approved-by", by], 1, "--approved-by")
+                self.assert_refused(["publish-draft", "drafts/report-0001.md", "--approved-by", by], 64, "--approved-by")
         self.assertEqual(self.pub()[0], 64)
         self.assertEqual(self.pub("drafts/report-0001.md", "--push")[0], 64)
 

@@ -17,6 +17,20 @@ python -m unittest discover -s tests -t .
 
 Without installing, use `python -m umwayi` from the repo root.
 
+## Exit codes
+
+Every command uses the same codes:
+
+| code | meaning |
+| --- | --- |
+| 0 | Yes, or done |
+| 1 | refused: something was checked and found wrong, nothing was changed |
+| 2 | No, or an unexpected error (a crash is treated like No, never like Yes) |
+| 3 | Ask me first |
+| 64 | usage or config error: wrong arguments, a value that is not allowed, or a missing or invalid `umwayi.json`, jobs file or workflow file |
+
+A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
+
 ## Layer 1: memory
 
 ```

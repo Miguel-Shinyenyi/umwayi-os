@@ -778,7 +778,7 @@ class SocialTests(Base):
                 cfg.write_text(json.dumps(data))
                 before = self.snap()
                 code, out, err = self.cli("social", "draft", "articles/week.md")
-                self.assertEqual((code, out), (1, ""))
+                self.assertEqual((code, out), (64, ""))
                 self.assertIn(fragment, err)
                 self.assertEqual(self.changed(before), [])
 

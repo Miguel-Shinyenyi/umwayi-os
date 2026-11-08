@@ -173,11 +173,11 @@ class MemoryCliTests(MemoryBase):
         self.assertEqual(json.loads(js)["entries"][0]["text"], "HELLO")
         self.assertNotIn(SECRET, js)
 
-    def test_bad_config_prints_nothing_and_exits_1(self):
+    def test_bad_config_prints_nothing_and_exits_64(self):
         write(self.root, "memory/master.md", SECRET)
         (self.root / "umwayi.json").write_text("{broken", encoding="utf-8")
         code, text = self.run_cli("memory", "bundle")
-        self.assertEqual(code, 1)
+        self.assertEqual(code, 64)
         self.assertEqual(text, "")
 
 

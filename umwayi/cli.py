@@ -21,8 +21,9 @@ from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
 from umwayi.memory import load_bundle
 
-EXIT_USAGE = 64
-EXIT_ERROR = 1
+EXIT_USAGE = 64  # usage and config errors
+EXIT_ERROR = 1  # a refusal: something was checked and nothing was changed
+EXIT_CRASH = 2  # an unexpected error: same code as No, so a hook treats it as blocking, never as Yes
 
 
 def _today() -> str:
@@ -306,6 +307,16 @@ def main(argv: list[str] | None = None, out=None) -> int:
     except UmwayiError as e:
         sys.stderr.write(f"umwayi: {e}\n")
         return EXIT_ERROR
+    except (Exception, KeyboardInterrupt) as e:
+        # Never print the message: it may hold file content or a secret. The type name is enough to start.
+        try:
+            sys.stderr.write(
+                f"umwayi: stopped by an unexpected error ({type(e).__name__}). Exit {EXIT_CRASH}. "
+                "Check 'umwayi logbook verify' and the files this command works on.\n"
+            )
+        except Exception:
+            pass
+        return EXIT_CRASH
     parser.print_usage(sys.stderr)
     return EXIT_USAGE
 

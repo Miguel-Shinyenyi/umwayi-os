@@ -25,6 +25,7 @@ It is built in eight layers. Each layer works alone and is tested before the nex
 - CC-9 User text uses the words: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first.
 - CC-10 Docs contain no em dashes.
 - CC-11 Work happens on feature branches with pull requests. Nothing is pushed to main.
+- CC-12 Exit codes are the same in every command: 0 Yes or done, 1 a refusal that changed nothing, 2 No, 3 Ask me first, 64 a usage or config error. An unexpected error exits 2, never 0, 1 or 3, and does not print its message.
 
 ## Layer 1: Memory
 

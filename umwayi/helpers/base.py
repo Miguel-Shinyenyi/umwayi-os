@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Callable
 
 from umwayi import drafts, logbook, rules, taskqueue
-from umwayi.errors import UmwayiError
+from umwayi.errors import UmwayiError, UsageError
 
 HELPERS = ("steward", "social")
 FIELD_KEYS = ("channel",)  # the only extra key a helper may give; "type" and "helper" are set here
@@ -83,7 +83,7 @@ class Helper:
         if name not in HELPERS:
             raise UmwayiError("helper: unknown AI helper name")
         if not taskqueue.is_valid_date(today):
-            raise UmwayiError("helper: date must be a real date YYYY-MM-DD")
+            raise UsageError("helper: date must be a real date YYYY-MM-DD")
         self.root = Path(root)
         self.name = name
         self.today = today

@@ -30,7 +30,13 @@ Layers 2 to 7 write to the logbook through one function, `logbook.append(root, E
 - Fail closed everywhere. Parsers are strict: unknown keys, duplicate keys, bad types and unsupported syntax are errors, not guesses.
 - Errors never echo file content. They name the problem and a line number, not the text.
 - Private paths are matched case-insensitively and on every parent folder, so a rule for `memory/private` also blocks a file below it.
-- Exit codes of `umwayi check` are reserved: 0 Yes, 2 No, 3 Ask me first. All other usage errors exit 64, and runtime errors of other commands exit 1.
+- Exit codes, for every command:
+  - 0: Yes, or done.
+  - 1: a refusal. Something was checked and found wrong (a malformed queue.md, an id that does not exist, a tampered logbook) and nothing was changed.
+  - 2: No. Also every unexpected error: `main` catches every exception (and Ctrl-C) and exits 2, so a crash is never read as Yes or as a non blocking error by a hook. The message is not printed, only the error type, because it may hold file content.
+  - 3: Ask me first.
+  - 64: a usage error or a config error. Wrong arguments, an argument value that is not allowed (for example a title with `|`, an empty reason, an id like `q-1`), or a missing or invalid `umwayi.json`, jobs file or workflow file. `ConfigError` is a kind of `UsageError`.
+  - rules.yaml is not config in this sense: a missing or broken rules file gives Ask me first (3), as before.
 - No network imports in layers 1 to 5.
 
 ## Layer 1: Memory
