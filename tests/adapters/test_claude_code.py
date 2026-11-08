@@ -251,6 +251,41 @@ class TimeoutTests(AdapterBase):
         self.assertIn("did not answer within 1 seconds", r[1])
 
 
+class KillSwitchTests(AdapterBase):
+    def kill(self, *args):
+        env = dict(os.environ, PYTHONPATH=str(REPO))
+        r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "kill", *args],
+                           capture_output=True, text=True, env=env)
+        self.assertIn(r.returncode, (0, 3), r.stdout + r.stderr)
+
+    def test_the_kill_switch_denies_everything(self):
+        self.kill("on")
+        for payload in (READ, WRITE, MCP, RM):
+            r = self.hook(payload)
+            self.assertEqual(self.decision(r), "deny")
+            self.assertIn("the kill switch is on", r[1])
+        text = self.log.read_text(encoding="utf-8")
+        self.assertIn("- Added: The kill switch gave No; action type: tool_read", text)
+        self.assertIn("kill switch: on", text)
+        self.kill("off")
+        self.assertEqual(self.decision(self.hook(READ)), "allow")
+        self.assertEqual(self.decision(self.hook(WRITE)), "ask")
+
+    def test_an_unknown_kill_switch_state_denies(self):
+        d = self.root / ".umwayi"
+        d.write_text("not a folder")
+        for payload in (READ, WRITE):
+            self.assertEqual(self.decision(self.hook(payload)), "deny")
+
+    def test_the_check_command_asks_umwayi_to_honour_the_kill_switch(self):
+        sys.path.insert(0, str(REPO))
+        try:
+            from adapters.common import umwayi_gate
+            self.assertIn("--kill-switch", umwayi_gate.check_command(self.root))
+        finally:
+            sys.path.remove(str(REPO))
+
+
 class LogbookTests(AdapterBase):
     def test_each_check_writes_one_logbook_entry_and_verify_stays_ok(self):
         payloads = [READ, RM, WRITE, MCP, READ, call("Bash", {"command": f"curl -H 'Authorization: {SECRET}' x"})]
@@ -302,7 +337,7 @@ class UnitTests(unittest.TestCase):
 
     def test_decide_is_fail_closed(self):
         R, d = self.gate.CheckResult, self.gate.decide
-        ok = {"rules_ok": True}
+        ok = {"rules_ok": True, "kill_switch": "off"}
         cases = [
             (R(0, {**ok, "answer": "Yes"}, None), "allow"),
             (R(3, {**ok, "answer": "Ask me first"}, None), "ask"),
@@ -319,10 +354,43 @@ class UnitTests(unittest.TestCase):
             (R(None, None, "timeout"), "deny"),
             (R(0, None, "no JSON"), "deny"),
             (R(0, {**ok, "answer": "yes"}, None), "deny"),
+            # the kill switch (9.12): only "off" lets anything through
+            (R(0, {**ok, "answer": "Yes", "kill_switch": "on"}, None), "deny"),
+            (R(0, {**ok, "answer": "Yes", "kill_switch": "unknown"}, None), "deny"),
+            (R(3, {**ok, "answer": "Ask me first", "kill_switch": "on"}, None), "deny"),
+            (R(0, {"rules_ok": True, "answer": "Yes"}, None), "deny"),  # kill_switch missing
+            (R(0, {**ok, "answer": "Yes", "kill_switch": None}, None), "deny"),
+            (R(0, {**ok, "answer": "Yes", "kill_switch": "OFF"}, None), "deny"),
         ]
         for result, expected in cases:
             with self.subTest(result=result):
                 self.assertEqual(d(result).decision, expected)
+
+
+class QueueItemUnitTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(REPO))
+        self.addCleanup(sys.path.remove, str(REPO))
+        from adapters.common import umwayi_gate
+        self.gate = umwayi_gate
+
+    def test_only_a_clean_exit_counts_as_added(self):
+        from unittest import mock
+        cases = [
+            (subprocess.CompletedProcess([], 0, b"Added Q-0001 (decision): x\n", b""), True),
+            (subprocess.CompletedProcess([], 0, b"Already open, nothing added: Q-0001 (decision): x\n", b""), True),
+            (subprocess.CompletedProcess([], 1, b"Added Q-0001 (decision): x\n", b""), False),
+            (subprocess.CompletedProcess([], 2, b"Added Q-0001\n", b""), False),
+            (subprocess.CompletedProcess([], 64, b"", b"usage"), False),
+            (subprocess.CompletedProcess([], 0, b"", b""), False),
+        ]
+        for proc, ok in cases:
+            with self.subTest(proc=proc):
+                with mock.patch.object(self.gate.subprocess, "run", return_value=proc):
+                    self.assertEqual(self.gate.add_queue_item(Path("/tmp"), "t", "r")[0], ok)
+        for exc in (subprocess.TimeoutExpired("x", 5), OSError("no")):
+            with mock.patch.object(self.gate.subprocess, "run", side_effect=exc):
+                self.assertFalse(self.gate.add_queue_item(Path("/tmp"), "t", "r")[0])
 
 
 class SeparationTests(unittest.TestCase):
