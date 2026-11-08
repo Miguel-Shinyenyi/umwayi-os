@@ -228,6 +228,8 @@ class AgentCase(unittest.TestCase):
         self.alive_at_exit = self.agent_pids_alive()
         for pid in self.alive_at_exit:
             os.kill(pid, signal.SIGKILL)
+        if p.stdin is not None and p.stdin.closed:
+            p.stdin = None  # the test wrote the prompt and closed it already
         out, err = p.communicate(timeout=30)
         self.assertIn(p.returncode, CODES, f"exit {p.returncode} is not allowed\n{out}\n{err}")
         return p.returncode, out, err

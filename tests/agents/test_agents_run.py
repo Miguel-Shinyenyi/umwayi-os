@@ -230,10 +230,7 @@ class StopsBeforeStartTests(RunCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("not found on PATH", self.run_entries()[-1].added)
 
-    def test_kiro_run_and_chat_are_not_built_and_start_nothing(self):
-        r = self.run_agent("helper", READ)
-        self.assertEqual(r.returncode, 64)
-        self.assertIn("not built yet (layer 10 part 4)", r.stderr)
+    def test_chat_is_not_built_and_starts_nothing(self):
         r = self.umwayi("chat", "reviewer")
         self.assertEqual(r.returncode, 64)
         self.assert_nothing_ran()

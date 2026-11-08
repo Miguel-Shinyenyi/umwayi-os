@@ -12,6 +12,13 @@ It records every call to the JSON lines file in FAKE_LOG.
   shell), the hook input as JSON on stdin and the handler's `timeout`, and reads the
   answer: exit 2 blocks; exit 0 with a JSON permissionDecision decides; any other
   failure blocks only when onFailure is "block". The strictest answer wins.
+* As kiro-cli (`chat --v3 --no-interactive`), it reads the instruction from stdin (unless
+  FAKE_NO_STDIN is set), and for a "tool" step does what the Kiro hook docs describe
+  (adapters/NOTES.md): every hook with trigger PreToolUse and no matcher, "*" or the tool
+  ID, in a v1 JSON file in ./.kiro/hooks/ or ~/.kiro/hooks/, runs its command in a shell
+  with the event JSON on stdin. Exit 2 blocks; any other exit code warns and lets the tool
+  run (the more dangerous of the two readings of the Kiro docs). Then, because nobody can
+  approve a tool in a headless run, a tool not in --trust-tools is denied.
 """
 import json
 import os
@@ -42,9 +49,15 @@ if ARGS == [VERSION_FLAG]:
     sys.stdout.write(os.environ.get(f"FAKE_{KEY}_VERSION", DEFAULT_VERSION) + "\n")
     sys.exit(int(os.environ.get(f"FAKE_{KEY}_EXIT", "0")))
 
-stdin_text = sys.stdin.read() if sys.stdin is not None else ""
+stdin_text = "" if (sys.stdin is None or os.environ.get("FAKE_NO_STDIN")) else sys.stdin.read()
+with open("/proc/self/cmdline", "rb") as f:
+    cmdline = f.read().decode("utf-8", "replace").split("\x00")
 rec(argv=ARGS, cwd=os.getcwd(), started=True, pid=os.getpid(), pgid=os.getpgid(0), sid=os.getsid(0),
-    stdin=stdin_text, env_keys=sorted(os.environ))
+    stdin=stdin_text, env_keys=sorted(os.environ), cmdline=cmdline)
+trusted = set()
+for a in ARGS:
+    if a.startswith("--trust-tools="):
+        trusted |= set(x for x in a.split("=", 1)[1].split(",") if x)
 
 settings = {}
 if "--settings" in ARGS:
@@ -72,7 +85,57 @@ def run_hook(h: dict, name: str, inp: dict) -> str:
     return failed
 
 
+def kiro_hooks() -> list:
+    found = []
+    for folder in (os.path.join(os.getcwd(), ".kiro", "hooks"), os.path.join(os.path.expanduser("~"), ".kiro", "hooks")):
+        if not os.path.isdir(folder):
+            continue
+        for fname in sorted(os.listdir(folder)):
+            if not fname.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(folder, fname), encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                continue
+            if isinstance(data, dict) and data.get("version") == "v1":
+                found += [h for h in data.get("hooks", []) if isinstance(h, dict)]
+    return found
+
+
+def kiro_tool(name: str, inp: dict) -> str:
+    answer = "no-hook"
+    for h in kiro_hooks():
+        if h.get("trigger") != "PreToolUse" or h.get("matcher", "*") not in ("*", name):
+            continue
+        action = h.get("action", {})
+        if action.get("type") != "command":
+            continue
+        event = {"hook_event_name": "PreToolUse", "cwd": os.getcwd(), "session_id": "fake-kiro",
+                 "tool_name": name, "tool_input": inp}
+        try:
+            r = subprocess.run(action["command"], shell=True, input=json.dumps(event).encode("utf-8"),
+                               capture_output=True, timeout=h.get("timeout", 60), cwd=os.getcwd())
+            code = r.returncode
+        except subprocess.TimeoutExpired:
+            code = None  # not documented what Kiro does; this fake lets the tool run
+        if code == 2:
+            answer = "deny-hook"
+            break
+        answer = "allow-hook" if code == 0 else "warn-hook"
+    if answer == "deny-hook":
+        final = "deny-hook"
+    elif name not in trusted:
+        final = "deny-untrusted"
+    else:
+        final = "allow"
+    rec(event="tool", tool=name, input=inp, decision=final, hook=answer)
+    return final
+
+
 def tool(name: str, inp: dict) -> str:
+    if KEY == "KIRO":
+        return kiro_tool(name, inp)
     answers = [run_hook(h, name, inp) for g in groups if g.get("matcher") in ("*", "", None, name)
                for h in g.get("hooks", [])]
     final = max(answers, key=lambda d: ORDER[d]) if answers else "no-hook"
