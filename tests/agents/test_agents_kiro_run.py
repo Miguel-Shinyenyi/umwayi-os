@@ -224,11 +224,11 @@ class KiroYesTests(KiroRunCase):
                 self.assertEqual(r.returncode, 2)
                 self.assertIn(f"with code {code}", self.run_entries()[-1].added)
 
-    def test_acp_chat_is_still_refused(self):
-        r = self.umwayi("chat", "kiro-acp")
-        self.assertEqual(r.returncode, 64)
-        self.assertIn("ACP chat is layer 10 part 6", r.stderr)
-        self.assertEqual(self.calls(), [])
+    def test_the_same_acp_agent_can_also_chat_over_acp(self):
+        r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", "chat", "kiro-acp"],
+                           input=":quit\n", capture_output=True, text=True, env=self.env(), cwd=str(self.tmp), timeout=90)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.started()[0]["argv"], ["acp", "--agent-engine=v3"])
 
 
 class KiroRefusedTests(KiroRunCase):

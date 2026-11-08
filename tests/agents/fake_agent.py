@@ -24,6 +24,9 @@ It records every call to the JSON lines file in FAKE_LOG.
   "agent: LINE". "/tool NAME" makes a tool call through the hooks, "/exit N" exits N,
   "/quit" or the end of stdin exits 0. Ctrl-C (SIGINT) is recorded, not fatal. It records
   whether stdin is a terminal, the terminal name and the terminal's foreground group.
+* As `kiro-cli acp`: a scripted ACP agent on stdin and stdout, driven by the JSON in FAKE_ACP
+  (see run_acp). Every message it gets is recorded as an "acp_in" event, every answer to
+  one of its requests as "permission_answer" or "request_answer".
 """
 import json
 import os
@@ -209,6 +212,134 @@ for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     elif kind == "exit":
         rec(event="end")
         sys.exit(step["code"])
+def run_acp():
+    """A scripted ACP agent. FAKE_ACP: {"init": {...} | "garbage", "new": {...}, "turns": [[action, ...], ...],
+    "ignore_eof": bool, "stderr": text}. Actions: chunk, tool_call, update, permission, request, garbage, big,
+    sleep, wait_cancel, ignore_cancel, exit, spawn, stop."""
+    import queue as _queue
+    import threading as _threading
+    from collections import deque
+    spec = json.loads(os.environ.get("FAKE_ACP", "{}"))
+    inbox = _queue.Queue()
+
+    def reader():  # records every line the moment it arrives, so a test sees it even if a signal ends us next
+        for line in sys.stdin:
+            msg = json.loads(line)
+            rec(event="acp_in", msg=msg)
+            if msg.get("method") == "session/cancel":
+                rec(event="got_cancel")
+            inbox.put(msg)
+        rec(event="acp_eof")
+        inbox.put(None)
+
+    _threading.Thread(target=reader, daemon=True).start()
+
+    def on_term_acp(signum, frame):
+        rec(event="term")
+        time.sleep(0.3)  # let the reader thread record what is still arriving
+        os._exit(143)
+
+    signal.signal(signal.SIGTERM, on_term_acp)
+    if spec.get("stderr"):
+        sys.stderr.write(spec["stderr"] + "\n")
+        sys.stderr.flush()
+    pending = deque()
+
+    def send(obj):
+        sys.stdout.write((obj if isinstance(obj, str) else json.dumps(obj)) + "\n")
+        sys.stdout.flush()
+
+    def recv():
+        msg = inbox.get()
+        if msg is None:
+            if spec.get("ignore_eof"):
+                time.sleep(120)
+            rec(event="end")
+            sys.exit(0)
+        return msg
+
+    def next_msg(pred):
+        for m in list(pending):
+            if pred(m):
+                pending.remove(m)
+                return m
+        while True:
+            m = recv()
+            if pred(m):
+                return m
+            pending.append(m)
+
+    m = next_msg(lambda x: x.get("method") == "initialize")
+    init = spec.get("init", {"protocolVersion": 1})
+    if init == "garbage":
+        send("this is not json")
+    elif "error" in init:
+        send({"jsonrpc": "2.0", "id": m["id"], "error": init["error"]})
+    else:
+        send({"jsonrpc": "2.0", "id": m["id"], "result": {"protocolVersion": init.get("protocolVersion", 1),
+              "agentCapabilities": {"loadSession": False}, "agentInfo": {"name": "fake-kiro"}, "authMethods": []}})
+    m = next_msg(lambda x: x.get("method") == "session/new")
+    new = spec.get("new", {})
+    if "error" in new:
+        send({"jsonrpc": "2.0", "id": m["id"], "error": new["error"]})
+    else:
+        send({"jsonrpc": "2.0", "id": m["id"], "result": {"sessionId": new.get("sessionId", "sess-1")}})
+    sid = new.get("sessionId", "sess-1")
+    turns = deque(spec.get("turns", []))
+    rid = 1000
+
+    def update(u):
+        send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": u}})
+
+    while True:
+        m = next_msg(lambda x: x.get("method") == "session/prompt")
+        text = m["params"]["prompt"][0]["text"]
+        actions = turns.popleft() if turns else [{"chunk": f"you said: {text}"}]
+        stop, answer = "end_turn", True
+        for act in actions:
+            if "chunk" in act:
+                update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": act["chunk"]}})
+            if "tool_call" in act:
+                update(dict({"sessionUpdate": "tool_call", "toolCallId": "call-1", "status": "pending"}, **act["tool_call"]))
+            if "update" in act:
+                update(act["update"])
+            if "permission" in act or "request" in act:
+                rid += 1
+                if "permission" in act:
+                    method, params = "session/request_permission", dict({"sessionId": sid}, **act["permission"])
+                else:
+                    method, params = act["request"]["method"], act["request"].get("params", {})
+                send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params})
+                rec(event="request_sent", method=method)
+                r = next_msg(lambda x, rid=rid: x.get("id") == rid and "method" not in x)
+                rec(event="permission_answer" if "permission" in act else "request_answer", method=method, answer=r)
+            if "garbage" in act:
+                send(act["garbage"])
+            if "big" in act:
+                send("x" * act["big"])
+            if "sleep" in act:
+                time.sleep(act["sleep"])
+            if "wait_cancel" in act:
+                next_msg(lambda x: x.get("method") == "session/cancel")
+                stop = "cancelled"
+            if "ignore_cancel" in act:
+                time.sleep(act["ignore_cancel"])
+                answer = False
+            if "spawn" in act:
+                p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+                rec(event="spawn", pid=p.pid)
+            if "exit" in act:
+                rec(event="end")
+                sys.exit(act["exit"])
+            if "stop" in act:
+                stop = act["stop"]
+        if answer:
+            send({"jsonrpc": "2.0", "id": m["id"], "result": {"stopReason": stop}})
+
+
+if CHAT and ARGS[:1] == ["acp"]:
+    run_acp()
+
 if CHAT:
     signal.signal(signal.SIGINT, lambda signum, frame: rec(event="sigint"))
     print("agent ready", flush=True)

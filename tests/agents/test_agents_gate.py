@@ -437,7 +437,7 @@ class CodeGuardTests(unittest.TestCase):
                     # because an interactive screen needs the controlling terminal
                     self.assertEqual(kw["start_new_session"].id, "new_session")
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
-        self.assertEqual(src.count("new_session = not chat"), 1)
+        self.assertEqual(src.count("new_session = not shares_terminal"), 1)  # only a cli chat shares umwayi's group
         self.assertNotIn("signal.SIG_IGN", src)  # an ignored signal stays ignored in the agent after exec
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
         for bad in ("os.system", "os.popen", "os.exec", "os.spawn", "shell=True", "pty."):
