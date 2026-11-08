@@ -76,6 +76,8 @@ def build_parser() -> argparse.ArgumentParser:
     qa.add_argument("--kind", required=True, choices=taskqueue.KINDS)
     qa.add_argument("title", help="short title, one line, no | character")
     qa.add_argument("--recommendation", default="", help="recommendation for the owner (optional)")
+    qa.add_argument("--if-not-open", action="store_true",
+                    help="add nothing if an open item of the same kind with the same title is already there")
     qn = qsub.add_parser("answer", help="mark an open row as answered")
     qn.add_argument("id", help="row id, for example Q-0001")
     qn.add_argument("--answer", required=True, help="the answer text (one line, no | character, up to 500 characters)")
@@ -105,6 +107,8 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--json", action="store_true", help="print the answer as JSON")
     c.add_argument("--no-log", action="store_true", help="dry run: do not write the logbook entry")
     c.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entry (default: today)")
+    c.add_argument("--kill-switch", action="store_true",
+                   help="answer No while the kill switch is on or its state cannot be read (the layer 9 adapters use this)")
 
     rn = sub.add_parser("run", help="run one job from a jobs file (asks the rules first)")
     rn.add_argument("jobfile", help="the jobs file, for example jobs.yaml")
@@ -166,12 +170,16 @@ def _cmd_check(args, out) -> int:
             action_text = sys.stdin.read(rules.MAX_ACTION_BYTES + 1)
         except Exception:
             action_text = None
+    kill_state = kill.state(root)
+    stop = kill.reason(kill_state) if args.kill_switch and kill.stopped(kill_state) else None
     decision, logged = rules.check_and_log(
-        action_text, rules_path, root, args.date or _today(), log=not args.no_log
+        action_text, rules_path, root, args.date or _today(), log=not args.no_log,
+        kill_state=kill_state if args.kill_switch else None, stop_reason=stop,
     )
     if args.json:
         data = decision.to_dict()
         data["logged"] = logged
+        data["kill_switch"] = kill_state  # always there: off, on or unknown
         out.write(json.dumps(data, indent=2) + "\n")
     else:
         out.write(decision.render())
@@ -245,7 +253,10 @@ def _cmd_queue(args, out) -> int:
             out.write(line + "\n")
         return 0
     when = args.date or _today()
-    if cmd == "add":
+    if cmd == "add" and args.if_not_open:
+        row, added = taskqueue.add_once(root, args.kind, args.title, args.recommendation, when)
+        out.write(f"{'Added' if added else 'Already open, nothing added:'} {row.id} ({row.kind}): {row.title}\n")
+    elif cmd == "add":
         row = taskqueue.add(root, args.kind, args.title, args.recommendation, when)
         out.write(f"Added {row.id} ({row.kind}): {row.title}\n")
     elif cmd == "answer":

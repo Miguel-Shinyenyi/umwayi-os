@@ -364,6 +364,29 @@ def add(root: Path, kind: str, title: str, recommendation: str, when: str) -> Ro
     return row
 
 
+def find_open(root: Path, kind: str, title: str) -> Row | None:
+    """The open row with this kind and exactly this title, if there is one. A missing queue.md has none."""
+    path = _queue_path(root)
+    if not path.exists() and not path.is_symlink():
+        return None
+    title = title.strip() if isinstance(title, str) else title
+    for r in parse(_read(path)).rows:
+        if r.status == "open" and r.kind == kind and r.title == title:
+            return r
+    return None
+
+
+def add_once(root: Path, kind: str, title: str, recommendation: str, when: str) -> tuple[Row, bool]:
+    """Add the row unless an open row of the same kind and title exists. Returns (row, added)."""
+    if kind not in KINDS:
+        raise UsageError(f"kind must be one of: {', '.join(KINDS)}")
+    title = _check_text(title, "title", MAX_TITLE, required=True)
+    found = find_open(root, kind, title)
+    if found is not None:
+        return found, False
+    return add(root, kind, title, recommendation, when), True
+
+
 def _transition(root: Path, row_id: str, new_status: str, when: str, command: str, answer_text: str = "") -> Row:
     when = _require_date(when)
     row_id = _check_id(row_id)
