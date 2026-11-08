@@ -15,7 +15,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import __version__, archive, jobs, logbook, publish, report, rules, taskqueue
+from umwayi import __version__, archive, jobs, kill, logbook, publish, report, rules, taskqueue, workflow
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -130,6 +130,23 @@ def build_parser() -> argparse.ArgumentParser:
     sd = sosub.add_parser("draft", help="write one post draft per channel in umwayi.json")
     sd.add_argument("article", help="a local article file with front matter (title, link, summary)")
     sd.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    wf = sub.add_parser("workflow", help="workflow commands (workflows/NAME.yaml)")
+    wfsub = wf.add_subparsers(dest="workflow_command", parser_class=_Parser)
+    wv = wfsub.add_parser("validate", help="check a workflow file, report every problem with a line number")
+    wv.add_argument("name", help="the workflow name, for example content-loop")
+    wr = wfsub.add_parser("run", help="run the steps of a workflow in order (asks the rules for every step)")
+    wr.add_argument("name", help="the workflow name, for example content-loop")
+    wr.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    kl = sub.add_parser("kill", help="the kill switch: stops every AI helper, job and workflow")
+    klsub = kl.add_subparsers(dest="kill_command", parser_class=_Parser)
+    kon = klsub.add_parser("on", help="turn the kill switch on (creates .umwayi/KILL)")
+    kon.add_argument("--reason", help="why, one line of plain text (goes into the logbook)")
+    kon.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+    koff = klsub.add_parser("off", help="turn the kill switch off (removes .umwayi/KILL)")
+    koff.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+    klsub.add_parser("status", help="show the kill switch: off (exit 0), on or unknown (exit 3)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -285,6 +302,16 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_check(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "workflow" and getattr(args, "workflow_command", None) == "validate":
+            return _cmd_helper(workflow.validate_file(Path(args.root), args.name), out)
+        if args.command == "workflow" and getattr(args, "workflow_command", None) == "run":
+            return _cmd_helper(workflow.run(Path(args.root), args.name, args.date or _today()), out)
+        if args.command == "kill" and getattr(args, "kill_command", None) == "on":
+            return _cmd_helper(kill.turn_on(Path(args.root), args.date or _today(), args.reason), out)
+        if args.command == "kill" and getattr(args, "kill_command", None) == "off":
+            return _cmd_helper(kill.turn_off(Path(args.root), args.date or _today()), out)
+        if args.command == "kill" and getattr(args, "kill_command", None) == "status":
+            return _cmd_helper(kill.status(Path(args.root)), out)
         if args.command == "steward":
             return _cmd_helper(steward.run(Path(args.root), args.date or _today(), args.waiting_days), out)
         if args.command == "social" and getattr(args, "social_command", None) == "draft":

@@ -39,6 +39,11 @@ COMMANDS = [
     (["publish-draft", "drafts/a.md"], "umwayi.cli.publish.publish"),
     (["steward"], "umwayi.cli.steward.run"),
     (["social", "draft", "a.md"], "umwayi.cli.social.draft"),
+    (["workflow", "validate", "content-loop"], "umwayi.cli.workflow.validate_file"),
+    (["workflow", "run", "content-loop"], "umwayi.cli.workflow.run"),
+    (["kill", "on"], "umwayi.cli.kill.turn_on"),
+    (["kill", "off"], "umwayi.cli.kill.turn_off"),
+    (["kill", "status"], "umwayi.cli.kill.state"),
 ]
 
 
@@ -126,10 +131,11 @@ class ConfigAndUsageTests(Base):
                     self.assertEqual((code, out), (64, ""))
                     self.assertIn("config", err)
 
-    def test_jobs_files_are_config(self):
+    def test_jobs_and_workflow_files_are_config(self):
         self.assertEqual(self.cli("run", "nope.yaml")[0], 64)
         (self.root / "bad.yaml").write_text("jobs: [\n", encoding="utf-8")
         self.assertEqual(self.cli("run", "bad.yaml")[0], 64)
+        self.assertEqual(self.cli("workflow", "validate", "nope")[0], 64)
 
     def test_bad_argument_values_exit_64_and_change_nothing(self):
         (self.root / "queue.md").write_text(QUEUE, encoding="utf-8")
@@ -145,6 +151,7 @@ class ConfigAndUsageTests(Base):
             ["archive", "move", "notes.md", "--lines", "1-1", "--reason", ""],
             ["archive", "move", "notes.md", "--start", "X", "--end", "X", "--reason", "r"],
             ["logbook", "seal", "--by", ""],
+            ["kill", "on", "--reason", "two\nlines"],
         ]
         for argv in cases:
             with self.subTest(argv=argv):

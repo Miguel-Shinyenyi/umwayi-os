@@ -93,3 +93,23 @@ rules:
     matchers:
       helper__exists: true
       type__contains: [post, send, publish]
+
+  - id: helper-no-post-command
+    title: No AI helper step may run a post, send or publish command
+    text: An AI helper or workflow step never runs a command that posts, sends or publishes.
+    cause: Helpers draft only.
+    verdict: no
+    matchers:
+      helper__exists: true
+      command__contains: [post, send, publish]
+
+  # Workflows (layer 8). The runner is the helper "workflow"; each step names its command.
+  - id: workflow-steps
+    title: Workflow steps from the allow list
+    text: A workflow may run its fixed steps. They only read, write drafts or ask the owner.
+    cause: Layer 8 runs only steps from the allow list inside umwayi.
+    verdict: yes
+    matchers:
+      helper: workflow
+      type: workflow_step
+      command: [queue-list, steward, social-draft, report, check, approve]

@@ -93,8 +93,6 @@ Still open after layer 6:
 - [x] 7.4 Tests (`tests/test_helpers.py`) with mutation checks
 - [x] 7.5 Shared `umwayi/drafts.py` (moved out of report.py); optional `social_channels` in umwayi.json; helper rules in rules.yaml
 
-Review gate: stop here for owner review.
-
 Still open after layer 7:
 
 - Answering a helper's queue item does not let it go on. There is no way for the owner to approve one single helper step; the owner changes rules.yaml instead.
@@ -103,10 +101,20 @@ Still open after layer 7:
 
 ## Layer 8: Workflows
 
-- [ ] 8.1 Workflow file format
-- [ ] 8.2 Content loop: collect, brief, draft, approve
-- [ ] 8.3 Kill switch flag
-- [ ] 8.4 Tests
+- [x] 8.1 Workflow file format `workflows/NAME.yaml` (miniyaml), fixed allow list, `umwayi workflow validate NAME` (every problem with a line number, exit 64)
+- [x] 8.2 Content loop `workflows/content-loop.yaml` (collect, brief, draft, approve) and `umwayi workflow run NAME`; approve adds a decision and stops with exit 3
+- [x] 8.3 Kill switch `.umwayi/KILL`: `umwayi kill on|off|status`; stops every AI helper, job and workflow; unknown state fails closed
+- [x] 8.4 Tests (`tests/test_workflows.py`) with mutation checks
+- [x] 8.5 Separate commit: config and usage errors exit 64 in every command; unexpected errors exit 2 (`tests/test_exit_codes.py`)
+
+Review gate: stop here for owner review.
+
+Still open after layer 8:
+
+- Inside a workflow, the Steward and social steps are one rules check each. The social helper's per channel check (with `channel` in the action) is not repeated there.
+- A YAML syntax error stops the validator at the first one, so only that problem is reported.
+- The kill switch is a file in the repo folder. Anyone who can write the folder can remove it; it guards against runaway runs, not against a person.
+- Two workflow runs at the same moment are not locked against each other (only each logbook append is), so both could pass the waiting check.
 
 ## Non goals for Dec 3
 

@@ -6,7 +6,9 @@ no way to name another program: the command word picks a Python function
 inside umwayi.
 
 Order of work for one run:
-  1. Read the jobs file strictly. Pick the job.            (error: exit 1 or 64)
+  0. The kill switch. If it is on, or its state cannot be read, the run stops
+     before anything else with exit 3 and one logbook entry.
+  1. Read the jobs file strictly. Pick the job.            (error: exit 64)
   2. Read the logbook (tamper checked). Apply the gap rule. (refusal: exit 1)
   3. Ask the rules: action {"type": "run_job", "job": NAME, "command": WORD}.
      No stops the job (exit 2), Ask me first stops it (exit 3). Either way one
@@ -27,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-from umwayi import logbook, miniyaml, report, rules, taskqueue
+from umwayi import kill, logbook, miniyaml, report, rules, taskqueue
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 ALLOWED_COMMANDS = ("report", "check", "queue-list")
@@ -165,6 +167,21 @@ def run(root: Path, jobfile: Path, name: str | None, today: str) -> Result:
     root = Path(root)
     if not taskqueue.is_valid_date(today):
         raise UsageError("run: date must be a real date YYYY-MM-DD")
+
+    # --- 0. the kill switch, before the jobs file is even read
+    st = kill.state(root)
+    if kill.stopped(st):
+        lines = [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}", "The job did not run. Nothing was read."]
+        try:
+            logbook.append(root, logbook.Entry(
+                today, "umwayi run", f"A job run was stopped before the jobs file was read: {kill.short(st)}",
+                "the kill switch was checked before anything else",
+                "The job did not run. Nothing was read, written, published or pushed."))
+        except Exception as e:
+            why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+            lines.append(f"The logbook could not be written ({why}). Nothing was logged.")
+        return Result(3, lines)
+
     job = select(load_jobs(jobfile), name)
 
     # --- 2. the gap rule, from the tamper checked logbook

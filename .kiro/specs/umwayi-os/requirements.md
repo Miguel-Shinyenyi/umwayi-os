@@ -138,14 +138,18 @@ Acceptance criteria:
 
 ## Layer 8: Workflows
 
-User story: as the owner, I want named workflows that helpers run as drafts, with one switch that stops everything.
+User story: as the owner, I want named workflows that AI helpers run as drafts, with one switch that stops everything.
 
 Acceptance criteria:
 
-1. Workflows are named files. The first is the content loop: collect, brief, draft, approve.
-2. Helpers run workflows as drafts. The approve step is always the owner.
-3. A kill switch flag stops every run. If the flag state is unknown, runs stop.
-4. Each run writes to the logbook.
+1. A workflow is a file `workflows/NAME.yaml` read with the existing YAML reader, with a name and ordered steps. Each step is one command word from a fixed allow list inside umwayi (report, steward, social-draft, queue-list, check) with fixed arguments. There are no shell strings and no arbitrary commands.
+2. `umwayi workflow validate NAME` reports every problem with a line number and exits 64 on a bad file.
+3. `umwayi workflow run NAME` runs the steps in order. The content loop is collect (queue-list), brief (steward), draft (social-draft from one article path set in the file) and approve.
+4. The approve step never approves anything. It adds a queue item of kind decision listing the drafts and stops the workflow with exit 3 until the owner answers. Publishing stays `umwayi publish-draft`, which is Ask me first.
+5. Every step goes through the helper base and the rules. No stops with exit 2, Ask me first with exit 3. Each step adds one logbook entry. A failed logbook stops the run.
+6. A workflow cannot set an approval: the file has no such key and the commands have no `--approved-by`.
+7. The kill switch `.umwayi/KILL` (`umwayi kill on`, `umwayi kill off`, `umwayi kill status`) makes every AI helper, job and workflow stop before doing anything, with exit 3 and one logbook entry. A state of the kill file that cannot be read fails closed (stop).
+8. Workflows write no file outside drafts/, except the queue and the logbook.
 
 ## Non goals for Dec 3
 

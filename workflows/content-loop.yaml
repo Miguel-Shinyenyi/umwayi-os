@@ -1,0 +1,23 @@
+# The content loop: collect, brief, draft, approve.
+# Run it with: umwayi workflow run content-loop
+# Check it with: umwayi workflow validate content-loop
+# Each command must be on the allow list inside umwayi:
+#   report, steward, social-draft, queue-list, check, and approve as the last step.
+# The approve step never approves anything. It adds a queue item for the owner
+# and stops. Publishing stays 'umwayi publish-draft', which is Ask me first.
+name: content-loop
+steps:
+  - name: collect
+    command: queue-list
+    status: open
+
+  - name: brief
+    command: steward
+    waiting_days: 7
+
+  - name: draft
+    command: social-draft
+    article: articles/example.md
+
+  - name: approve
+    command: approve
