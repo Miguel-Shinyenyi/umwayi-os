@@ -1,0 +1,9 @@
+{
+  "name": "umwayi-claude-acp",
+  "private": true,
+  "description": "The pinned claude-agent-acp adapter for umwayi agent chat with Claude Code over ACP (layer 10 part 7). Installed by the owner with npm ci --ignore-scripts; umwayi never installs anything.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.101.0"
+  }
+}
