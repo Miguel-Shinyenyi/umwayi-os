@@ -101,7 +101,7 @@ Acceptance criteria:
 5. An existing logbook without a record is refused until the owner runs `umwayi logbook seal`, which records the current hash and writes an entry that says it was sealed and by whom. Nothing is sealed automatically.
 6. `umwayi logbook verify` parses every entry and reports each problem with a line number, never the line text: a partial or broken entry, a missing field, an entry not in the format, text outside the header and entries. It exits 0 only when the format is valid and the recorded hash matches, otherwise 1. It never changes a file.
 7. Entry dates are real dates and never go backwards. A backwards date is a verify problem and an append refusal.
-8. `umwayi check` appends one entry per check with the rule id and answer. It never writes the action JSON, only its type if that is a short plain string. If the entry cannot be written, the answer is Ask me first with exit 3 and the reason says why. `--no-log` skips the entry for a dry run and says nothing was logged.
+8. `umwayi check` appends one entry per check with the rule id and answer. It never writes the action JSON, only its type if that is a short plain string. If the entry cannot be written, a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. `--no-log` skips the entry for a dry run and says nothing was logged.
 9. A lock file stops two appends from interleaving. A held lock gives a clear message.
 
 ## Layer 6: Automation
@@ -110,10 +110,14 @@ User story: as the owner, I want the layers to run on a schedule, so routine wor
 
 Acceptance criteria:
 
-1. Scripts run the layers on a schedule.
-2. A weekly progress report is built from git history.
-3. A publish step produces drafts only. It never pushes and never publishes.
-4. Every scripted action passes `umwayi check` first.
+1. `umwayi run JOBFILE` runs one job from a jobs file read with the existing YAML reader. A job has a name, a command word from a fixed allow list inside umwayi (report, check, queue-list) and a minimum gap in days between runs. There are no shell strings and no arbitrary commands.
+2. Every run asks `umwayi check` first. No stops the job with exit 2, Ask me first with exit 3.
+3. Every run adds one logbook entry through the checked append. If the logbook cannot be written, the job does not run.
+4. A run before the minimum gap has passed is refused.
+5. `umwayi report --since DATE` reads git history through one fixed git log command with no network, and writes a new numbered draft under drafts/. It never overwrites a file. It counts commits per day and lists subjects, with no author emails.
+6. `umwayi publish-draft DRAFT` copies a draft to outbox/ as text for the owner to post by hand. It never pushes, never uses the network and never runs git write commands. The starter rules make publishing Ask me first.
+7. The README shows a cron line. umwayi installs no schedule.
+8. Exit codes: 0 Yes or done, 2 No, 3 Ask me first, 64 usage error, 1 for a refusal that changed nothing.
 
 ## Layer 7: Helpers
 

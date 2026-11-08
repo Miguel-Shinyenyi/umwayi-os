@@ -18,3 +18,7 @@ memory/journal/*-private.md
 
 # logbook lock (exists only while an umwayi command writes)
 .umwayi/logbook.lock
+
+# drafts and the outbox are the owner's material, not code
+drafts/
+outbox/

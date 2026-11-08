@@ -311,8 +311,10 @@ def check_and_log(
     """Check an action and append one logbook entry. Returns (decision, logged).
 
     If the entry cannot be written (lock held, tamper check failed, bad date,
-    any error), the answer becomes Ask me first and says why. It is never Yes
-    or No by accident.
+    any error), nothing that was refused is let through:
+      * No stays No (exit 2), with the rule id, and the reason says nothing was logged.
+      * Yes becomes Ask me first (exit 3): a Yes is never given without its entry.
+      * Ask me first stays Ask me first (exit 3).
     """
     decision = check(action_text, rules_path)
     if not log:
@@ -321,8 +323,8 @@ def check_and_log(
         logbook.append(root, log_entry(decision, when))
     except Exception as e:
         why = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
-        return Decision(
-            ASK, None,
-            f"The logbook could not be written ({why}). Nothing was logged, so the answer is {ASK}.",
-        ), False
+        note = f"The logbook could not be written ({why}). Nothing was logged"
+        if decision.answer == NO:
+            return Decision(NO, decision.rule_id, f"{decision.reason} {note}.", list(decision.matched)), False
+        return Decision(ASK, None, f"{note}, so the answer is {ASK}."), False
     return decision, True

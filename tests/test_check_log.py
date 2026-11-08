@@ -179,7 +179,7 @@ class LoggingTests(CheckLogBase):
 
 
 class FailingLogbookTests(CheckLogBase):
-    """If the logbook cannot be written, the answer is Ask me first (exit 3), never Yes or No."""
+    """If the logbook cannot be written: No stays No (exit 2), Yes and Ask me first become Ask me first (exit 3)."""
 
     def setup_cases(self):
         def tampered():
@@ -216,16 +216,19 @@ class FailingLogbookTests(CheckLogBase):
             "date goes backwards": (future_entries, "before the date of the last entry"),
         }
 
-    def test_answer_becomes_ask_me_first_for_every_answer_and_every_failure(self):
+    def reset(self):
+        import shutil
+        shutil.rmtree(self.root / ".umwayi", ignore_errors=True)
+        if self.log.is_dir():
+            self.log.rmdir()
+        elif self.log.exists():
+            self.log.unlink()
+
+    def test_yes_and_ask_become_ask_me_first_for_every_failure(self):
         for case, (setup, fragment) in self.setup_cases().items():
-            for action, would_be in [('{"type": "read"}', "Yes"), ('{"type": "payment"}', "No"), ('{"type": "dance"}', "Ask me first")]:
-                with self.subTest(case=case, would_be=would_be):
-                    import shutil
-                    shutil.rmtree(self.root / ".umwayi", ignore_errors=True)
-                    if self.log.is_dir():
-                        self.log.rmdir()
-                    elif self.log.exists():
-                        self.log.unlink()
+            for action in ('{"type": "read"}', '{"type": "send"}', '{"type": "dance"}'):
+                with self.subTest(case=case, action=action):
+                    self.reset()
                     setup()
                     before = self.snap()
                     code, out, _ = self.check(action)
@@ -235,22 +238,43 @@ class FailingLogbookTests(CheckLogBase):
                     self.assertIn("The logbook could not be written", out)
                     self.assertIn(fragment, out)
                     self.assertIn("Nothing was logged", out)
-                    self.assertNotEqual(out.splitlines()[0], would_be if would_be != "Ask me first" else "")
                     self.assertEqual(self.snap(), before)
+
+    def test_no_stays_no_for_every_failure(self):
+        for case, (setup, fragment) in self.setup_cases().items():
+            with self.subTest(case=case):
+                self.reset()
+                setup()
+                before = self.snap()
+                code, out, _ = self.check('{"type": "payment"}')
+                self.assertEqual(code, 2)
+                self.assertEqual(out.splitlines()[0], "No")
+                self.assertIn("Rule: no-money", out)
+                self.assertIn("Helpers never move money.", out)
+                self.assertIn("The logbook could not be written", out)
+                self.assertIn(fragment, out)
+                self.assertIn("Nothing was logged", out)
+                self.assertEqual(self.snap(), before)
 
     def test_json_output_and_exit_code_when_the_logbook_fails(self):
         write_sealed_logbook(self.root, "# Logbook\n" + entry_text(date="2026-01-01"))
         self.log.write_text("changed", encoding="utf-8")
         code, out, _ = self.check('{"type": "payment"}', "--json")
         data = json.loads(out)
+        self.assertEqual((code, data["answer"], data["rule_id"], data["logged"]), (2, "No", "no-money", False))
+        code, out, _ = self.check('{"type": "read"}', "--json")
+        data = json.loads(out)
         self.assertEqual((code, data["answer"], data["rule_id"], data["logged"]), (3, "Ask me first", None, False))
 
-    def test_unexpected_error_in_the_logbook_is_also_ask_me_first(self):
+    def test_unexpected_error_in_the_logbook(self):
         with mock.patch("umwayi.rules.logbook.append", side_effect=RuntimeError("boom " + SECRET)):
             code, out, _ = self.check('{"type": "read"}')
-        self.assertEqual(code, 3)
-        self.assertIn("an unexpected error", out)
-        self.assertNotIn(SECRET, out)
+            self.assertEqual(code, 3)
+            self.assertIn("an unexpected error", out)
+            self.assertNotIn(SECRET, out)
+            code, out, _ = self.check('{"type": "payment"}')
+            self.assertEqual(code, 2)
+            self.assertNotIn(SECRET, out)
 
     def test_bad_date_for_the_entry_is_ask_me_first(self):
         # a clock that returns nonsense must not turn into Yes or No
@@ -264,14 +288,20 @@ class FailingLogbookTests(CheckLogBase):
         logbook.seal(self.root, "2026-11-07", "owner")
         self.assertEqual(self.check('{"type": "read"}')[0], 0)
 
-    def test_real_process_exit_code_is_3_when_the_logbook_is_tampered(self):
+    def test_real_process_exit_codes_when_the_logbook_is_tampered(self):
         write_sealed_logbook(self.root, "# Logbook\n" + entry_text(date="2026-01-01"))
         self.log.write_text("changed", encoding="utf-8")
         env = dict(os.environ, PYTHONPATH=str(REPO))
-        r = subprocess.run(
-            [sys.executable, "-m", "umwayi", "--root", str(self.root), "check", '{"type": "payment"}'],
-            capture_output=True, text=True, env=env, cwd=self.root,
-        )
+
+        def run(action):
+            return subprocess.run(
+                [sys.executable, "-m", "umwayi", "--root", str(self.root), "check", action],
+                capture_output=True, text=True, env=env, cwd=self.root,
+            )
+        r = run('{"type": "payment"}')
+        self.assertEqual(r.returncode, 2)
+        self.assertTrue(r.stdout.startswith("No\n"))
+        r = run('{"type": "read"}')
         self.assertEqual(r.returncode, 3)
         self.assertTrue(r.stdout.startswith("Ask me first"))
 

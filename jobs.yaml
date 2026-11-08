@@ -1,0 +1,12 @@
+# Jobs for 'umwayi run jobs.yaml --job NAME'. Nothing here is scheduled by umwayi.
+# command must be one of: report, check, queue-list. min_gap_days is at least 1.
+jobs:
+  - name: weekly-report
+    command: report
+    since_days: 7
+    min_gap_days: 7
+
+  - name: open-queue
+    command: queue-list
+    status: open
+    min_gap_days: 1
