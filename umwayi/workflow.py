@@ -463,7 +463,7 @@ def run(root: Path, name: str, today: str) -> Result:
     helper = Helper(root, "workflow", today, label=f"Workflow {name}")
     r = None
     try:
-        helper.start()  # kill switch, logbook tamper check, rules: before anything else
+        helper.start()  # kill switch, run lock, logbook tamper check, rules: before anything else
         wf = load(root, name)
         r = _Run(root, wf, today, helper)
 
@@ -502,5 +502,7 @@ def run(root: Path, name: str, today: str) -> Result:
                 ])
     except Stop as s:
         return Result(s.code, (r.done if r else []) + s.lines)
+    finally:
+        helper.finish()  # the run lock, on every path
     return Result(0, r.done + [f"Workflow {name} finished {len(wf.steps)} steps. Everything it wrote is a draft. "
                                "Nothing was published."])

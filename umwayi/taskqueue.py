@@ -284,6 +284,8 @@ def _commit(root: Path, path: Path, old_text: str | None, new_text: str, entry: 
             raise UmwayiError(
                 "the logbook write failed AND queue.md could not be restored: check queue.md by hand"
             ) from None
+        if not isinstance(e, UmwayiError):
+            raise  # undone above; an unexpected error exits 2
         raise UmwayiError("the logbook write failed, so the queue change was undone" + reason) from None
 
 

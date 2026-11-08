@@ -81,7 +81,7 @@ Still open after layer 5:
 
 Still open after layer 6:
 
-- No lock around a whole run, so two runs of the same job at the same moment can both pass the gap rule.
+- Fixed after layer 8 (hardening): the run lock `.umwayi/run.lock` stops two job runs at the same moment.
 - `--approved-by` is not a security boundary. Layer 7 must make sure helpers never pass it.
 - A deleted last draft number can be used again (numbering reads `drafts/`, not the logbook).
 
@@ -97,7 +97,7 @@ Still open after layer 7:
 
 - Answering a helper's queue item does not let it go on. There is no way for the owner to approve one single helper step; the owner changes rules.yaml instead.
 - If a later step stops, drafts from earlier steps stay (each has its own logbook entry).
-- Two helper runs at the same moment are not locked against each other (only each logbook append is).
+- Fixed after layer 8 (hardening): the run lock `.umwayi/run.lock` stops two helper runs at the same moment.
 
 ## Layer 8: Workflows
 
@@ -114,7 +114,7 @@ Still open after layer 8:
 - Inside a workflow, the Steward and social steps are one rules check each. The social helper's per channel check (with `channel` in the action) is not repeated there.
 - A YAML syntax error stops the validator at the first one, so only that problem is reported.
 - The kill switch is a file in the repo folder. Anyone who can write the folder can remove it; it guards against runaway runs, not against a person.
-- Two workflow runs at the same moment are not locked against each other (only each logbook append is), so both could pass the waiting check.
+- Fixed after layer 8 (hardening): two runs at the same moment are now refused by the run lock `.umwayi/run.lock` (`umwayi/runlock.py`).
 
 ## Non goals for Dec 3
 

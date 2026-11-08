@@ -117,8 +117,8 @@ def turn_on(root: Path, today: str, why: str | None = None) -> Result:
     try:
         logbook.append(root, _entry(today, added, f"{KILL_REL} did not exist and was created",
                                     "No run was stopped by this command itself. Nothing else was changed."))
-    except Exception as e:
-        w = str(e).rstrip(". ") if isinstance(e, UmwayiError) else "an unexpected error"
+    except UmwayiError as e:  # the switch is on either way; an unexpected error goes on to exit 2
+        w = str(e).rstrip(". ")
         lines.append(f"The logbook could not be written ({w}). Nothing was logged, but the switch is on.")
     return Result(0, lines)
 
@@ -154,6 +154,8 @@ def turn_off(root: Path, today: str) -> Result:
                 f"kill: the logbook could not record turning the switch off ({w}) AND {KILL_REL} could not be "
                 "put back. The switch is OFF. Turn it on again with 'umwayi kill on'."
             ) from None
+        if not isinstance(e, UmwayiError):
+            raise  # KILL was put back, the switch is on; an unexpected error exits 2
         raise UmwayiError(f"kill: the logbook could not record turning the switch off ({w}), so it stays on") from None
     return Result(0, ["The kill switch is off."])
 

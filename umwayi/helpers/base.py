@@ -22,7 +22,8 @@ and this module:
 So every step that is checked adds exactly one logbook entry, written through
 the checked append. Before the first step, `start` refuses to run at all if
 the kill switch is on or its state cannot be read (exit 3, one entry, nothing
-else), if the logbook fails its tamper check (exit 1, nothing written) or if
+else), if another run holds the run lock or locking is not available (exit 3,
+one entry, nothing else), if the logbook fails its tamper check (exit 1, nothing written) or if
 rules.yaml cannot be loaded (exit 3, one entry, nothing else). The kill switch
 is checked again before every step.
 
@@ -34,11 +35,12 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from umwayi import drafts, kill, logbook, rules, taskqueue
+from umwayi import drafts, kill, logbook, rules, runlock, taskqueue
 from umwayi.errors import UmwayiError, UsageError
 
 HELPERS = ("steward", "social", "workflow")
@@ -94,14 +96,18 @@ class Helper:
         self.label = label or f"AI helper {name}"  # how messages and the queue name this runner
         self.rules_path = self.root / "rules.yaml"
         self.steps = 0
+        self._held = ExitStack()  # the run lock, released by finish()
 
     # ------------------------------------------------------------ logging
 
     def _log(self, added: str, checked: str, not_done: str) -> str | None:
-        """Append one entry through the checked append. Returns None, or why it failed."""
+        """Append one entry through the checked append. Returns None, or why it failed.
+
+        Only a known logbook failure (UmwayiError) is returned; an unexpected error is raised (exit 2).
+        """
         try:
             logbook.append(self.root, logbook.Entry(self.today, self.source, added, checked, not_done))
-        except Exception as e:
+        except UmwayiError as e:
             return _why(e)
         return None
 
@@ -126,9 +132,35 @@ class Helper:
         )
         raise Stop(3, lines)
 
+    def _take_run_lock(self) -> None:
+        """Hold .umwayi/run.lock until finish(). Busy or unavailable: Ask me first, one entry, nothing else."""
+        try:
+            self._held.enter_context(runlock.held(self.root))
+            return
+        except runlock.RunLockBusy:
+            reason, short = runlock.BUSY_REASON, "another umwayi run holds the run lock"
+        except runlock.RunLockUnavailable as e:
+            reason, short = runlock.unavailable_reason(e), "the run lock could not be taken"
+        lines = [rules.ASK, "Rule: (none)", f"Reason: {reason}", f"{self.label} did not start. Nothing was read or written."]
+        self._log_or_note(
+            lines,
+            f"{self.label} did not start: {short}",
+            "the kill switch, then the run lock, before anything else",
+            "Nothing was read or written. No rule was asked and no queue item was added.",
+        )
+        raise Stop(3, lines)
+
+    def finish(self) -> None:
+        """Release the run lock. Safe to call more than once, and when it was never taken."""
+        self._held.close()
+
     def start(self) -> None:
-        """Refuse to run at all if the kill switch is on, or the logbook or the rules are broken."""
+        """Refuse to run at all if the kill switch is on, another run is going, or the logbook or rules are broken.
+
+        Call finish() afterwards on every path (run() below does this).
+        """
         self._kill_stop(f"{self.label} did not start. Nothing was read or written.", f"{self.label} did not start")
+        self._take_run_lock()
         try:
             logbook.read_checked(self.root)
         except UmwayiError as e:
@@ -206,9 +238,16 @@ class Helper:
                 checked,
                 "The step did not finish and the AI helper stopped. Nothing was posted, sent or published.",
             )
+            if not isinstance(e, UmwayiError):
+                raise  # an unexpected error: logged above, then exit 2 (never 1)
             raise Stop(1, lines) from None
 
-        why = self._log(f"{head}: {outcome.added}", checked, outcome.not_done)
+        try:
+            why = self._log(f"{head}: {outcome.added}", checked, outcome.not_done)
+        except Exception:
+            if outcome.undo is not None:
+                outcome.undo()  # an unexpected error while logging: undo the work, then exit 2
+            raise
         if why is not None:
             if outcome.undo is not None:
                 try:
@@ -236,7 +275,7 @@ class Helper:
                         return (f"Queue item {r.id} already asks the owner about this. Nothing was added.",
                                 f"queue item {r.id} was already open")
             row = taskqueue.add(self.root, "decision", title, ASK_RECOMMENDATION, self.today)
-        except Exception as e:
+        except UmwayiError as e:
             return (f"The queue item could not be added ({_why(e)}).", "the queue item could not be added")
         return (f"Added queue item {row.id} (decision) for the owner. Answer it with: "
                 f"umwayi queue answer {row.id} --answer TEXT", f"queue item {row.id} added")
@@ -255,10 +294,12 @@ class Helper:
 
 
 def run(helper: Helper, body: Callable[[], list]) -> Result:
-    """Start the helper, run its body, and turn a Stop into a Result."""
+    """Start the helper, run its body, and turn a Stop into a Result. The run lock is released on every path."""
     try:
         helper.start()
         lines = body()
     except Stop as s:
         return Result(s.code, s.lines)
+    finally:
+        helper.finish()
     return Result(0, lines)

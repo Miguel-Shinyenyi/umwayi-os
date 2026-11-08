@@ -96,8 +96,8 @@ def load_bundle(config: Config) -> Bundle:
         real_root = root.resolve()
         real_mem = mem.resolve()
         real_mem.relative_to(real_root)
-    except (OSError, ValueError):
-        raise ConfigError("memory: memory_dir must be inside the root") from None
+    except (OSError, ValueError, RuntimeError):  # RuntimeError: a symlink loop on Python 3.10 to 3.12
+        raise ConfigError("memory: memory_dir must be inside the root, and not a loop of links") from None
     if mem.is_symlink() or not mem.is_dir():
         raise ConfigError("memory: memory_dir is not a folder")
 

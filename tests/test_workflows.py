@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, write_sealed_logbook
+from tests.helpers import entry_text, without_run_lock, write_sealed_logbook
 from umwayi import kill, logbook, publish, rules, taskqueue, workflow
 from umwayi.cli import main
 from umwayi.errors import ConfigError, UmwayiError, UsageError
@@ -151,7 +151,7 @@ class Base(unittest.TestCase):
             for f in fn:
                 full = os.path.join(dp, f)
                 out[os.path.relpath(full, self.root)] = (Path(full).read_bytes(), os.stat(full).st_mtime_ns)
-        return out
+        return without_run_lock(out)
 
     def changed(self, before):
         after = self.snap()

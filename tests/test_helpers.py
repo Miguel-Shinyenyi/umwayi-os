@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, write_sealed_logbook
+from tests.helpers import entry_text, without_run_lock, write_sealed_logbook
 from umwayi import logbook, publish, rules, taskqueue
 from umwayi.cli import main
 from umwayi.errors import UmwayiError
@@ -125,7 +125,7 @@ class Base(unittest.TestCase):
             for f in fn:
                 full = os.path.join(dp, f)
                 out[os.path.relpath(full, self.root)] = (Path(full).read_bytes(), os.stat(full).st_mtime_ns)
-        return out
+        return without_run_lock(out)
 
     def changed(self, before):
         after = self.snap()
@@ -145,8 +145,13 @@ class Base(unittest.TestCase):
 
 class BaseStepTests(Base):
     def helper(self, name="steward"):
+        # a started helper holds the run lock: finish the one before, as a real run would
+        if getattr(self, "_started", None) is not None:
+            self._started.finish()
         h = Helper(self.root, name, "2026-11-07")
         h.start()
+        self._started = h
+        self.addCleanup(h.finish)
         return h
 
     def ok_work(self):
@@ -257,14 +262,24 @@ class BaseStepTests(Base):
         self.assertIn("the thing broke", cm.exception.lines[0])
         self.assertEqual(self.entries()[-1].added, "Step 1 (read_queue) failed after rule helper-read gave Yes")
 
-    def test_an_unexpected_error_in_the_work_is_also_a_stop_and_hides_its_text(self):
+    def test_an_unexpected_error_in_the_work_is_logged_then_raised_and_hides_its_text(self):
+        # (until the hardening branch this was Stop(1); an unexpected error must exit 2, never 1)
         def bad():
             raise RuntimeError(SECRET)
-        with self.assertRaises(Stop) as cm:
-            self.helper().step("read_queue", bad)
-        self.assertEqual(cm.exception.code, 1)
-        self.assertNotIn(SECRET, "\n".join(cm.exception.lines))
+        h = self.helper()
+        with self.assertRaises(RuntimeError):
+            h.step("read_queue", bad)
+        h.finish()  # as run() does; it holds the run lock until then
+        self.assertEqual(self.entries()[-1].added, "Step 1 (read_queue) failed after rule helper-read gave Yes")
         self.assertNotIn(SECRET, self.log.read_text())
+        code, out, err = self.cli_crash()
+        self.assertEqual(code, 2)
+        self.assertNotIn(SECRET, out + err)
+
+    def cli_crash(self):
+        self.queue.write_text(QUEUE, encoding="utf-8")
+        with mock.patch("umwayi.taskqueue.list_rows", side_effect=RuntimeError(SECRET)):
+            return self.cli("steward")
 
     def test_failed_entry_after_yes_undoes_the_work_and_stops_with_3(self):
         h = self.helper()
@@ -844,7 +859,7 @@ def _imports(path):
 
 
 class CodeGuardTests(unittest.TestCase):
-    ALLOWED_IMPORTS = {"__future__", "hashlib", "json", "os", "re", "dataclasses", "datetime", "pathlib", "typing",
+    ALLOWED_IMPORTS = {"__future__", "contextlib", "hashlib", "json", "os", "re", "dataclasses", "datetime", "pathlib", "typing",
                        "umwayi", "umwayi.config", "umwayi.drafts", "umwayi.errors", "umwayi.memory",
                        "umwayi.helpers.base"}
 
