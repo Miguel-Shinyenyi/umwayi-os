@@ -159,7 +159,12 @@ def build_parser() -> argparse.ArgumentParser:
     agl = agsub.add_parser("list", help="list the agents in agents.yaml (starts nothing)")
     agc = agsub.add_parser("check", help="can this agent be gated? runs every gate check, starts no agent")
     agc.add_argument("name", help="the agent name from agents.yaml")
-    for sp in (agv, agl, agc):
+    agr = agsub.add_parser("run", help="start an agent once with a prompt (Claude Code only so far); 0, 2, 3 or 64")
+    agr.add_argument("name", help="the agent name from agents.yaml")
+    agr.add_argument("source", nargs="?", help="- to read the prompt from stdin")
+    agr.add_argument("--prompt", help="the prompt text (at most 100 KB; never written to the logbook)")
+    agr.add_argument("--prompt-file", help="a file that holds the prompt (at most 100 KB)")
+    for sp in (agv, agl, agc, agr):
         sp.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
@@ -318,6 +323,11 @@ def _cmd_agent(args, out) -> int:
             return _cmd_helper(agents.validate_file(Path(args.root), args.agents), out)
         if args.agent_command == "list":
             return _cmd_helper(agents.list_agents(Path(args.root), args.agents), out)
+        if args.agent_command == "run":
+            if args.source not in (None, "-"):
+                raise UsageError("agent run: the only word allowed after the name is - (read the prompt from stdin)")
+            prompt = agents.read_prompt(args.prompt, args.prompt_file, args.source == "-", sys.stdin.buffer)
+            return _cmd_helper(agents.run_agent(Path(args.root), args.name, prompt, _today, args.agents), out)
         return _cmd_helper(agents.check_agent(Path(args.root), args.name, args.agents), out)
     except UsageError as e:
         sys.stderr.write(f"umwayi: error: {e}\n")

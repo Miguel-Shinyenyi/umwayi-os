@@ -685,9 +685,9 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (approved; parts 1 and 2 built)
+## Layer 10: Own command line and chat (approved; parts 1 to 3 built)
 
-Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; parts 3 to 6 (`agent run`, `agent chat`, ACP) are planned for Nov 9 to Nov 10. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
+Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; parts 4 to 6 (Kiro run, `agent chat`, ACP) are planned for Nov 9 to Nov 10. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
 ### The idea in one paragraph
 
@@ -817,9 +817,22 @@ A test builds every list for every valid agents.yaml shape and checks that none 
 
 - `subprocess.Popen(list, cwd=workdir, shell=False)`, environment inherited unchanged. For `run`: stdin is the prompt (Kiro) or closed (Claude Code), stdout and stderr are passed through to umwayi's own.
 - `run` starts the child in a new process group (`start_new_session=True`) so umwayi can stop it and its children with `os.killpg`. `chat` with `transport: cli` keeps the child in umwayi's process group and on the terminal, because an interactive screen needs the controlling terminal; umwayi ignores SIGINT while it waits, so Ctrl-C reaches the agent only.
-- A watcher thread checks `kill.state(root)` every second. On `on` or `unknown`: SIGTERM to the child (group), SIGKILL after 10 seconds. Claude Code `-p` is documented to stop cleanly on SIGTERM (exit 143); Kiro is not documented.
+- A watcher checks `kill.state(root)` every second. On `on` or `unknown`: SIGTERM to the child (group), SIGKILL after 10 seconds. Claude Code `-p` is documented to stop cleanly on SIGTERM (exit 143); Kiro is not documented.
 - If umwayi gets SIGTERM, it stops the child the same way before it exits.
 - The run lock is held from step 4 to the end.
+
+As built in part 3 (`umwayi agent run`, Claude Code):
+
+- **The watcher is a loop in the main thread**, not a separate thread: `proc.wait(timeout=1)`, then the kill switch, then the logbook, then the timeout. Signal handlers run in the main thread, so one place stops the agent whatever happens.
+- **The logbook is checked every second too** (owner request for part 3): `logbook.check_writable` runs the checks an append makes (hash record, format, date order) under the logbook lock, so a hook's write in progress is never mistaken for an edit. If it fails, the agent is stopped and the run exits 2: from then on no check can be recorded, and the hook already denies every tool call. Nothing can be logged about the stop.
+- **Every entry uses the date at the moment it is written**, so a run that passes midnight does not trip the "dates never go backwards" check.
+- **On every way out of `go()`** (a normal end, a refusal, the kill switch, the timeout, the logbook, SIGTERM, SIGHUP, Ctrl-C, any exception) a `finally` stops the agent before the run lock is released. Stopping means SIGTERM to the whole process group, then SIGKILL after 10 seconds. That includes anything the agent left running in its group after a normal exit, for example a server it started.
+- **umwayi's own SIGTERM and SIGHUP** are caught (the handler raises once, a second signal is ignored while stopping). Ctrl-C reaches umwayi only, because the agent is in its own session. All three stop the agent, add one entry and exit 2.
+- **Prompt:** exactly one of `--prompt TEXT`, `--prompt-file PATH` (a regular file) or `-` (stdin); at most 100 KB; UTF-8; no NUL; a Claude Code prompt starting with `-` is refused. All of this is step 1, before the kill switch, so a bad prompt writes nothing and runs nothing (exit 64). The prompt is the last argument; it is never logged or printed.
+- **The agent's stdin is `/dev/null`** for Claude Code; its stdout and stderr are umwayi's own. umwayi prints its own lines after the agent ends.
+- **The rules check must be logged**: if `check_and_log` could not write its entry, nothing starts (exit 2), whatever the answer. A start entry that cannot be written also means nothing starts (exit 2). An end entry that cannot be written makes the run exit 2. A refusal, kill switch or lock entry that cannot be written keeps its exit code and says so.
+- **Not built yet, refused cleanly:** `agent run` for a Kiro agent is a usage error (64) before anything else, with "not built yet (layer 10 part 4)"; `agent chat` does not exist yet, so argparse gives 64. Neither runs anything or writes anything.
+- **Two places start a program** in `agents.py`: `_run_child` (`subprocess.run`, for the version and the self-test) and `_Run._start` (`subprocess.Popen`, `start_new_session=True`, for the agent). A code guard test checks both have `shell=False`, that the agent's list comes only from `build_argv`, and that `agents.py` opens files only to read them.
 
 ### ACP chat client (`umwayi/acp.py`, Kiro only)
 
@@ -859,9 +872,14 @@ All through `logbook.Entry`, written before the step they describe:
 | rules check | the usual check entry, action type `agent_run` or `acp_permission` |
 | refused | "Refused agent NAME: not gated (REASON)" |
 | start | "Started agent NAME (PLATFORM, TRANSPORT): PATH_FOUND" |
-| end | "Agent NAME exited CODE after SECONDS s" |
+| end | "Agent NAME exited with code CODE after SECONDS s" (or "by signal N") |
+| kill switch before the start | "Agent NAME did not start: SHORT" (only this entry: no rule is asked) |
+| run lock busy | "Agent NAME did not start: another umwayi run holds the run lock" |
 | kill switch | "The kill switch stopped agent NAME" |
 | timeout | "Agent NAME stopped after its timeout of MINUTES min" |
+| umwayi stopped by a signal or Ctrl-C | "Agent NAME was stopped: umwayi got SIGTERM" (or SIGHUP, or Ctrl-C) |
+| an unexpected error in umwayi | "Agent NAME stopped: umwayi hit an unexpected error (TYPE)" |
+| Ask me first | the check entry, then the queue add entry for `Start agent NAME (run)?` (once while it is open) |
 
 Never logged: the prompt, the conversation, agent output, environment values, the `--settings` JSON beyond the hook path.
 
@@ -924,7 +942,7 @@ The owner decided to build it before Dec 3. Built only after the owner approves 
 
 - Standard library `unittest`, also run by `pytest`.
 - Each layer has its own test module, using temporary folders.
-- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there were 556 tests; after PR 14 (layer 10 parts 1 and 2) there are 673.
+- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there were 556 tests; after PR 14 (layer 10 parts 1 and 2) there were 673; after PR 15 (part 3) there are 697.
 - `tests/test_system.py` runs the umwayi command as real processes in a fresh folder: one scripted run of every layer, and fault tests (logbook edits, broken rules, bad config, injected crashes in every command, corrupt state files, unknown actions, no network import, no approver code path).
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
 - Layer 9 adapters get their own tests and CI job (see above).

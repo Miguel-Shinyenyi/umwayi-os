@@ -16,7 +16,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
-| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 and 2 built (agents.yaml, gate checks, `umwayi agent check`); parts 3 to 6 planned Nov 9 to Nov 10 | spec PR 13; parts 1 and 2 PR 14 | 673 after PR 14, on Python 3.10 to 3.13 |
+| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 to 3 built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` for Claude Code); parts 4 to 6 planned Nov 9 to Nov 10 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15 | 673 after PR 14, 697 after PR 15, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
 | Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
 | Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
@@ -188,7 +188,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
 - [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
-## Layer 10: Own command line and chat (in progress: parts 1 and 2 built)
+## Layer 10: Own command line and chat (in progress: parts 1 to 3 built)
 
 Planned for Nov 9 to Nov 10. Requirements 10.R1 to 10.R10, design in design.md, doc facts in `adapters/NOTES-layer10.md`. The owner approved 10.0 on Nov 8.
 
@@ -229,12 +229,13 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### Part 3: `umwayi agent run` for Claude Code (10.R3, 10.R4, 10.R5.2, 10.R5.9, 10.R8)
 
-- [ ] 10.8 The start steps 1 to 9 from the design, with the kill switch and rules before any platform process, the queue item for Ask me first (`taskqueue.add_once`), the run lock, the logbook entries, and exit codes 0, 2, 3, 64 only.
-- [ ] 10.9 The watcher: kill switch every second, timeout; SIGTERM to the process group, SIGKILL after 10 s; umwayi stops the child on any exception and on its own SIGTERM.
-- [ ] 10.10 Prompt input: `--prompt`, `--prompt-file`, `-` for stdin; at most 100 KB; a leading `-` refused with 64.
-- [ ] 10.11 Tests with the fake `claude` (runs the hook from `--settings` for scripted tool calls): Yes runs and the hook's allow, deny and ask are recorded; rules No and Ask me first start nothing (the fake records no call) and the queue gets one item, not two; kill switch on before start: nothing started, exit 3; kill switch turned on during a run: the fake is stopped within about 2 s, exit 3, and its next tool call is denied by the hook; timeout; the fake exiting 1, 143 or crashing gives 2; run lock held gives 3; a broken logbook gives 2 and nothing started; the prompt is never in the logbook; one start and one end entry, logbook verify ok; umwayi killed with SIGTERM leaves no fake running; never exit 1 (checked over every test).
+- [x] 10.8 The start steps 1 to 9 from the design, with the kill switch and rules before any platform process, the queue item for Ask me first (`taskqueue.add_once`), the run lock, the logbook entries, and exit codes 0, 2, 3, 64 only.
+- [x] 10.9 The watcher (a loop in the main thread, which also stops the agent when the logbook can no longer be written): kill switch every second, timeout; SIGTERM to the process group, SIGKILL after 10 s; umwayi stops the child on any exception and on its own SIGTERM.
+- [x] 10.10 Prompt input: `--prompt`, `--prompt-file`, `-` for stdin; at most 100 KB; a leading `-` refused with 64.
+- [x] 10.11 Tests (`tests/agents/test_agents_run.py`) with the fake `claude` (`tests/agents/fake_agent.py`) (runs the hook from `--settings` for scripted tool calls): Yes runs and the hook's allow, deny and ask are recorded; rules No and Ask me first start nothing (the fake records no call) and the queue gets one item, not two; kill switch on before start: nothing started, exit 3; kill switch turned on during a run: the fake is stopped within about 2 s, exit 3, and its next tool call is denied by the hook; timeout; the fake exiting 1, 143 or crashing gives 2; run lock held gives 3; a broken logbook gives 2 and nothing started; the prompt is never in the logbook; one start and one end entry, logbook verify ok; umwayi killed with SIGTERM leaves no fake running; never exit 1 (checked over every test).
   - Planted faults: the rules check skipped; Ask me first treated as Yes; the kill watcher not started; an exception path that leaves the child running; exit 1 on an error.
   - Mutation checks: each step's failure branch removed; the exit code map changed one entry at a time; the watcher interval made 60 s.
+  - Result (PR 15): the 5 planted faults and 27 mutations all caught. One more mutation (the stop after a normal exit) did not change behaviour, because the `finally` already stops the agent; the redundant line was removed.
 
 ### Part 4: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2)
 
@@ -261,7 +262,7 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### After the parts
 
-- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 and the README section, for parts 1 and 2.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
+- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, and the README section.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
 - [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 11 to Nov 14), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
 
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
