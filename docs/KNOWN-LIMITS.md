@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks).
 
 ## Approval and the owner
 
@@ -276,9 +276,9 @@ The gate check requires the layer 9 Kiro hook file before an ACP chat starts, bu
 
 The ACP spec puts the owner's message in `prompt`; the Kiro ACP page's example (for the legacy CLI v2 server) puts it in `content`. umwayi sends `prompt`. If a real Kiro server expects `content`, the first prompt fails: the agent answers with an error and the chat ends with exit 2 (fail closed), or it ignores the message.
 
-### 55. Claude Code over ACP is not built
+### 55. Claude Code over ACP: only the checks are built
 
-Claude Code has no ACP mode in its own command line; it would need Zed's third party adapter (`claude-agent-acp`), a Node package. The owner decided to decide this later (tasks.md 10.0, answer 9). A Claude Code agent with `transport: acp` is a validation error.
+Claude Code has no ACP mode in its own command line; it needs the third party adapter `@agentclientprotocol/claude-agent-acp`, a Node package. The owner approved part 7 on Nov 8 (tasks.md 10.22). Part 7a (PR 20) accepts a Claude Code agent with `transport: acp` and runs its gate checks in `umwayi agent check`; the chat itself (the session, the inline settings and the canary) is part 7b. Until then `umwayi agent chat` refuses such an agent with exit 64 and starts nothing. Items 59 to 64.
 
 ### 56. Ctrl-C gives the owner back after 10 seconds, even if the agent goes on
 
@@ -291,3 +291,31 @@ Agent text has control characters, bidirectional controls, zero-width characters
 ### 58. One chat, one turn at a time
 
 umwayi sends one prompt at a time and holds the owner's next lines until the turn ends. It does not use `session/load`, `session/list`, modes, models or Kiro's extension methods, and it advertises no capabilities, so Kiro features that need them are not available in an ACP chat. Kiro's own interactive approvals (for tools it does not trust) arrive as permission requests and are answered by the rules and the owner as above.
+
+## Layer 10 part 7a: Claude Code over ACP, the package and the gate checks (found while building, not fixed)
+
+Written Nov 8 2026. Doc and source facts: `adapters/NOTES-layer10.md` ("Claude Code over ACP"); the package: `adapters/claude_acp/README.md`.
+
+### 59. No real Node, adapter or Claude Code was run
+
+Every test uses a fake `node` (a Python script first on PATH) and a fake installed `package.json` and `dist/index.js`. Not confirmed by a run: that `npm ci --ignore-scripts` installs everything and the bundled Claude CLI works without install scripts; that the real `--version` prints exactly `0.101.0`; that `--cli --version` prints `2.1.318 (Claude Code)` or something with that number first; that `--cli auth status` exits 0 when signed in and not 0 when signed out, within 15 seconds; and that all of them work with only the allow-listed environment. The owner's first real run (tasks.md 10.31) records these. A different format refuses the chat (exit 2): it fails closed, not open.
+
+### 60. The supply chain is 115 packages
+
+The lockfile pins 115 npm packages with `sha512` integrity hashes, all from registry.npmjs.org, none with an install script, among them a native Claude Code binary (one of 8 optional platform packages of the Claude Agent SDK). The review in PR 20 checked this metadata, not the code: umwayi trusts what the adapter and the SDK do inside the session, the way it trusts Claude Code itself. `npm ci` checks the hashes when the owner installs; umwayi checks only the adapter's own `package.json` name and version and its `--version`, not the files of the other 114 packages. A package changed in `node_modules` after the install is not noticed. The security scan (Nov 14 to 16) must cover the npm dependencies.
+
+### 61. The sign-in check proves a login exists, not that it works
+
+`auth status` exiting 0 says the bundled Claude CLI finds a login. It does not prove that the token is still valid, that the account may use the model, or that the network works; those fail later, inside the chat. umwayi never reads the output, so it cannot say which account is signed in.
+
+### 62. Which `node` runs is the first on PATH
+
+`node` is looked up on umwayi's PATH, like `claude` and `kiro-cli` are. Any `node` first on PATH that prints `v22` or later is used; umwayi does not check where it came from. The adapter path is fixed inside the umwayi-os checkout and may not be a link, but whoever can write to `adapters/claude_acp/node_modules/` can change what runs.
+
+### 63. The allow list passes the owner's proxy and certificate settings
+
+`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY` (and their lowercase forms), `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE` and `SSL_CERT_DIR` are passed when set, so a chat works behind the owner's proxy. A proxy or certificate set in the owner's environment can therefore see or redirect the adapter's traffic, as it can for any other program the owner runs. Everything not on the list is dropped, among them `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_EXECUTABLE`, `NODE_OPTIONS` and `NODE_PATH`.
+
+### 64. `max_turns` is not used by an ACP chat, and `agent check` shows only the chat's checks
+
+A Claude Code agent with `transport: acp` keeps `max_turns` for `umwayi agent run`, which stays `claude -p` and runs the checks of transport cli; an ACP chat has no turn limit of its own (only `timeout_minutes`, from part 7b). `umwayi agent check NAME` for such an agent shows the checks of the ACP chat only.
