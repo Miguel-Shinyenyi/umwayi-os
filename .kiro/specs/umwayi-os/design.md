@@ -685,9 +685,9 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (approved; parts 1 to 5 built, part 6 left)
+## Layer 10: Own command line and chat (approved; all six parts built)
 
-Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17. Part 6 (ACP chat for Kiro) is left. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
+Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17; part 6 (ACP chat for Kiro, `umwayi/acp.py`) in PR 18. All six parts are built. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
 ### The idea in one paragraph
 
@@ -831,7 +831,7 @@ As built in part 3 (`umwayi agent run`, Claude Code):
 - **Prompt:** exactly one of `--prompt TEXT`, `--prompt-file PATH` (a regular file) or `-` (stdin); at most 100 KB; UTF-8; no NUL; a Claude Code prompt starting with `-` is refused. All of this is step 1, before the kill switch, so a bad prompt writes nothing and runs nothing (exit 64). The prompt is the last argument; it is never logged or printed.
 - **The agent's stdin is `/dev/null`** for Claude Code; its stdout and stderr are umwayi's own. umwayi prints its own lines after the agent ends.
 - **The rules check must be logged**: if `check_and_log` could not write its entry, nothing starts (exit 2), whatever the answer. A start entry that cannot be written also means nothing starts (exit 2). An end entry that cannot be written makes the run exit 2. A refusal, kill switch or lock entry that cannot be written keeps its exit code and says so.
-- **Not built yet, refused cleanly:** a chat with a Kiro agent whose transport is `acp` is a usage error (64) that says ACP chat is part 6. Nothing runs and nothing is written. (Until part 4, `agent run` for a Kiro agent was also 64; until part 5, `agent chat` did not exist.)
+- **Refused cleanly before part 6:** a chat with a Kiro agent whose transport is `acp` was a usage error (64) until part 6. (Until part 4, `agent run` for a Kiro agent was also 64; until part 5, `agent chat` did not exist.)
 
 As built in part 4 (`umwayi agent run`, Kiro):
 
@@ -852,6 +852,20 @@ As built in part 5 (`umwayi agent chat NAME`, transport cli, Claude Code and Kir
 - **The terminal mode is put back** (`termios.tcgetattr` before the start, `tcsetattr` after), so an agent stopped while its screen had the terminal in raw mode does not leave it unusable.
 - **Exit codes are those of run:** 0 only if the rules said Yes, the agent was gated and it exited 0; 2 for an agent that failed, the timeout, not gated, the logbook, a crash, umwayi's SIGTERM or SIGHUP; 3 for Ask me first, the kill switch, the run lock; 64 for usage.
 - **Nothing of the conversation is logged**: umwayi never reads the terminal. The entries are the check, the start and the end (or the stop).
+
+As built in part 6 (`umwayi agent chat NAME`, transport acp, Kiro only):
+
+- **The same `_Run` steps**, with the rules action `{"type": "agent_run", ..., "mode": "chat", "transport": "acp"}`, the Kiro hook file check, the start entry "(kiro, acp, chat)" and the queue summary; then `kiro-cli acp --agent-engine=v3` (never `--agent`, `--model`, `--effort`, `--trust-all-tools` or `--trust-tools`) in its own session and process group, with stdin and stdout as the ACP pipes and stderr going to umwayi's stderr. The watcher is split in two: `_tick()` finds a reason to stop (kill switch, logbook, timeout) and `_tick_stop()` stops and logs, so the ACP loop can cancel and close the agent's stdin in between. The ACP loop calls `_tick()` at the same `WATCH_INTERVAL` as run and cli chat.
+- **`umwayi/acp.py` is protocol only**: standard library (`json`, `os.read`, `queue`, `re`, `threading`, `time`, `collections`), no program started, nothing imported from umwayi. Two daemon threads read the agent's stdout and the owner's stdin with `os.read` on the raw file descriptors, because a thread blocked in a buffered `readline` holds that buffer's lock, can make Python abort at exit, and blocks a close. One main loop handles every event. Lines from the agent are at most 4 MB.
+- **The protocol, in order:** `initialize` (version 1, `clientCapabilities: {}`, `clientInfo.name: "umwayi"`); an error or any other version ends the chat (exit 2). `session/new` with `cwd` and `mcpServers: []`; an error with code -32000 or "auth" in its message prints "Sign in with kiro-cli login, then try again." (exit 2). Then each owner line is one `session/prompt` with `prompt: [{"type": "text", "text": LINE}]`, one at a time; lines typed during a turn wait their turn.
+- **Owner commands** start with `:`: `:queue` prints the open queue, `:quit` ends the chat; any other `:` line is not sent. An empty line is not sent.
+- **Output:** `agent_message_chunk` text and `tool_call` lines (`tool: TITLE [KIND]`) through `safe_text`; the stop reason as `[stop reason: X]`; every other update type is ignored. `safe_text` shows C0 and C1 controls (but newline and tab), DEL, and bidirectional, zero-width and tag characters as `\uXXXX` (`\UXXXXXXXX` above U+FFFF).
+- **Permission requests** go to `_Run._permission`: `rules.check_and_log` (one logbook entry) with `{"type": "acp_permission", "agent": NAME, "platform": "kiro", "kind": KIND, "tool": NAME}`, `kind` and `tool` only when they are short plain words, the title never. While the kill switch is on or unknown the answer is No; a check that could not be logged, an error, or an unknown answer is a reject. Then `acp.select_outcome`: Yes takes the first `allow_once`; No the first `reject_once`; Ask me first prints the request and `Allow once? [y/N]`, and only an owner line that is exactly `y` takes `allow_once`. Never an `*_always` option, never an option the agent did not offer: without the wanted kind it is `reject_once`, and without that `cancelled`.
+- **Any other request** (`fs/*`, `terminal/*`, `_kiro/...`) is answered at once from the reader thread with error -32601; nothing is read, written or run.
+- **Ends:** a line that is not one JSON object, a line over 4 MB, an error answer, or the agent closing the connection ends the chat (exit 2) and is logged as a fixed reason ("ACP chat with agent NAME ended: ..."), never agent text. A prompt is never sent again.
+- **Ctrl-C** belongs to umwayi here (the agent has its own session): a handler sets a flag. If a permission is waiting for the owner, it is answered `cancelled` first; then `session/cancel`, every open permission request answered `cancelled`, up to 10 seconds for the prompt answer, and back to the owner. A late answer to an abandoned turn is ignored. Ctrl-C with no turn running prints a hint. umwayi is never stopped by Ctrl-C during the chat.
+- **The kill switch, the logbook and the timeout:** the loop cancels the turn, answers open permissions `cancelled`, closes the agent's stdin, then `_tick_stop()` stops the agent's process group (SIGTERM, SIGKILL after 10 s): exit 3, 2, 2.
+- **The end:** after `:quit` or the end of the owner's input, umwayi closes the agent's stdin and waits up to 10 seconds. An agent that exits 0 gives exit 0 and the usual end entry; one that does not exit is stopped (exit 2).
 - **Two places start a program** in `agents.py`: `_run_child` (`subprocess.run`, for the version and the self-test) and `_Run._start` (`subprocess.Popen`, `start_new_session=True`, for the agent). A code guard test checks both have `shell=False`, that the agent's list comes only from `build_argv`, and that `agents.py` opens files only to read them.
 
 ### ACP chat client (`umwayi/acp.py`, Kiro only)
@@ -962,7 +976,7 @@ The owner decided to build it before Dec 3. Built only after the owner approves 
 
 - Standard library `unittest`, also run by `pytest`.
 - Each layer has its own test module, using temporary folders.
-- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there were 556 tests; after PR 14 (layer 10 parts 1 and 2) there were 673; after PR 15 (part 3) there were 697; after PR 16 (part 4) there were 719; after PR 17 (part 5) there are 747.
+- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there were 556 tests; after PR 14 (layer 10 parts 1 and 2) there were 673; after PR 15 (part 3) there were 697; after PR 16 (part 4) there were 719; after PR 17 (part 5) there were 747; after PR 18 (part 6) there are 783.
 - `tests/test_system.py` runs the umwayi command as real processes in a fresh folder: one scripted run of every layer, and fault tests (logbook edits, broken rules, bad config, injected crashes in every command, corrupt state files, unknown actions, no network import, no approver code path).
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
 - Layer 9 adapters get their own tests and CI job (see above).

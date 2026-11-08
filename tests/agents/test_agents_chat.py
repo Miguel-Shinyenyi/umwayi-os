@@ -475,12 +475,12 @@ class StepsAndExitCodesTests(ChatCase):
         self.assertEqual(self.chat_pipe("reviewer").returncode, 2)
         self.assertEqual(self.calls(), [])
 
-    def test_kiro_acp_chat_is_64_and_says_it_is_part_6(self):
-        r = self.chat_pipe("kiro-acp")
-        self.assertEqual(r.returncode, 64)
-        self.assertIn("ACP chat is layer 10 part 6", r.stderr)
-        self.assertEqual(self.calls(), [])
-        self.assertFalse((self.root / "LOGBOOK.md").exists())
+    def test_a_kiro_acp_agent_gets_the_acp_client_not_the_terminal(self):
+        r = self.chat_pipe("kiro-acp", ":quit\n")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        start = self.started()[0]
+        self.assertEqual(start["argv"], ["acp", "--agent-engine=v3"])
+        self.assertIn("Connected.", r.stdout)
 
     def test_the_chat_argument_lists(self):
         self.chat_pipe("reviewer")

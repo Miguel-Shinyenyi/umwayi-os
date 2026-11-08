@@ -228,6 +228,7 @@ class AgentCase(unittest.TestCase):
         self.alive_at_exit = self.agent_pids_alive()
         for pid in self.alive_at_exit:
             os.kill(pid, signal.SIGKILL)
+        self.wait_root_quiet()
         if p.stdin is not None and p.stdin.closed:
             p.stdin = None  # the test wrote the prompt and closed it already
         out, err = p.communicate(timeout=30)
@@ -253,9 +254,43 @@ class AgentCase(unittest.TestCase):
     def tools(self) -> list:
         return [c for c in self.calls() if c.get("event") == "tool"]
 
+    def wait_root_quiet(self, timeout: float = 30) -> None:
+        """Wait until no process that works on this root is left (a hook, an `umwayi check` it started).
+
+        After umwayi exits, a hook started by an agent that was just killed can still be writing the
+        logbook. Reading the logbook in the middle of that write sees a hash that does not match yet.
+        """
+        needle = str(self.root).encode()
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            busy = False
+            for name in os.listdir("/proc"):
+                if not name.isdigit() or int(name) == os.getpid():
+                    continue
+                try:
+                    with open(f"/proc/{name}/cmdline", "rb") as f:
+                        cmd = f.read()
+                except OSError:
+                    continue
+                if needle in cmd and alive(int(name)):
+                    busy = True
+                    break
+            if not busy and not (self.root / ".umwayi" / "logbook.lock").exists():
+                return
+            time.sleep(0.05)
+
     def entries(self) -> list:
         from umwayi import logbook
-        return logbook.read_checked(self.root)
+        from umwayi.errors import UmwayiError
+        self.wait_root_quiet()
+        end = time.monotonic() + 10
+        while True:  # a write that started before we looked may still be finishing
+            try:
+                return logbook.read_checked(self.root)
+            except UmwayiError:
+                if time.monotonic() > end:
+                    raise
+                time.sleep(0.1)
 
     def run_entries(self) -> list:
         return [e for e in self.entries() if e.source == "umwayi agent run"]
