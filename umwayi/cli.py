@@ -18,6 +18,7 @@ from pathlib import Path
 from umwayi import __version__, archive, jobs, logbook, publish, report, rules, taskqueue
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
+from umwayi.helpers import social, steward
 from umwayi.memory import load_bundle
 
 EXIT_USAGE = 64
@@ -33,6 +34,12 @@ def _date_arg(value: str) -> str:
     if not taskqueue.is_valid_date(value):
         raise argparse.ArgumentTypeError("must be a real date in the form YYYY-MM-DD")
     return value
+
+
+def _waiting_days_arg(value: str) -> int:
+    if not re.fullmatch(r"\d{1,3}", value) or not 1 <= int(value) <= steward.MAX_WAITING_DAYS:
+        raise argparse.ArgumentTypeError(f"must be a whole number from 1 to {steward.MAX_WAITING_DAYS}")
+    return int(value)
 
 
 def _lines_arg(value: str) -> tuple[int, int]:
@@ -112,6 +119,17 @@ def build_parser() -> argparse.ArgumentParser:
     pd.add_argument("--approved-by", help="the owner's name, needed when the rules say Ask me first")
     pd.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
 
+    sw = sub.add_parser("steward", help="AI helper Steward: read the queue and write a proposal draft")
+    sw.add_argument("--waiting-days", type=_waiting_days_arg, default=steward.DEFAULT_WAITING_DAYS,
+                    help=f"open items older than this many days count as late (default {steward.DEFAULT_WAITING_DAYS})")
+    sw.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    so = sub.add_parser("social", help="AI helper social: turn an article into post drafts")
+    sosub = so.add_subparsers(dest="social_command", parser_class=_Parser)
+    sd = sosub.add_parser("draft", help="write one post draft per channel in umwayi.json")
+    sd.add_argument("article", help="a local article file with front matter (title, link, summary)")
+    sd.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
     lgsub.add_parser("verify", help="check the format and the hash record of LOGBOOK.md (changes nothing)")
@@ -161,6 +179,11 @@ def _cmd_publish(args, out) -> int:
     r = publish.publish(Path(args.root), args.draft, args.date or _today(), args.approved_by)
     out.write("\n".join(r.lines) + "\n")
     return r.code
+
+
+def _cmd_helper(result, out) -> int:
+    out.write("\n".join(result.lines) + "\n")
+    return result.code
 
 
 def _cmd_logbook(args, out) -> int:
@@ -261,6 +284,10 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_check(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "steward":
+            return _cmd_helper(steward.run(Path(args.root), args.date or _today(), args.waiting_days), out)
+        if args.command == "social" and getattr(args, "social_command", None) == "draft":
+            return _cmd_helper(social.draft(Path(args.root), args.article, args.date or _today()), out)
         if args.command == "run":
             return _cmd_run(args, out)
         if args.command == "report":

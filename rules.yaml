@@ -65,3 +65,31 @@ rules:
     verdict: ask
     matchers:
       type: publish_draft
+
+  # AI helpers (layer 7). Every helper action has a "helper" field.
+  - id: helper-read
+    title: AI helpers may read
+    text: An AI helper may read the queue, the logbook or one local article.
+    cause: Reading changes nothing.
+    verdict: yes
+    matchers:
+      helper__exists: true
+      type: [read_queue, read_logbook, read_article]
+
+  - id: helper-draft
+    title: AI helpers may write drafts
+    text: An AI helper may write a new draft under drafts. The owner reviews it.
+    cause: Helpers draft only.
+    verdict: yes
+    matchers:
+      helper__exists: true
+      type: write_draft
+
+  - id: helper-no-post
+    title: AI helpers never post, send or publish
+    text: An AI helper never posts, sends or publishes. The owner publishes by hand.
+    cause: Helpers draft only.
+    verdict: no
+    matchers:
+      helper__exists: true
+      type__contains: [post, send, publish]

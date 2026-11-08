@@ -804,7 +804,7 @@ def _tree(name):
 
 
 class CodeGuardTests(unittest.TestCase):
-    MODULES = sorted(p.name for p in PKG.glob("*.py"))
+    MODULES = sorted(p.relative_to(PKG).as_posix() for p in PKG.rglob("*.py"))
 
     def test_no_network_import_anywhere(self):
         banned = {"socket", "ssl", "urllib", "http", "requests", "ftplib", "smtplib", "poplib", "imaplib",

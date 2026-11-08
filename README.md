@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: layers 1 (memory), 2 (rules), 3 (queue), 4 (archive), 5 (logbook) and 6 (automation) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: layers 1 (memory), 2 (rules), 3 (queue), 4 (archive), 5 (logbook), 6 (automation) and 7 (helpers) are built. See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -167,3 +167,40 @@ umwayi publish-draft drafts/report-0001.md --approved-by "Your name"
 Copies the draft to `outbox/report-0001.txt` so you can post it by hand. It never posts, pushes, sends or runs git. The starter rule `publish-ask` makes publishing Ask me first, so without `--approved-by` it stops with exit 3. A rule that says No stops it even with approval. An existing outbox file is never overwritten.
 
 `drafts/` and `outbox/` are in `.gitignore`.
+
+## Layer 7: AI helpers
+
+AI helpers draft only. Every step an AI helper wants to take goes through the rules first, the same check as `umwayi check`:
+
+- No stops the AI helper (exit 2).
+- Ask me first stops it (exit 3) and adds a queue item of kind decision for you. Answering it is your record; it does not let the AI helper go on. To allow the action, add a Yes rule in rules.yaml.
+- Only Yes continues.
+- Every step adds one logbook entry. If rules.yaml is missing or broken, no AI helper runs (exit 3). If the logbook fails its tamper check, no AI helper runs (exit 1).
+- An AI helper can never approve anything. The helper commands have no `--approved-by` option.
+- AI helpers write files only under `drafts/` (plus their logbook entries, and the queue item when they stop on Ask me first).
+
+### Steward
+
+```
+umwayi steward [--waiting-days 7] [--date 2026-11-07]
+```
+
+Reads `queue.md` and the logbook, and writes `drafts/steward-0001.md`: open items, items waiting longer than the given number of days, answered items not closed yet, and suggested next tasks. It never changes the queue and never answers an item.
+
+### Social helper
+
+```
+umwayi social draft articles/week-45.md [--date 2026-11-07]
+```
+
+The article starts with front matter:
+
+```
+---
+title: What I learned this week
+link: https://example.org/what-i-learned
+summary: One line about it (optional)
+---
+```
+
+It writes one draft per channel listed in `umwayi.json`, for example `"social_channels": ["linkedin", "mastodon"]`, as `drafts/post-linkedin-0001.md`. Each post comes from one fixed template: the title, the summary (or the first paragraph), and `Read more: LINK`. Posts are at most 280 characters, plain text, with no hashtags and no em dashes. There is no model call and no network. It never posts. To publish a draft, run `umwayi publish-draft drafts/post-linkedin-0001.md`, which is Ask me first.

@@ -16,11 +16,11 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from umwayi import logbook
+from umwayi import drafts, logbook
 from umwayi.errors import UmwayiError
 from umwayi.taskqueue import is_valid_date
 
-DRAFTS_DIR = "drafts"
+DRAFTS_DIR = drafts.DRAFTS_DIR
 GIT_TIMEOUT_SECONDS = 30
 MAX_SUBJECT = 200
 MAX_COMMITS = 50000  # git is asked for one more; reaching it is a refusal, never a silent cut
@@ -48,7 +48,6 @@ GIT_LOG_ARGS = (
     f"--max-count={MAX_COMMITS + 1}",
 )
 
-_DRAFT_NAME = re.compile(r"^report-(\d{4,})\.md$")
 _EMAIL = re.compile(r"[^\s@<>()\[\]]+@[^\s@<>()\[\]]+\.[^\s@<>()\[\]]+")
 
 
@@ -147,65 +146,16 @@ def build(root: Path, since: str, until: str) -> Report:
     return Report(since, until, commits, render(since, until, commits))
 
 
-@dataclass(frozen=True)
-class Draft:
-    rel: str  # root relative path
-    made_folder: bool  # True if this call created drafts/
+Draft = drafts.Draft
 
 
 def create_draft(root: Path, text: str) -> Draft:
     """Write text to a new drafts/report-NNNN.md. Never overwrites."""
-    folder = Path(root) / DRAFTS_DIR
-    if folder.is_symlink() or (folder.exists() and not folder.is_dir()):
-        raise UmwayiError("report: drafts must be a normal folder")
-    made_folder = not folder.exists()
-    try:
-        folder.mkdir(exist_ok=True)
-        names = os.listdir(folder)
-    except OSError:
-        raise UmwayiError("report: the drafts folder cannot be created or read") from None
-    numbers = [int(m.group(1)) for m in map(_DRAFT_NAME.match, names) if m]
-    n = max(numbers, default=0) + 1
-    data = text.encode("utf-8")
-    for _ in range(100):
-        name = f"report-{n:04d}.md"
-        path = folder / name
-        try:
-            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
-        except FileExistsError:
-            n += 1
-            continue
-        except OSError:
-            _remove_folder(folder, made_folder)
-            raise UmwayiError("report: the draft could not be created") from None
-        try:
-            with os.fdopen(fd, "wb") as f:
-                f.write(data)
-                f.flush()
-                os.fsync(f.fileno())
-        except OSError:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
-            _remove_folder(folder, made_folder)
-            raise UmwayiError("report: the draft could not be written") from None
-        return Draft(f"{DRAFTS_DIR}/{name}", made_folder)
-    raise UmwayiError("report: could not find a free draft name")
-
-
-def _remove_folder(folder: Path, made_folder: bool) -> None:
-    if made_folder:
-        try:
-            os.rmdir(folder)  # only if it is still empty
-        except OSError:
-            pass
+    return drafts.create(root, "report", text)
 
 
 def remove_draft(root: Path, draft: Draft) -> None:
-    """Undo create_draft: remove the file, and drafts/ if this run made it."""
-    os.unlink(Path(root) / draft.rel)
-    _remove_folder(Path(root) / DRAFTS_DIR, draft.made_folder)
+    drafts.remove(root, draft)
 
 
 def make(root: Path, since: str, today: str) -> tuple[Report, str]:

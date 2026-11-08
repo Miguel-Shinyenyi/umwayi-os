@@ -79,9 +79,7 @@ Still open after layer 5:
 - [x] 6.4 Tests (`tests/test_automation.py`) with mutation checks
 - [x] 6.5 Layer 2 fix (separate commit): when the logbook cannot be written, a No stays No (exit 2)
 
-Review gate: stop here for owner review.
-
-Still open after layer 6:
+ill open after layer 6:
 
 - No lock around a whole run, so two runs of the same job at the same moment can both pass the gap rule.
 - `--approved-by` is not a security boundary. Layer 7 must make sure helpers never pass it.
@@ -89,10 +87,19 @@ Still open after layer 6:
 
 ## Layer 7: Helpers
 
-- [ ] 7.1 Helper base that sends every action through `umwayi check`
-- [ ] 7.2 Steward: reads the queue, proposes tasks
-- [ ] 7.3 Social helper: article to post drafts
-- [ ] 7.4 Tests that prove helpers stop on No and Ask me first
+- [x] 7.1 Helper base (`umwayi/helpers/base.py`): every step through the rules, No exit 2, Ask me first exit 3 with a queue decision, only Yes continues, one logbook entry per step, no way to set an approval
+- [x] 7.2 Steward: `umwayi steward [--waiting-days N]`, read only, one proposal under drafts/
+- [x] 7.3 Social helper: `umwayi social draft ARTICLE_FILE`, fixed template, one draft per channel in `social_channels`
+- [x] 7.4 Tests (`tests/test_helpers.py`) with mutation checks
+- [x] 7.5 Shared `umwayi/drafts.py` (moved out of report.py); optional `social_channels` in umwayi.json; helper rules in rules.yaml
+
+Review gate: stop here for owner review.
+
+Still open after layer 7:
+
+- Answering a helper's queue item does not let it go on. There is no way for the owner to approve one single helper step; the owner changes rules.yaml instead.
+- If a later step stops, drafts from earlier steps stay (each has its own logbook entry).
+- Two helper runs at the same moment are not locked against each other (only each logbook append is).
 
 ## Layer 8: Workflows
 
