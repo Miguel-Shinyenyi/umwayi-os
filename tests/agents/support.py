@@ -9,9 +9,11 @@ import hashlib
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -21,22 +23,75 @@ REPO = Path(__file__).resolve().parents[2]
 SECRET = "sk-live-AGENTS-TEST-SECRET"
 CODES = {0, 2, 3, 64}  # the only exit codes umwayi agent may give
 
-FAKE = r'''#!{python}
-import json, os, sys, time
-prog = os.path.basename(sys.argv[0])
-key = "KIRO" if prog == "kiro-cli" else "CLAUDE"
-version_flag = "--version" if prog == "kiro-cli" else "-v"
-with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as f:
-    f.write(json.dumps({{"prog": prog, "argv": sys.argv[1:], "cwd": os.getcwd(),
-                        "started": sys.argv[1:] != [version_flag]}}) + "\n")
-if sys.argv[1:] == [version_flag]:
-    if os.environ.get(f"FAKE_{{key}}_HANG"):
-        time.sleep(60)
-    sys.stdout.write(os.environ.get(f"FAKE_{{key}}_VERSION", "{default}") + "\n")
-    sys.exit(int(os.environ.get(f"FAKE_{{key}}_EXIT", "0")))
-sys.exit(0)
+FAKE_SOURCE = Path(__file__).with_name("fake_agent.py")
+
+# Test only: loaded by the sitecustomize in every child. Makes a "minute" of timeout_minutes
+# last UMWAYI_TEST_MINUTE seconds, so a timeout test does not take a real minute.
+SITE_EXTRA = r'''
+if os.environ.get("UMWAYI_TEST_MINUTE"):
+    try:
+        import umwayi.agents as _agents
+        _agents.SECONDS_PER_MINUTE = float(os.environ["UMWAYI_TEST_MINUTE"])
+    except ImportError:
+        pass
+# Test only: the logbook is edited by hand right after the gate checks, so the rules check
+# was logged but the start entry cannot be.
+if os.environ.get("UMWAYI_TEST_BREAK_LOGBOOK_AFTER_GATE"):
+    try:
+        import umwayi.agents as _agents2
+        _real_gate = _agents2.gate_checks
+        def _gate_then_break(*a, **k):
+            g = _real_gate(*a, **k)
+            with open(os.path.join(os.environ["UMWAYI_TEST_ROOT"], "LOGBOOK.md"), "a", encoding="utf-8") as f:
+                f.write("edited by hand\n")
+            return g
+        _agents2.gate_checks = _gate_then_break
+    except ImportError:
+        pass
 '''
-DEFAULT_VERSIONS = {"claude": "2.1.300 (Claude Code)", "kiro-cli": "kiro-cli 2.40.0"}
+
+RULES = """rules:
+  - id: agent-yes
+    title: reviewer may start
+    text: The reviewer agent may start.
+    verdict: yes
+    matchers:
+      type: agent_run
+      agent: [reviewer, slow, stubborn, quick]
+  - id: agent-no
+    title: blocked may not start
+    text: The blocked agent never starts.
+    verdict: no
+    matchers:
+      type: agent_run
+      agent: blocked
+  - id: agent-ask
+    title: asker needs the owner
+    text: The owner decides.
+    verdict: ask
+    matchers:
+      type: agent_run
+      agent: asker
+  - id: read-yes
+    title: reading is fine
+    text: Reading is allowed.
+    verdict: yes
+    matchers:
+      type: tool_read
+  - id: bash-ask
+    title: shell needs the owner
+    text: The owner confirms shell commands.
+    verdict: ask
+    matchers:
+      type: tool_bash
+  - id: bash-no-rm
+    title: no rm -rf
+    text: Never delete trees.
+    verdict: no
+    matchers:
+      type: tool_bash
+      command__contains: ["rm -rf"]
+"""
 
 CLAUDE_AGENT = """agents:
   - name: reviewer
@@ -89,15 +144,16 @@ class AgentCase(unittest.TestCase):
         self.site = self.tmp / "site"
         for d in (self.root, self.work, self.bin, self.home, self.site):
             d.mkdir()
-        (self.site / "sitecustomize.py").write_text(SITECUSTOMIZE, encoding="utf-8")
+        (self.site / "sitecustomize.py").write_text(SITECUSTOMIZE + SITE_EXTRA, encoding="utf-8")
         self.fake_log = self.tmp / "fake-calls.jsonl"
         self.src = REPO
+        self.alive_at_exit = []
 
     # ------------------------------------------------------------ set up
 
     def fake(self, prog: str):
         p = self.bin / prog
-        p.write_text(FAKE.format(python=sys.executable, default=DEFAULT_VERSIONS[prog]), encoding="utf-8")
+        p.write_text(f"#!{sys.executable}\n" + FAKE_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
         p.chmod(0o755)
         return p
 
@@ -145,6 +201,69 @@ class AgentCase(unittest.TestCase):
         self.assertNotEqual(r.returncode, 1)
         return r
 
+    def start_umwayi(self, *args, extra: dict | None = None, fault: str | None = None, stdin=None):
+        """umwayi agent ... in the background, for tests that act while the agent runs."""
+        p = subprocess.Popen([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", *args],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=self.env(extra, fault),
+                             cwd=str(self.tmp), stdin=stdin if stdin is not None else subprocess.DEVNULL)
+        self.addCleanup(self._reap, p)
+        return p
+
+    def _reap(self, p):
+        if p.poll() is None:
+            p.kill()
+        p.communicate(timeout=30)
+        for c in self.calls():  # never leave a fake (or its children) running after a test
+            for pid in (c.get("pid"), c.get("pid") if c.get("event") == "spawn" else None):
+                if pid and alive(pid):
+                    os.kill(pid, signal.SIGKILL)
+
+    def finish(self, p, timeout: float = 60):
+        """Wait for umwayi to exit, note which agent processes are still alive at that moment, then read its output.
+
+        communicate() alone would wait for every process holding the output pipe, including an agent
+        umwayi failed to stop, so a leftover agent could finish on its own and look stopped.
+        """
+        p.wait(timeout=timeout)
+        self.alive_at_exit = self.agent_pids_alive()
+        for pid in self.alive_at_exit:
+            os.kill(pid, signal.SIGKILL)
+        out, err = p.communicate(timeout=30)
+        self.assertIn(p.returncode, CODES, f"exit {p.returncode} is not allowed\n{out}\n{err}")
+        return p.returncode, out, err
+
+    def wait_for(self, pred, timeout: float = 30, what: str = "an event") -> dict:
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            for c in self.calls():
+                if pred(c):
+                    return c
+            time.sleep(0.05)
+        self.fail(f"timed out waiting for {what}; calls: {self.calls()}")
+
+    def agent_pids_alive(self) -> list:
+        pids = [c["pid"] for c in self.calls() if c.get("started") or c.get("event") == "spawn"]
+        return [pid for pid in pids if alive(pid)]
+
+    def started(self) -> list:
+        return [c for c in self.calls() if c.get("started")]
+
+    def tools(self) -> list:
+        return [c for c in self.calls() if c.get("event") == "tool"]
+
+    def entries(self) -> list:
+        from umwayi import logbook
+        return logbook.read_checked(self.root)
+
+    def run_entries(self) -> list:
+        return [e for e in self.entries() if e.source == "umwayi agent run"]
+
+    def write_rules(self, text: str = RULES):
+        (self.root / "rules.yaml").write_text(text, encoding="utf-8")
+
+    def script(self, *steps) -> dict:
+        return {"FAKE_SCRIPT": json.dumps(list(steps))}
+
     def calls(self) -> list:
         if not self.fake_log.exists():
             return []
@@ -163,3 +282,12 @@ class AgentCase(unittest.TestCase):
                 text = line[len(f"{mode} would start: "):]
                 return json.loads(text.split(" with the prompt on stdin")[0])
         self.fail(f"no '{mode} would start' line in:\n{r.stdout}")
+
+
+def alive(pid: int) -> bool:
+    """True if the process exists and is not a zombie."""
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+            return f.read().rsplit(")", 1)[1].split()[0] != "Z"
+    except (FileNotFoundError, ProcessLookupError, IndexError):
+        return False

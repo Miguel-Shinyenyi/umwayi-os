@@ -410,22 +410,46 @@ class ArgumentListTests(unittest.TestCase):
 
 
 class CodeGuardTests(unittest.TestCase):
-    def test_one_subprocess_call_with_an_argument_list_and_no_shell(self):
+    def _calls(self):
+        """Every subprocess.X(...) call in agents.py, with the name of the function it is in."""
         import ast
         tree = ast.parse((REPO / "umwayi" / "agents.py").read_text(encoding="utf-8"))
-        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
-                 and isinstance(n.func.value, ast.Name) and n.func.value.id == "subprocess"]
-        self.assertEqual([c.func.attr for c in calls], ["run"])
-        kw = {k.arg: k.value for k in calls[0].keywords}
-        self.assertIs(kw["shell"].value, False)
-        self.assertIn("timeout", kw)
-        self.assertIn("input", kw)
+        found = []
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef):
+                for n in ast.walk(fn):
+                    if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                            and isinstance(n.func.value, ast.Name) and n.func.value.id == "subprocess"):
+                        found.append((fn.name, n.func.attr, {k.arg: k.value for k in n.keywords}))
+        return tree, found
+
+    def test_two_program_starts_each_with_an_argument_list_and_no_shell(self):
+        _, calls = self._calls()
+        self.assertEqual(sorted((f, attr) for f, attr, _ in calls), [("_run_child", "run"), ("_start", "Popen")])
+        for fname, attr, kw in calls:
+            with self.subTest(call=f"{fname}: subprocess.{attr}"):
+                self.assertIs(kw["shell"].value, False)
+                if attr == "run":
+                    self.assertIn("timeout", kw)
+                    self.assertIn("input", kw)
+                else:
+                    self.assertIs(kw["start_new_session"].value, True)  # its own process group, so all of it can be stopped
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
-        for bad in ("os.system", "os.popen", "os.exec", "os.spawn", "shell=True", "Popen"):
+        for bad in ("os.system", "os.popen", "os.exec", "os.spawn", "shell=True", "pty."):
             self.assertNotIn(bad, src)
         self.assertNotRegex(src, r"(?m)^\s*(import|from)\s+adapters")
 
-    def test_check_never_writes_a_file(self):
+    def test_the_agent_argument_list_comes_only_from_build_argv(self):
+        import ast
+        tree, _ = self._calls()
+        starts = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                  and n.func.attr == "_start"]
+        self.assertEqual(len(starts), 1)
+        self.assertEqual(starts[0].args[0].id, "argv")
+        src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("argv, stdin_text = build_argv("), 1)
+
+    def test_agents_py_never_writes_a_file_itself(self):
         import ast
         tree = ast.parse((REPO / "umwayi" / "agents.py").read_text(encoding="utf-8"))
         writes = {"write_text", "write_bytes", "mkdir", "unlink", "rmdir", "rename", "touch", "chmod",
@@ -433,8 +457,8 @@ class CodeGuardTests(unittest.TestCase):
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute):
                 self.assertNotIn(node.attr, writes)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                self.assertNotEqual(node.func.id, "open")
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open":
+                self.assertEqual(node.args[1].value, "rb", "agents.py may only open files to read them")
 
 
 if __name__ == "__main__":
