@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal).
 
 ## Approval and the owner
 
@@ -231,3 +231,31 @@ For Kiro the prompt goes on stdin, so it is never in Kiro's arguments, and a tes
 ### 45. Kiro exit codes other than 0 are all exit 2
 
 umwayi reads only Kiro's exit code: 0 is exit 0, and 1, 3 (an MCP server did not start), 4 (the agent was not found) and anything else are exit 2, with the code in the end entry. The Kiro docs warn that with exit 4 the default agent may already have made tool calls; those went through the hook and are in the logbook, but `agent run` reports only the failure.
+
+## Layer 10 part 5: `umwayi agent chat` on the terminal (found while building, not fixed)
+
+Written Nov 8 2026.
+
+### 46. No real Claude Code or Kiro chat was run
+
+The tests use fake `claude` and `kiro-cli` programs that read lines and echo them, on a real pseudo terminal with a small job control "shell" in front, as a terminal and a shell would run umwayi. A real interactive Claude Code or Kiro screen was never started under umwayi. Not confirmed: that either one runs well with the terminal handed over this way, what each does on SIGTERM while its screen is up, and whether Claude Code holds back hooks given with `--settings` until the folder is trusted, and if any tool can run before that (`adapters/NOTES-layer10.md`).
+
+### 47. In a chat on the terminal, the hook is the only gate
+
+umwayi never reads the terminal: it does not see what the owner types, what the agent prints, or the tool calls. Every tool call is checked only by the layer 9 hook inside the platform. When the platform asks the owner itself (Claude Code's permission prompt after an Ask me first, Kiro's prompt for an untrusted tool), the owner's answer there is not checked or logged by umwayi. Anything that does not go through a tool call (for example a file mentioned with `@` in Claude Code) is not checked at all. The ACP chat (part 6) adds a second gate for Kiro.
+
+### 48. Finding what the agent started relies on /proc, once a second
+
+A chat agent shares umwayi's process group, so umwayi cannot stop it by group. Instead it reads `/proc` once a second and remembers every descendant of the agent. A process that is started and orphaned (its parent exits) between two passes, less than a second apart, is never seen and is not stopped. Neither is one that changes to another user. Without `/proc` (not Linux) only the agent itself is stopped. Run under a separate user or a sandbox to be sure (layer 11).
+
+### 49. The agent can signal umwayi
+
+Because the agent is in umwayi's process group, it can send a signal to the whole group, umwayi included (for example `kill 0`). A SIGTERM or SIGHUP that reaches umwayi stops the chat with exit 2 (fail closed). A SIGKILL to umwayi leaves the agent running, as in item 36.
+
+### 50. Only the terminal mode is put back
+
+After a chat, umwayi puts back the terminal mode (`termios`) it saw before the start. Other screen state a full screen program may leave behind, such as the alternate screen, colours or a hidden cursor, is not reset. Run `reset` if the terminal looks wrong.
+
+### 51. The queue summary is for information only
+
+Before a chat, umwayi prints how many items are open in the queue and the first five titles. If the queue cannot be read, it says so and the chat still starts: the summary is not a check. The titles are text from `queue.md`, printed as they are after replacing characters that are not printable.

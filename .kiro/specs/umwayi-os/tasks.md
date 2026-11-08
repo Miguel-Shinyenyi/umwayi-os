@@ -16,7 +16,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
-| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 to 4 built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` for Claude Code and Kiro); parts 5 and 6 (chat) planned Nov 9 to Nov 10 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16 | 673 after PR 14, 697 after PR 15, 719 after PR 16, on Python 3.10 to 3.13 |
+| 10 Own command line and chat | in progress: spec approved (10.0); parts 1 to 5 built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro); part 6 (ACP chat) left | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
 | Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
 | Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
@@ -188,7 +188,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
 - [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
-## Layer 10: Own command line and chat (in progress: parts 1 to 4 built)
+## Layer 10: Own command line and chat (in progress: parts 1 to 5 built, part 6 left)
 
 Planned for Nov 9 to Nov 10. Requirements 10.R1 to 10.R10, design in design.md, doc facts in `adapters/NOTES-layer10.md`. The owner approved 10.0 on Nov 8.
 
@@ -247,10 +247,11 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### Part 5: `umwayi agent chat` on the terminal (10.R7.1, 10.R5.3, 10.R5.5)
 
-- [ ] 10.14 `chat` with `transport: cli` for both platforms: the queue summary printed first, then the terminal handed to the agent; same start steps and watcher; SIGINT ignored by umwayi while the agent runs; no process group change.
-- [ ] 10.15 Tests (the fake agents in a chat mode that reads lines from stdin): the queue summary appears before any agent output; the agent gets stdin unchanged; the kill switch stops it; exit codes as for run; nothing of the conversation in the logbook.
+- [x] 10.14 `chat` with `transport: cli` for both platforms: the queue summary printed first, then the terminal handed to the agent; same start steps and watcher; SIGINT ignored by umwayi while the agent runs (a no-op handler, not SIG_IGN, so the agent still gets Ctrl-C; the old handler is put back on every path); no process group change. The stop signals the agent's pid and every descendant seen in /proc, never umwayi's group; the terminal mode is put back.
+- [x] 10.15 Tests (`tests/agents/test_agents_chat.py`; the fake agents in a chat mode that reads lines from stdin and echoes them; the interactive tests on a real pseudo terminal, with a small job control "shell" as session leader, the others with stdin from a pipe): the queue summary appears before any agent output; the agent gets stdin unchanged; the kill switch stops it; exit codes as for run; nothing of the conversation in the logbook.
   - Planted faults: the gate checks skipped for chat only; the kill watcher not started for chat.
   - Mutation checks: the chat branch of each step removed.
+  - Result (PR 17): the 2 planted faults and 18 chat branch mutations all caught with every agents test; and the 19 part 3 step mutations that apply to a chat (4 planted faults, 15 mutations) re-applied and all caught by the chat tests alone.
 
 ### Part 6: ACP chat for Kiro (10.R7.2 to 10.R7.7)
 
@@ -263,7 +264,7 @@ The build is split into six parts, one pull request each, each small enough to r
 
 ### After the parts
 
-- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, 41 to 45 for part 4, and the README section.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
+- [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, 41 to 45 for part 4, 46 to 51 for part 5, and the README section.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
 - [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 11 to Nov 14), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
 
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
