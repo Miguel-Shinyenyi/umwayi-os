@@ -685,9 +685,9 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (designed, waiting for owner approval)
+## Layer 10: Own command line and chat (approved; parts 1 and 2 built)
 
-Planned for Nov 9 to Nov 10, built only after the owner approves (tasks.md 10.0). Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
+Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; parts 3 to 6 (`agent run`, `agent chat`, ACP) are planned for Nov 9 to Nov 10. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
 ### The idea in one paragraph
 
@@ -768,9 +768,21 @@ The order matters: the kill switch and the rules come before any process is star
 2. **Version.** Run `PATH_FOUND -v` (Claude Code) or `PATH_FOUND --version` (Kiro), no shell, 10 second timeout, stdin closed. Take the first `N.N.N` in stdout. If there is none, or it is lower than the minimum: refuse. The docs do not give the output format, so this is the check most likely to need a fix after a real run.
 3. **Hook script.** The layer 9 hook file exists and is a regular file.
 4. **Hook self-test.** Run `PYTHON HOOK --root ROOT` with stdin `{"hook_event_name": "UmwayiSelfTest", "tool_name": "x", "tool_input": {}}` and a 5 second timeout. Both layer 9 hooks block an event other than `PreToolUse` with exit 2 before they read any rule, so this proves Python and the hook start, and writes nothing. Anything but exit 2: refuse.
-5. **Kiro hook file** (Kiro only). Read every `*.json` in `WORKDIR/.kiro/hooks/` and `~/.kiro/hooks/` (regular files under 256 KB; anything unreadable is skipped and named in the refusal). Accept if one has `version: "v1"` and a hook with `trigger: "PreToolUse"`, no `matcher` or `"*"`, and `action: {"type": "command", "command": C}` where C split on single spaces is exactly `[PY, HOOK, "--root", ROOT]`, PY being `python3` or an absolute path whose name starts with `python`. If none: refuse, and print the snippet from `adapters/kiro/README.md` with the real paths filled in. The front door never writes these files.
+5. **Kiro hook file** (Kiro only). Read every `*.json` in `WORKDIR/.kiro/hooks/` and `~/.kiro/hooks/` (regular files under 256 KB; anything unreadable is skipped and named in the refusal). Accept if one has `version: "v1"` and a hook with `trigger: "PreToolUse"`, no `matcher` or `"*"`, and `action: {"type": "command", "command": C}` where C split on single spaces is exactly `[PY, HOOK, "--root", ROOT]`, PY being `python3` or an absolute path whose name starts with `python`. If none: refuse, print the exact command it looked for, and point to the snippet in `adapters/kiro/README.md`. The front door never writes these files. A hook file that is a link, a folder, larger than 256 KB or not JSON is skipped and named in the result; a good file next to it is still found. Kiro runs the command in a shell, so a hook path or root with a space is refused.
 
 `umwayi agent check NAME` runs steps 1, 2 and 5 of a start (reading agents.yaml, the kill switch, the gate checks), without the rules check and the run lock, starts no agent, and prints one line per check.
+
+As built in part 2:
+
+- Each check prints `ok`, `no` or `not run` (after the first `no`, the rest are not run).
+- When every check passes it also prints the `run` and `chat` argument lists it would use, as JSON, with the word `PROMPT` where a Claude Code prompt goes (a Kiro prompt goes on stdin).
+- It writes nothing: no logbook entry, no queue item, no file (a test checks the files under the root, the workdir and HOME before and after; a code guard checks `agents.py` has no file write call).
+- The kill switch state is printed, but it does not change the exit code: `check` answers "can this agent be gated", and a start would stop on the kill switch anyway (exit 3).
+- The version command runs in `workdir`; the self-test runs in the root.
+- `--root` must be an existing folder (else 64), and is resolved to its real path, which is the path put into the hook command.
+- `trust_tools` is accepted for any Kiro agent and only used by `run` (interactive V3 ignores `--trust-tools`, and V3 rejects it on `acp`). An empty list means no `--trust-tools` flag, so a headless run may use no tool without approval.
+- Validation messages name the key and the rule, never the value, so a secret typed into agents.yaml is not printed (a test plants one in every field).
+- `agents.py` starts programs in exactly one place, `_run_child` (`subprocess.run`, argument list, `shell=False`, `input` and `timeout` always given). A code guard test checks that, and that only `report.py` and `agents.py` import `subprocess` at all.
 
 ### Argument lists (10.R5)
 
@@ -871,18 +883,9 @@ Never logged: the prompt, the conversation, agent output, environment values, th
 - Every test runs `python -m umwayi agent ...` as a child process in a temporary root.
 - Planted faults and mutation checks per part, listed in each pull request.
 
-### Open questions for the owner
+### Open questions for the owner (answered Nov 8)
 
-1. Run lock: should `agent run` and `agent chat` take the shared run lock (one AI run at a time, proposed), or may an agent run while jobs and helpers run?
-2. Ask me first for a start: a queue item (proposed, so a job that starts an agent leaves a trace), or exit 3 only?
-3. Kiro headless: only `trust_tools` (proposed), or also allow `--trust-all-tools` so the hook is the only gate?
-4. Claude Code under a managed policy that blocks our hook: umwayi cannot see it. Accept it as a known limit for Dec 3 (proposed), or add a canary (for example a `SessionStart` hook in `--settings` that must write a token before umwayi lets the run continue)? The docs do not say whether `SessionStart` runs before the first tool call, so the canary is not confirmed to work.
-5. `workdir` may not be or contain the umwayi root (proposed). Is there a case where you want an agent working in the root?
-6. ACP chat Ask me first: ask on the terminal (proposed, you are there), or deny plus a queue item like the Kiro hook?
-7. Selecting a Kiro agent in an ACP session: V3 rejects `--agent` on `acp`; the docs show `_meta.kiro.modeId` on `session/new` but do not say a mode is an agent. Leave `kiro_agent` out of ACP chat for Dec 3 (proposed) or try `modeId`?
-8. An agent's own failure is exit 2 (proposed). Should it keep the agent's own exit code instead (it would break the 0, 2, 3, 64 rule)?
-9. After Dec 3: Claude Code over ACP through Zed's `claude-agent-acp` adapter (a third party Node package, so an adapter package with a pinned version)?
-10. `--max-budget-usd` for Claude Code runs now, or leave all spend limits to the budget governor (proposed)?
+The owner approved the spec on Nov 8 with every answer as proposed (recorded in tasks.md 10.0): 1 the run lock is taken; 2 Ask me first on a start adds a queue item; 3 Kiro headless runs use `trust_tools` only; 4 a managed Claude Code policy that blocks our hook is a known limit (KNOWN-LIMITS 30), no canary; 5 `workdir` is outside the root; 6 ACP chat asks on the terminal; 7 no `kiro_agent` with ACP; 8 an agent's failure is exit 2; 9 Claude Code over ACP is decided later; 10 spend limits are left to the budget governor.
 
 ### Risks
 
@@ -921,7 +924,7 @@ The owner decided to build it before Dec 3. Built only after the owner approves 
 
 - Standard library `unittest`, also run by `pytest`.
 - Each layer has its own test module, using temporary folders.
-- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there are 556 tests.
+- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there were 556 tests; after PR 14 (layer 10 parts 1 and 2) there are 673.
 - `tests/test_system.py` runs the umwayi command as real processes in a fresh folder: one scripted run of every layer, and fault tests (logbook edits, broken rules, bad config, injected crashes in every command, corrupt state files, unknown actions, no network import, no approver code path).
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
 - Layer 9 adapters get their own tests and CI job (see above).

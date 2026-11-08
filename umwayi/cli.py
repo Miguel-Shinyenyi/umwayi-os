@@ -4,6 +4,7 @@ Exit codes:
   umwayi check:  0 Yes, 2 No, 3 Ask me first
   usage errors:  64 (never 0, 2 or 3)
   other errors:  1
+  umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import __version__, archive, jobs, kill, logbook, publish, report, rules, taskqueue, workflow
+from umwayi import __version__, agents, archive, jobs, kill, logbook, publish, report, rules, taskqueue, workflow
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -151,6 +152,15 @@ def build_parser() -> argparse.ArgumentParser:
     koff = klsub.add_parser("off", help="turn the kill switch off (removes .umwayi/KILL)")
     koff.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
     klsub.add_parser("status", help="show the kill switch: off (exit 0), on or unknown (exit 3)")
+
+    ag = sub.add_parser("agent", help="the front door for AI agents (agents.yaml); exit 0, 2, 3 or 64, never 1")
+    agsub = ag.add_subparsers(dest="agent_command", parser_class=_Parser)
+    agv = agsub.add_parser("validate", help="check agents.yaml, report every problem with a line number")
+    agl = agsub.add_parser("list", help="list the agents in agents.yaml (starts nothing)")
+    agc = agsub.add_parser("check", help="can this agent be gated? runs every gate check, starts no agent")
+    agc.add_argument("name", help="the agent name from agents.yaml")
+    for sp in (agv, agl, agc):
+        sp.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -301,6 +311,26 @@ def _cmd_archive(args, out) -> int:
     return 0 if counts[archive.OK] == len(results) else 1
 
 
+def _cmd_agent(args, out) -> int:
+    """Layer 10. Its own error handling: 64 for usage and config, 2 for anything else, never 1."""
+    try:
+        if args.agent_command == "validate":
+            return _cmd_helper(agents.validate_file(Path(args.root), args.agents), out)
+        if args.agent_command == "list":
+            return _cmd_helper(agents.list_agents(Path(args.root), args.agents), out)
+        return _cmd_helper(agents.check_agent(Path(args.root), args.name, args.agents), out)
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except (Exception, KeyboardInterrupt) as e:
+        try:
+            sys.stderr.write(f"umwayi: agent: stopped by an unexpected error ({type(e).__name__}). "
+                             f"Exit {EXIT_CRASH}. Nothing was started.\n")
+        except Exception:
+            pass
+        return EXIT_CRASH
+
+
 def main(argv: list[str] | None = None, out=None) -> int:
     out = out or sys.stdout
     parser = build_parser()
@@ -311,6 +341,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
     try:
         if args.command == "check":
             return _cmd_check(args, out)
+        if args.command == "agent" and getattr(args, "agent_command", None):
+            return _cmd_agent(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
         if args.command == "workflow" and getattr(args, "workflow_command", None) == "validate":

@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Layer 10 (one front door for agents) is in progress: agents.yaml and the gate checks are built, starting an agent is not yet, see [Layer 10](#layer-10-front-door-for-agents-in-progress). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -275,3 +275,19 @@ An adapter lets an AI platform ask umwayi before it acts. Each one sends every t
 - This repo never creates or changes a `.claude` settings file or a `.kiro/hooks` file. Each README shows the snippet you add yourself.
 - The adapters need no third party package.
 - What the Claude Code and Kiro docs say about hooks, with links, and what they do not say: [adapters/NOTES.md](adapters/NOTES.md). Some Kiro details are not confirmed by its docs; they are listed in the Kiro README and in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
+
+## Layer 10: front door for agents (in progress)
+
+One front door will start every AI agent (Claude Code, Kiro) through its own command line, with the layer 9 hook in front of every tool call, and refuse an agent it cannot gate. Built so far: the agents file and the gate checks. `umwayi agent run` and `umwayi agent chat` come next; nothing in this layer starts an agent yet.
+
+```
+umwayi agent validate [--agents PATH]      check agents.yaml, every problem with a line number
+umwayi agent list [--agents PATH]          the agents in the file
+umwayi agent check NAME [--agents PATH]    can NAME be gated? runs every gate check, starts no agent
+```
+
+- `agents.yaml` lives in the root. Start from [agents.example.yaml](agents.example.yaml). Each agent has a fixed set of keys: `name`, `platform` (`claude-code` or `kiro`), `command` (only `claude` or `kiro-cli`, found on PATH), `transport`, `workdir` (outside the root), and a few limits. There is no key for extra arguments and no shell string.
+- `check` runs, in order: the command is on PATH; its version is new enough (Claude Code 2.1.295, Kiro CLI 2.27.1); the layer 9 hook script is there; the hook starts and blocks a self-test event; for Kiro, your hook file in `WORKDIR/.kiro/hooks/` or `~/.kiro/hooks/` runs exactly the layer 9 command. It prints each result and the command lines a start would use, and writes nothing.
+- Exit codes: 0 (valid, or gated), 2 (not gated, or an unexpected error), 64 (usage or a bad agents.yaml). Never 1.
+- For Claude Code, umwayi will add the hook itself for one session (`--settings`); for Kiro you add the hook file from [adapters/kiro/README.md](adapters/kiro/README.md). umwayi never writes a `.claude` or `.kiro` file.
+- What the Claude Code, Kiro and ACP docs say about starting agents, and what they do not say: [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md). Limits: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md) items 29 to 34.
