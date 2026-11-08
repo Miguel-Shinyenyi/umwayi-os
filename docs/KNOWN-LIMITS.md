@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro).
 
 ## Approval and the owner
 
@@ -207,3 +207,27 @@ Every second the run checks that the logbook could still take an entry (`logbook
 ### 40. Exit 0 means the agent exited 0, not that the task was done
 
 `umwayi agent run` exits 0 when the rules said Yes, the agent was gated, and Claude Code exited 0. The Claude Code docs say a failure inside the run (for example missing sign-in) is printed as the result on stdout; whether it also exits non-zero is not confirmed for every case. umwayi does not read the agent's output, so it cannot tell a finished task from a polite refusal.
+
+## Layer 10 part 4: `umwayi agent run` for Kiro (found while building, not fixed)
+
+No real kiro-cli was run. The tests use a fake `kiro-cli` that reads the instruction from stdin, runs the hook command from the hook file it finds, and denies tools not in `--trust-tools`, the way the Kiro docs describe (`adapters/NOTES.md`, `adapters/NOTES-layer10.md`). Items 21 to 24 (the Kiro hook) and 29 to 39 apply to Kiro runs too.
+
+### 41. What Kiro does on SIGTERM is not documented
+
+umwayi stops Kiro the same way as Claude Code: SIGTERM to its process group, SIGKILL after 10 seconds. The Kiro docs do not say whether `kiro-cli` stops cleanly on SIGTERM, what it does with a session or a tool call in progress, or which exit code it gives. If it ignores SIGTERM, it is stopped by SIGKILL, with no chance to clean up.
+
+### 42. What Kiro does when the hook is missing or cannot start is not documented
+
+Before every start umwayi checks, read only, that the hook file is there and matches exactly; if not, the run is refused (exit 2). After the start it does not watch the file. The Kiro docs do not say what Kiro does if the hook file is removed or changed while it runs, if the hook command cannot start, or if it times out (item 22): it may run the tool unchecked. An agent that can write `.kiro/hooks` can therefore change its own gate during a run (item 15); the example rules deny writes to `.kiro/hooks`, but they match text (item 12).
+
+### 43. Kiro's own tool approval is a second lock, and its order is not documented
+
+In a headless run, a tool not in `--trust-tools` is denied by Kiro (no one can approve it). A tool runs only if the rules say Yes through the hook and it is in `trust_tools`. The docs do not say whether Kiro runs the Pre Tool Use hook before or after its trust check, so for an untrusted tool the hook may or may not have run (and logged a check). The fake runs the hook first.
+
+### 44. `--prompt TEXT` puts the prompt in umwayi's own process arguments
+
+For Kiro the prompt goes on stdin, so it is never in Kiro's arguments, and a test checks both Kiro's and umwayi's arguments while it runs. But a prompt given with `--prompt TEXT` is in umwayi's own command line, which other users on the machine can read while it runs. Give a sensitive prompt with `--prompt-file PATH` or `-` (stdin). For Claude Code the prompt is an argument anyway (item 35).
+
+### 45. Kiro exit codes other than 0 are all exit 2
+
+umwayi reads only Kiro's exit code: 0 is exit 0, and 1, 3 (an MCP server did not start), 4 (the agent was not found) and anything else are exit 2, with the code in the end entry. The Kiro docs warn that with exit 4 the default agent may already have made tool calls; those went through the hook and are in the logbook, but `agent run` reports only the failure.
