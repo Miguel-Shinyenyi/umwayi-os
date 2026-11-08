@@ -15,7 +15,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 7 Helpers | done | PR 7 | 461 |
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
-| 9 Adapters | not started | | |
+| 9 Adapters | in progress: part 1 (notes, shared code, Claude Code adapter) | this branch | 578 |
 | 10 Own command line and chat | not started, after Dec 3 | | |
 | 11 Linux-like features | not started, after Dec 3 | | |
 
@@ -162,21 +162,28 @@ Still open:
 - [x] H.8 `docs/KNOWN-LIMITS.md`
 - Not tested yet: Windows, macOS, network file systems for the run lock, the installed `umwayi` script (KNOWN-LIMITS 9 and 11)
 
-## Layer 9: Adapters (not started)
+## Layer 9: Adapters (in progress)
 
-Starts only when the owner says so. Planned for Nov 15 to Nov 21.
+Planned for Nov 15 to Nov 21. Part 1 of 2 (this branch): the notes, the shared adapter code and the Claude Code adapter. Part 2: the Kiro adapter and the generic stdin and stdout adapter, when the owner says so.
 
-- [ ] 9.1 Read the official Claude Code hook documentation (PreToolUse) and the Kiro hook actions and hook types pages. Write down, with links, what each says about the input fields, the output format, how to allow, deny or ask, and which exit code blocks. Put the notes in `docs/adapters/PLATFORMS.md` before any adapter code. Where the docs are unclear, the adapter blocks.
-- [ ] 9.2 Core: `umwayi check --json` gives stable fields an adapter can trust without reading the reason text: `answer`, `rule_id`, `rules_ok` (false when rules.yaml is missing or broken), `logged`. Standard library only, tested.
-- [ ] 9.3 Claude Code adapter (PreToolUse): hook input to an action, `umwayi check`, the answer back as allow, deny or ask
-- [ ] 9.4 Kiro adapter: the same for Kiro hooks
-- [ ] 9.5 Generic stdin and stdout adapter: one JSON action in, one JSON answer out, for any platform
-- [ ] 9.6 Ask me first where the platform has no ask: deny, and add one queue item of kind decision (not twice while it is open)
-- [ ] 9.7 Every adapter catches every error and blocks (exit 2 or deny). On Claude Code exit 1 blocks nothing, so an adapter never exits 1.
-- [ ] 9.8 Each adapter package has its own README. Any third party package is pinned and listed there. The core stays standard library only.
-- [ ] 9.9 Tests per adapter: No blocks, Ask me first asks or denies, Yes passes, a broken rules file blocks, a crash blocks. With mutation checks.
-- [ ] 9.10 Starter rules for adapter actions in rules.yaml
+- [x] 9.1 Read the official Claude Code hook documentation (PreToolUse) and the Kiro hook types and hook actions pages, and write down, with a link for every fact, the input fields, the output format, how to allow, deny or ask, and which exit code blocks: `adapters/NOTES.md`. The Kiro pages were read as the Markdown copies listed in kiro.dev/llms.txt; where they are silent or disagree, the notes say so.
+- [x] 9.2 Core: `umwayi check --json` gives `answer`, `rule_id`, `rules_ok` and `action_ok` (and `logged`), so an adapter never reads the reason text. Standard library only; no exit code changed.
+- [x] 9.3 Claude Code adapter (PreToolUse): `adapters/claude_code/hook.py`, with the shared code in `adapters/common/umwayi_gate.py`
+- [ ] 9.4 Kiro adapter (part 2)
+- [ ] 9.5 Generic stdin and stdout adapter (part 2)
+- [ ] 9.6 Ask me first where the platform has no ask: deny, and add one queue item of kind decision (Kiro, part 2). Claude Code has ask, so it needs no queue item.
+- 9.7 Every adapter catches every error and blocks, and never exits 1:
+  - [x] Claude Code: exit 0 with a JSON decision, or exit 2 with the reason on stderr
+  - [ ] Kiro and generic (part 2)
+- 9.8 Each adapter package has its own README, with any third party package pinned:
+  - [x] Claude Code: `adapters/claude_code/README.md`, no packages, the settings snippet shown there only
+  - [ ] Kiro and generic (part 2)
+- 9.9 Tests per adapter, as real child processes, with planted faults:
+  - [x] Claude Code: `tests/adapters/test_claude_code.py` (No blocks, Ask me first asks, Yes allows, a broken rules file does not allow, a crash in the adapter or in umwayi check blocks, bad or empty stdin blocks, a timeout blocks, one logbook entry per check and logbook verify ok). Three planted faults make them fail.
+  - [ ] Kiro and generic (part 2)
+- [ ] 9.10 Starter rules for adapter actions in the repo rules.yaml. Done so far: example rules in `adapters/claude_code/rules.example.yaml`; the repo rules.yaml is unchanged.
 - [ ] 9.11 Whole-system test again with the adapters (Nov 22 to Nov 28)
+- [ ] 9.12 Decide: should adapters deny everything while the kill switch is on? (open question for the owner, see design.md)
 
 ## Layer 10: Own command line and chat (not started, after Dec 3)
 

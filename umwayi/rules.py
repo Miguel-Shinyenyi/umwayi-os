@@ -61,11 +61,14 @@ class Decision:
         return EXIT_CODES[self.answer]
 
     def to_dict(self) -> dict:
+        """The --json answer. Adapters (layer 9) read answer, rule_id and rules_ok, never the reason text."""
         return {
             "answer": self.answer,
             "rule_id": self.rule_id,
             "reason": self.reason,
             "matched": list(self.matched),
+            "rules_ok": self.rules_ok,  # true only when rules.yaml was read and is valid
+            "action_ok": self.action_ok,  # true only when the action was a readable JSON object
         }
 
     def render(self) -> str:

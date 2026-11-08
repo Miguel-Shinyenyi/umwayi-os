@@ -586,34 +586,45 @@ Every AI helper (steward, social), every job (`umwayi run`) and every workflow (
 
 It is separate from `.umwayi/logbook.lock`, which guards one logbook append.
 
-## Layer 9: Adapters (not started)
+## Layer 9: Adapters (in progress)
 
-Starts only when the owner says so. Planned for Nov 15 to Nov 21.
+Planned for Nov 15 to Nov 21. Part 1 (built): the notes, the shared code and the Claude Code adapter. Part 2 (not started): the Kiro adapter and the generic stdin and stdout adapter.
 
-### What is not decided yet
+### What the platforms say
 
-The input fields, the output format and the exit code that blocks are different on each platform. This design does not guess them. Task 9.1 reads the official Claude Code hook documentation (PreToolUse) and the Kiro hook actions and hook types pages, and writes what they say, with links, to `docs/adapters/PLATFORMS.md`. The adapters are built from those notes. Where the documentation is unclear, the adapter blocks.
+`adapters/NOTES.md` has what the official Claude Code hooks reference and the Kiro hook pages say, with a link for every fact, and the action types the adapters send. The adapters are built from those notes. Where a page is silent or the pages disagree, the notes say so and the adapter blocks.
 
-One fact is fixed already: on Claude Code, exit 1 blocks nothing. So no adapter ever exits 1.
+The facts that shape the Claude Code adapter: exit 2 blocks a PreToolUse call; exit 1 and every other code let it run; a hook that cannot start or times out also lets it run, unless the handler sets `"onFailure": "block"`; an exit 0 JSON object with `permissionDecision` allow, deny or ask decides.
 
 ### Layout
 
 ```
 adapters/
-  claude-code/   PreToolUse hook adapter, README (pins any third party package), tests
-  kiro/          Kiro hook adapter, README, tests
-  stdio/         generic adapter: one JSON action on stdin, one JSON answer on stdout, README, tests
+  NOTES.md            what the platform docs say, the action types, the answer table
+  common/
+    umwayi_gate.py    tool call to action JSON, umwayi check as a child process, answer to allow, deny or ask
+  claude_code/
+    hook.py           the PreToolUse hook script
+    README.md         set up, the settings snippet (shown only, never written), no packages
+    rules.example.yaml
+  kiro/               part 2
+  stdio/              part 2
+tests/adapters/       real child process tests per adapter
 ```
 
-The core `umwayi/` package stays standard library only. Adapter tests run in their own CI job, which is the only place adapter dependencies are installed.
+The core `umwayi/` package stays standard library only and never imports `adapters`; the adapters never import `umwayi`, they run it as a child process. A test checks both directions. The Claude Code adapter needs no third party package, so its tests run in the normal CI job; a separate job is only needed once an adapter pins a package.
+
+### The umwayi root is given, never guessed
+
+The hook takes `--root DIR` (required). It never uses the `cwd` field of the hook input, because an agent can change its working folder, for example into a folder with a `rules.yaml` that allows everything.
 
 ### One check, fail closed
 
 Each adapter does the same five things:
 
 1. Read the platform's hook input from stdin, with a size limit. Anything it cannot read blocks.
-2. Turn it into an action: `{"type": TYPE, "platform": NAME}` plus short plain fields from a fixed per platform table (for example the tool name). Unknown tools get a fixed unknown type, which matches no Yes rule, so it is Ask me first. File contents, commands and arguments are never put into the action text that is logged.
-3. Run `umwayi check - --json` as a separate process, with a timeout.
+2. Turn it into an action: `{"type": "tool_bash", "platform": "claude-code", "tool": "Bash", "command": ...}`. The type is `tool_` and the tool name; the fields are a fixed per tool list (command, path, pattern, url, query); file contents and prompts are never sent. Every type and field is in `adapters/NOTES.md`. `umwayi check` logs only the type, never the action.
+3. Run `umwayi check - --json` as a separate process, with a timeout (default 10 seconds, shorter than the 30 second hook timeout in the settings snippet).
 4. Turn the answer into the platform's reply (table below).
 5. Catch every error at the top and block: exit 2, or the platform's deny, whichever the platform documents as blocking.
 
@@ -629,15 +640,15 @@ Allow is given only for a positive, well formed answer: exit 0, answer Yes, and 
 
 For the queue item where the platform has no ask, the adapter runs `umwayi queue add --kind decision` with a fixed title, `Adapter NAME asks first: may it do TYPE?`, and adds no second one while an open item has that title. If the queue item cannot be added, the answer is still deny.
 
-### Core change for layer 9 (task 9.2)
+### Core change for layer 9 (task 9.2, done)
 
-Today an adapter would have to read the reason text to tell a broken rules file from a normal Ask me first. Task 9.2 adds stable fields to `umwayi check --json`: `answer`, `rule_id`, `rules_ok`, `logged`. It stays standard library only and keeps every exit code as it is.
+`umwayi check --json` now also prints `rules_ok` (true only when rules.yaml was read and is valid) and `action_ok` (true only when the action was a readable JSON object), next to `answer`, `rule_id` and `logged`. An adapter reads these fields, never the reason text. No exit code changed. When the logbook cannot be written, the answer `umwayi check` gives has `rules_ok` false, so an adapter denies it; that is stricter than `umwayi check` on its own.
 
 ### Tests per adapter
 
 Run as real processes with recorded hook inputs: No blocks, Ask me first asks (or denies and adds one queue item), Yes passes, a broken rules file blocks, a crash blocks (injected as in `tests/test_system.py`). With mutation checks.
 
-### Open questions for the owner before layer 9 starts
+### Open questions for the owner
 
 - Should an adapter also deny everything while the kill switch is on? The kill switch stops AI helpers, jobs and workflows today, and a platform acting through an adapter is an AI helper. The proposal is yes (check `umwayi kill status` first, on or unknown means deny).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.

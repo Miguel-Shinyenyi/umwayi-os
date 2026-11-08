@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters) is in progress: the Claude Code adapter is built, see [adapters/claude_code/README.md](adapters/claude_code/README.md). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -258,3 +258,7 @@ While the switch is on (the file `.umwayi/KILL` exists), every AI helper, job an
 ### One run at a time
 
 AI helpers, jobs and workflows share one lock, `.umwayi/run.lock`. If one is running and you start another, the second one does not wait: it answers Ask me first (exit 3), writes one logbook entry, and changes nothing. If locking is not available on your system, they all answer Ask me first. Your own commands (queue, check, archive, report, publish-draft) are not locked.
+
+## Layer 9: adapters (in progress)
+
+An adapter lets an AI platform ask umwayi before it acts. The first one is for Claude Code: a `PreToolUse` hook that sends every tool call through `umwayi check` and answers allow (Yes), deny (No) or ask (Ask me first). Any error blocks. Set up and the settings snippet: [adapters/claude_code/README.md](adapters/claude_code/README.md). What the Claude Code and Kiro docs say about hooks: [adapters/NOTES.md](adapters/NOTES.md). The Kiro and generic adapters come next.
