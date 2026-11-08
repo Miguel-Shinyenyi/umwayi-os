@@ -25,6 +25,8 @@ umwayi/
   runlock.py    one run at a time: .umwayi/run.lock (fcntl.flock, never waits)
 ```
 
+Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters (planned) live outside the core package, in `adapters/`, so they may use pinned third party packages while `umwayi/` stays standard library only. Layers 10 and 11 come after Dec 3 and are outlined at the end of this file.
+
 Layers 2 to 8 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
 ## Safety model
@@ -584,8 +586,90 @@ Every AI helper (steward, social), every job (`umwayi run`) and every workflow (
 
 It is separate from `.umwayi/logbook.lock`, which guards one logbook append.
 
+## Layer 9: Adapters (not started)
+
+Starts only when the owner says so. Planned for Nov 15 to Nov 21.
+
+### What is not decided yet
+
+The input fields, the output format and the exit code that blocks are different on each platform. This design does not guess them. Task 9.1 reads the official Claude Code hook documentation (PreToolUse) and the Kiro hook actions and hook types pages, and writes what they say, with links, to `docs/adapters/PLATFORMS.md`. The adapters are built from those notes. Where the documentation is unclear, the adapter blocks.
+
+One fact is fixed already: on Claude Code, exit 1 blocks nothing. So no adapter ever exits 1.
+
+### Layout
+
+```
+adapters/
+  claude-code/   PreToolUse hook adapter, README (pins any third party package), tests
+  kiro/          Kiro hook adapter, README, tests
+  stdio/         generic adapter: one JSON action on stdin, one JSON answer on stdout, README, tests
+```
+
+The core `umwayi/` package stays standard library only. Adapter tests run in their own CI job, which is the only place adapter dependencies are installed.
+
+### One check, fail closed
+
+Each adapter does the same five things:
+
+1. Read the platform's hook input from stdin, with a size limit. Anything it cannot read blocks.
+2. Turn it into an action: `{"type": TYPE, "platform": NAME}` plus short plain fields from a fixed per platform table (for example the tool name). Unknown tools get a fixed unknown type, which matches no Yes rule, so it is Ask me first. File contents, commands and arguments are never put into the action text that is logged.
+3. Run `umwayi check - --json` as a separate process, with a timeout.
+4. Turn the answer into the platform's reply (table below).
+5. Catch every error at the top and block: exit 2, or the platform's deny, whichever the platform documents as blocking.
+
+Allow is given only for a positive, well formed answer: exit 0, answer Yes, and `rules_ok` true. Everything else is not allow.
+
+| what umwayi says | platform with ask | platform without ask |
+| --- | --- | --- |
+| Yes (exit 0) | allow | allow |
+| No (exit 2) | deny | deny |
+| Ask me first (exit 3) | ask | deny, and one queue item of kind decision |
+| rules.yaml missing or broken (`rules_ok` false) | deny | deny |
+| a crash, a timeout, any other exit code, output that is not the expected JSON | block | block |
+
+For the queue item where the platform has no ask, the adapter runs `umwayi queue add --kind decision` with a fixed title, `Adapter NAME asks first: may it do TYPE?`, and adds no second one while an open item has that title. If the queue item cannot be added, the answer is still deny.
+
+### Core change for layer 9 (task 9.2)
+
+Today an adapter would have to read the reason text to tell a broken rules file from a normal Ask me first. Task 9.2 adds stable fields to `umwayi check --json`: `answer`, `rule_id`, `rules_ok`, `logged`. It stays standard library only and keeps every exit code as it is.
+
+### Tests per adapter
+
+Run as real processes with recorded hook inputs: No blocks, Ask me first asks (or denies and adds one queue item), Yes passes, a broken rules file blocks, a crash blocks (injected as in `tests/test_system.py`). With mutation checks.
+
+### Open questions for the owner before layer 9 starts
+
+- Should an adapter also deny everything while the kill switch is on? The kill switch stops AI helpers, jobs and workflows today, and a platform acting through an adapter is an AI helper. The proposal is yes (check `umwayi kill status` first, on or unknown means deny).
+- Which tools of each platform get which action types, and which of those are Yes in the starter rules.
+
+## Layer 10: Own command line and chat (outline, after Dec 3)
+
+Starts only when the owner says so.
+
+- One front door, for example `umwayi agent start NAME`, starts an agent through the agent's own command line, or talks to it over the Agent Client Protocol (ACP).
+- The queue, rules and logbook stay in front of it: the agent is started with the layer 9 adapter for its platform, so every action it takes is checked and logged.
+- The front door shows the queue (what waits for the owner) next to the conversation.
+- It reuses the platforms' command lines and ACP. It does not build a model client, does not hold model keys and does not call a model API itself.
+
+## Layer 11: Linux-like features (outline, after Dec 3)
+
+Starts only when the owner says so. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
+
+| feature | reuse | what umwayi adds |
+| --- | --- | --- |
+| scheduling | cron or systemd timers | writes the timer lines that call `umwayi run` or `umwayi workflow run`; installs nothing without the owner |
+| file watching | inotify | turns a file event into a checked action, for example a new article starts the content loop |
+| process limits | Unix permissions, bubblewrap or containers | runs AI helpers with fewer rights than the owner, so the kill switch and the logbook are harder to bypass |
+| a small database | SQLite | an index for questions over the queue, logbook and archive; the plain files stay the source of truth |
+| terminal sessions | tmux | named sessions for long running agents, started through the layer 10 front door |
+
+No new scheduler, file system or shell is built.
+
 ## Testing
 
 - Standard library `unittest`, also run by `pytest`.
 - Each layer has its own test module, using temporary folders.
-- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on several Python versions.
+- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there are 556 tests.
+- `tests/test_system.py` runs the umwayi command as real processes in a fresh folder: one scripted run of every layer, and fault tests (logbook edits, broken rules, bad config, injected crashes in every command, corrupt state files, unknown actions, no network import, no approver code path).
+- Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
+- Layer 9 adapters get their own tests and CI job (see above).
