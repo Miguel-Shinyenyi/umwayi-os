@@ -685,9 +685,9 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (approved; parts 1 to 4 built)
+## Layer 10: Own command line and chat (approved; parts 1 to 5 built, part 6 left)
 
-Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; parts 5 and 6 (`agent chat`, ACP) are planned for Nov 9 to Nov 10. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
+Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17. Part 6 (ACP chat for Kiro) is left. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
 ### The idea in one paragraph
 
@@ -831,7 +831,7 @@ As built in part 3 (`umwayi agent run`, Claude Code):
 - **Prompt:** exactly one of `--prompt TEXT`, `--prompt-file PATH` (a regular file) or `-` (stdin); at most 100 KB; UTF-8; no NUL; a Claude Code prompt starting with `-` is refused. All of this is step 1, before the kill switch, so a bad prompt writes nothing and runs nothing (exit 64). The prompt is the last argument; it is never logged or printed.
 - **The agent's stdin is `/dev/null`** for Claude Code; its stdout and stderr are umwayi's own. umwayi prints its own lines after the agent ends.
 - **The rules check must be logged**: if `check_and_log` could not write its entry, nothing starts (exit 2), whatever the answer. A start entry that cannot be written also means nothing starts (exit 2). An end entry that cannot be written makes the run exit 2. A refusal, kill switch or lock entry that cannot be written keeps its exit code and says so.
-- **Not built yet, refused cleanly:** `agent chat` does not exist yet, so argparse gives 64 for any agent, including a Kiro ACP agent. Nothing runs and nothing is written. (Until part 4, `agent run` for a Kiro agent was also 64.)
+- **Not built yet, refused cleanly:** a chat with a Kiro agent whose transport is `acp` is a usage error (64) that says ACP chat is part 6. Nothing runs and nothing is written. (Until part 4, `agent run` for a Kiro agent was also 64; until part 5, `agent chat` did not exist.)
 
 As built in part 4 (`umwayi agent run`, Kiro):
 
@@ -840,6 +840,18 @@ As built in part 4 (`umwayi agent run`, Kiro):
 - **Kiro's exit codes:** 0 is exit 0; 1 (failure), 3 (MCP start up), 4 (agent not found) and anything else are exit 2, with the code in the end entry.
 - **A Kiro agent with `transport: acp` can be used with `agent run`.** The transport only matters for `agent chat`; `run` is always the headless command line, never ACP.
 - **The hook file is checked again just before every start** (gate check 5, exact match as in part 2). A file removed or changed between two runs refuses the second with exit 2. It is not watched while Kiro runs (KNOWN-LIMITS 42).
+
+As built in part 5 (`umwayi agent chat NAME`, transport cli, Claude Code and Kiro):
+
+- **The same `_Run` class, with `mode="chat"`**; nothing is copied. Steps in the same order: agents.yaml (64; transport acp is 64 with "ACP chat is layer 10 part 6"), the kill switch (3), the rules with `{"type": "agent_run", ..., "mode": "chat", "transport": "cli"}` (No 2; Ask me first 3 and one queue item `Start agent NAME (chat)?`), the run lock (3), every gate check (2), the start entry ("Started agent NAME (PLATFORM, cli, chat): PATH"), then the queue summary, then the start.
+- **Queue summary before the agent starts:** "Open in the queue: N item(s).", the first 5 open items as `ID (kind): title`, then one line that says the chat is gated by the hook and not logged. Printed and flushed to umwayi's stdout before the agent gets the terminal. A queue that cannot be read prints why and does not stop the chat.
+- **Argument lists:** Claude Code `claude --permission-mode default --settings JSON` (the same inline hook settings as run; no `-p`, no prompt, no `--max-turns`). Kiro `kiro-cli chat --v3 [--agent KIRO_AGENT]`; never `--trust-tools` or `--trust-all-tools` in a chat (interactive V3 ignores `--trust-tools`; Kiro asks the owner itself for tools it does not trust).
+- **The owner's terminal, unchanged:** stdin, stdout and stderr are inherited, no pipes. The agent stays in umwayi's process group (`start_new_session=False`), so when umwayi is the foreground job, so is the agent.
+- **Ctrl-C:** from the start of the agent until umwayi is done, SIGINT is handled by a no-op Python handler, so Ctrl-C (sent by the terminal to the whole foreground group) reaches the agent and does not stop umwayi. Not `SIG_IGN`: an ignored signal stays ignored in the child after exec, and the agent would never see Ctrl-C (a test checks what the agent inherited). The old handler is put back in `go()`'s `finally`, on every exit path. Before the start, Ctrl-C still stops umwayi (exit 2).
+- **Stopping a chat:** umwayi never signals its own process group. Once a second the watcher reads `/proc` and records every descendant of the agent (pid and start time); on a stop it sends SIGTERM to the agent's pid and to every recorded descendant that is still the same process (same start time, not a zombie, so a reused pid is never signalled), keeps recording while they stop, and sends SIGKILL after 10 seconds. That reaches children in another session, and children whose parent already exited, as long as a watcher pass saw them.
+- **The terminal mode is put back** (`termios.tcgetattr` before the start, `tcsetattr` after), so an agent stopped while its screen had the terminal in raw mode does not leave it unusable.
+- **Exit codes are those of run:** 0 only if the rules said Yes, the agent was gated and it exited 0; 2 for an agent that failed, the timeout, not gated, the logbook, a crash, umwayi's SIGTERM or SIGHUP; 3 for Ask me first, the kill switch, the run lock; 64 for usage.
+- **Nothing of the conversation is logged**: umwayi never reads the terminal. The entries are the check, the start and the end (or the stop).
 - **Two places start a program** in `agents.py`: `_run_child` (`subprocess.run`, for the version and the self-test) and `_Run._start` (`subprocess.Popen`, `start_new_session=True`, for the agent). A code guard test checks both have `shell=False`, that the agent's list comes only from `build_argv`, and that `agents.py` opens files only to read them.
 
 ### ACP chat client (`umwayi/acp.py`, Kiro only)
@@ -950,7 +962,7 @@ The owner decided to build it before Dec 3. Built only after the owner approves 
 
 - Standard library `unittest`, also run by `pytest`.
 - Each layer has its own test module, using temporary folders.
-- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there were 556 tests; after PR 14 (layer 10 parts 1 and 2) there were 673; after PR 15 (part 3) there were 697; after PR 16 (part 4) there are 719.
+- CI (`.github/workflows/ci.yml`) runs `python -m unittest discover -s tests -t .` on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. After PR 9 there were 556 tests; after PR 14 (layer 10 parts 1 and 2) there were 673; after PR 15 (part 3) there were 697; after PR 16 (part 4) there were 719; after PR 17 (part 5) there are 747.
 - `tests/test_system.py` runs the umwayi command as real processes in a fresh folder: one scripted run of every layer, and fault tests (logbook edits, broken rules, bad config, injected crashes in every command, corrupt state files, unknown actions, no network import, no approver code path).
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
 - Layer 9 adapters get their own tests and CI job (see above).

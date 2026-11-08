@@ -5,6 +5,7 @@
     umwayi agent check NAME [--agents PATH]   can NAME be gated? 0 yes, 2 no, 64 usage
     umwayi agent run NAME (--prompt TEXT | --prompt-file PATH | -)
                                               start NAME once (Claude Code or Kiro): 0, 2, 3 or 64
+    umwayi agent chat NAME [--agents PATH]    a chat on your terminal (transport cli): 0, 2, 3 or 64
 
 `agent run` takes these steps in order and the first that fails ends it: read
 agents.yaml and the prompt (64), the kill switch (3), the rules, action agent_run
@@ -769,6 +770,54 @@ def _exit_text(code: int) -> str:
     return f"by signal {-code}" if code < 0 else f"with code {code}"
 
 
+QUEUE_SUMMARY_ROWS = 5  # open queue items listed by name before a chat starts
+
+
+def _proc_stat(pid) -> tuple | None:
+    """(state, parent pid, start time) from /proc/PID/stat, or None if it cannot be read (Linux only)."""
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as f:
+            rest = f.read().rsplit(b")", 1)[1].split()
+        return rest[0].decode("ascii", "replace"), int(rest[1]), int(rest[19])
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def _descendants(root_pid: int) -> dict:
+    """pid -> start time of every live, non-zombie descendant of root_pid, from one pass over /proc."""
+    children: dict = {}
+    try:
+        names = os.listdir("/proc")
+    except OSError:
+        return {}
+    for name in names:
+        if not name.isdigit():
+            continue
+        st = _proc_stat(name)
+        if st is not None and st[0] != "Z":
+            children.setdefault(st[1], []).append((int(name), st[2]))
+    found, todo = {}, [root_pid]
+    while todo:
+        for pid, start in children.get(todo.pop(), []):
+            if pid not in found:
+                found[pid] = start
+                todo.append(pid)
+    return found
+
+
+def _same_process(pid: int, start: int) -> bool:
+    """True if pid is still the process seen before (same start time, not a zombie): a reused pid is never signalled."""
+    st = _proc_stat(pid)
+    return st is not None and st[0] != "Z" and st[2] == start
+
+
+def _signal_pid(pid: int, sig: int) -> None:
+    try:
+        os.kill(pid, sig)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
 def _feed(pipe, data: bytes) -> None:
     """Write the prompt to the agent's stdin and close it, so the agent sees the end of the instruction."""
     try:
@@ -791,16 +840,29 @@ class _Signalled(BaseException):
 
 
 class _Run:
-    """One `umwayi agent run`. go() returns a Result; the agent is stopped on every path out of it."""
+    """One `umwayi agent run` or `umwayi agent chat`. go() returns a Result; the agent is stopped on every path out.
 
-    def __init__(self, root: Path, agent: Agent, prompt: str, clock):
+    run:  the agent gets /dev/null or the prompt on stdin, in its own session and process group, and is
+          stopped by signalling that group.
+    chat: the agent gets the owner's terminal unchanged (stdin, stdout and stderr inherited) and stays in
+          umwayi's process group, because an interactive screen needs the controlling terminal. It is
+          stopped by signalling its pid and every descendant umwayi has seen (read from /proc once a
+          second), never umwayi's own group. While it runs, Ctrl-C is caught by a no-op handler in umwayi,
+          so it reaches the agent only; the old handler is put back on every path.
+    """
+
+    def __init__(self, root: Path, agent: Agent, prompt: str | None, clock, mode: str = RUN, out=None):
         self.root = root
         self.agent = agent
         self.prompt = prompt
         self.clock = clock  # today's date, asked again for every entry (a run can pass midnight)
+        self.mode = mode
+        self.out = out  # chat: where the queue summary goes before the agent starts
         self.proc = None
         self.started = None
         self.signalled = False
+        self.seen = {}  # chat: pid -> start time of every descendant of the agent seen so far
+        self.tty = None  # chat: (fd, termios attributes) to put back after the agent
 
     # ------------------------------------------------------------ logbook
 
@@ -820,6 +882,35 @@ class _Run:
         return Result(code, lines)
 
     # ------------------------------------------------------------ signals
+
+    _old_sigint = None
+
+    @staticmethod
+    def _sigint_while_chatting(_signum, _frame):
+        """Ctrl-C goes to the whole foreground group: the agent handles it, umwayi does nothing.
+
+        A Python handler, not SIG_IGN: an ignored signal stays ignored in the child after exec, so
+        SIG_IGN would also stop the agent from seeing Ctrl-C.
+        """
+
+    def _save_terminal(self) -> None:
+        try:
+            import termios
+            if os.isatty(0):
+                self.tty = (0, termios.tcgetattr(0))
+        except Exception:
+            self.tty = None
+
+    def _restore_terminal(self) -> None:
+        """An interactive agent stopped by a signal can leave the terminal in raw mode; put back what it was."""
+        if self.tty is None:
+            return
+        try:
+            import termios
+            termios.tcsetattr(self.tty[0], termios.TCSADRAIN, self.tty[1])
+        except Exception:
+            pass
+        self.tty = None
 
     def _on_signal(self, signum, _frame):
         if self.signalled:
@@ -849,6 +940,10 @@ class _Run:
         finally:
             for sig, handler in previous.items():
                 signal.signal(sig, handler)
+            if self._old_sigint is not None:
+                signal.signal(signal.SIGINT, self._old_sigint)
+                self._old_sigint = None
+            self._restore_terminal()
 
     def _stopped_by(self, what: str) -> Result:
         was_running = self.proc is not None
@@ -856,7 +951,8 @@ class _Run:
         a = self.agent
         head = what[:1].upper() + what[1:]
         if was_running:
-            why = self.log(f"Agent {a.name} was stopped: {what}", "the agent and its process group were stopped "
+            whom = "the agent and its descendants" if self.mode == CHAT else "the agent and its process group"
+            why = self.log(f"Agent {a.name} was stopped: {what}", f"{whom} were stopped "
                            "(SIGTERM, then SIGKILL after 10 s)", NOT_LOGGED)
             return self.result(2, [f"{head}, so agent {a.name} was stopped (exit 2)."], why)
         why = self.log(f"Agent {a.name} did not start: {what}", "nothing had been started", "Nothing was started.")
@@ -877,7 +973,8 @@ class _Run:
             return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}", not_started], why)
 
         # 3. the rules, action agent_run, one entry through the same check as `umwayi check`
-        action = {"type": "agent_run", "agent": a.name, "platform": a.platform, "mode": RUN, "transport": a.transport}
+        action = {"type": "agent_run", "agent": a.name, "platform": a.platform, "mode": self.mode,
+                  "transport": a.transport}
         decision, logged = rules.check_and_log(json.dumps(action), root / "rules.yaml", root, self.clock(),
                                                kill_state=st)
         verdict = [decision.answer, f"Rule: {decision.rule_id or '(none)'}", f"Reason: {decision.reason}"]
@@ -911,15 +1008,18 @@ class _Run:
                                why)
 
         # 6. the argument list, from the platform table only
-        argv, stdin_text = build_argv(a, RUN, gate.command_path, root, python_path(), prompt=self.prompt)
+        argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt)
 
         # 7. the start entry first, then the start
-        why = self.log(f"Started agent {a.name} ({a.platform}, {a.transport}): {gate.command_path}",
-                       f"rule {decision.rule_id or '(none)'} gave Yes for agent_run; the run lock is held; every gate "
-                       f"check passed (version {_show(gate.version)})", NOT_LOGGED)
+        how = f"{a.platform}, {a.transport}" + (", chat" if self.mode == CHAT else "")
+        why = self.log(f"Started agent {a.name} ({how}): {gate.command_path}",
+                       f"rule {decision.rule_id or '(none)'} gave Yes for agent_run ({self.mode}); the run lock is held; "
+                       f"every gate check passed (version {_show(gate.version)})", NOT_LOGGED)
         if why is not None:
             return self.result(2, [f"{not_started} The logbook could not record the start, so nothing is started "
                                    "(exit 2)."], why)
+        if self.mode == CHAT:
+            self._queue_summary()
         try:
             self._start(argv, a.workdir, stdin_text)
         except OSError:
@@ -930,7 +1030,7 @@ class _Run:
         return self._watch()
 
     def _ask_owner(self) -> str:
-        title = f"Start agent {self.agent.name} ({RUN})?"
+        title = f"Start agent {self.agent.name} ({self.mode})?"
         try:
             row, added = taskqueue.add_once(self.root, "decision", title, ASK_RECOMMENDATION, self.clock())
         except UmwayiError as e:
@@ -940,12 +1040,37 @@ class _Run:
         return (f"Added queue item {row.id} (decision) for the owner. Answering it does not start the agent; "
                 "add a Yes rule for agent_run to allow it.")
 
+    def _queue_summary(self) -> None:
+        """Chat: what waits for the owner, printed before the agent gets the terminal. Never blocks the chat."""
+        try:
+            rows = taskqueue.list_rows(self.root, status="open") if (self.root / taskqueue.QUEUE_NAME).exists() else []
+            lines = [f"Open in the queue: {len(rows)} item(s)."]
+            lines += [f"  {r.id} ({r.kind}): {_one_line(r.title, 120)}" for r in rows[:QUEUE_SUMMARY_ROWS]]
+            if len(rows) > QUEUE_SUMMARY_ROWS:
+                lines.append(f"  ... and {len(rows) - QUEUE_SUMMARY_ROWS} more: umwayi queue list --status open")
+        except UmwayiError as e:
+            lines = [f"The queue could not be read ({_one_line(str(e).rstrip('. '), 200)})."]
+        lines.append(f"Starting a chat with agent {self.agent.name}. Every tool call it makes is checked by the "
+                     "layer 9 hook. Nothing of the conversation is logged.")
+        out = self.out or sys.stdout
+        out.write("\n".join(lines) + "\n")
+        out.flush()
+
     # ------------------------------------------------------------ the child
 
     def _start(self, argv: list, cwd: str, stdin_text: str | None) -> None:
-        """The only place this module starts an agent: an argument list, no shell, its own process group."""
-        self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=True,
-                                     stdin=subprocess.DEVNULL if stdin_text is None else subprocess.PIPE)
+        """The only place this module starts an agent: an argument list, no shell.
+
+        run: its own session and process group, stdin /dev/null or the prompt.
+        chat: the owner's terminal unchanged and umwayi's process group; Ctrl-C reaches the agent only.
+        """
+        chat = self.mode == CHAT
+        if chat:
+            self._save_terminal()
+            self._old_sigint = signal.signal(signal.SIGINT, self._sigint_while_chatting)
+        new_session = not chat
+        stdin = None if chat else (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE)
+        self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin)
         self.started = time.monotonic()
         if stdin_text is not None:
             # Written by a helper thread: a prompt bigger than the pipe buffer, sent to an agent that does not
@@ -968,10 +1093,50 @@ class _Run:
         except (ProcessLookupError, PermissionError):
             pass
 
+    def _track(self) -> None:
+        """Chat: remember every descendant of the agent now running, so it can be stopped even after it is orphaned."""
+        if self.proc is not None:
+            self.seen.update(_descendants(self.proc.pid))
+
+    def _stop_chat(self) -> None:
+        """Chat: SIGTERM to the agent's pid and every descendant seen, SIGKILL after STOP_GRACE. Never umwayi's group."""
+        p = self.proc
+        if p.poll() is None:
+            self._track()
+        others = {pid: t for pid, t in self.seen.items() if _same_process(pid, t)}
+        if p.returncode is None or others:
+            for pid in ([p.pid] if p.returncode is None else []) + list(others):
+                _signal_pid(pid, signal.SIGTERM)
+            deadline = time.monotonic() + STOP_GRACE
+            while time.monotonic() < deadline:
+                p.poll()
+                if p.returncode is None:
+                    self._track()  # it may still start something while it stops
+                others = {pid: t for pid, t in self.seen.items() if _same_process(pid, t)}
+                if p.returncode is not None and not others:
+                    break
+                time.sleep(0.05)
+            else:
+                if p.poll() is None:
+                    _signal_pid(p.pid, signal.SIGKILL)
+                for pid, t in self.seen.items():
+                    if _same_process(pid, t):
+                        _signal_pid(pid, signal.SIGKILL)
+        try:
+            p.wait(timeout=STOP_GRACE)
+        except subprocess.TimeoutExpired:
+            pass
+
     def stop_agent(self) -> None:
-        """Stop the agent and everything in its process group: SIGTERM, then SIGKILL after STOP_GRACE. Idempotent."""
+        """Stop the agent and what it started: SIGTERM, then SIGKILL after STOP_GRACE. Idempotent.
+
+        run: the agent's whole process group. chat: the agent's pid and its descendants (see _stop_chat).
+        """
         p = self.proc
         if p is None:
+            return
+        if self.mode == CHAT:
+            self._stop_chat()
             return
         p.poll()
         if p.returncode is None or self._group_alive():
@@ -998,6 +1163,8 @@ class _Run:
                 break
             except subprocess.TimeoutExpired:
                 pass
+            if self.mode == CHAT:
+                self._track()
             st = kill.state(root)
             if kill.stopped(st):
                 self.stop_agent()
@@ -1026,6 +1193,18 @@ class _Run:
         if code != 0:
             return Result(2, [f"Agent {a.name} exited {_exit_text(code)} (exit 2)."])
         return Result(0, [f"Agent {a.name} finished (exit 0) after {seconds} s."])
+
+
+def chat_agent(root, name: str, clock, given: str | None = None, out=None) -> Result:
+    """`umwayi agent chat NAME` with transport cli (part 5): the same steps as run, then the owner's terminal."""
+    root = _root(root)
+    agent = find(load(root, given), name)
+    if agent.platform not in PLATFORMS:
+        raise UsageError("agent: unknown platform. Nothing was started.")
+    if agent.transport == ACP:
+        raise UsageError(f"agent: {agent.name} uses transport acp. ACP chat is layer 10 part 6 and is not built "
+                         "yet. Nothing was started.")
+    return _Run(root, agent, None, clock, mode=CHAT, out=out).go()
 
 
 def run_agent(root, name: str, prompt: str, clock, given: str | None = None) -> Result:

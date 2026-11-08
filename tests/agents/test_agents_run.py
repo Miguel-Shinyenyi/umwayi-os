@@ -230,8 +230,8 @@ class StopsBeforeStartTests(RunCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("not found on PATH", self.run_entries()[-1].added)
 
-    def test_chat_is_not_built_and_starts_nothing(self):
-        r = self.umwayi("chat", "reviewer")
+    def test_chat_with_extra_words_is_64_and_starts_nothing(self):
+        r = self.umwayi("chat", "reviewer", "please")
         self.assertEqual(r.returncode, 64)
         self.assert_nothing_ran()
         self.assertFalse((self.root / "LOGBOOK.md").exists())
@@ -278,9 +278,11 @@ class StopsWhileRunningTests(RunCase):
         self.first_tool()
         (self.root / ".umwayi").mkdir(exist_ok=True)
         (self.root / ".umwayi" / "KILL").write_text("", encoding="utf-8")
-        t = time.monotonic()
+        t, wall = time.monotonic(), time.time()
         code, out, _ = self.finish(p)
-        self.assertLess(time.monotonic() - t, 5, "the agent was not stopped within a few seconds")
+        self.assertLess(time.monotonic() - t, 14, "the agent was not stopped within the SIGKILL grace")
+        term = self.wait_for(lambda c: c.get("event") == "term", what="SIGTERM to the agent")
+        self.assertLess(term["t"] - wall, 3, "umwayi did not send SIGTERM soon after the kill switch went on")
         self.assertEqual(code, 3, out)
         self.assertIn("The kill switch stopped agent reviewer (exit 3).", out)
         self.assertTrue(any(c.get("event") == "term" for c in self.calls()), "the agent got no SIGTERM")

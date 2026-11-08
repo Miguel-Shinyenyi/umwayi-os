@@ -224,10 +224,10 @@ class KiroYesTests(KiroRunCase):
                 self.assertEqual(r.returncode, 2)
                 self.assertIn(f"with code {code}", self.run_entries()[-1].added)
 
-    def test_chat_is_still_refused(self):
-        for name in ("kiro", "kiro-acp"):
-            r = self.umwayi("chat", name)
-            self.assertEqual(r.returncode, 64)
+    def test_acp_chat_is_still_refused(self):
+        r = self.umwayi("chat", "kiro-acp")
+        self.assertEqual(r.returncode, 64)
+        self.assertIn("ACP chat is layer 10 part 6", r.stderr)
         self.assertEqual(self.calls(), [])
 
 
@@ -293,9 +293,11 @@ class KiroStopsTests(KiroRunCase):
         p = self.start_kiro("kiro", LAST_READ, {"do": "spawn"}, LOOP)
         self.first_tool()
         self.kill_on()
-        t = time.monotonic()
+        t, wall = time.monotonic(), time.time()
         code, out, _ = self.finish(p)
-        self.assertLess(time.monotonic() - t, 5)
+        self.assertLess(time.monotonic() - t, 14)  # within the 10 s SIGKILL grace and a margin
+        term = self.wait_for(lambda c: c.get("event") == "term", what="SIGTERM to the agent")
+        self.assertLess(term["t"] - wall, 3, "umwayi did not send SIGTERM soon after the kill switch went on")
         self.assertEqual(code, 3, out)
         self.assertEqual(self.tools()[-1]["decision"], "deny-hook")  # read_file is Yes and trusted, but the switch is on
         self.assertEqual(self.run_entries()[-1].added, "The kill switch stopped agent kiro")
@@ -356,9 +358,12 @@ class KiroStopsTests(KiroRunCase):
         p = self.start_umwayi("run", "kiro", "--prompt-file", str(f), extra=dict(self.script(LOOP), FAKE_NO_STDIN="1"))
         self.first_tool()
         self.kill_on()
-        t = time.monotonic()
+        t, wall = time.monotonic(), time.time()
         code, out, _ = self.finish(p, timeout=30)
-        self.assertLess(time.monotonic() - t, 5, "umwayi was stuck writing the prompt and did not watch the kill switch")
+        self.assertLess(time.monotonic() - t, 14)
+        term = self.wait_for(lambda c: c.get("event") == "term", timeout=2,
+                             what="SIGTERM (umwayi was stuck writing the prompt and did not watch the kill switch)")
+        self.assertLess(term["t"] - wall, 3)
         self.assertEqual(code, 3, out)
         self.assert_agent_gone()
 

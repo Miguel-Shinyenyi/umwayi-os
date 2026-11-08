@@ -164,7 +164,9 @@ def build_parser() -> argparse.ArgumentParser:
     agr.add_argument("source", nargs="?", help="- to read the prompt from stdin")
     agr.add_argument("--prompt", help="the prompt text (at most 100 KB; never written to the logbook)")
     agr.add_argument("--prompt-file", help="a file that holds the prompt (at most 100 KB)")
-    for sp in (agv, agl, agc, agr):
+    agch = agsub.add_parser("chat", help="a chat with an agent on your terminal (transport cli); 0, 2, 3 or 64")
+    agch.add_argument("name", help="the agent name from agents.yaml")
+    for sp in (agv, agl, agc, agr, agch):
         sp.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
@@ -328,6 +330,8 @@ def _cmd_agent(args, out) -> int:
                 raise UsageError("agent run: the only word allowed after the name is - (read the prompt from stdin)")
             prompt = agents.read_prompt(args.prompt, args.prompt_file, args.source == "-", sys.stdin.buffer)
             return _cmd_helper(agents.run_agent(Path(args.root), args.name, prompt, _today, args.agents), out)
+        if args.agent_command == "chat":
+            return _cmd_helper(agents.chat_agent(Path(args.root), args.name, _today, args.agents, out), out)
         return _cmd_helper(agents.check_agent(Path(args.root), args.name, args.agents), out)
     except UsageError as e:
         sys.stderr.write(f"umwayi: error: {e}\n")
