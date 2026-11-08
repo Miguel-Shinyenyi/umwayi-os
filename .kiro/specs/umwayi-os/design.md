@@ -685,7 +685,7 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (approved; all six parts built)
+## Layer 10: Own command line and chat (approved; all six parts built; part 7 specified, waiting for approval)
 
 Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17; part 6 (ACP chat for Kiro, `umwayi/acp.py`) in PR 18. All six parts are built. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
@@ -953,6 +953,153 @@ The owner approved the spec on Nov 8 with every answer as proposed (recorded in 
 | interactive chat on the terminal | umwayi sees no tool call, only the hook does | by design: the hook is the gate; ACP chat adds a second gate |
 | Kiro docs conflict (`content` and `prompt` in `session/prompt`) | the first ACP prompt fails | we follow the spec; the error ends the chat with exit 2, nothing ungated |
 | schedule: layers 10 and 11 share Nov 9 to 10 | not all parts land | parts 1 and 2 need no agent and can go first; ACP chat (part 6) is the one to cut |
+
+### Part 7: Claude Code over ACP (spec written Nov 8, waiting for owner approval)
+
+Requirement 10.R11. Facts with links, and what is not documented: `adapters/NOTES-layer10.md`, section "Claude Code over ACP" (the adapter `@agentclientprotocol/claude-agent-acp` 0.101.0, read from its README, `package.json`, the npm registry and its source at tag v0.101.0). Nothing of part 7 is built before the owner approves it.
+
+#### The idea
+
+The adapter is an ACP agent that drives the bundled Claude Code CLI through the Claude Agent SDK. umwayi talks to it with the same `acp.py` client and the same `_Run` steps as a Kiro ACP chat. The difference is the first gate: there is no hook file for umwayi to find, so umwayi hands the adapter the same inline settings that `agent run` gives `claude --settings` (the SDK's flag-settings layer), and adds a `SessionStart` canary hook in the same settings. The chat is used only after the canary has run in this very session, which shows that command hooks from that layer run there; otherwise it is refused.
+
+#### Files
+
+```
+adapters/claude_acp/
+  package.json        {"private": true, "dependencies": {"@agentclientprotocol/claude-agent-acp": "0.101.0"}}, exact version
+  package-lock.json   generated once in the build pull request, with integrity hashes; reviewed there
+  README.md           what it is, the pin, the one install command, what it installs (Node 22, about 8 platform packages of the SDK of which npm installs one), how to update the pin
+  canary.py           standard library: writes one empty file named by its --token into its --dir (O_EXCL, no other output)
+  .gitignore          node_modules/
+umwayi/agents.py      platform table, validation, the ACP program, gate checks, env allow list, inline settings, stop
+umwayi/acp.py         three small options on Chat (below)
+tests/agents/fake_node.py, tests/agents/test_agents_claude_acp.py
+```
+
+The core never imports `adapters`; it knows two paths in it (the adapter's `dist/index.js` inside `node_modules`, and `canary.py`), as it knows the layer 9 hooks. Nothing in `.claude` or `.kiro/hooks` is created or changed.
+
+#### agents.yaml and the platform table
+
+- `claude-code` gets `transports: ("cli", "acp")`. `command` stays `claude` (for `agent run` and cli chat); an ACP chat uses the fixed program `node`, found on PATH, and the fixed adapter path. `kiro_agent` and `trust_tools` stay Kiro only.
+- New constants in `agents.py`: `CLAUDE_ACP_PACKAGE = "@agentclientprotocol/claude-agent-acp"`, `CLAUDE_ACP_VERSION = "0.101.0"`, `NODE_MIN = (22, 0, 0)`, the adapter path `adapters/claude_acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js`, the canary path.
+- `permission_action` takes the platform (it is `kiro` today) so the action says `"platform": "claude-code"`.
+
+#### The argument list and the environment
+
+| program | argument list |
+| --- | --- |
+| node version | `[NODE, "--version"]` |
+| adapter version | `[NODE, ADAPTER, "--version"]` |
+| Claude Code version | `[NODE, ADAPTER, "--cli", "--version"]` |
+| sign-in | `[NODE, ADAPTER, "--cli", "auth", "status"]` (exit code only) |
+| the chat | `[NODE, ADAPTER]` in `workdir`, own session and process group, stdin and stdout as the ACP pipes, stderr to umwayi's stderr |
+
+All of them get the allow-listed environment of 10.R11.9 (a function `child_env(os.environ)` that copies only listed names that are set, then sets `CLAUDE_AGENT_ACP_PROTOCOL=v1`). No `ANTHROPIC_*` key, no `CLAUDE_CODE_EXECUTABLE` (so the bundled, pinned Claude CLI is used, not one from PATH), no `NODE_OPTIONS`. The argument-list test of 10.R5.7 is extended to these lists.
+
+#### The gate checks for a Claude Code ACP chat
+
+In this order, the first failure ends it (exit 2, one entry "Refused agent NAME: not gated (REASON)"); `umwayi agent check NAME` prints them all:
+
+1. `node` on PATH, absolute.
+2. `node --version`: the first `N.N.N` (after a `v`) at least 22.0.0.
+3. The adapter file: a regular file at the fixed path (not a link).
+4. Its `package.json` (read as JSON, at most 64 KB): `name` and `version` exactly the pinned ones.
+5. `NODE ADAPTER --version`: stdout exactly the pinned version.
+6. `NODE ADAPTER --cli --version`: a Claude Code version of at least 2.1.295 (for `onFailure: "block"`).
+7. Sign-in: `NODE ADAPTER --cli auth status` exits 0 within 15 s; output discarded. Else "Sign in to Claude Code first (claude, then /login), then try again."
+8. The layer 9 Claude Code hook: present, and its self-test (exit 2 for a non PreToolUse event), as for `agent run`.
+
+Then, inside the session, the gate is confirmed by the canary (below) before any prompt.
+
+#### session/new, the inline settings and the canary
+
+Before the start umwayi makes a private folder (`tempfile.mkdtemp`, mode 0700, outside the root and the workdir) and a token (`secrets.token_hex(16)`, not a secret: it only proves which session ran the hook). `session/new` is:
+
+```json
+{"cwd": "WORKDIR", "mcpServers": [],
+ "_meta": {"claudeCode": {"options": {
+   "allowDangerouslySkipPermissions": false,
+   "settings": {"disableAllHooks": false, "hooks": {
+     "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "PYTHON",
+        "args": ["ABS/adapters/claude_code/hook.py", "--root", "ROOT"], "timeout": 30, "onFailure": "block"}]}],
+     "SessionStart": [{"hooks": [{"type": "command", "command": "PYTHON",
+        "args": ["ABS/adapters/claude_acp/canary.py", "--dir", "TMPDIR", "--token", "TOKEN"], "timeout": 10}]}]}}}}}}
+```
+
+- The `PreToolUse` entry is exactly the one `claude_settings()` builds for `agent run` (same function).
+- umwayi then waits up to 30 s for `TMPDIR/TOKEN` to exist (checked with `os.path.exists`, the watcher still running). Seen: the gate is confirmed; umwayi sends `session/set_mode` `{"sessionId", "modeId": "default"}` and only then reads the owner's first line. Not seen: the chat ends with exit 2 before any prompt. The folder is removed on every way out.
+- `settingSources` is left as the adapter sets it (user, project, local), so the owner's own deny rules and hooks still apply; hooks merge and the strictest answer wins.
+
+#### acp.py: three small options, nothing else
+
+`Chat(..., session_meta=None, gate_ready=None, set_mode=None)`:
+
+- `session_meta`: a dict sent as `_meta` of `session/new` (Kiro: `None`, unchanged).
+- `gate_ready`: a callback polled in the loop after `session/new` until it returns True or 30 s pass; then `_Failed("the first gate could not be confirmed in the ACP session")` (exit 2) before any owner line is sent.
+- `set_mode`: a mode id sent with `session/set_mode` after the gate is confirmed; an error answer is `_Failed` (exit 2).
+
+About 30 lines in `acp.py`; the permission, output, Ctrl-C, kill switch and end code is unchanged. `_auth/status_update` and other unknown notifications are already ignored.
+
+#### Stop
+
+The adapter is started in its own session (as for Kiro ACP). Every stop closes its stdin, then signals its process group and every descendant seen in `/proc` (the part 5 tracking, now also on for ACP), SIGTERM then SIGKILL after 10 s. That covers background commands, which outlive `session/cancel` and whose process group is not documented.
+
+#### Failure table
+
+| failure | what the owner sees | exit |
+| --- | --- | --- |
+| agents.yaml: `transport: acp` with `kiro_agent` or `trust_tools` for claude-code | the problem with its line | 64 |
+| kill switch on or unknown; Ask me first; run lock held | as for every start | 3 |
+| rules No | as for every start | 2 |
+| no `node`, or older than 22 | "not gated: node ..." | 2 |
+| adapter not installed, a link, wrong name or version, `--version` differs | "not gated: the claude-agent-acp adapter ... run the install command in adapters/claude_acp/README.md" | 2 |
+| bundled Claude Code older than 2.1.295, or no version | "not gated: Claude Code version ..." | 2 |
+| not signed in, or `auth status` hangs | "Sign in to Claude Code first (claude, then /login), then try again." | 2 |
+| the layer 9 hook missing or its self-test fails | as for `agent run` | 2 |
+| `initialize` error or not version 1 | as for Kiro ACP | 2 |
+| `session/new` error (sign-in expired) | "Sign in with ..." or the error line | 2 |
+| canary not seen within 30 s | "The first gate could not be confirmed in the ACP session. Nothing was sent." | 2 |
+| `session/set_mode` error | "The agent did not accept the default permission mode." | 2 |
+| any later ACP error, bad line, dropped connection | as for Kiro ACP | 2 |
+| kill switch, logbook, timeout during the chat | as for Kiro ACP | 3, 2, 2 |
+| the adapter does not exit within 10 s after `:quit` | stopped | 2 |
+
+#### Tests
+
+A fake `node` (a Python script put first on PATH) answers `--version` with `v22.x`, `ADAPTER --version` with the pin, `--cli --version` and `--cli auth status` from variables, and with `[ADAPTER]` alone acts as the adapter: the scripted ACP agent of `fake_agent.py` in a Claude flavour that reads `_meta.claudeCode.options.settings`, runs its `SessionStart` hooks (exec form) at `session/new`, and runs its `PreToolUse` hooks for scripted tool calls before it sends a permission request, as the SDK docs order them. A fake installed package (`package.json` and an empty `dist/index.js`) is written into a copy of the source tree in each test.
+
+#### Schedule effect
+
+Effort, if approved: about 20 hours (tasks.md 10.23 to 10.31, of which 1.5 are the owner's first real run), that is about 2.5 working days, planned as 3. Layer 11 and part 7 cannot both fit Nov 9 to Nov 10. Two choices:
+
+- **A (proposed):** part 7 on Nov 9 to Nov 11; layer 11 spec and build Nov 12 to Nov 13; the whole-system test and security scan Nov 14 to Nov 16 (3 days instead of 4, and the scan must cover the npm dependencies); the budget governor Nov 17 to Nov 22 (6 days instead of 7); README, demo and Devpost Nov 23 to Nov 28; freeze and submit unchanged.
+- **B:** part 7 after Dec 3; the schedule stays as it is, and Claude Code chat stays on the terminal (part 5) for the submission.
+
+#### Open questions for the owner (part 7)
+
+1. **The canary is not seen.** Refuse the chat (proposed), or allow it with an explicit `acp_gate: permission_only` in agents.yaml, which says that the permission answer is the only gate? Proposed: refuse, no such setting in part 7.
+2. **The starting permission mode.** Send `session/set_mode` `default` after the canary (proposed), so `acceptEdits`, `auto` or `bypassPermissions` from the owner's settings cannot start the session approving calls without asking; an error ends the chat with 2. Or leave the owner's mode?
+3. **API keys.** Support only the Claude Code login the owner already has (claude.ai or Console, read by Claude Code itself), and never pass `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` (proposed)? Or allow an agents.yaml list of environment variable names to pass (names only, never values)?
+4. **The install command.** `npm ci --ignore-scripts` in `adapters/claude_acp/`, run by the owner (proposed); the lockfile made once in the build pull request with network access and reviewed there; umwayi never runs npm.
+5. **The pin and its updates.** Pin `0.101.0` (proposed); change it only in a pull request that updates NOTES-layer10.md, `package.json`, the lockfile and the constant together, after reading the changelog. The adapter publishes several preview builds a day.
+6. **Which Claude Code.** The CLI bundled with the pinned SDK (proposed, pinned by the lockfile, Claude Code 2.1.318 for SDK 0.3.318), not the owner's `claude` on PATH through `CLAUDE_CODE_EXECUTABLE` (not pinned).
+7. **Settings sources.** Keep user, project and local (proposed, so the owner's own deny rules apply), or `settingSources: []` so only our inline settings and managed policy apply?
+8. **The command field.** Keep `command: claude` and use a fixed `node` for ACP chat (proposed), or add a field?
+9. **The canary wait.** 30 seconds after `session/new` (proposed). Not documented: whether `SessionStart` runs at `session/new` or only with the first prompt. If only with the first prompt, every chat is refused under answer 1, and part 7 needs another way to confirm the gate (for example sending a first prompt that the owner wrote and refusing the chat if the canary did not run before any tool call); that would be decided after the first real run.
+10. **When to build.** Schedule A (proposed) or B above.
+
+#### Risks (part 7)
+
+| risk | what happens | what we do |
+| --- | --- | --- |
+| `SessionStart` does not run before the first prompt in an SDK session | every Claude Code ACP chat is refused | fail closed; open question 9; the first real run decides |
+| a managed Claude Code policy blocks non-managed hooks | the canary does not run, so the chat is refused (this check now sees what KNOWN-LIMITS 30 could not) | fail closed |
+| a new adapter release changes the session options or the permission shape | the pinned version keeps working; an update can break the gate | pin, update only with a NOTES review |
+| supply chain: the adapter, its four pinned dependencies and their own dependencies (not counted here; the lockfile will list them), and one native Claude CLI binary | code umwayi did not write runs with the owner's rights | exact pin, lockfile integrity, `--ignore-scripts`, the security scan (S.2) covers `adapters/claude_acp/` |
+| the rules see the kind and the tool name, not the command | permission answers cannot tell `ls` from `rm` | the hook (first gate) sees the command; KNOWN-LIMITS will say so |
+| sign-in expires during a chat | the adapter answers with an error | the chat ends with exit 2; sign in again |
+| background commands | they outlive a cancel | stop by process group and seen descendants |
+
 
 ## Layer 11: Linux-like features (outline, planned Nov 9 to Nov 10)
 
