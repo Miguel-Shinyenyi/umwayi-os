@@ -5,7 +5,8 @@
     umwayi agent check NAME [--agents PATH]   can NAME be gated? 0 yes, 2 no, 64 usage
     umwayi agent run NAME (--prompt TEXT | --prompt-file PATH | -)
                                               start NAME once (Claude Code or Kiro): 0, 2, 3 or 64
-    umwayi agent chat NAME [--agents PATH]    a chat on your terminal (transport cli): 0, 2, 3 or 64
+    umwayi agent chat NAME [--agents PATH]    a chat on your terminal (transport cli), or umwayi's own
+                                              ACP client for Kiro (transport acp): 0, 2, 3 or 64
 
 `agent run` takes these steps in order and the first that fails ends it: read
 agents.yaml and the prompt (64), the kill switch (3), the rules, action agent_run
@@ -45,7 +46,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from umwayi import kill, logbook, miniyaml, rules, runlock, taskqueue
+from umwayi import __version__, acp, kill, logbook, miniyaml, rules, runlock, taskqueue
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -951,7 +952,7 @@ class _Run:
         a = self.agent
         head = what[:1].upper() + what[1:]
         if was_running:
-            whom = "the agent and its descendants" if self.mode == CHAT else "the agent and its process group"
+            whom = "the agent and its descendants" if self._shares_terminal() else "the agent and its process group"
             why = self.log(f"Agent {a.name} was stopped: {what}", f"{whom} were stopped "
                            "(SIGTERM, then SIGKILL after 10 s)", NOT_LOGGED)
             return self.result(2, [f"{head}, so agent {a.name} was stopped (exit 2)."], why)
@@ -1040,8 +1041,8 @@ class _Run:
         return (f"Added queue item {row.id} (decision) for the owner. Answering it does not start the agent; "
                 "add a Yes rule for agent_run to allow it.")
 
-    def _queue_summary(self) -> None:
-        """Chat: what waits for the owner, printed before the agent gets the terminal. Never blocks the chat."""
+    def _queue_lines(self) -> list:
+        """The open queue in a few lines (the chat summary, and `:queue` in an ACP chat). Never raises for a bad queue."""
         try:
             rows = taskqueue.list_rows(self.root, status="open") if (self.root / taskqueue.QUEUE_NAME).exists() else []
             lines = [f"Open in the queue: {len(rows)} item(s)."]
@@ -1050,8 +1051,18 @@ class _Run:
                 lines.append(f"  ... and {len(rows) - QUEUE_SUMMARY_ROWS} more: umwayi queue list --status open")
         except UmwayiError as e:
             lines = [f"The queue could not be read ({_one_line(str(e).rstrip('. '), 200)})."]
-        lines.append(f"Starting a chat with agent {self.agent.name}. Every tool call it makes is checked by the "
-                     "layer 9 hook. Nothing of the conversation is logged.")
+        return lines
+
+    def _queue_summary(self) -> None:
+        """Chat: what waits for the owner, printed before the agent starts. Never blocks the chat."""
+        lines = self._queue_lines()
+        if self.agent.transport == ACP:
+            lines.append(f"Starting an ACP chat with agent {self.agent.name}. Every tool call it makes is checked by "
+                         "the layer 9 hook, and every permission it asks for by the rules. Nothing of the "
+                         "conversation is logged.")
+        else:
+            lines.append(f"Starting a chat with agent {self.agent.name}. Every tool call it makes is checked by the "
+                         "layer 9 hook. Nothing of the conversation is logged.")
         out = self.out or sys.stdout
         out.write("\n".join(lines) + "\n")
         out.flush()
@@ -1062,21 +1073,32 @@ class _Run:
         """The only place this module starts an agent: an argument list, no shell.
 
         run: its own session and process group, stdin /dev/null or the prompt.
-        chat: the owner's terminal unchanged and umwayi's process group; Ctrl-C reaches the agent only.
+        chat, transport cli: the owner's terminal unchanged and umwayi's process group; Ctrl-C reaches the agent only.
+        chat, transport acp: its own session and process group, stdin and stdout are the ACP pipes, stderr is
+        umwayi's; umwayi keeps the terminal and handles Ctrl-C itself (session/cancel).
         """
-        chat = self.mode == CHAT
-        if chat:
+        shares_terminal = self._shares_terminal()
+        if shares_terminal:
             self._save_terminal()
             self._old_sigint = signal.signal(signal.SIGINT, self._sigint_while_chatting)
-        new_session = not chat
-        stdin = None if chat else (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE)
-        self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin)
+        new_session = not shares_terminal
+        if shares_terminal:
+            stdin, stdout = None, None
+        elif self.mode == CHAT:  # ACP
+            stdin, stdout = subprocess.PIPE, subprocess.PIPE
+        else:
+            stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
+        self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin,
+                                     stdout=stdout)
         self.started = time.monotonic()
         if stdin_text is not None:
             # Written by a helper thread: a prompt bigger than the pipe buffer, sent to an agent that does not
             # read it, would otherwise block here, and the watcher (kill switch, timeout) would never run.
             threading.Thread(target=_feed, args=(self.proc.stdin, stdin_text.encode("utf-8")),
                              name="umwayi-agent-stdin", daemon=True).start()
+
+    def _shares_terminal(self) -> bool:
+        return self.mode == CHAT and self.agent.transport == CLI
 
     def _group_alive(self) -> bool:
         try:
@@ -1135,9 +1157,17 @@ class _Run:
         p = self.proc
         if p is None:
             return
-        if self.mode == CHAT:
+        if self._shares_terminal():
             self._stop_chat()
             return
+        if self.mode == CHAT and p.stdin is not None:
+            # ACP: the end of its input. Not in run mode: the prompt thread may be blocked writing to a full pipe
+            # and holds the pipe's lock, so a close here would wait for it; stopping the agent ends that write.
+            # Never stdout: the ACP reader may be in it.
+            try:
+                p.stdin.close()
+            except (OSError, ValueError):
+                pass
         p.poll()
         if p.returncode is None or self._group_alive():
             self._signal_group(signal.SIGTERM)
@@ -1154,36 +1184,104 @@ class _Run:
         except subprocess.TimeoutExpired:
             pass
 
+    def _tick(self):
+        """One watcher pass. None, or why the agent must stop now: ("kill", state), ("logbook", e), ("timeout",)."""
+        if self._shares_terminal():
+            self._track()
+        st = kill.state(self.root)
+        if kill.stopped(st):
+            return ("kill", st)
+        try:
+            logbook.check_writable(self.root, self.clock())
+        except UmwayiError as e:
+            return ("logbook", e)
+        if time.monotonic() >= self.started + self.agent.timeout_minutes * SECONDS_PER_MINUTE:
+            return ("timeout",)
+        return None
+
+    def _tick_stop(self, token) -> Result:
+        """Stop the agent for what _tick found, write the entry, give the exit code."""
+        a = self.agent
+        self.stop_agent()
+        if token[0] == "kill":
+            st = token[1]
+            why = self.log(f"The kill switch stopped agent {a.name}", f"kill switch: {st}, checked every second",
+                           NOT_LOGGED)
+            return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}",
+                                   f"The kill switch stopped agent {a.name} (exit 3)."], why)
+        if token[0] == "logbook":
+            return Result(2, [f"The logbook can no longer be written ({str(token[1]).rstrip('. ')}), so agent {a.name} "
+                              "was stopped: its checks could not be recorded (exit 2). Nothing was logged."])
+        why = self.log(f"Agent {a.name} stopped after its timeout of {a.timeout_minutes} min",
+                       "the timeout from agents.yaml was reached", NOT_LOGGED)
+        return self.result(2, [f"Agent {a.name} was stopped after its timeout of {a.timeout_minutes} min (exit 2)."],
+                           why)
+
     def _watch(self) -> Result:
-        a, root = self.agent, self.root
-        deadline = self.started + a.timeout_minutes * SECONDS_PER_MINUTE
+        if self.mode == CHAT and self.agent.transport == ACP:
+            return self._acp_chat()
         while True:
             try:
                 code = self.proc.wait(timeout=WATCH_INTERVAL)
                 break
             except subprocess.TimeoutExpired:
                 pass
-            if self.mode == CHAT:
-                self._track()
-            st = kill.state(root)
-            if kill.stopped(st):
-                self.stop_agent()
-                why = self.log(f"The kill switch stopped agent {a.name}", f"kill switch: {st}, checked every second",
-                               NOT_LOGGED)
-                return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}",
-                                       f"The kill switch stopped agent {a.name} (exit 3)."], why)
-            try:
-                logbook.check_writable(root, self.clock())
-            except UmwayiError as e:
-                self.stop_agent()
-                return Result(2, [f"The logbook can no longer be written ({str(e).rstrip('. ')}), so agent {a.name} "
-                                  "was stopped: its checks could not be recorded (exit 2). Nothing was logged."])
-            if time.monotonic() >= deadline:
-                self.stop_agent()
-                why = self.log(f"Agent {a.name} stopped after its timeout of {a.timeout_minutes} min",
-                               "the timeout from agents.yaml was reached", NOT_LOGGED)
-                return self.result(2, [f"Agent {a.name} was stopped after its timeout of {a.timeout_minutes} "
-                                       "min (exit 2)."], why)
+            token = self._tick()
+            if token is not None:
+                return self._tick_stop(token)
+        return self._end(code)
+
+    # ------------------------------------------------------------ ACP chat (part 6)
+
+    def _permission(self, tool_call: dict) -> str:
+        """An ACP permission request, asked of the rules like `umwayi check` (one logbook entry).
+
+        The action never holds the agent-written title. While the kill switch is on (or unknown) the
+        answer is No. A check that could not be logged, or any error, is a reject.
+        """
+        action = permission_action(self.agent.name, tool_call)
+        try:
+            st = kill.state(self.root)
+            stop = kill.reason(st) if kill.stopped(st) else None
+            decision, logged = rules.check_and_log(json.dumps(action), self.root / "rules.yaml", self.root,
+                                                   self.clock(), kill_state=st, stop_reason=stop)
+        except Exception:
+            return acp.REJECT
+        if not logged:
+            return acp.REJECT
+        return permission_verdict(decision.answer)
+
+    def _acp_chat(self) -> Result:
+        a = self.agent
+        chat = acp.Chat(self.proc, out=self.out or sys.stdout, owner=_owner_input(), workdir=a.workdir,
+                        permission=self._permission, tick=self._tick, queue_lines=self._queue_lines,
+                        client_version=__version__, tick_interval=WATCH_INTERVAL)
+        # Ctrl-C belongs to umwayi here (the agent is in its own session): it cancels the turn, never kills umwayi
+        self._old_sigint = signal.signal(signal.SIGINT, lambda _s, _f: chat.interrupt())
+        outcome = chat.run()
+        if outcome[0] == "stopped":
+            return self._tick_stop(outcome[1])
+        if outcome[0] == "failed":
+            self.stop_agent()
+            why = self.log(f"ACP chat with agent {a.name} ended: {outcome[1]}", "the agent was stopped", NOT_LOGGED)
+            return self.result(2, list(outcome[2]), why)
+        # the owner ended it (:quit or the end of input): the agent gets the end of its stdin and should exit
+        try:
+            self.proc.stdin.close()
+        except (OSError, ValueError):
+            pass
+        try:
+            code = self.proc.wait(timeout=STOP_GRACE)
+        except subprocess.TimeoutExpired:
+            self.stop_agent()
+            why = self.log(f"Agent {a.name} did not exit within {STOP_GRACE:.0f} s after the chat ended",
+                           "the agent was stopped (SIGTERM, then SIGKILL after 10 s)", NOT_LOGGED)
+            return self.result(2, [f"Agent {a.name} did not exit after the chat ended, so it was stopped (exit 2)."],
+                               why)
+        return self._end(code)
+
+    def _end(self, code: int) -> Result:
+        a = self.agent
         seconds = round(time.monotonic() - self.started)
         why = self.log(f"Agent {a.name} exited {_exit_text(code)} after {seconds} s",
                        "the agent ran with every tool call checked by the layer 9 hook", NOT_LOGGED)
@@ -1195,15 +1293,48 @@ class _Run:
         return Result(0, [f"Agent {a.name} finished (exit 0) after {seconds} s."])
 
 
+_PLAIN_KIND = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+_PLAIN_TOOL = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,39}$")
+
+
+def permission_action(agent_name: str, tool_call) -> dict:
+    """The action for an ACP permission request. kind and tool only when they are short plain words.
+
+    The title is written by the agent (ACP says not to approve on it), so it is never in the action.
+    """
+    action = {"type": "acp_permission", "agent": agent_name, "platform": "kiro"}
+    if isinstance(tool_call, dict):
+        kind, tool = tool_call.get("kind"), tool_call.get("name")
+        if isinstance(kind, str) and _PLAIN_KIND.match(kind):
+            action["kind"] = kind
+        if isinstance(tool, str) and _PLAIN_TOOL.match(tool):
+            action["tool"] = tool
+    return action
+
+
+def permission_verdict(answer) -> str:
+    """Yes is allow, Ask me first is ask the owner, No and anything else are reject."""
+    if answer == rules.YES:
+        return acp.ALLOW
+    if answer == rules.ASK:
+        return acp.ASK
+    return acp.REJECT
+
+
+def _owner_input():
+    """The owner's input: the file descriptor of stdin, read raw by umwayi.acp."""
+    return sys.stdin.fileno()
+
+
 def chat_agent(root, name: str, clock, given: str | None = None, out=None) -> Result:
-    """`umwayi agent chat NAME` with transport cli (part 5): the same steps as run, then the owner's terminal."""
+    """`umwayi agent chat NAME`: the same steps as run, then the owner's terminal (transport cli, part 5)
+    or umwayi's own ACP client (transport acp, Kiro only, part 6)."""
     root = _root(root)
     agent = find(load(root, given), name)
     if agent.platform not in PLATFORMS:
         raise UsageError("agent: unknown platform. Nothing was started.")
-    if agent.transport == ACP:
-        raise UsageError(f"agent: {agent.name} uses transport acp. ACP chat is layer 10 part 6 and is not built "
-                         "yet. Nothing was started.")
+    if agent.transport == ACP and agent.platform != "kiro":
+        raise UsageError("agent: ACP chat is only for platform kiro. Nothing was started.")
     return _Run(root, agent, None, clock, mode=CHAT, out=out).go()
 
 
