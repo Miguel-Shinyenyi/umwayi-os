@@ -15,9 +15,11 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 7 Helpers | done | PR 7 | 461 |
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
-| 9 Adapters | in progress: part 1 (notes, shared code, Claude Code adapter) | this branch | 578 |
-| 10 Own command line and chat | not started, after Dec 3 | | |
-| 11 Linux-like features | not started, after Dec 3 | | |
+| 9 Adapters | in progress: part 1 (notes, shared code, Claude Code adapter) | PR 11 | 578 |
+| 10 Own command line and chat | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
+| 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
+| Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
+| Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 11).
 
@@ -25,12 +27,13 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 
 | dates | work |
 | --- | --- |
-| Nov 15 to Nov 21 | Layer 9 adapters, when the owner says to start |
-| Nov 22 to Nov 28 | Whole-system test again (with the adapters), README, demo, Devpost text |
+| Nov 8 to Nov 9 | Layer 9 adapters (part 1 in PR 11, part 2 next) |
+| Nov 9 to Nov 10 | Layers 10 and 11. Each is built only after the owner approves its requirements, design and tasks |
+| Nov 11 to Nov 14 | Whole-system test again (with the adapters and layers 10 and 11) and a security scan |
+| Nov 15 to Nov 21 | Budget governor (the owner decided to build it before Dec 3), after the owner approves its requirements, design and tasks |
+| Nov 22 to Nov 28 | README, demo, Devpost text |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
-
-Layers 10 and 11 come after Dec 3.
 
 ## Setup
 
@@ -164,7 +167,7 @@ Still open:
 
 ## Layer 9: Adapters (in progress)
 
-Planned for Nov 15 to Nov 21. Part 1 of 2 (this branch): the notes, the shared adapter code and the Claude Code adapter. Part 2: the Kiro adapter and the generic stdin and stdout adapter, when the owner says so.
+Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter code and the Claude Code adapter. Part 2: the Kiro adapter and the generic stdin and stdout adapter, when the owner says so.
 
 - [x] 9.1 Read the official Claude Code hook documentation (PreToolUse) and the Kiro hook types and hook actions pages, and write down, with a link for every fact, the input fields, the output format, how to allow, deny or ask, and which exit code blocks: `adapters/NOTES.md`. The Kiro pages were read as the Markdown copies listed in kiro.dev/llms.txt; where they are silent or disagree, the notes say so.
 - [x] 9.2 Core: `umwayi check --json` gives `answer`, `rule_id`, `rules_ok` and `action_ok` (and `logged`), so an adapter never reads the reason text. Standard library only; no exit code changed.
@@ -182,20 +185,25 @@ Planned for Nov 15 to Nov 21. Part 1 of 2 (this branch): the notes, the shared a
   - [x] Claude Code: `tests/adapters/test_claude_code.py` (No blocks, Ask me first asks, Yes allows, a broken rules file does not allow, a crash in the adapter or in umwayi check blocks, bad or empty stdin blocks, a timeout blocks, one logbook entry per check and logbook verify ok). Three planted faults make them fail.
   - [ ] Kiro and generic (part 2)
 - [ ] 9.10 Starter rules for adapter actions in the repo rules.yaml. Done so far: example rules in `adapters/claude_code/rules.example.yaml`; the repo rules.yaml is unchanged.
-- [ ] 9.11 Whole-system test again with the adapters (Nov 22 to Nov 28)
+- [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
 - [ ] 9.12 Decide: should adapters deny everything while the kill switch is on? (open question for the owner, see design.md)
 
-## Layer 10: Own command line and chat (not started, after Dec 3)
+## Layer 10: Own command line and chat (not started, planned Nov 9 to Nov 10)
 
-Outline only. Starts only when the owner says so.
+Outline only. Built only after the owner approves its requirements, design and tasks.
+
+- [ ] 10.0 Requirements, design and tasks written and approved by the owner
 
 - [ ] 10.1 One front door that starts any agent through its own CLI or the Agent Client Protocol (ACP)
 - [ ] 10.2 The queue, rules and logbook stay in front of every agent it starts (through the layer 9 adapters)
 - [ ] 10.3 Reuse the platforms' CLIs and ACP. No model client is built.
+- [ ] 10.4 Layer 10 adapter packages may use third party packages, pinned and listed in their own README. The core `umwayi` package stays standard library only.
 
-## Layer 11: Linux-like features (not started, after Dec 3)
+## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
 
-Outline only. Starts only when the owner says so.
+Outline only. Built only after the owner approves its requirements, design and tasks.
+
+- [ ] 11.0 Requirements, design and tasks written and approved by the owner
 
 - [ ] 11.1 Scheduling with cron or systemd timers (no new scheduler)
 - [ ] 11.2 File watching with inotify
@@ -204,6 +212,17 @@ Outline only. Starts only when the owner says so.
 - [ ] 11.5 Terminal sessions with tmux
 - [ ] 11.6 No new scheduler, file system or shell is built
 
+## Whole-system test and security scan (not started, planned Nov 11 to Nov 14)
+
+- [ ] S.1 Whole-system test again, with the adapters and layers 10 and 11 (includes 9.11)
+- [ ] S.2 Security scan of the code and the dependencies of any adapter package
+
+## Budget governor (not started, planned Nov 15 to Nov 21)
+
+The owner decided to build it before Dec 3. Built only after the owner approves its requirements, design and tasks.
+
+- [ ] B.0 Requirements, design and tasks written and approved by the owner
+
 ## Non goals for Dec 3
 
-Budget governor, finance and marketing loops, web interface. Layers 10 and 11 come after Dec 3.
+Finance and marketing loops, web interface.

@@ -2,7 +2,7 @@
 
 umwayi-os is an AI operating system for one person and their AI helpers. It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change.
 
-It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is planned for Nov 15 to Nov 21. Layers 10 and 11 come after Dec 3.
+It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is planned for Nov 8 to Nov 9. Layers 10 and 11 are planned for Nov 9 to Nov 10; each is built only after the owner approves its requirements, design and tasks. The budget governor is planned for Nov 15 to Nov 21. The schedule to Dec 3 is in tasks.md.
 
 ## Glossary
 
@@ -22,7 +22,7 @@ It is built in layers. Each layer works alone and is tested before the next star
 - CC-4 Layers 1 to 5 make no network calls.
 - CC-5 The repo holds no secrets, and the tool never prints secrets.
 - CC-6 AI helpers never hold bank or card credentials and never move money.
-- CC-7 Python with the standard library first. Any third party dependency needs a written reason in the design.
+- CC-7 Python with the standard library first. The core `umwayi` package stays standard library only. Third party packages are allowed only in adapter packages (layers 9 and 10), pinned and listed in that package's README.
 - CC-8 There is one command line entry point named `umwayi`.
 - CC-9 User text uses the words: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first.
 - CC-10 Docs contain no em dashes.
@@ -155,7 +155,7 @@ Acceptance criteria:
 
 ## Layer 9: Adapters
 
-Status: not started. Starts only when the owner says so. Planned for Nov 15 to Nov 21.
+Status: in progress. Part 1 (the notes, the shared code, the Claude Code adapter) is built in PR 11. Planned for Nov 8 to Nov 9.
 
 User story: as the owner, I want the AI platforms I already use to ask umwayi before they act, so the same rules, queue and logbook cover them, and a broken adapter never lets an action through.
 
@@ -174,7 +174,7 @@ Acceptance criteria:
 
 ## Layer 10: Own command line and chat (outline)
 
-Status: not started. After Dec 3. Starts only when the owner says so.
+Status: not started. Planned for Nov 9 to Nov 10. Built only after the owner approves its requirements, design and tasks.
 
 User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them.
 
@@ -183,10 +183,11 @@ Outline:
 - One front door starts an agent through the agent's own command line or the Agent Client Protocol (ACP).
 - The queue, rules and logbook stay in front of every agent it starts, through the layer 9 adapters.
 - It reuses the platforms' command lines and ACP. It does not build a model client.
+- Layer 10 adapter packages may use third party packages, pinned and listed in their own README. The core `umwayi` package stays standard library only.
 
 ## Layer 11: Linux-like features (outline)
 
-Status: not started. After Dec 3. Starts only when the owner says so.
+Status: not started. Planned for Nov 9 to Nov 10. Built only after the owner approves its requirements, design and tasks.
 
 User story: as the owner, I want umwayi-os to schedule, watch, limit and remember like an operating system, using the tools Linux already has.
 
@@ -196,9 +197,16 @@ Outline:
 - Reuse cron or systemd timers, inotify, SQLite, tmux, Unix permissions, and bubblewrap or containers.
 - Do not build a new scheduler, file system or shell.
 
+## Budget governor (outline)
+
+Status: not started. Planned for Nov 15 to Nov 21. The owner decided to build it before Dec 3. Built only after the owner approves its requirements, design and tasks.
+
+Outline:
+
+- A limit on how much the AI helpers may use, so a runaway run is stopped. What is counted and what the limits are is decided in its requirements.
+- It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used.
+
 ## Non goals for Dec 3
 
-- Budget governor
 - Finance and marketing loops
 - Web interface
-- Layer 10 (own command line and chat) and layer 11 (Linux-like features): they come after Dec 3

@@ -25,7 +25,7 @@ umwayi/
   runlock.py    one run at a time: .umwayi/run.lock (fcntl.flock, never waits)
 ```
 
-Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters (planned) live outside the core package, in `adapters/`, so they may use pinned third party packages while `umwayi/` stays standard library only. Layers 10 and 11 come after Dec 3 and are outlined at the end of this file.
+Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters live outside the core package, in `adapters/`, so they, and layer 10 adapter packages, may use third party packages, pinned and listed in their README, while `umwayi/` stays standard library only. Layers 10 and 11 (planned Nov 9 to Nov 10, each built only after the owner approves its requirements, design and tasks) and the budget governor (planned Nov 15 to Nov 21) are outlined at the end of this file.
 
 Layers 2 to 8 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
@@ -588,7 +588,7 @@ It is separate from `.umwayi/logbook.lock`, which guards one logbook append.
 
 ## Layer 9: Adapters (in progress)
 
-Planned for Nov 15 to Nov 21. Part 1 (built): the notes, the shared code and the Claude Code adapter. Part 2 (not started): the Kiro adapter and the generic stdin and stdout adapter.
+Planned for Nov 8 to Nov 9. Part 1 (built, PR 11): the notes, the shared code and the Claude Code adapter. Part 2 (not started): the Kiro adapter and the generic stdin and stdout adapter.
 
 ### What the platforms say
 
@@ -653,18 +653,19 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Should an adapter also deny everything while the kill switch is on? The kill switch stops AI helpers, jobs and workflows today, and a platform acting through an adapter is an AI helper. The proposal is yes (check `umwayi kill status` first, on or unknown means deny).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (outline, after Dec 3)
+## Layer 10: Own command line and chat (outline, planned Nov 9 to Nov 10)
 
-Starts only when the owner says so.
+Built only after the owner approves its requirements, design and tasks.
 
 - One front door, for example `umwayi agent start NAME`, starts an agent through the agent's own command line, or talks to it over the Agent Client Protocol (ACP).
 - The queue, rules and logbook stay in front of it: the agent is started with the layer 9 adapter for its platform, so every action it takes is checked and logged.
 - The front door shows the queue (what waits for the owner) next to the conversation.
 - It reuses the platforms' command lines and ACP. It does not build a model client, does not hold model keys and does not call a model API itself.
+- Layer 10 adapter packages may use third party packages, pinned and listed in their own README. The core `umwayi` package stays standard library only. The rule from layer 9 holds: a test checks that the core never imports an adapter package.
 
-## Layer 11: Linux-like features (outline, after Dec 3)
+## Layer 11: Linux-like features (outline, planned Nov 9 to Nov 10)
 
-Starts only when the owner says so. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
+Built only after the owner approves its requirements, design and tasks. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
 
 | feature | reuse | what umwayi adds |
 | --- | --- | --- |
@@ -675,6 +676,10 @@ Starts only when the owner says so. Each feature reuses a tool Linux already has
 | terminal sessions | tmux | named sessions for long running agents, started through the layer 10 front door |
 
 No new scheduler, file system or shell is built.
+
+## Budget governor (outline, planned Nov 15 to Nov 21)
+
+The owner decided to build it before Dec 3. Built only after the owner approves its requirements, design and tasks. The design is written then; nothing about it is decided here except that it fails closed and logs every change like the other layers.
 
 ## Testing
 

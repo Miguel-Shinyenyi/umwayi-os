@@ -34,7 +34,7 @@ Do not use em dashes in docs or user text. Use commas, colons or periods.
 6. No secrets in the repo.
 7. Every helper action passes `umwayi check` first.
 8. A crash blocks. Every unexpected error exits 2, never 0, 1 or 3. An adapter (layer 9) catches every error and blocks, because on Claude Code exit 1 blocks nothing.
-9. The core `umwayi` package stays standard library only. Only layer 9 adapter packages may use third party packages, pinned and listed in their own README.
+9. The core `umwayi` package stays standard library only. Only adapter packages (layer 9, and layer 10 adapter packages) may use third party packages, pinned and listed in their own README.
 
 ## Exit codes (every command)
 
@@ -60,16 +60,24 @@ Done (PRs 1 to 8, then hardening and the whole-system test in PR 9, 556 tests, P
 7. Helpers: Steward and a social helper, draft only.
 8. Workflows: named workflow files, content loop (collect, brief, draft, approve), kill switch flag.
 
-Not started:
+In progress (part 1 in PR 11):
 
 9. Adapters: a thin adapter per AI platform (Claude Code PreToolUse hooks, Kiro hooks, a generic stdin and stdout adapter) turns hook input into `umwayi check` input and the answer back into allow, deny or ask. Read the official hook docs first.
-10. Own command line and chat (after Dec 3): one front door that starts any agent through its own CLI or the Agent Client Protocol, with the queue, rules and logbook in front. No model client.
-11. Linux-like features (after Dec 3): scheduling, file watching, process limits, a small database, terminal sessions, reusing cron or systemd timers, inotify, SQLite, tmux, Unix permissions, bubblewrap or containers. No new scheduler, file system or shell.
+
+Not started:
+
+10. Own command line and chat (Nov 9 to Nov 10, after the owner approves its requirements, design and tasks): one front door that starts any agent through its own CLI or the Agent Client Protocol, with the queue, rules and logbook in front. No model client.
+11. Linux-like features (Nov 9 to Nov 10, after the owner approves its requirements, design and tasks): scheduling, file watching, process limits, a small database, terminal sessions, reusing cron or systemd timers, inotify, SQLite, tmux, Unix permissions, bubblewrap or containers. No new scheduler, file system or shell.
+
+Then: the budget governor (Nov 15 to Nov 21; the owner decided to build it before Dec 3, after approving its requirements, design and tasks).
 
 ## Schedule to Dec 3
 
-- Nov 15 to Nov 21: layer 9 adapters, when the owner says to start
-- Nov 22 to Nov 28: whole-system test again, README, demo, Devpost text
+- Nov 8 to Nov 9: layer 9 adapters
+- Nov 9 to Nov 10: layers 10 and 11, each only after the owner approves its requirements, design and tasks
+- Nov 11 to Nov 14: whole-system test again and a security scan
+- Nov 15 to Nov 21: budget governor
+- Nov 22 to Nov 28: README, demo, Devpost text
 - Nov 29 to Dec 2: freeze, only fixes for defects that tests find
 - Dec 3: submit
 
@@ -81,4 +89,4 @@ Not started:
 
 ## Non goals for Dec 3
 
-Budget governor, finance and marketing loops, web interface. Layers 10 and 11 come after Dec 3.
+Finance and marketing loops, web interface.
