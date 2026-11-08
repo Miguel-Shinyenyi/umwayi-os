@@ -3,5 +3,9 @@
   "private_paths": [
     "memory/private",
     "memory/journal/*-private.md"
+  ],
+  "social_channels": [
+    "linkedin",
+    "mastodon"
   ]
 }

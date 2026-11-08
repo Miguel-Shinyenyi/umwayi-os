@@ -125,11 +125,15 @@ User story: as the owner, I want AI helpers that prepare work for me, so I only 
 
 Acceptance criteria:
 
-1. Steward reads the queue and proposes tasks as drafts.
-2. A social helper turns an article into post drafts.
-3. Every helper action passes `umwayi check` first. Anything other than Yes stops the helper.
-4. Helpers never publish, never hold bank or card credentials and never move money.
-5. Helper activity is written to the logbook.
+1. One helper base is used by every helper. Each action a helper wants to take goes through the same check as `umwayi check`.
+2. No stops the helper with exit 2. Ask me first stops it with exit 3 and adds a queue item of kind decision for the owner. Only Yes continues.
+3. Every step adds one logbook entry through the checked append.
+4. A helper can never set an approval. Helper code does not accept, build or pass `--approved-by`.
+5. A broken or missing rules file means no helper runs.
+6. Steward (`umwayi steward`) reads queue.md and the logbook, then writes one proposal under drafts/ with open items, items waiting longer than a set number of days, and suggested next tasks. It never edits the queue, never answers an item and never runs other commands.
+7. The social helper (`umwayi social draft ARTICLE_FILE`) reads one local article and writes numbered post drafts under drafts/, one per channel name in the `social_channels` allow list in umwayi.json. It uses fixed templates only (no model call, no network). Each post is short and plain, with no hashtags and no em dashes, and has a link line from the article front matter. It never posts. Publishing stays `umwayi publish-draft`, which is Ask me first.
+8. The starter rules make helper reads and drafts Yes and any post, send or publish action from a helper No.
+9. Helpers write no file outside drafts/, except their logbook entries and, for Ask me first, the queue item.
 
 ## Layer 8: Workflows
 

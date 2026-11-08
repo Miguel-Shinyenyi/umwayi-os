@@ -18,11 +18,12 @@ umwayi/
   jobs.py       layer 6: umwayi run, the jobs file, the gap rule
   report.py     layer 6: umwayi report, the one fixed git log command
   publish.py    layer 6: umwayi publish-draft
-  helpers/      layer 7 (later)
+  drafts.py     numbered drafts under drafts/ that never overwrite (layers 6 and 7)
+  helpers/      layer 7: base.py (every helper step), steward.py, social.py
   workflows/    layer 8 (later)
 ```
 
-Layers 2 to 6 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
+Layers 2 to 7 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
 ## Safety model
 
@@ -401,9 +402,73 @@ So every run that reaches the rules writes exactly one logbook entry.
 
 `--approved-by` is the owner's word on the command line. It is not a security boundary against a program that runs as the owner. Layer 7 helpers must never pass it.
 
-## Layers 7 and 8 (planned)
+## Layer 7: Helpers
 
-- Helpers: each helper action is built as an action JSON and sent to `umwayi check`. Only Yes continues, and even then the result is a draft.
+AI helpers draft only. They live in `umwayi/helpers/` and import only the standard library and a short allow list of umwayi modules (config, drafts, errors, memory, and through the base: logbook, rules, taskqueue). They never import `publish`, `report`, `jobs` or `cli`, so they cannot publish, run git or call another command. Importing them loads no program runner and no network module; a test checks this in a fresh process.
+
+### The helper base (`helpers/base.py`)
+
+A helper asks for one step at a time: `helper.step(type, work, channel=...)`.
+
+1. The base builds the action `{"type": TYPE, "helper": NAME}` and adds `channel` if given. A helper can give nothing else: any other key is an error before anything is checked. So a helper can never set, build or pass an approval. The helper code does not contain the word "approved" at all, and `umwayi steward --approved-by` and `umwayi social draft --approved-by` are usage errors (exit 64). Tests check all three.
+2. The action goes through `rules.check`, the same check as `umwayi check`.
+3. No: one logbook entry, stop with exit 2. The work does not run.
+4. Ask me first, or anything that is not Yes: one queue item of kind decision, titled `AI helper NAME asks first: may it do TYPE?`, then one logbook entry, then stop with exit 3. If an open decision with that title already exists, no second one is added. If the queue cannot be written, the helper still stops with exit 3 and says so.
+5. Yes: the work runs, then one logbook entry. If the work fails, the entry says the step failed and the helper stops with exit 1. If the entry cannot be written, the work is undone (the draft is removed) and the helper stops with exit 3.
+
+Every checked step adds exactly one logbook entry (source `umwayi steward` or `umwayi social`), written through the checked append. An Ask me first step also adds the queue item's own entry (source `umwayi queue add`), as every queue change does.
+
+Before the first step, `start`:
+
+- reads the logbook through `logbook.read_checked`. If it fails its tamper check or format check, the helper refuses with exit 1 and writes nothing;
+- loads rules.yaml. If it is missing or broken, no helper runs: exit 3 (Ask me first), one logbook entry, no step, no draft, no queue item.
+
+Answering a helper's queue item is a record for the owner. It does not let the helper go on. To allow an action, the owner adds a Yes rule in rules.yaml.
+
+### Steward (`umwayi steward [--waiting-days N] [--date D]`)
+
+Steps: `read_queue`, `read_logbook`, `write_draft`. It writes `drafts/steward-NNNN.md` with:
+
+- open items, each with the date it was added (from the `umwayi queue add` logbook entry) or "added date not in the logbook";
+- items open longer than N days (strictly longer; default 7, from 1 to 365);
+- answered items that are not closed;
+- suggested next tasks from fixed rules: answer late decisions (with their recommendation), do or close late tasks, close answered items, answer other open decisions, check rows with no added date. At most 20, then "And N more."
+
+A missing queue.md counts as 0 rows and is not created. A malformed queue.md stops the helper at step 1 (exit 1). Steward never edits the queue, never answers an item and never runs another command. The only queue change during a Steward run can come from the base, when a step is Ask me first.
+
+### Social helper (`umwayi social draft ARTICLE [--date D]`)
+
+Before any step, it refuses (exit 1, nothing written) if: `umwayi.json` has no `social_channels`; the article is outside the root, has `..`, is under `.git` or `.umwayi`, is a symbolic link or inside a linked folder, is a private path, is missing or is not a regular file.
+
+Steps: `read_article`, then one `write_draft` per channel (with `channel` in the action, so a rule can stop one channel).
+
+- The article must start with front matter between two `---` lines with `title` and `link`, and optionally `summary`. No other keys, no repeats. The link must be one `https://` address with no spaces, quotes or `#`. The file must be UTF-8 and at most 200000 bytes.
+- The summary is the front matter `summary`, or else the first paragraph after any heading.
+- One fixed template: title, blank line, summary, blank line, `Read more: LINK`. Text is cleaned: markdown links become their text, em dashes and en dashes become commas, `#` is removed, `*` and backticks are removed, spacing is collapsed.
+- At most 280 characters. A long summary is cut at a word with `...`; if fewer than 20 characters would be left, it is left out. If the title and link alone are too long, the step fails.
+- A final check fails closed: no `#`, no em dash, plain text, at most 280 characters, ends with the link line.
+- Drafts: `drafts/post-CHANNEL-NNNN.md`, numbered per channel, never overwritten. The file holds only the post text, so `umwayi publish-draft` copies exactly what the owner posts.
+
+There is no model call and no network. The social helper never posts. Publishing stays `umwayi publish-draft`, which is Ask me first for the owner. For a helper, a `publish_draft` action is No.
+
+### Config
+
+`umwayi.json` may have `social_channels`: a list of 1 to 5 names of lowercase letters, digits and `-` (up to 20 characters), with no repeats. It is optional, but a bad value makes the whole config invalid, like any other key.
+
+### Rules
+
+The starter rules.yaml adds:
+
+| id | matchers | verdict |
+| --- | --- | --- |
+| helper-read | helper present, type read_queue, read_logbook or read_article | Yes |
+| helper-draft | helper present, type write_draft | Yes |
+| helper-no-post | helper present, type contains post, send or publish | No |
+
+Any other helper action matches no rule and is Ask me first. The older `write-draft` rule also gives Yes for `write_draft`, and comes first in the file, so log entries name it.
+
+## Layer 8 (planned)
+
 - Workflows: files in `workflows/` listing steps. A flag file `KILL_SWITCH` stops every run. If the flag cannot be read, the run stops.
 
 ## Testing

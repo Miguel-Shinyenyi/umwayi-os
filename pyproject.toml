@@ -15,4 +15,4 @@ dependencies = []
 umwayi = "umwayi.cli:main"
 
 [tool.setuptools]
-packages = ["umwayi"]
+packages = ["umwayi", "umwayi.helpers"]
