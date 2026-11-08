@@ -433,7 +433,12 @@ class CodeGuardTests(unittest.TestCase):
                     self.assertIn("timeout", kw)
                     self.assertIn("input", kw)
                 else:
-                    self.assertIs(kw["start_new_session"].value, True)  # its own process group, so all of it can be stopped
+                    # run: its own session and process group, so all of it can be stopped; chat: umwayi's group,
+                    # because an interactive screen needs the controlling terminal
+                    self.assertEqual(kw["start_new_session"].id, "new_session")
+        src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("new_session = not chat"), 1)
+        self.assertNotIn("signal.SIG_IGN", src)  # an ignored signal stays ignored in the agent after exec
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
         for bad in ("os.system", "os.popen", "os.exec", "os.spawn", "shell=True", "pty."):
             self.assertNotIn(bad, src)

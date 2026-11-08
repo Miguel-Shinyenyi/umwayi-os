@@ -230,8 +230,8 @@ class StopsBeforeStartTests(RunCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("not found on PATH", self.run_entries()[-1].added)
 
-    def test_chat_is_not_built_and_starts_nothing(self):
-        r = self.umwayi("chat", "reviewer")
+    def test_chat_with_extra_words_is_64_and_starts_nothing(self):
+        r = self.umwayi("chat", "reviewer", "please")
         self.assertEqual(r.returncode, 64)
         self.assert_nothing_ran()
         self.assertFalse((self.root / "LOGBOOK.md").exists())

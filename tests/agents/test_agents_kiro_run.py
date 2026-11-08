@@ -224,10 +224,10 @@ class KiroYesTests(KiroRunCase):
                 self.assertEqual(r.returncode, 2)
                 self.assertIn(f"with code {code}", self.run_entries()[-1].added)
 
-    def test_chat_is_still_refused(self):
-        for name in ("kiro", "kiro-acp"):
-            r = self.umwayi("chat", name)
-            self.assertEqual(r.returncode, 64)
+    def test_acp_chat_is_still_refused(self):
+        r = self.umwayi("chat", "kiro-acp")
+        self.assertEqual(r.returncode, 64)
+        self.assertIn("ACP chat is layer 10 part 6", r.stderr)
         self.assertEqual(self.calls(), [])
 
 

@@ -19,6 +19,11 @@ It records every call to the JSON lines file in FAKE_LOG.
   with the event JSON on stdin. Exit 2 blocks; any other exit code warns and lets the tool
   run (the more dangerous of the two readings of the Kiro docs). Then, because nobody can
   approve a tool in a headless run, a tool not in --trust-tools is denied.
+* Chat (claude without -p, kiro-cli chat without --no-interactive): it runs the FAKE_SCRIPT
+  steps, prints "agent ready", then reads lines from stdin and echoes each as
+  "agent: LINE". "/tool NAME" makes a tool call through the hooks, "/exit N" exits N,
+  "/quit" or the end of stdin exits 0. Ctrl-C (SIGINT) is recorded, not fatal. It records
+  whether stdin is a terminal, the terminal name and the terminal's foreground group.
 """
 import json
 import os
@@ -49,11 +54,21 @@ if ARGS == [VERSION_FLAG]:
     sys.stdout.write(os.environ.get(f"FAKE_{KEY}_VERSION", DEFAULT_VERSION) + "\n")
     sys.exit(int(os.environ.get(f"FAKE_{KEY}_EXIT", "0")))
 
-stdin_text = "" if (sys.stdin is None or os.environ.get("FAKE_NO_STDIN")) else sys.stdin.read()
+CHAT = ("-p" not in ARGS) if KEY == "CLAUDE" else ("--no-interactive" not in ARGS)
+stdin_text = "" if (CHAT or sys.stdin is None or os.environ.get("FAKE_NO_STDIN")) else sys.stdin.read()
+tty = {}
+# what the agent inherited for Ctrl-C, before it sets its own handler: SIG_IGN here would mean a
+# program that keeps the default action never sees Ctrl-C
+INHERITED_SIGINT_IGNORED = signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+if CHAT:
+    tty = {"stdin_tty": os.isatty(0), "stdout_tty": os.isatty(1),
+           "ttyname": os.ttyname(0) if os.isatty(0) else None,
+           "foreground": os.tcgetpgrp(0) if os.isatty(0) else None,
+           "sigint_ignored": INHERITED_SIGINT_IGNORED}
 with open("/proc/self/cmdline", "rb") as f:
     cmdline = f.read().decode("utf-8", "replace").split("\x00")
 rec(argv=ARGS, cwd=os.getcwd(), started=True, pid=os.getpid(), pgid=os.getpgid(0), sid=os.getsid(0),
-    stdin=stdin_text, env_keys=sorted(os.environ), cmdline=cmdline)
+    stdin=stdin_text, env_keys=sorted(os.environ), cmdline=cmdline, chat=CHAT, **tty)
 trusted = set()
 for a in ARGS:
     if a.startswith("--trust-tools="):
@@ -125,7 +140,7 @@ def kiro_tool(name: str, inp: dict) -> str:
         answer = "allow-hook" if code == 0 else "warn-hook"
     if answer == "deny-hook":
         final = "deny-hook"
-    elif name not in trusted:
+    elif name not in trusted and not CHAT:  # in a chat the owner approves untrusted tools in Kiro's own prompt
         final = "deny-untrusted"
     else:
         final = "allow"
@@ -174,10 +189,40 @@ for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     elif kind == "spawn":
         p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
         rec(event="spawn", pid=p.pid)
+    elif kind == "raw":  # what a full screen program does to the terminal
+        import tty as _tty
+        _tty.setraw(0)
+        rec(event="raw")
+    elif kind == "spawn_orphan":  # a grandchild whose parent exits after 1.5 s, so it is orphaned while the agent runs
+        code = ("import subprocess, sys, time, json\n"
+                "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+                "print(p.pid, flush=True)\n"
+                "time.sleep(1.5)\n")
+        mid = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, text=True)
+        rec(event="spawn", pid=int(mid.stdout.readline()), orphan=True)
+        rec(event="spawn", pid=mid.pid, intermediate=True)
+    elif kind == "spawn_setsid":  # a child in its own session: out of reach of a process group signal
+        p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True)
+        rec(event="spawn", pid=p.pid, setsid=True)
     elif kind == "crash":
         raise RuntimeError("the fake agent crashed")
     elif kind == "exit":
         rec(event="end")
         sys.exit(step["code"])
+if CHAT:
+    signal.signal(signal.SIGINT, lambda signum, frame: rec(event="sigint"))
+    print("agent ready", flush=True)
+    for line in sys.stdin:
+        line = line.rstrip("\n")
+        rec(event="line", text=line)
+        if line == "/quit":
+            break
+        if line.startswith("/exit "):
+            rec(event="end")
+            sys.exit(int(line.split()[1]))
+        if line.startswith("/tool "):
+            print(f"tool {line.split()[1]}: {tool(line.split()[1], {})}", flush=True)
+            continue
+        print(f"agent: {line}", flush=True)
 rec(event="end")
 sys.exit(0)
