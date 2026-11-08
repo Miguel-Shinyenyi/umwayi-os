@@ -162,3 +162,95 @@ The Kiro pages were read as the Markdown copies listed in `kiro.dev/llms.txt`, a
 | a hook that cannot start blocks the call | yes, with `onFailure: "block"` on v2.1.295 or later | **not documented** (layer 9, KNOWN-LIMITS 22) |
 | the version is new enough | only if `claude -v` prints a version umwayi can read | only if `kiro-cli --version` prints a version umwayi can read |
 | hooks run in this mode | `-p`: yes; interactive: held until the folder is trusted | headless V3 from 2.27.1: yes; interactive CLI: the Hook types page lists Pre Tool Use for the CLI ([NOTES.md](NOTES.md)); ACP: **not confirmed** |
+
+## Claude Code over ACP: the claude-agent-acp adapter (part 7, spec only)
+
+Read on Nov 8 2026, for the part 7 spec (tasks.md 10.22 and up). Nothing was installed or run: the facts come from the README, `package.json`, the npm registry and the source of the release tag. Where a line says **from the source**, it is what the code does at that tag, not a documented promise; the next release can change it. **Not documented** means neither the README nor the source answers it.
+
+Sources:
+
+| what | where |
+| --- | --- |
+| repository (Apache-2.0, default branch main, last push Nov 8 2026) | [github.com/agentclientprotocol/claude-agent-acp](https://github.com/agentclientprotocol/claude-agent-acp) |
+| the release read | tag [v0.101.0](https://github.com/agentclientprotocol/claude-agent-acp/tree/v0.101.0), commit `85aec26ef984a421fe8064ce43f60138a3372384` |
+| npm package | [@agentclientprotocol/claude-agent-acp](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp), registry metadata at [registry.npmjs.org/@agentclientprotocol%2Fclaude-agent-acp](https://registry.npmjs.org/@agentclientprotocol%2Fclaude-agent-acp) |
+| README | [README.md at v0.101.0](https://github.com/agentclientprotocol/claude-agent-acp/blob/v0.101.0/README.md) |
+| source files cited below | under [src/ at v0.101.0](https://github.com/agentclientprotocol/claude-agent-acp/tree/v0.101.0/src) |
+| Agent SDK options and permissions | [Agent SDK TypeScript reference](https://code.claude.com/docs/en/agent-sdk/typescript.md), [Configure permissions](https://code.claude.com/docs/en/agent-sdk/permissions.md) |
+
+### The facts given in the task, confirmed or corrected
+
+| claim | finding |
+| --- | --- |
+| Apache-2.0 | **Confirmed**: `license` in `package.json` and the repository license. |
+| Node 22 or higher | **Confirmed**: `"engines": {"node": ">=22"}` in `package.json` (v0.101.0 and the registry entry of the latest version). |
+| uses the Claude Agent SDK | **Confirmed**: dependency `@anthropic-ai/claude-agent-sdk` pinned to exactly `0.3.318`, next to `@agentclientprotocol/sdk` `2.4.0`, `diff` `9.0.0`, `zod` `4.6.7`. |
+| auth by `ANTHROPIC_API_KEY` or a claude-login method | **Corrected.** The ACP `authMethods` are terminal methods only: `claude-ai-login` ("Claude Subscription", runs `--cli auth login --claudeai`) and `console-login` ("Anthropic Console", `--cli auth login --console`); on a remote machine (`SSH_CONNECTION`, `SSH_TTY`, `NO_BROWSER` and similar) `claude-login` ("Run `claude /login` in the terminal") instead of the first. **They are only offered when the client declares `clientCapabilities.auth.terminal` or `_meta["terminal-auth"]`**; a `gateway` method only with `auth._meta.gateway`. With `clientCapabilities: {}` the list is empty. (from the source, `initialize` in `src/acp-agent.ts`). `ANTHROPIC_API_KEY` is not an ACP method: the adapter passes its whole environment to the Claude CLI it starts (`env: {...process.env, ...}`), and the CLI reads the key itself (Claude Code behaviour, not documented by the adapter). |
+| env vars `ANTHROPIC_BASE_URL`, `CLAUDE_CONFIG_DIR` | **Confirmed from the source**: `CLAUDE_CONFIG_DIR` (or `~/.claude`) is where it looks for user settings (`src/paths.ts`); `ANTHROPIC_BASE_URL` is read for the account and provider routing. Also read from the environment: `CLAUDE_CODE_EXECUTABLE` (use this Claude CLI instead of the bundled one, `src/claude-cli.ts`), `CLAUDE_AGENT_LOGS` (a log folder; the log can hold session details), `IS_SANDBOX` (allows bypass mode when running as root, `src/permissions/modes.ts`), `MAX_THINKING_TOKENS`, `CLAUDE_MODEL_CONFIG`, `CLAUDE_CODE_THINKING_DISPLAY`. None of these is documented in the README. |
+| `CLAUDE_AGENT_ACP_PROTOCOL` for v1, v2 or auto | **Confirmed** (README, "Experimental ACP v2"): `v1` negotiates a v2 client down to v1, `v2` rejects a v1 client, `auto` (the default) serves both. |
+| session options through `_meta.claudeCode.options` | **Confirmed from the source** (`NewSessionMeta` in `src/acp-agent.ts`): the object is spread into the Agent SDK `Options`. Ignored and set by the adapter: `cwd`, `includePartialMessages`, `permissionMode`, `canUseTool`, `executable`. Merged with the adapter's own: `hooks`, `mcpServers`, `disallowedTools`. `allowDangerouslySkipPermissions: false` removes bypass mode for the session. Not documented in the README. |
+| terminals and client MCP servers listed as capabilities | **Partly corrected.** The README lists "Interactive (and background) terminals" and "Client MCP servers" as features. The terminals are a display extension (`_meta.terminal_info`, `terminal_output`) that a client opts into in `clientCapabilities._meta`; the adapter does **not** use ACP `terminal/create` (from the source, `src/tool-calls/renderer.ts`). Client MCP servers are the `mcpServers` of `session/new`. |
+| background commands keep running after `session/cancel` | **Confirmed** (README, "Subagent sessions"): "Background commands keep running after a cancel either way." Background subagents also keep running after a parent cancel when the client uses the subagents form. |
+
+### (a) The command to start it, and the version to pin
+
+- **Newest version: `0.101.0`**, the npm `latest` dist-tag on Nov 8 2026. The `preview` tag is `0.101.1-preview.7` (published Nov 8 2026); preview builds are published from every push to main (README) and are not for pinning. Integrity of `0.101.0` in the registry: `sha512-c9YGBfdJrLcKiinRpXuDuibC+CRGqQpe9+ey/+TuuZ7ejHlVyEELbbvRkxHZN+Hf5XGecJD5i0kvP2opCseATA==`.
+- **The old names are deprecated:** `@zed-industries/claude-code-acp` (last `0.16.2`) and `@zed-industries/claude-agent-acp` (last `0.23.1`) both say "This package has been renamed to @agentclientprotocol/claude-agent-acp" in the registry.
+- **The binary:** `package.json` has `"bin": {"claude-agent-acp": "dist/index.js"}`, and `dist/index.js` starts with `#!/usr/bin/env node`. Run without a shell and without the shebang's PATH lookup, that is: `NODE dist/index.js` (an absolute `node` and the absolute path of the installed file), stdin and stdout as the ACP pipes. There are no flags needed to serve ACP (from the source, `src/index.ts`).
+- **Other entry flags** (from the source, `src/index.ts`): `--version` or `-v` prints the package version and exits 0; `--cli ARGS...` runs the bundled Claude CLI with ARGS (`--cli` is checked first, so `--cli --version` prints the Claude CLI's version); `--hide-claude-auth` hides the claude.ai login and refuses sessions a subscription would pay for (`src/hide-claude-auth.ts`).
+- **The Claude CLI it runs** (from the source, `src/claude-cli.ts`): `CLAUDE_CODE_EXECUTABLE` if set; else the native binary of the SDK's platform package (`@anthropic-ai/claude-agent-sdk-linux-x64`, `-linux-x64-musl`, arm64 and the other platforms, installed by npm as an optional dependency). It does **not** use the owner's `claude` from PATH unless `CLAUDE_CODE_EXECUTABLE` points to it.
+- **Standalone executables** (no Node) are attached to each GitHub release (README); out of scope here, because the owner chose a pinned npm package.
+- **No install scripts:** neither `@agentclientprotocol/claude-agent-acp` 0.101.0 nor `@anthropic-ai/claude-agent-sdk` 0.3.318 has a `preinstall`, `install`, `postinstall` or `prepare` script (registry metadata); the Claude CLI comes as the SDK's platform optional dependency (`@anthropic-ai/claude-agent-sdk-linux-x64` and others, each `0.3.318`). So `npm ci --ignore-scripts` should install everything; **not confirmed** by an install.
+- **The bundled Claude Code version:** the SDK's registry entry for 0.3.318 has `"claudeCodeVersion": "2.1.318"`, at least the 2.1.295 that `onFailure: "block"` needs. Not documented in the adapter; checked at start with `--cli --version`.
+
+### (b) Sign-in
+
+- **The owner's existing Claude Code login is used as it is**, without the client touching it: the adapter starts the Claude CLI with its own environment, and the CLI reads its login itself (OAuth credentials or the system keychain; the Claude Code docs say only bare mode skips them, [Run Claude Code programmatically](https://code.claude.com/docs/en/headless.md)). The adapter's settings and identity checks use `CLAUDE_CONFIG_DIR` or `~/.claude` (`src/paths.ts`). So the same `HOME` (and `CLAUDE_CONFIG_DIR` if the owner sets one) gives the same login. Not documented by the adapter: where the credentials are stored.
+- **The adapter checks sign-in itself:** it runs the CLI with `auth status --json` in the background after `initialize` (5 second limit) and pushes an `_auth/status_update` notification with the identity (from the source). The Claude Code CLI reference says `claude auth status` exits 0 when signed in and 1 when not ([CLI reference](https://code.claude.com/docs/en/cli-reference)). So `NODE ADAPTER --cli auth status` answers "signed in?" by its exit code alone, without umwayi reading its output.
+- **The login methods** need a client that runs a terminal for them (see the table above). With `clientCapabilities: {}` none is offered: the owner signs in beforehand with `claude` (or `NODE ADAPTER --cli auth login`), outside umwayi.
+- **Not documented:** what `session/new` or `session/prompt` answers when the owner is signed out (the source shows an `authRequired` error under `--hide-claude-auth`; without it, not documented).
+
+### (c) Settings files and hooks inside an ACP session
+
+- **Settings sources** (from the source): every session gets `settingSources: ["user", "project", "local"]`, placed before `_meta.claudeCode.options`, so a client could replace it. The SDK docs: user is `~/.claude/settings.json`, project `.claude/settings.json`, local `.claude/settings.local.json`; endpoint-managed policy loads in all cases ([TypeScript reference, settingSources](https://code.claude.com/docs/en/agent-sdk/typescript.md)). Managed policy env vars are applied before anything else (`src/managed-policy.ts`).
+- **A route for our hook without a file:** `_meta.claudeCode.options.settings` is passed to the SDK `settings` option, which the SDK docs define as the inline settings object that "Populates the flag-settings layer", the same layer as `claude --settings` ([TypeScript reference, settings](https://code.claude.com/docs/en/agent-sdk/typescript.md)). The adapter merges its own provider settings into it (from the source). So the same inline JSON as `agent run` (`disableAllHooks: false` and one `PreToolUse` command hook, matcher `*`, `onFailure: "block"`) can go in, and nothing is written to `.claude`.
+- **`_meta.claudeCode.options.hooks` is not that route:** the SDK `hooks` option takes callback functions, which cannot cross JSON-RPC (the adapter drops functions from its session fingerprint for that reason), so a command hook cannot be given there.
+- **Order of checks** ([Configure permissions, How permissions are evaluated](https://code.claude.com/docs/en/agent-sdk/permissions.md)): 1 hooks (a `PreToolUse` hook can deny outright), 2 deny rules, 3 ask rules, 4 permission mode, 5 allow rules, 6 `canUseTool`, which the adapter turns into `session/request_permission`. So, by the docs, a hook runs before any permission request reaches umwayi.
+- **Workspace trust:** in an SDK session Claude Code shows no trust dialog and treats the folder as trusted, so hooks from settings run ([Hooks reference, workspace trust](https://code.claude.com/docs/en/hooks.md)).
+- **Not confirmed:** no page of the adapter says that a command hook from the flag-settings layer runs inside an ACP session. It follows from the SDK and Claude Code docs above and from the adapter passing `settings` through, but it has not been seen to run. A managed policy (`allowManagedHooksOnly`) can still block it unseen (KNOWN-LIMITS 30). **A model-free way to see it run:** add a `SessionStart` command hook to the same inline settings; if Claude Code runs hooks from that layer in this session, it runs that one when the session starts. Not documented: whether `SessionStart` runs at `session/new` or only with the first prompt in the SDK's streaming mode.
+
+### (d) Client capabilities
+
+- **It needs none.** The tools (Read, Write, Edit, Bash and the others) run inside the Claude CLI process on the local machine, not through the client. The adapter has `readTextFile` and `writeTextFile` methods that call the client, but in v0.101.0 nothing in the normal session flow calls them (from the source). Terminals are a display extension only. AskUserQuestion is turned off when the client has no form elicitation capability (`disallowedTools: ["AskUserQuestion"]`, from the source). With `clientCapabilities: {}`: no login methods, no elicitation, no display terminals, no subagent sessions; tool calls stay ordinary tool calls.
+- **Not documented:** a statement in the README that it works with no capabilities; the above is from the source.
+
+### (e) Permission requests and modes
+
+- **Shape** (from the source, `src/tool-calls/renderer.ts` `permissionToolCall` and `src/permissions/presentation.ts`): for every client that is not JetBrains AIR (umwayi included), `toolCall` holds `toolCallId`, `name` (the Claude Code tool name, for example `Bash`, `Edit`, `mcp__server__tool`), `status: "pending"`, `rawInput`, `title`, `kind`, `content` and `locations`. `_meta.claudeCode.toolName` is added for MCP and subagent calls. AIR clients get a smaller shape; umwayi does not declare AIR.
+- **Kinds used** (from the source, `src/tool-calls/reporters/`): `read`, `edit`, `execute`, `search`, `fetch`, `think`, `switch_mode`, `other`. All are short plain words, so umwayi's `acp_permission` action can carry them; tool names up to 40 characters too (longer MCP names are left out, then only the kind is in the action).
+- **Options** (from the source, `src/permissions/options/`): `allow_once`, `allow_always` (a lasting rule, or a skill), `reject_once`; for ExitPlanMode the `allow_always` options switch the mode to `auto`, `bypassPermissions` or `acceptEdits`, and the only `allow_once` option keeps `default`. umwayi never takes an `allow_always` option, so a Yes there leaves the mode at `default`.
+- **Something the action cannot describe:** ExitPlanMode ("Ready to code?", kind `switch_mode`) is a mode change, not a tool; `rawInput` (the command, the path) is never in umwayi's action, so rules can tell `Bash` from `Edit` but not one command from another. The hook (first gate) does see the command.
+- **Modes** (from the source, `src/permissions/modes.ts`): `default` (labelled Manual), `acceptEdits`, `plan`, `dontAsk`, `auto`, `bypassPermissions`. Bypass is off when running as root (unless `IS_SANDBOX`), when settings disable it, or when `_meta.claudeCode.options.allowDangerouslySkipPermissions` is `false`. **The starting mode comes from `permissions.defaultMode` in the settings files** (escalating values from repository files are filtered out); `permissionMode` in `_meta` is ignored. A client can change the mode with the standard `session/set_mode`. In `acceptEdits`, `auto` and `bypassPermissions` many calls are approved without a permission request ([Configure permissions](https://code.claude.com/docs/en/agent-sdk/permissions.md)), so then the hook is the only check.
+
+### (f) Protocol v1 with empty capabilities
+
+- **Yes.** `initialize` answers `protocolVersion: 1` on the v1 path whatever the client sends (from the source); with `CLAUDE_AGENT_ACP_PROTOCOL=v1` a v2 request is also negotiated down. It also pushes `_auth/status_update` after `initialize` (umwayi ignores notifications it does not know). `session/prompt` takes the standard `prompt` field (the ACP v1 schema; the adapter is built on `@agentclientprotocol/sdk`).
+
+### (g) Stopping, and background children
+
+- **Stop** (from the source, `src/index.ts`): the end of stdin closes the connection, and SIGTERM and SIGINT run the same shutdown: `dispose()` tears down each session's SDK query, then the process exits 0.
+- **Background children:** commands that Claude Code moved to the background keep running after `session/cancel` (README). **Not documented:** whether `dispose()` at exit stops them, and whether Claude Code puts them in their own process group or session. So umwayi must stop more than the adapter: its whole process group and, as for a cli chat, every descendant it has seen in `/proc`.
+
+### What part 7 takes from this
+
+| need | how |
+| --- | --- |
+| the package | `@agentclientprotocol/claude-agent-acp` exactly `0.101.0`, with a lockfile, in `adapters/claude_acp/`, installed by the owner |
+| start | `[NODE, ADAPTERS/claude_acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js]`, no shell, no npx, no shebang lookup, `CLAUDE_AGENT_ACP_PROTOCOL=v1` |
+| versions | `node --version` at least 22; the installed `package.json` version equal to the pin; `NODE ADAPTER --version` equal to the pin; `NODE ADAPTER --cli --version` at least 2.1.295 (for `onFailure`) |
+| sign-in | `NODE ADAPTER --cli auth status`: exit 0, output discarded |
+| our hook | inline `settings` in `_meta.claudeCode.options` (flag layer), plus `allowDangerouslySkipPermissions: false` |
+| first gate confirmed | a `SessionStart` canary hook in the same inline settings, seen before the first prompt (not documented when it runs; refuse if not seen) |
+| starting mode | `session/set_mode` to `default` after `session/new` (proposed) |
+| capabilities | `{}`: none needed |
+| stop | stdin closed, then the process group and every seen descendant |
