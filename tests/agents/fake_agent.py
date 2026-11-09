@@ -276,7 +276,7 @@ def run_session_start(settings: dict, source: str) -> None:
 def run_acp():
     """A scripted ACP agent. FAKE_ACP: {"init": {...} | "garbage", "new": {...}, "turns": [[action, ...], ...],
     "ignore_eof": bool, "stderr": text, and for the Claude flavour "canary": "session_new" | "first_prompt" |
-    "never", "canary_delay": seconds, "set_mode_error": bool}. Actions: chunk, tool_call, update, permission,
+    "never", "canary_delay": seconds, "set_mode_error": bool}. Actions: chunk, tool_call, update, notify, permission,
     request, garbage, big, sleep, wait_cancel, ignore_cancel, exit, spawn, spawn_setsid, spawn_stubborn, stop,
     and claude_tool ({"tool": NAME, "input": {...}}, the PreToolUse hooks first, then its permission if any)."""
     global groups
@@ -385,6 +385,9 @@ def run_acp():
                 update(dict({"sessionUpdate": "tool_call", "toolCallId": "call-1", "status": "pending"}, **act["tool_call"]))
             if "update" in act:
                 update(act["update"])
+            if "notify" in act:  # any notification, for example the Claude adapter's _auth/status_update push
+                send({"jsonrpc": "2.0", "method": act["notify"]["method"], "params": act["notify"].get("params", {})})
+                rec(event="notify_sent", method=act["notify"]["method"])
             blocked = False
             if "claude_tool" in act:  # the PreToolUse hooks run before any permission request
                 blocked = tool(act["claude_tool"]["tool"], act["claude_tool"].get("input", {})) in ("deny", "block")

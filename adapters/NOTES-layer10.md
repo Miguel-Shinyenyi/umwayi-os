@@ -443,6 +443,114 @@ Read on Nov 9 2026, for the owner's request that subscription comes first on eve
 | a Kiro login command | possible: `umwayi agent login NAME` for a Kiro agent runs `[KIRO, "login"]` on the owner's terminal (no flags), then the `whoami` check. Proposed in design.md part 7c |
 | unknown | the `whoami` JSON fields and exit code; whether headless runs really work without `KIRO_API_KEY` (the Conflict above); how "remote" is detected for the device flow; what an organisation's plan bills |
 
+## The owner's first real run (10.31): steps, expected output, results (NOT DONE YET)
+
+Written Nov 10 2026 with part 7c-3 (PR 29). Everything above this section was read from docs and source, and every test uses fakes. This run is the first time a real Node, the real pinned adapter, a real Claude Code login and a real Kiro login meet umwayi. It is the owner's, on the owner's machine; nothing here was run by the build. It also holds the real checks that tasks 10.37 and 10.39 fold into 10.31.
+
+Rules for this run:
+
+- Record field **names**, exit codes and version strings only. Never paste a value of `auth status`, an email, an organisation, a URL, a code, a token or a key into this file, an issue or a chat.
+- No API key anywhere. Where a step needs "a key is set", it uses the placeholder `not-a-real-key-umwayi-test`, which is not a key.
+- umwayi never signs in or out by itself. Every login and logout below is typed by the owner.
+
+### 0. Prepare (once)
+
+1. `node --version` prints `v22.` or later.
+2. In `adapters/claude_acp/`, run `npm ci --ignore-scripts` (see its README; umwayi never runs npm).
+3. In the umwayi root, an `agents.yaml` with a scratch workdir (a folder you do not mind an agent reading):
+
+   ```yaml
+   agents:
+     - name: reviewer
+       platform: claude-code
+       command: claude
+       transport: acp
+       workdir: /path/to/a/scratch/folder
+     - name: helper
+       platform: kiro
+       command: kiro-cli
+       workdir: /path/to/a/scratch/folder
+   ```
+
+4. In `rules.yaml`, your own Yes rules for `type: agent_run` with `agent: [reviewer, helper]` and for `type: agent_login` with the same agents; `tool_read` Yes and `tool_bash` Ask me first are enough for this run.
+5. For Kiro: the layer 9 hook file in `/path/to/a/scratch/folder/.kiro/hooks/` (adapters/kiro/README.md).
+6. In the shell you use: `unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN KIRO_API_KEY` (umwayi leaves them out anyway; this keeps the run clean).
+
+### A. A real Claude Code ACP chat (10.31, part 7)
+
+A0. Sign in with your Claude subscription if you are not: `umwayi agent login reviewer`. Expected: your terminal shows the claude.ai sign-in; afterwards one line `Claude subscription OK (plan: WORD).` and exit 0 (`echo $?`). If you were already signed in: `Claude subscription OK (plan: WORD). Nothing was started.`
+
+A1. `umwayi agent check reviewer; echo "exit $?"`. Expected, in this order, then `exit 0`:
+
+```
+ok: node: node found at /.../node
+ok: node version: 22.x.y (at least 22.0.0)
+ok: adapter file: /.../adapters/claude_acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js
+ok: adapter package: @agentclientprotocol/claude-agent-acp 0.101.0
+ok: adapter version: the adapter says 0.101.0
+ok: claude code version: 2.1.318 (at least 2.1.295)
+ok: login: Claude subscription (plan: WORD)
+ok: hook script: /.../adapters/claude_code/hook.py
+ok: hook self-test: the hook started and blocked the self-test event (exit 2)
+...
+Gated: the checks for a Claude Code ACP chat of agent reviewer passed. Nothing was started.
+```
+
+A2. The real version outputs, for the record (set `A=adapters/claude_acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js`): `node --version`, `node $A --version`, `node $A --cli --version`.
+
+A3. `umwayi agent chat reviewer`. Expected: the open queue lines, then `Starting an ACP chat with agent reviewer. ...`, then `Nothing you type is sent until the hook is confirmed in the session (at most 30 s).`, then within 30 s `Connected. Type a message, :queue to see the queue, or :quit to end the chat.`
+   - If instead, after up to 30 s, it prints `The first gate could not be confirmed in the ACP session. Nothing was sent.` and exits 2: the SessionStart canary did not run before the first prompt (KNOWN-LIMITS 65). Record that and stop here; part 7 open question 9 then needs the owner's decision.
+
+A4. Type one line with a word you can search for later, for example `Please read README.md and then run the shell command ls. Word: PURPLEHERON`. Expected: `tool: ...` lines; for the shell command the hook asks (your rules say Ask me first) and umwayi asks `The agent asks to use a tool: ...`; answer `y` or `n`. Then type `:quit`. Expected exit 0.
+
+A5. `umwayi logbook verify; echo "exit $?"` prints `ok: ...` and `exit 0`. Then look at LOGBOOK.md:
+   - one `Source: umwayi check` entry with `action type: tool_read` or `tool_bash` for **every** `tool:` line the chat showed (count both);
+   - `action type: acp_permission` entries for the permission requests;
+   - `Started agent reviewer (claude-code, acp, chat): ...` and `Agent reviewer exited with code 0 after N s`;
+   - `grep -c PURPLEHERON LOGBOOK.md` prints `0` (nothing of the conversation is logged).
+
+### B. The field names of the real `auth status --json` (10.37, folded into 10.31)
+
+Only the sorted key names are printed; never paste the raw output.
+
+B1. With your subscription login: `node $A --cli auth status --json | python3 -c 'import json,sys; print(sorted(json.load(sys.stdin)))'` and the same with `claude auth status --json | python3 -c '...'`.
+
+B2. With a placeholder key in front (not a real key): `ANTHROPIC_API_KEY=not-a-real-key-umwayi-test claude auth status --json | python3 -c 'import json,sys; print(sorted(json.load(sys.stdin)))'`. Then `ANTHROPIC_API_KEY=not-a-real-key-umwayi-test umwayi agent run reviewer --prompt "say hi"; echo "exit $?"`: expected to start normally, because umwayi removes that name (10.R12.6).
+
+B3. With a project `apiKeyHelper` in a throwaway folder (the helper prints a placeholder, not a key; `auth status` may run it, KNOWN-LIMITS 70):
+
+```
+mkdir -p /tmp/umwayi-helper-test/.claude
+printf '{"apiKeyHelper": "echo not-a-real-key-umwayi-test"}\n' > /tmp/umwayi-helper-test/.claude/settings.json
+(cd /tmp/umwayi-helper-test && claude auth status --json | python3 -c 'import json,sys; print(sorted(json.load(sys.stdin)))')
+rm -rf /tmp/umwayi-helper-test
+```
+
+### C. A real Kiro login (10.39, folded into 10.31)
+
+C1. Signed in: `kiro-cli whoami >/dev/null 2>&1; echo "exit $?"`. Expected `exit 0`.
+
+C2. Signed out, by hand: `kiro-cli logout`, then `kiro-cli whoami >/dev/null 2>&1; echo "exit $?"`. Expected not 0. If it is 0, KNOWN-LIMITS 85 holds: the check proves nothing on this Kiro version.
+
+C3. `umwayi agent login helper`. Expected: your terminal shows the Kiro sign-in; afterwards `Kiro login OK.` and exit 0.
+
+C4. `umwayi agent check helper` shows `ok: login: Kiro is signed in (kiro-cli whoami exited 0)`. Then `env -u KIRO_API_KEY umwayi agent run helper --prompt "Say hello and use no tools"; echo "exit $?"`. Expected exit 0 if headless Kiro works without `KIRO_API_KEY`; exit 2 if it does not (KNOWN-LIMITS 86, fail closed).
+
+### Results (to be filled in by the owner; all NOT DONE)
+
+| step | what to record | result |
+| --- | --- | --- |
+| A1 | exit code; every line ok | not done |
+| A2 | the three version strings | not done |
+| A3 | whether the canary ran before the first prompt (Connected, or refused after 30 s) | not done |
+| A5 | tool lines shown vs `tool_*` hook entries in the logbook; `PURPLEHERON` count | not done |
+| B1 | key names of `auth status --json`, adapter CLI and `claude` | not done |
+| B2 | key names with a key in front; exit code of the run | not done |
+| B3 | key names with a project `apiKeyHelper` | not done |
+| C1, C2 | `whoami` exit code signed in and signed out | not done |
+| C3 | `agent login helper` result line and exit code | not done |
+| C4 | exit code of a headless Kiro run without `KIRO_API_KEY` | not done |
+
 ## Muse Spark Open as a platform (spec only, read Nov 9 2026)
 
 Read on Nov 9 2026 for the owner's request: include Meta's Muse Spark Open as another platform, subscription or free first, pay-as-you-go only later. Nothing was installed, signed in or run. Facts are in my own words. **From a secondary source** marks a page that is not Meta's, a provider's or a harness's own. Prices are as seen on the day and change without notice.

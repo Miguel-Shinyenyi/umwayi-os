@@ -1761,6 +1761,12 @@ class _Run:
         if token[0] == "logbook":
             return Result(2, [f"The logbook can no longer be written ({str(token[1]).rstrip('. ')}), so {whom} "
                               "was stopped: its checks could not be recorded (exit 2). Nothing was logged."])
+        if token[0] == "billing":  # 10.R12.8: the adapter said a subscription no longer pays
+            why = self.log(f"Agent {a.name} was stopped: the Claude Code login changed and a subscription no longer "
+                           "pays", "the adapter's _auth/status_update named another payer; the adapter and every "
+                           "seen descendant were stopped", NOT_LOGGED)
+            return self.result(2, [f"The Claude Code login changed and a subscription no longer pays, so agent "
+                                   f"{a.name} was stopped (exit 2)."], why)
         if self.mode == LOGIN:
             minutes = f"{LOGIN_TIMEOUT / 60:g} min"
             why = self.log(f"The login for agent {a.name} was stopped after its limit of {minutes}",
@@ -1874,7 +1880,7 @@ class _Run:
                         permission=self._permission, tick=self._tick, queue_lines=self._queue_lines,
                         client_version=__version__, tick_interval=WATCH_INTERVAL,
                         session_meta=self.meta if claude else None, gate_ready=self._gate_ready if claude else None,
-                        set_mode=CLAUDE_ACP_MODE if claude else None)
+                        set_mode=CLAUDE_ACP_MODE if claude else None, on_auth=_billing_watch if claude else None)
         # Ctrl-C belongs to umwayi here (the agent is in its own session): it cancels the turn, never kills umwayi
         self._old_sigint = signal.signal(signal.SIGINT, lambda _s, _f: chat.interrupt())
         outcome = chat.run()
@@ -1950,6 +1956,11 @@ def permission_verdict(answer) -> str:
     if answer == rules.ASK:
         return acp.ASK
     return acp.REJECT
+
+
+def _billing_watch(kind: str):
+    """A Claude Code ACP chat goes on only while the adapter says a subscription pays (10.R12.8, kind "account")."""
+    return None if kind == "account" else ("billing",)
 
 
 def _owner_input():
