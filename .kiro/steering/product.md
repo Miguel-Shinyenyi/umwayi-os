@@ -68,14 +68,14 @@ Built since (tasks.md has the status of every task):
 
 Not started, each only after the owner approves its requirements, design and tasks:
 
-11. Linux-like features: spec written (PR 30), waiting for approval. Proposed scope for Dec 3: scheduled runs through systemd user timers that call the existing front doors; file watching and tmux cut, SQLite and a sandbox deferred to after Dec 3. No new scheduler, file system or shell.
+11. Linux-like features: approved (PR 30), built now (PR 31). Scope for Dec 3: scheduled runs through systemd user timers that call the existing front doors; file watching and tmux cut, SQLite and a sandbox deferred to after Dec 3. No new scheduler, file system or shell.
 - The logbook hash chain (approved) and the budget governor (approved).
 
 ## Schedule to Dec 3
 
 The schedule in `.kiro/specs/umwayi-os/tasks.md` ("Schedule to Dec 3") is the one to follow. In short:
 
-- Nov 14 to Nov 15: layer 11, only after its spec is approved
+- Nov 10 to Nov 11: layer 11 (moved up from Nov 14 to Nov 15)
 - Nov 16: logbook hash chain
 - Nov 17 to Nov 22: budget governor
 - Nov 23 to Nov 26: whole-system test again and a security scan
