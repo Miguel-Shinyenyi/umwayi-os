@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`).
 
 ## Approval and the owner
 
@@ -339,3 +339,23 @@ The folder is made with `tempfile.mkdtemp` (mode 0700, refused if it is inside t
 ### 68. Tracking descendants once a second
 
 Background commands are found in `/proc` once a second while the chat runs, and once more just before the chat ends. A command started and orphaned between two looks (its parent exits within the same second) can be missed, and is then not stopped (the same limit as item 48 for the terminal chat). Linux only.
+
+## Layer 10 part 7c-1: subscription first for Claude Code (found while building, not fixed)
+
+Written Nov 9 2026. Doc and source facts: `adapters/NOTES-layer10.md` ("Login and billing for Claude Code").
+
+### 69. Most of the fields the login check reads are not documented
+
+Claude Code documents `authMethod` and the exit code of `claude auth status`; `loggedIn`, `apiKeySource`, `apiProvider` and `subscriptionType` come from the pinned adapter's source. A Claude Code release that renames or drops one makes every Claude Code start refuse with "could not be confirmed" (exit 2): it fails closed, but `agent run` uses the owner's own `claude`, which is not pinned. The real field names (never the values) are to be recorded at the owner's first real run (10.31). The tests use fakes only.
+
+### 70. The check may not see everything the session would use
+
+The login check runs in the agent's folder with the agent's own environment, so it should see the same user and project settings. Not documented: whether `auth status` applies a settings file's `env` key, and whether it runs an `apiKeyHelper` (a shell command from a settings file, possibly the project's) to report it. If it does run it, a repository's command runs at the check, before the hook gate; the agent would have run it at its start anyway. If it does not see a credential, the check passes and the session pays by that credential; `forceLoginMethod: "claudeai"` is only a second line and is not confirmed to block it.
+
+### 71. A window between the check and the start, and no watch during a run
+
+The login is checked a moment before the agent starts. A login or logout in another terminal in that moment, or during a run or a terminal chat, is not seen (the watch of 10.R12.8 is for the ACP chat and comes in part 7c-3).
+
+### 72. Usage beyond the plan is not visible
+
+The check proves which credential pays, not how much. A plan's extra usage, if the owner turned it on in the Claude account, is billed without umwayi knowing. Spend limits stay with the budget governor (H-078).
