@@ -685,9 +685,9 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (approved; all six parts built; part 7 approved, part 7a built)
+## Layer 10: Own command line and chat (approved; all six parts built; part 7 approved, parts 7a and 7b built)
 
-Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17; part 6 (ACP chat for Kiro, `umwayi/acp.py`) in PR 18. All six parts are built. Part 7 (Claude Code over ACP, 10.R11) was approved on Nov 8 (tasks.md 10.22); part 7a (agents.yaml, `adapters/claude_acp/`, the gate checks and `child_env()`) is built in PR 20, and the chat is part 7b. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
+Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17; part 6 (ACP chat for Kiro, `umwayi/acp.py`) in PR 18. All six parts are built. Part 7 (Claude Code over ACP, 10.R11) was approved on Nov 8 (tasks.md 10.22); part 7a (agents.yaml, `adapters/claude_acp/`, the gate checks and `child_env()`) is built in PR 20; part 7b (the chat: the inline settings and the canary, the three `acp.py` options, the stop) in PR 21. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
 ### The idea in one paragraph
 
@@ -954,7 +954,7 @@ The owner approved the spec on Nov 8 with every answer as proposed (recorded in 
 | Kiro docs conflict (`content` and `prompt` in `session/prompt`) | the first ACP prompt fails | we follow the spec; the error ends the chat with exit 2, nothing ungated |
 | schedule: layers 10 and 11 share Nov 9 to 10 | not all parts land | parts 1 and 2 need no agent and can go first; ACP chat (part 6) is the one to cut |
 
-### Part 7: Claude Code over ACP (approved Nov 8; part 7a built in PR 20, the chat is part 7b)
+### Part 7: Claude Code over ACP (approved Nov 8; part 7a built in PR 20, part 7b in PR 21)
 
 Requirement 10.R11. Facts with links, and what is not documented: `adapters/NOTES-layer10.md`, section "Claude Code over ACP" (the adapter `@agentclientprotocol/claude-agent-acp` 0.101.0, read from its README, `package.json`, the npm registry and its source at tag v0.101.0). Nothing of part 7 is built before the owner approves it.
 

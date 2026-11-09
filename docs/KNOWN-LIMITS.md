@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop).
 
 ## Approval and the owner
 
@@ -276,9 +276,9 @@ The gate check requires the layer 9 Kiro hook file before an ACP chat starts, bu
 
 The ACP spec puts the owner's message in `prompt`; the Kiro ACP page's example (for the legacy CLI v2 server) puts it in `content`. umwayi sends `prompt`. If a real Kiro server expects `content`, the first prompt fails: the agent answers with an error and the chat ends with exit 2 (fail closed), or it ignores the message.
 
-### 55. Claude Code over ACP: only the checks are built
+### 55. Claude Code over ACP: built, but not run for real
 
-Claude Code has no ACP mode in its own command line; it needs the third party adapter `@agentclientprotocol/claude-agent-acp`, a Node package. The owner approved part 7 on Nov 8 (tasks.md 10.22). Part 7a (PR 20) accepts a Claude Code agent with `transport: acp` and runs its gate checks in `umwayi agent check`; the chat itself (the session, the inline settings and the canary) is part 7b. Until then `umwayi agent chat` refuses such an agent with exit 64 and starts nothing. Items 59 to 64.
+Claude Code has no ACP mode in its own command line; it needs the third party adapter `@agentclientprotocol/claude-agent-acp`, a Node package. The owner approved part 7 on Nov 8 (tasks.md 10.22). Part 7a (PR 20) accepts a Claude Code agent with `transport: acp` and runs its gate checks in `umwayi agent check`; part 7b (PR 21) runs the chat itself (the session, the inline settings and the canary). Only fakes were run; items 59 to 68.
 
 ### 56. Ctrl-C gives the owner back after 10 seconds, even if the agent goes on
 
@@ -318,4 +318,24 @@ The lockfile pins 115 npm packages with `sha512` integrity hashes, all from regi
 
 ### 64. `max_turns` is not used by an ACP chat, and `agent check` shows only the chat's checks
 
-A Claude Code agent with `transport: acp` keeps `max_turns` for `umwayi agent run`, which stays `claude -p` and runs the checks of transport cli; an ACP chat has no turn limit of its own (only `timeout_minutes`, from part 7b). `umwayi agent check NAME` for such an agent shows the checks of the ACP chat only.
+A Claude Code agent with `transport: acp` keeps `max_turns` for `umwayi agent run`, which stays `claude -p` and runs the checks of transport cli; an ACP chat has no turn limit of its own (only `timeout_minutes`). `umwayi agent check NAME` for such an agent shows the checks of the ACP chat only.
+
+## Layer 10 part 7b: the Claude Code ACP chat (found while building, not fixed)
+
+Written Nov 9 2026. Doc and source facts: `adapters/NOTES-layer10.md` ("Claude Code over ACP").
+
+### 65. Not confirmed: that SessionStart runs at session/new in a real adapter session
+
+The chat goes on only after the SessionStart canary has run in the session, and umwayi waits for it after `session/new`, before any prompt. The fake runs SessionStart hooks at `session/new`, as the tests assume; neither the adapter nor the Claude Agent SDK docs say when SessionStart runs in an SDK session. If a real session runs it only with the first prompt, every Claude Code ACP chat is refused with exit 2 after 30 seconds (fail closed, approved answers 1 and 9). The real Node, the real adapter and the real Claude Code were never run; the owner's first real run (tasks.md 10.31) settles this.
+
+### 66. The canary proves that hooks from the inline settings run, not that every tool call is checked
+
+The canary file shows that a command hook from the same inline settings as the PreToolUse hook ran in this session. It does not prove that the PreToolUse hook runs before every tool call, or that the adapter asks permission for every call it makes; in `acceptEdits` or other modes many calls are never asked about, which is why umwayi sets mode `default` right after the canary. The owner's own settings (user, project and local, approved answer 7) still apply, and a hook or mode there can make the session more permissive between turns: umwayi sets the mode once and does not watch it.
+
+### 67. The token folder is in TMPDIR, and its file is only looked at
+
+The folder is made with `tempfile.mkdtemp` (mode 0700, refused if it is inside the root or the workdir) in umwayi's TMPDIR, and removed on every way out umwayi controls. If umwayi is killed with SIGKILL, the empty folder (and the empty token file) stays in TMPDIR. The token is not a secret: any program that runs as the owner during the chat could create the file, and the chat would then go on without the hook having run. Only `os.path.exists` is used; the file is never read.
+
+### 68. Tracking descendants once a second
+
+Background commands are found in `/proc` once a second while the chat runs, and once more just before the chat ends. A command started and orphaned between two looks (its parent exits within the same second) can be missed, and is then not stopped (the same limit as item 48 for the terminal chat). Linux only.
