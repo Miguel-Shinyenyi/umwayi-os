@@ -331,7 +331,7 @@ User story: as the owner, I want every Claude Code agent umwayi starts to be pai
 
 Acceptance criteria:
 
-1. **Scope:** every Claude Code start: `umwayi agent run`, `umwayi agent chat` with transport cli, and with transport acp. Kiro is unchanged (proposed, design open question 10).
+1. **Scope:** every Claude Code start: `umwayi agent run`, `umwayi agent chat` with transport cli, and with transport acp; and, on the owner's request of Nov 9 that subscription comes first on every platform, every Kiro start as far as Kiro can be checked (item 13).
 2. **Subscription first, fail closed:** a Claude Code agent is started only when the login check (item 3) proves that a Claude subscription login (claude.ai: Pro, Max, Ultra, Team or Enterprise) is the credential that will pay. Otherwise it is refused with exit 2 and nothing is started.
    - This covers an API key, an auth token, an `apiKeyHelper`, an OAuth token from the environment, a Console login, a cloud provider, a gateway, no login, or an answer umwayi cannot read.
    - There is no agents.yaml key or flag to allow API billing in part 7c (proposed, open question 7).
@@ -366,7 +366,7 @@ Acceptance criteria:
    | no answer in 15 s, or output umwayi cannot read | "could not be confirmed" |
 
 6. **Credential variables never reach `agent run` or the cli chat** (proposed, open question 3):
-   - These are removed from the environment the agent and its login check get: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_USE_FOUNDRY`, `ANTHROPIC_PROFILE`, `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID` and `ANTHROPIC_IDENTITY_TOKEN_FILE`.
+   - These are removed from the environment the agent and its login check get: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `CLAUDE_CODE_OAUTH_SCOPES`, `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_USE_FOUNDRY`, `ANTHROPIC_PROFILE`, `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID` and `ANTHROPIC_IDENTITY_TOKEN_FILE`.
    - Everything else is passed as today (the terminal chat needs the owner's environment).
    - The ACP chat keeps the allow list of 10.R11.9, which already passes none of them.
    - umwayi never reads a value of these names; it only leaves them out.
@@ -376,10 +376,25 @@ Acceptance criteria:
    - Only `kind` is read; the label, account, plan and email are not.
    - A notification with no readable `kind` is ignored, because the adapter sends "cannot determine" as silence.
    - There is no such watch for `agent run` or the cli chat (the CLI sends nothing umwayi can read); the check before the start is all.
-9. **umwayi signs in for no one:**
-   - It never runs `auth login`, `auth logout`, `setup-token` or `/login`.
-   - It never offers ACP auth methods (`clientCapabilities` stays `{}`).
-   - It never reads, copies or stores a credential, key, token or helper output.
+9. **`umwayi agent login NAME`: the claude.ai sign-in started by umwayi, for a Claude Code agent with transport acp** (owner decision Nov 9, option B; replaces "umwayi signs in for no one"):
+   - **The same start steps as a chat, in the same order, up to the login check:**
+     - agents.yaml (64);
+     - the kill switch (3);
+     - the rules, with a new action type `{"type": "agent_login", "agent": NAME, "platform": "claude-code", "transport": "acp"}` (No 2; Ask me first 3 and one queue item `Log in agent NAME?`, once);
+     - the run lock (3);
+     - the gate checks of 10.R11.6 up to and not including the login check: node, node version, adapter file, adapter package, adapter version, Claude Code version (2).
+   - **Already a subscription:** the login check (item 3) runs first. If it already passes, nothing is started, and umwayi prints `Claude subscription OK (plan: WORD)` and exits 0 (proposed, open question 11).
+   - **The program:** `[NODE, ADAPTER, "--cli", "auth", "login", "--claudeai"]`, an argument list with no shell. It is never given `--console`, `--email`, `--sso` or any other word, and nothing from agents.yaml.
+   - **The terminal:** stdin, stdout and stderr are the owner's terminal, unchanged, as in a cli chat. umwayi never reads, logs or stores the login's output, a code, a URL or any token.
+   - **The environment** is `child_env()` (10.R11.9) plus only the names a browser login needs, each passed only if set: `TERM`, `COLORTERM`, `BROWSER`, `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_CURRENT_DESKTOP`, `XDG_DATA_DIRS`, `DESKTOP_SESSION`, `DBUS_SESSION_BUS_ADDRESS`, `SSH_TTY`, `SSH_CONNECTION`, `SSH_CLIENT` and `NO_BROWSER`.
+     - The reasons are in NOTES-layer10.md, "Signing in from umwayi".
+     - Never passed: `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `CLAUDE_CODE_OAUTH_SCOPES`, `CLAUDE_CODE_REMOTE`, and everything else 10.R11.9 leaves out.
+   - **While it runs:** the kill switch, the logbook and a fixed limit of 10 minutes are watched every second (proposed). A stop sends SIGTERM to the login and every descendant seen in `/proc`, SIGKILL after 10 s (the cli chat stop of part 5), and puts the terminal mode back. Ctrl-C goes to the login, not to umwayi.
+   - **Afterwards**, whatever the login's exit code, the login check (item 3) runs again. umwayi prints only `Claude subscription OK (plan: WORD)` (exit 0), or the one refusal line of item 5 (exit 2).
+   - **Logbook:** one entry when the login starts, and one at its end with "subscription OK" or the refusal reason. Never its output.
+   - **Exit codes:** 0 (subscription OK), 2 (rules No, a gate check failed, the login failed or was stopped by the logbook or the limit, or no subscription afterwards), 3 (kill switch, Ask me first, run lock), 64 (usage, an unknown agent, or not a Claude Code agent with transport acp). Never 1.
+   - **Never on its own:** `agent run` and `agent chat` never start a login, not even when the login check fails. They refuse and point to `umwayi agent login NAME`.
+   - **Still never:** `auth logout`, `setup-token`, `/login` inside a session, `--console`, ACP auth methods (`clientCapabilities` stays `{}`), and reading, copying or storing a credential, key, token or helper output.
 10. **Billing beyond the subscription is not visible:** the check proves which credential pays, not how much, and not whether a plan's extra usage is on. umwayi sets no spend limit. Spend stays with the budget governor (H-078), and KNOWN-LIMITS says so.
 11. **`umwayi agent check NAME`** prints the login line with the other checks, for example `ok: login: Claude subscription (plan: max)` or `no: login: signed in with an API key from the environment (ANTHROPIC_API_KEY is not passed; unset it or ...)`. It starts no agent and writes nothing.
 12. **Tests**, as for every part: real child processes, no network, no real Claude Code, no key.
@@ -389,7 +404,24 @@ Acceptance criteria:
     - The credential variables of item 6 are absent from what the fake records, even when set.
     - `forceLoginMethod` is in every settings JSON.
     - An `_auth/status_update` with `kind: "api_key"` stops an ACP chat with nothing left alive.
+    - `agent login`, with the fake `node` for `--cli auth login --claudeai`:
+      - a successful login flips the scripted `auth status` to a subscription, and umwayi prints `Claude subscription OK (plan: max)` and exits 0;
+      - a failed login, and a login that leaves an API key in front, each give exit 2 with the refusal line;
+      - already a subscription: nothing is started, exit 0;
+      - the kill switch during the login: exit 3 and nothing alive;
+      - a planted secret, URL and code printed by the fake login never appear in the logbook or the queue, and umwayi never reads its output;
+      - no argument list anywhere holds `--console`, `--email` or `--sso`;
+      - the fake records only `child_env()` names plus the login names of item 9, never `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`;
+      - rules No and Ask me first (one queue item), the run lock, and a failing gate check each start nothing;
+      - `agent run` and `agent chat` never start a login.
+    - Kiro (item 13): `KIRO_API_KEY` is absent from what the fake `kiro-cli` records for run, cli chat, ACP chat, `whoami` and `login`, even when set; the `whoami` check refuses on a non-zero exit; `agent login` for a Kiro agent runs `[KIRO, "login"]` with no flags.
     - Planted faults and mutation checks with the counts in the pull request.
+13. **Kiro, subscription first as far as Kiro can be checked** (owner request Nov 9; proposed, design open question 10, which replaces the earlier "Kiro unchanged"):
+    - **Who pays:** by the Kiro docs, every Kiro login pays from the subscription's credits, an API key included. Beyond them, only add-on credits the owner buys by hand in the Kiro portal; when credits run out, usage pauses. So there is no separate pay-as-you-go path for umwayi to block, and no Kiro billing check is needed for "who pays". "How much" cannot be read outside a Kiro session.
+    - **`KIRO_API_KEY` is removed** from the environment of every Kiro start (`agent run`, cli chat, ACP chat) and of the Kiro login check and login, so only the owner's browser login (`kiro-cli login`) is used. A key is a long-lived credential that may belong to another account. umwayi never reads its value.
+    - **The Kiro login check:** `[KIRO, "whoami"]` in the workdir, with that environment, stdin empty, 15 s, output discarded and never parsed (its JSON field names are not documented and it holds the email). It must exit 0, or the start is refused with exit 2: "Sign in to Kiro first (kiro-cli login), then try again." It runs after the version check, as for Claude Code.
+    - **`umwayi agent login NAME` for a Kiro agent** (any transport): the same steps as item 9 with action `{"type": "agent_login", "agent": NAME, "platform": "kiro", "transport": T}`, then `[KIRO, "login"]` with no flags, on the owner's terminal, with the Kiro start environment minus `KIRO_API_KEY`; then the `whoami` check; exit codes as item 9. Never `--license`, `--identity-provider`, `--social`, `logout`, `acp --login` or `--auth-method client`.
+    - **Not known, and said so in KNOWN-LIMITS:** the plan, the credits left, the login method by field, whether `whoami` exits non-zero when signed out, and whether headless runs work without `KIRO_API_KEY` (the Kiro docs conflict: see NOTES). If they do not, a Kiro `agent run` is refused or fails with exit 2, which is fail closed.
 
 ### Out of scope for layer 10 (Dec 3)
 

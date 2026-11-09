@@ -1120,10 +1120,14 @@ The check reads six fields and nothing else; the email and organization in the s
 ```
 umwayi/agents.py   CLAUDE_CREDENTIAL_ENV, claude_env(), login_check(), the "login" gate check for every
                    Claude Code start (replacing the 7a "sign-in" check), forceLoginMethod in claude_settings(),
-                   the auth watch callback for the ACP chat, env= on the agent run and cli chat start
+                   the auth watch callback for the ACP chat, env= on the agent run and cli chat start,
+                   mode LOGIN (`umwayi agent login NAME`), LOGIN_ENV_NAMES, KIRO_CREDENTIAL_ENV, the Kiro
+                   whoami check
+umwayi/cli.py      the `agent login NAME [--agents PATH]` subcommand
 umwayi/acp.py      one option on Chat: on_auth (a callback given the kind of each _auth/status_update), about 10 lines
-tests/agents/      fake_agent.py and fake_node.py answer `auth status --json` from a script, and the Claude ACP
-                   fake can push _auth/status_update; a new test_agents_claude_login.py
+tests/agents/      fake_agent.py and fake_node.py answer `auth status --json` from a script, fake_node.py acts as
+                   `--cli auth login --claudeai`, the fake kiro-cli answers `whoami` and `login`, and the Claude ACP
+                   fake can push _auth/status_update; new test_agents_claude_login.py and test_agents_login.py
 ```
 
 The core stays standard library only and never imports `adapters`. Nothing in `.claude` or `.kiro/hooks` is created or changed.
@@ -1157,14 +1161,15 @@ The core stays standard library only and never imports `adapters`. Nothing in `.
 
 ```python
 CLAUDE_CREDENTIAL_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL",
-                         "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
+                         "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_OAUTH_REFRESH_TOKEN", "CLAUDE_CODE_OAUTH_SCOPES",
+                         "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
                          "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID",
                          "ANTHROPIC_ORGANIZATION_ID", "ANTHROPIC_IDENTITY_TOKEN_FILE")
 
 def claude_env(environ) -> dict:      # umwayi's environment minus those names; values never read
 ```
 
-- `_start` passes `env=claude_env(os.environ)` for a Claude Code run or cli chat, and `env=child_env(os.environ)` for an ACP chat, as today. Kiro gets `env=None`, unchanged.
+- `_start` passes `env=claude_env(os.environ)` for a Claude Code run or cli chat, and `env=child_env(os.environ)` for an ACP chat, as today. A Kiro start gets `env=kiro_env(os.environ)`, umwayi's environment minus `KIRO_API_KEY` (see "Kiro" below).
 - The deny list (not the ACP allow list) is proposed for the terminal chat, because an interactive `claude` needs the owner's terminal environment (`TERM`, `COLORTERM`, editor variables) that the allow list leaves out (open question 3).
 - A credential set in a **settings file** (`apiKeyHelper`, or `env` in settings) is not removed: umwayi does not edit settings. The login check sees it and refuses.
 
@@ -1182,6 +1187,60 @@ def claude_env(environ) -> dict:      # umwayi's environment minus those names; 
 - Kiro passes None, unchanged. About 10 lines; nothing else in acp.py changes.
 - The push can come in the middle of a turn that the new credential already pays for, so this limits the damage, it does not prevent it (KNOWN-LIMITS).
 
+#### `umwayi agent login NAME` (owner decision Nov 9, option B)
+
+```
+umwayi agent login NAME [--agents PATH]   the claude.ai sign-in for a Claude Code ACP agent (or kiro-cli login
+                                          for a Kiro agent) on your terminal, then the login check: 0, 2, 3 or 64
+```
+
+A third mode next to RUN and CHAT, `LOGIN`, in the same `_Run`, so every start step, the stop and the logbook code are reused, not copied:
+
+1. **agents.yaml:** the agent must be `platform: claude-code` with `transport: acp`, or any Kiro agent; anything else is a usage error (64).
+2. **The kill switch** (3).
+3. **The rules:** action `{"type": "agent_login", "agent": NAME, "platform": P, "transport": T}`. No gives 2. Ask me first gives 3 and one queue item `Log in agent NAME?`, added once (`taskqueue.add_once`, as for starts).
+4. **The run lock** (3).
+5. **The gate checks up to the login check:** for Claude Code ACP, node, node version, adapter file, adapter package, adapter version and Claude Code version; for Kiro, command and version. The hook checks are not run: the login runs no agent and no tool.
+6. **The login check first:** if it already passes, nothing is started, and umwayi prints `Claude subscription OK (plan: WORD)` (Kiro: `Kiro login OK`) and exits 0 (open question 11).
+7. **One start entry, then the login:**
+   - Claude Code: `build_argv(agent, LOGIN, node, ...)` returns exactly `[NODE, ADAPTER, "--cli", "auth", "login", "--claudeai"]`.
+   - Kiro: `build_argv` returns `[KIRO, "login"]`.
+   - `_assert_allowed` gains the forbidden words `--console`, `--email`, `--sso`, `setup-token`, `logout`, `--license`, `--identity-provider`, `--social` and `--auth-method`, checked on every list.
+8. **The terminal:** `_start` treats LOGIN like a cli chat: the owner's terminal unchanged (stdin, stdout and stderr inherited), umwayi's process group, Ctrl-C to the login only (the part 5 no-op handler), the terminal mode put back. umwayi never has a pipe to it, so it cannot read its output, a URL, a code or a token.
+9. **The environment:**
+   - Claude Code: `login_env(os.environ)` = `child_env(os.environ)` plus `LOGIN_ENV_NAMES`, each only if set:
+     ```python
+     LOGIN_ENV_NAMES = ("TERM", "COLORTERM", "BROWSER", "DISPLAY", "WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP",
+                        "XDG_DATA_DIRS", "DESKTOP_SESSION", "DBUS_SESSION_BUS_ADDRESS",
+                        "SSH_TTY", "SSH_CONNECTION", "SSH_CLIENT", "NO_BROWSER")
+     ```
+   - Why each name, briefly (sources in NOTES, "Signing in from umwayi"):
+     - `TERM` and `COLORTERM`: the login prints a URL and reads a code on the terminal.
+     - `BROWSER`: documented by Claude Code for WSL2.
+     - `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_CURRENT_DESKTOP`, `XDG_DATA_DIRS` and `DESKTOP_SESSION`: what `xdg-open` reads to find the desktop and the browser.
+     - `DBUS_SESSION_BUS_ADDRESS`: for the desktop opener it hands over to.
+     - `SSH_TTY`, `SSH_CONNECTION`, `SSH_CLIENT` and `NO_BROWSER`: the remote markers that switch the login to the manual URL and code flow.
+     - `HOME`, `PATH` and the XDG folders are already in `child_env()`.
+     - The legacy `KDE_FULL_SESSION`, `KDE_SESSION_VERSION`, `GNOME_DESKTOP_SESSION_ID` and `MATE_DESKTOP_SESSION_ID` are left out: `xdg-open` reads `XDG_CURRENT_DESKTOP` first (open question 12).
+   - Never passed: `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `CLAUDE_CODE_OAUTH_SCOPES`, `CLAUDE_CODE_REMOTE`, and everything 10.R11.9 leaves out.
+   - Kiro: `kiro_env(os.environ)`, the same environment as a Kiro start.
+10. **While it runs:** the watcher (`_tick`) checks the kill switch, the logbook and `LOGIN_TIMEOUT` (10 minutes, a constant; `timeout_minutes` from agents.yaml is for agents) every second, and tracks descendants in `/proc`. A stop is the part 5 cli chat stop: SIGTERM to the login and every seen descendant, SIGKILL after 10 s, the terminal mode put back. Kill switch: exit 3; logbook or the limit: exit 2.
+11. **Afterwards** (the login exited, whatever its code): the login check runs again with the agent's start environment (`child_env`, or `kiro_env` for Kiro). umwayi prints one line: `Claude subscription OK (plan: WORD)` (Kiro: `Kiro login OK`) with exit 0, or the refusal line of the login check (10.R12.5) with exit 2. A non-zero exit from the login itself is only named in the logbook ("the login exited with code N"); the check decides.
+12. **Logbook:** "Started login for agent NAME (claude.ai)" and "Login for agent NAME ended: subscription OK (plan: WORD)" or "...: not gated (login: REASON)". Never the output.
+
+`agent run` and `agent chat` never enter LOGIN. When their login check fails, the refusal line adds "Run umwayi agent login NAME to sign in." for a Claude Code ACP agent or a Kiro agent.
+
+#### Kiro: subscription first as far as Kiro can be checked
+
+Facts: NOTES-layer10.md, "Kiro: login and billing".
+
+- **Who pays:** by the Kiro docs, a Kiro login, an API key included, is always paid from the subscription's credits. Beyond them there are only add-on credits the owner buys by hand; usage pauses when credits run out. So "subscription first" for Kiro means: use the owner's own browser login, never a key from the environment.
+- **`kiro_env(os.environ)`:** umwayi's environment minus `KIRO_CREDENTIAL_ENV = ("KIRO_API_KEY",)`, for every Kiro start (run, cli chat, ACP) and for `whoami` and `login`. `KIRO_HOME` stays: it is the owner's choice of Kiro folder, not a credential.
+- **The Kiro login check:** `[KIRO, "whoami"]` through `_run_child`, in the workdir, `kiro_env`, stdin `b""`, 15 s, `keep_output=False` (stdout and stderr to `/dev/null`, never parsed: the JSON field names are not documented and the output holds the email). It must exit 0, or "not gated (login: Kiro is not signed in). Sign in to Kiro first (kiro-cli login), then try again." Order in the Kiro checks: command, version, **login**, hook script, hook self-test, kiro hook file.
+- **No Kiro billing check:** nothing to decide about who pays, and no documented way to read the plan or the credits outside a session. `/usage` and `_kiro/account/getUsage` run inside a Kiro session and are not used.
+- **Never:** `kiro-cli acp --auth-method client` (umwayi would have to answer token requests), `kiro-cli logout`, and any login flag.
+- **Not known:** whether `whoami` exits non-zero when signed out (if it exits 0, the check proves nothing and the start fails later at Kiro's own sign-in error, exit 2), and whether a headless `--no-interactive` run works without `KIRO_API_KEY` (the Kiro docs conflict). Both go to KNOWN-LIMITS and the owner's real check (10.31).
+
 #### Failure table (added rows)
 
 | failure | what the owner sees | exit |
@@ -1194,6 +1253,14 @@ def claude_env(environ) -> dict:      # umwayi's environment minus those names; 
 | cloud provider or gateway | "not gated (login: a cloud provider or gateway pays ...)" | 2 |
 | no subscription reported, unknown shape, not JSON, over 64 KB, no answer in 15 s | "not gated (login: could not be confirmed ...)" | 2 |
 | `_auth/status_update` kind not `account` during an ACP chat | "The Claude Code login changed and a subscription no longer pays, so agent NAME was stopped (exit 2)." | 2 |
+| `agent login` for an agent that is not Claude Code ACP or Kiro | "agent login is only for platform claude-code with transport acp, or platform kiro. Nothing was started." | 64 |
+| `agent login`: rules No; Ask me first; run lock; kill switch | as for every start (queue item `Log in agent NAME?`) | 2, 3, 3, 3 |
+| `agent login`: a gate check before the login fails | "not gated (...)", nothing started | 2 |
+| `agent login`: already a subscription | "Claude subscription OK (plan: WORD). Nothing was started." | 0 |
+| `agent login`: the login ends and the check passes | "Claude subscription OK (plan: WORD)." | 0 |
+| `agent login`: the login ends and the check fails (no login, Console, a key in front) | the one refusal line of the login check | 2 |
+| `agent login`: kill switch, logbook, 10 minute limit during the login | stopped, terminal mode put back | 3, 2, 2 |
+| Kiro: `whoami` not 0, or no answer in 15 s | "not gated (login: Kiro is not signed in). Sign in to Kiro first (kiro-cli login), then try again." | 2 |
 
 #### Tests
 
@@ -1204,12 +1271,43 @@ def claude_env(environ) -> dict:      # umwayi's environment minus those names; 
   - the planted email, organization and secret never in stdout, stderr, the logbook or the queue;
   - the fake records that the credential variables were absent, even when set, and that the login check ran in the workdir with the same environment names as the agent.
 - **`forceLoginMethod`** is in every settings JSON, and the `agent run` and ACP PreToolUse entries are still equal.
-- **The auth watch:** an `api_key` push mid-chat stops the ACP chat with exit 2 and nothing alive; an `account` push and a push with no kind change nothing; Kiro is unchanged.
-- **Code guards:** `login_check` reads only the six key names; one `subprocess.run` site; no `auth login`, `logout` or `setup-token` string anywhere in agents.py.
+- **The auth watch:** an `api_key` push mid-chat stops the ACP chat with exit 2 and nothing alive; an `account` push and a push with no kind change nothing; a Kiro ACP chat has no watch.
+- **`agent login`** (a real `python -m umwayi agent login` child on a pty for the terminal cases, as the part 5 chat tests do, and on a pipe otherwise). `fake_node.py` acts as `--cli auth login --claudeai`: it prints a planted secret, a URL and a code to stdout and stderr, reads one line from stdin, then, as scripted, rewrites the scripted `auth status` answer to a subscription, to an API key in front, or not at all, and exits 0 or 1.
+  - A login that flips the status prints exactly `Claude subscription OK (plan: max)` and exits 0.
+  - A failed login, and one that leaves an API key in front, each give exit 2 with the refusal line.
+  - Already a subscription: no login is started, exit 0.
+  - The kill switch during the login gives exit 3, nothing alive, and the terminal mode put back. The logbook stop and the 10 minute limit (shortened in tests through the test-only site hook, as `UMWAYI_TEST_MINUTE`) each give exit 2.
+  - The planted secret, URL and code never appear in the logbook or the queue.
+  - The fake records its argv: exactly `[NODE, ADAPTER, "--cli", "auth", "login", "--claudeai"]`. A scan of every argument list in every test asserts that none has `--console`, `--email` or `--sso`.
+  - The fake records its environment names: a subset of `child_env()` names plus `LOGIN_ENV_NAMES`, with `BROWSER`, `DISPLAY` and `SSH_TTY` passed when set, and never `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `CLAUDE_CODE_OAUTH_SCOPES`, `CLAUDE_CODE_REMOTE`, `ANTHROPIC_API_KEY` or `NODE_OPTIONS`.
+  - Rules No; Ask me first with one queue item, not two on a second call; the run lock held; each failing gate check: nothing started.
+  - `agent run` and `agent chat` with a failing login check start no login and name `umwayi agent login NAME`.
+  - A Claude Code cli agent: 64.
+- **Kiro:**
+  - The fake `kiro-cli` records `KIRO_API_KEY` absent (it is set in every test) for `chat --no-interactive`, `chat`, `acp`, `whoami` and `login`.
+  - `whoami` exiting 1, or hanging, refuses each Kiro start with exit 2 and nothing started; its output, with a planted email, is never shown.
+  - `agent login` for a Kiro agent runs exactly `[KIRO, "login"]`, then `whoami`.
+  - No Kiro argument list holds `--auth-method`, `logout` or a login flag.
+- **Code guards:**
+  - `login_check` reads only the six key names; one `subprocess.run` site; one `Popen` site.
+  - The only login argument lists are the two built by `build_argv` for LOGIN.
+  - The strings `setup-token`, `logout` and `--console` appear in agents.py only in the forbidden-words tuple.
+- **Mutation checks for the login command** (the counts in the pull request):
+  - `--claudeai` changed to `--console`;
+  - `--email` added;
+  - stdout given a pipe that umwayi reads;
+  - the login environment widened to `os.environ`, or a `LOGIN_ENV_NAMES` entry replaced by `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`;
+  - the kill switch not watched during LOGIN;
+  - the check after the login skipped (the login's exit 0 trusted);
+  - the "already a subscription" step starting the login anyway;
+  - the rules action type left as `agent_run`;
+  - `agent chat` starting a login on a failed check;
+  - Kiro `KIRO_API_KEY` left in;
+  - Kiro `whoami` exit code ignored.
 
 #### Schedule effect
 
-Effort, if approved: about 9 hours (tasks.md 10.33 to 10.37; 0.5 of them the owner's check on the real machine, folded into 10.31). Proposed: build on Nov 10 to Nov 11 next to 10.29 to 10.31, inside the part 7 days of Schedule A. That makes those two days full. If they slip, 10.36 (the in-chat watch) is the one to cut. Layer 11 stays Nov 12 to Nov 13.
+Effort, if approved: about 14 hours (tasks.md 10.33 to 10.39: 9 for the check, the environment rule, the template and the watch, 3.5 for `agent login`, 1.5 for Kiro; 0.5 of them the owner's check on the real machine, folded into 10.31). That is more than the part 7 days of Schedule A can hold next to 10.29 to 10.31. Proposed: 10.33 to 10.35 and 10.38 on Nov 10 to Nov 11 with 10.29 to 10.31; 10.39 (Kiro) and 10.36 (the in-chat watch) on Nov 12; layer 11 moves to Nov 13 to Nov 14 and the whole-system test and security scan to Nov 15 to Nov 16 (two days instead of three). If time runs short, 10.36 is the one to cut (open question 9).
 
 #### Open questions for the owner (part 7c)
 
@@ -1221,8 +1319,16 @@ Effort, if approved: about 9 hours (tasks.md 10.33 to 10.37; 0.5 of them the own
 6. **The watch during an ACP chat.** Stop the chat when `_auth/status_update` says a kind other than `account` (proposed), or check only before the start?
 7. **API billing on purpose.** No way to allow it in part 7c (proposed). Later, an explicit agents.yaml key (for example `billing: api`) could come with the budget governor, so that spend is capped before API billing is allowed.
 8. **Where the check sits.** After the version check and before the hook checks (proposed: it needs the found program, and a refused login should not run the hook self-test), replacing the 7a "sign-in" step for ACP.
-9. **When to build.** Nov 10 to Nov 11 with 10.29 to 10.31 (proposed), or after Dec 3 with a KNOWN-LIMITS item that `agent run` may bill an API key?
-10. **Kiro.** Unchanged (proposed): Kiro has its own login and plans, outside this requirement.
+9. **When to build.** The plan under "Schedule effect" (proposed): 10.33 to 10.35 and 10.38 on Nov 10 to Nov 11 with 10.29 to 10.31, then 10.39 and 10.36 on Nov 12, with layer 11 on Nov 13 to Nov 14 and the whole-system test and security scan on Nov 15 to Nov 16. That changes approved Schedule A (answer 10 of 10.22) by one day for layer 11 and one day less for the scan. Or build only 10.33 to 10.35 and 10.38 now and move 10.36 and 10.39 after Dec 3, with KNOWN-LIMITS items, keeping Schedule A unchanged?
+10. **Kiro** (replaces "Kiro unchanged"; the owner wants subscription first on every platform). By the Kiro docs every Kiro login, an API key included, pays from the subscription's credits, and nothing beyond them is spent without a purchase by hand. Proposed:
+    - remove `KIRO_API_KEY` from every Kiro start, so only the owner's browser login is used;
+    - add a `whoami` login check by exit code only (its JSON is not documented and holds the email);
+    - offer `umwayi agent login NAME` for Kiro agents (`[KIRO, "login"]`, no flags);
+    - no Kiro billing check, because there is nothing to decide about who pays, and the plan and credits cannot be read outside a session.
+    
+    Open within this: if a real headless Kiro run needs `KIRO_API_KEY` (the Kiro docs conflict), should Kiro `agent run` then be refused (proposed, fail closed) or be allowed the key with a KNOWN-LIMITS item?
+11. **`agent login` when already signed in with a subscription.** Run the login check first and start nothing if it passes (proposed: no needless browser sign-in, and no second login stacked on the first), or always start the login when asked?
+12. **The login environment.** `child_env()` plus exactly `TERM`, `COLORTERM`, `BROWSER`, `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_CURRENT_DESKTOP`, `XDG_DATA_DIRS`, `DESKTOP_SESSION`, `DBUS_SESSION_BUS_ADDRESS`, `SSH_TTY`, `SSH_CONNECTION`, `SSH_CLIENT` and `NO_BROWSER` (proposed). Or also the legacy desktop names `KDE_FULL_SESSION`, `KDE_SESSION_VERSION`, `GNOME_DESKTOP_SESSION_ID` and `MATE_DESKTOP_SESSION_ID`, for older desktops where `XDG_CURRENT_DESKTOP` is not set? A login without a usable browser still works through the printed URL and the pasted code.
 
 #### Risks (part 7c)
 
@@ -1234,6 +1340,11 @@ Effort, if approved: about 9 hours (tasks.md 10.33 to 10.37; 0.5 of them the own
 | the login changes between the check and the start, or during a run | the run pays by the new credential | the window is a second; the ACP watch covers chats; not covered for `agent run` and cli chat |
 | extra usage beyond the plan | billed, not seen | budget governor (H-078); KNOWN-LIMITS |
 | the plan word is shown | `max` or `pro` appears on screen and in the logbook | only that word, from an allow-listed character set; open question 5 |
+| `--claudeai` is not in the CLI reference table | a future CLI could refuse it | pinned bundled CLI; the adapter uses the same words; the owner's real check (10.31) |
+| the login prints a token or code on the owner's terminal | it is on screen and in the terminal's scrollback | umwayi has no pipe to it and logs nothing; the same as running `claude auth login` by hand |
+| a browser opened by the login is the owner's default browser, with the owner's claude.ai session | the owner may sign in to the wrong account | the check after the login names only the plan, so the owner sees `plan: WORD`; the account is the owner's choice |
+| Kiro `whoami` exits 0 when signed out | the Kiro check proves nothing | the start then fails at Kiro's own sign-in error (exit 2); KNOWN-LIMITS; the owner's real check |
+| a headless Kiro run needs `KIRO_API_KEY` | Kiro `agent run` fails with `KIRO_API_KEY` removed | fail closed; open question 10 |
 
 
 ## Layer 11: Linux-like features (outline, planned Nov 9 to Nov 10)

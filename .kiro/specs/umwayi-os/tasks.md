@@ -295,9 +295,9 @@ Requirement 10.R11, design.md "Part 7: Claude Code over ACP", facts in `adapters
 
 ### Part 7c: subscription first, login and billing check (spec written Nov 9 2026, waiting for owner approval)
 
-Requirement 10.R12, design.md "Part 7c: subscription first, login and billing check", facts in `adapters/NOTES-layer10.md` ("Login and billing for Claude Code"). Tasks 10.29 to 10.31 above stay as they are. Nothing below starts before the owner approves 10.32. Effort about 9 hours (hours per task in brackets). Every test runs `python -m umwayi agent ...` as a real child process with the fake `claude` and the fake `node`, which answer `auth status --json` from a script that holds a planted email, organization and secret. No real Claude Code, no network, no key, no login.
+Requirement 10.R12, design.md "Part 7c: subscription first, login and billing check", facts in `adapters/NOTES-layer10.md` ("Login and billing for Claude Code"). Tasks 10.29 to 10.31 above stay as they are. Nothing below starts before the owner approves 10.32. Effort about 14 hours (hours per task in brackets). Every test runs `python -m umwayi agent ...` as a real child process with the fake `claude`, the fake `node` and the fake `kiro-cli`, which answer `auth status --json`, `auth login --claudeai`, `whoami` and `login` from a script that holds a planted email, organization, URL, code and secret. No real Claude Code or Kiro, no network, no key, no real login.
 
-- [ ] 10.32 Requirement 10.R12, the design section, these tasks and the NOTES section written (Nov 9), **waiting for owner approval**, with the ten open questions of design.md part 7c answered.
+- [ ] 10.32 Requirement 10.R12, the design section, these tasks and the NOTES sections written (Nov 9), amended the same day for the owner's decisions (option B: `umwayi agent login NAME`; subscription first on every platform, so a Kiro section), **waiting for owner approval**, with the twelve open questions of design.md part 7c answered.
 - [ ] 10.33 `login_check()` and the "login" gate check (3 h):
   - the pure function over the six fields;
   - the check for every Claude Code start, in the workdir and with the agent's environment, 15 s, at most 64 KB, stderr discarded;
@@ -315,6 +315,62 @@ Requirement 10.R12, design.md "Part 7c: subscription first, login and billing ch
   - KNOWN-LIMITS: the undocumented fields; what `auth status` may not see; a project `apiKeyHelper` running at the check; extra usage not visible; the window between the check and the start.
   - README and the adapter README.
   - The owner's real check, recorded in NOTES-layer10.md and folded into 10.31: the real `auth status --json` field names (never the values) for the subscription login, with `ANTHROPIC_API_KEY` set, and with a project `apiKeyHelper`.
+- [ ] 10.38 `umwayi agent login NAME` (3.5 h): mode LOGIN in `_Run`; the `agent login` subcommand in `cli.py`.
+  - **Steps:**
+    - the start steps with action type `agent_login`, and the queue item `Log in agent NAME?` added once;
+    - the gate checks up to the login check;
+    - the login check first (already OK: exit 0, nothing started);
+    - `build_argv` for LOGIN: exactly `[NODE, ADAPTER, "--cli", "auth", "login", "--claudeai"]`;
+    - the forbidden words `--console`, `--email`, `--sso`, `setup-token`, `logout` and the Kiro login flags added to `_assert_allowed`;
+    - the owner's terminal unchanged, with no pipe;
+    - `login_env()` = `child_env()` plus `LOGIN_ENV_NAMES`;
+    - the watcher with `LOGIN_TIMEOUT` (10 minutes) and the part 5 stop;
+    - then the login check, and exactly one result line.
+  - **`agent run` and `agent chat`** never start a login; their refusal names `umwayi agent login NAME`.
+  - **Tests** (fake `node` as the login, a pty for the terminal cases):
+    - a login that flips the status gives `Claude subscription OK (plan: max)` and 0;
+    - a failed login, and an API key still in front, give 2 with the refusal line;
+    - already a subscription: nothing started, 0;
+    - the kill switch during the login gives 3 and nothing alive; the logbook and the limit give 2;
+    - the planted secret, URL and code printed by the fake are never in the logbook or the queue;
+    - the exact argv, and a scan that no argument list in any test has `--console`, `--email` or `--sso`;
+    - the environment names: listed names only, `BROWSER`, `DISPLAY` and `SSH_TTY` when set, never `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `CLAUDE_CODE_OAUTH_SCOPES`, `CLAUDE_CODE_REMOTE` or `ANTHROPIC_API_KEY`;
+    - rules No, Ask me first, run lock and a failing gate check start nothing;
+    - a Claude Code cli agent: 64;
+    - exit codes only 0, 2, 3 and 64.
+  - **Planted faults:** `--console` in place of `--claudeai`; the check after the login skipped.
+  - **Mutation checks:**
+    - `--email` added;
+    - stdout piped and read;
+    - the environment widened to `os.environ`;
+    - a listed name replaced by `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`;
+    - the kill switch not watched during LOGIN;
+    - "already OK" still starting the login;
+    - the action type left as `agent_run`;
+    - `agent chat` starting a login.
+  - **Counts** in the pull request.
+  - **KNOWN-LIMITS:**
+    - `--claudeai` not in the CLI reference;
+    - the login's own exit code not documented;
+    - the browser opener not documented;
+    - what the login prints stays in the terminal's scrollback.
+- [ ] 10.39 Kiro, subscription first (1.5 h):
+  - **What changes:**
+    - `kiro_env()`, with `KIRO_API_KEY` removed for every Kiro start, `whoami` and `login`;
+    - the Kiro login check `[KIRO, "whoami"]` by exit code only, output discarded, 15 s, after "version";
+    - `umwayi agent login NAME` for a Kiro agent: `[KIRO, "login"]`, no flags, then the `whoami` check.
+  - **Tests:**
+    - the fake `kiro-cli` records `KIRO_API_KEY` absent for run, cli chat, ACP chat, `whoami` and `login`, with it set in every test;
+    - `whoami` exiting 1 or hanging refuses with exit 2 and starts nothing;
+    - its output, with a planted email, is never shown;
+    - no Kiro argument list holds `--auth-method`, `logout` or a login flag;
+    - the part 4 and part 6 Kiro tests still pass.
+  - **Mutation checks:** `KIRO_API_KEY` left in; the `whoami` exit code ignored; `whoami` output printed.
+  - **KNOWN-LIMITS:**
+    - the `whoami` exit code when signed out is not documented;
+    - headless Kiro without `KIRO_API_KEY` is not confirmed (the docs conflict);
+    - the plan and credits cannot be read.
+  - **The owner's real check (10.31):** `kiro-cli whoami` exit code signed in and signed out, and one Kiro `agent run` without `KIRO_API_KEY`.
 
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
 
