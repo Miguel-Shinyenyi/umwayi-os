@@ -48,6 +48,9 @@ LS = {"do": "tool", "tool": "Bash", "input": {"command": "ls"}}
 RM = {"do": "tool", "tool": "Bash", "input": {"command": "rm -rf /"}}
 LOOP = {"do": "loop_tools", "tool": "Read", "input": {"file_path": "/etc/hostname"}, "every": 0.2, "for": 40}
 LAST_LS = {"do": "term_tool", "tool": "Bash", "input": {"command": "ls"}}
+# Generous, like the 25 s bound of the SIGKILL tests: on a busy CI runner the gate checks and the
+# start of the fake can take many seconds. A umwayi that exits early fails at once with its output.
+FIRST_TOOL_WAIT = 60
 
 
 class RunCase(AgentCase):
@@ -66,8 +69,9 @@ class RunCase(AgentCase):
         env = dict(self.script(*steps), **(extra or {}))
         return self.start_umwayi("run", name, "--prompt", "Do the long task", extra=env, **kw)
 
-    def first_tool(self):
-        return self.wait_for(lambda c: c.get("event") == "tool", what="the first tool call")
+    def first_tool(self, p):
+        return self.wait_for(lambda c: c.get("event") == "tool", timeout=FIRST_TOOL_WAIT,
+                             what="the first tool call", proc=p)
 
     def assert_agent_gone(self):
         self.assertEqual(self.alive_at_exit, [], "an agent process was still running when umwayi exited")
@@ -294,7 +298,7 @@ class PromptTests(RunCase):
 class StopsWhileRunningTests(RunCase):
     def test_kill_switch_turned_on_mid_run_stops_the_agent_and_its_next_call_is_denied(self):
         p = self.start_run("reviewer", LAST_LS, {"do": "spawn"}, LOOP)
-        self.first_tool()
+        self.first_tool(p)
         (self.root / ".umwayi").mkdir(exist_ok=True)
         (self.root / ".umwayi" / "KILL").write_text("", encoding="utf-8")
         t, wall = time.monotonic(), time.time()
@@ -312,8 +316,8 @@ class StopsWhileRunningTests(RunCase):
 
     def test_an_agent_that_ignores_sigterm_gets_sigkill_after_10_seconds(self):
         p = self.start_run("reviewer", {"do": "ignore_term"}, LOOP)
-        self.wait_for(lambda c: c.get("event") == "ignoring_term")
-        self.first_tool()
+        self.wait_for(lambda c: c.get("event") == "ignoring_term", timeout=FIRST_TOOL_WAIT, proc=p)
+        self.first_tool(p)
         (self.root / ".umwayi").mkdir(exist_ok=True)
         (self.root / ".umwayi" / "KILL").write_text("", encoding="utf-8")
         t = time.monotonic()
@@ -326,7 +330,7 @@ class StopsWhileRunningTests(RunCase):
 
     def test_the_logbook_failing_mid_run_stops_the_agent(self):
         p = self.start_run("reviewer", LAST_LS, LOOP)
-        self.first_tool()
+        self.first_tool(p)
         with open(self.root / "LOGBOOK.md", "a", encoding="utf-8") as f:
             f.write("edited by hand while the agent runs\n")
         code, out, _ = self.finish(p)
@@ -337,8 +341,8 @@ class StopsWhileRunningTests(RunCase):
 
     def test_sigterm_to_umwayi_stops_the_agent_and_what_it_started(self):
         p = self.start_run("reviewer", {"do": "spawn"}, LOOP)
-        self.wait_for(lambda c: c.get("event") == "spawn")
-        self.first_tool()
+        self.wait_for(lambda c: c.get("event") == "spawn", timeout=FIRST_TOOL_WAIT, proc=p)
+        self.first_tool(p)
         p.send_signal(signal.SIGTERM)
         code, out, _ = self.finish(p)
         self.assertEqual(code, 2, out)
@@ -352,7 +356,7 @@ class StopsWhileRunningTests(RunCase):
             with self.subTest(signal=words):
                 os.remove(self.fake_log) if self.fake_log.exists() else None
                 p = self.start_run("reviewer", LOOP)
-                self.first_tool()
+                self.first_tool(p)
                 p.send_signal(sig)
                 code, out, _ = self.finish(p)
                 self.assertEqual(code, 2, out)
@@ -361,7 +365,7 @@ class StopsWhileRunningTests(RunCase):
 
     def test_timeout_minutes_stops_the_run(self):
         p = self.start_run("slow", LOOP, extra={"UMWAYI_TEST_MINUTE": "2"})  # a "minute" of 2 s, test only
-        self.first_tool()
+        self.first_tool(p)
         code, out, _ = self.finish(p)
         self.assertEqual(code, 2, out)
         self.assertIn("was stopped after its timeout of 1 min (exit 2)", out)
