@@ -8,9 +8,11 @@ and never imports anything from here; it only knows two fixed paths (the adapter
 `canary.py`). Requirement 10.R11, design.md "Part 7: Claude Code over ACP", and the facts with links in
 `adapters/NOTES-layer10.md` ("Claude Code over ACP").
 
-Status (Nov 8 2026): part 7a is built. agents.yaml accepts the agent, and `umwayi agent check NAME` runs
-every gate check below. The chat itself (the session, the inline settings and the canary wait) is part
-7b. Until then `umwayi agent chat NAME` refuses a Claude Code ACP agent with exit 64 and starts nothing.
+Status (Nov 9 2026): parts 7a and 7b are built. agents.yaml accepts the agent, `umwayi agent check NAME`
+runs every gate check below, and `umwayi agent chat NAME` runs the chat: it hands the adapter the layer 9
+hook and the SessionStart canary (`canary.py`) in the inline settings of `session/new`, and sends nothing
+you type until the canary has run in that session (at most 30 seconds, else exit 2). No real adapter has
+been run yet (docs/KNOWN-LIMITS.md, items 59 and 65).
 
 ## Files
 

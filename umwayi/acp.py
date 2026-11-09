@@ -15,6 +15,10 @@ Only the messages written down in adapters/NOTES-layer10.md, nothing else:
   * any other request from the agent gets JSON-RPC error -32601 and nothing is done;
   * a line that is not one JSON object (or longer than 4 MB), an error answer, another protocol
     version or a dropped connection ends the chat. A prompt is never sent twice.
+  * part 7 (Claude Code), three options, all off for Kiro: session_meta is sent as _meta of
+    session/new; gate_ready is polled after session/new for up to 30 s, and the chat ends before
+    any owner line is sent if it never says True; set_mode is sent as session/set_mode before
+    the first owner line, and an error answer ends the chat.
 
 This module starts no program and imports nothing from umwayi: agents.py starts the agent, owns
 the rules, the logbook and the stop, and calls Chat.run().
@@ -38,6 +42,9 @@ METHOD_NOT_FOUND = -32601
 AUTH_REQUIRED = -32000
 ALLOW, REJECT, ASK = "allow", "reject", "ask"
 SIGN_IN = "Sign in with kiro-cli login, then try again."
+GATE_WAIT = 30.0  # seconds after session/new for gate_ready (part 7: the Claude Code canary)
+GATE_NOT_CONFIRMED = "the first gate could not be confirmed in the ACP session"
+MODE_REFUSED = "the agent did not accept the default permission mode"
 
 _INVISIBLE = ({0x061C, 0x200E, 0x200F, 0x2028, 0x2029, 0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF, 0x180E}
               | set(range(0x202A, 0x202F)) | set(range(0x2066, 0x206A)) | set(range(0x2061, 0x2065)))
@@ -128,7 +135,7 @@ class Chat:
     """One ACP chat. run() returns ("done", how) | ("failed", why, lines) | ("stopped", token)."""
 
     def __init__(self, proc, out, owner, workdir: str, permission, tick, queue_lines, client_version: str,
-                 tick_interval: float = 1.0):
+                 tick_interval: float = 1.0, session_meta=None, gate_ready=None, set_mode=None):
         self.proc = proc
         self.out = out  # the owner's screen
         self.owner = owner  # the owner's input, a file descriptor (stdin)
@@ -151,6 +158,10 @@ class Chat:
         self.mid_line = False
         self.tick_interval = tick_interval  # the same interval as the watcher in agents.py
         self.last_tick = time.monotonic()
+        # part 7 (Claude Code); all None for Kiro: no _meta, no waiting, no session/set_mode
+        self.session_meta = session_meta  # a dict sent as _meta of session/new
+        self.gate_ready = gate_ready  # callback() -> True once the first gate is confirmed
+        self.set_mode = set_mode  # a mode id sent with session/set_mode once the gate is confirmed
 
     # ------------------------------------------------------------ called from the SIGINT handler
 
@@ -400,13 +411,28 @@ class Chat:
             raise _Failed("the agent answered another protocol version than 1",
                           [f"The agent answered protocol version {safe_text(repr(version)[:40])}; umwayi speaks only "
                            "version 1. The chat ended (exit 2)."])
-        new = self._call("session/new", {"cwd": self.workdir, "mcpServers": []})
+        params = {"cwd": self.workdir, "mcpServers": []}
+        if self.session_meta is not None:
+            params["_meta"] = self.session_meta
+        new = self._call("session/new", params)
         self._check_error(new, "session/new")
         sid = (new.get("result") or {}).get("sessionId") if isinstance(new.get("result"), dict) else None
         if not (isinstance(sid, str) and _SESSION_ID.match(sid)):
             raise _Failed("the agent gave no usable session id",
                           ["The agent gave no usable session id. The chat ended (exit 2)."])
         self.sid = sid
+        if self.gate_ready is not None:  # nothing of the owner is sent before the gate is confirmed
+            deadline = time.monotonic() + GATE_WAIT
+            while not self.gate_ready():
+                if time.monotonic() >= deadline:
+                    raise _Failed(GATE_NOT_CONFIRMED, ["The first gate could not be confirmed in the ACP session. "
+                                                       "Nothing was sent."])
+                self._pump()  # the watcher still runs; owner lines wait in self.lines
+                self.interrupted = False
+        if self.set_mode is not None:
+            answer = self._call("session/set_mode", {"sessionId": self.sid, "modeId": self.set_mode})
+            if "error" in answer:
+                raise _Failed(MODE_REFUSED, ["The agent did not accept the default permission mode."])
 
     @staticmethod
     def _check_error(msg: dict, method: str) -> None:

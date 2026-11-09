@@ -506,6 +506,27 @@ class CodeGuardTests(unittest.TestCase):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open":
                 self.assertEqual(node.args[1].value, "rb", "agents.py may only open files to read them")
 
+    def test_the_canary_folder_is_the_only_folder_made_and_removed(self):
+        """Part 7b: one tempfile.mkdtemp and one shutil.rmtree, each in its own small function, nothing else."""
+        import ast
+        tree = ast.parse((REPO / "umwayi" / "agents.py").read_text(encoding="utf-8"))
+        found = []
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef):
+                for n in ast.walk(fn):
+                    if isinstance(n, ast.Attribute) and n.attr in ("mkdtemp", "rmtree", "mkstemp", "NamedTemporaryFile",
+                                                                   "TemporaryDirectory", "copy", "move"):
+                        found.append((fn.name, n.attr))
+        self.assertEqual(sorted(found), [("_canary_folder", "mkdtemp"), ("_remove_canary_folder", "rmtree")])
+        _, calls = self._calls()
+        [popen] = [kw for f, attr, kw in calls if attr == "Popen"]
+        self.assertEqual(popen["env"].id, "env")  # the allow list reaches the adapter
+        src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("env = child_env(os.environ) if self._claude_acp() else None"), 1)
+        self.assertEqual(src.count("secrets.token_hex(16)"), 1)
+        # the canary is confirmed by the file existing, never by reading it
+        self.assertEqual(src.count("os.path.exists(os.path.join(self.canary[0], self.canary[1]))"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

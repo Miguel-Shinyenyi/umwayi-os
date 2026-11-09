@@ -27,6 +27,14 @@ It records every call to the JSON lines file in FAKE_LOG.
 * As `kiro-cli acp`: a scripted ACP agent on stdin and stdout, driven by the JSON in FAKE_ACP
   (see run_acp). Every message it gets is recorded as an "acp_in" event, every answer to
   one of its requests as "permission_answer" or "request_answer".
+* As `claude-acp acp` (exec'd by tests/agents/fake_node.py for `node ADAPTER`): the same
+  scripted ACP agent in a Claude flavour, as the claude-agent-acp adapter and the Claude Agent
+  SDK docs describe it: it reads `_meta.claudeCode.options.settings` of session/new, runs the
+  SessionStart command hooks there in exec form (command and args, the event JSON on stdin,
+  the handler's timeout) when the session starts (FAKE_ACP "canary": "session_new", the
+  default; or "first_prompt", or "never"), answers session/set_mode, and for a "claude_tool"
+  action runs the PreToolUse hooks of those settings before it sends a permission request;
+  a deny or block from a hook means no permission request is sent.
 """
 import json
 import os
@@ -212,10 +220,32 @@ for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     elif kind == "exit":
         rec(event="end")
         sys.exit(step["code"])
+def run_session_start(settings: dict, source: str) -> None:
+    """The SessionStart command hooks of the inline settings, in exec form, one after another."""
+    if settings.get("disableAllHooks"):
+        return
+    payload = {"session_id": "fake-session", "transcript_path": "/dev/null", "cwd": os.getcwd(),
+               "hook_event_name": "SessionStart", "source": source}
+    for g in settings.get("hooks", {}).get("SessionStart", []):
+        for h in g.get("hooks", []):
+            if h.get("type") != "command":
+                continue
+            try:
+                r = subprocess.run([h["command"], *h.get("args", [])], input=json.dumps(payload).encode("utf-8"),
+                                   capture_output=True, timeout=h.get("timeout", 600), shell=False)
+                code = r.returncode
+            except (subprocess.TimeoutExpired, OSError):
+                code = None
+            rec(event="session_start_hook", source=source, args=h.get("args", []), code=code)
+
+
 def run_acp():
     """A scripted ACP agent. FAKE_ACP: {"init": {...} | "garbage", "new": {...}, "turns": [[action, ...], ...],
-    "ignore_eof": bool, "stderr": text}. Actions: chunk, tool_call, update, permission, request, garbage, big,
-    sleep, wait_cancel, ignore_cancel, exit, spawn, stop."""
+    "ignore_eof": bool, "stderr": text, and for the Claude flavour "canary": "session_new" | "first_prompt" |
+    "never", "canary_delay": seconds, "set_mode_error": bool}. Actions: chunk, tool_call, update, permission,
+    request, garbage, big, sleep, wait_cancel, ignore_cancel, exit, spawn, spawn_setsid, spawn_stubborn, stop,
+    and claude_tool ({"tool": NAME, "input": {...}}, the PreToolUse hooks first, then its permission if any)."""
+    global groups
     import queue as _queue
     import threading as _threading
     from collections import deque
@@ -279,11 +309,19 @@ def run_acp():
         send({"jsonrpc": "2.0", "id": m["id"], "result": {"protocolVersion": init.get("protocolVersion", 1),
               "agentCapabilities": {"loadSession": False}, "agentInfo": {"name": "fake-kiro"}, "authMethods": []}})
     m = next_msg(lambda x: x.get("method") == "session/new")
+    claude = PROG != "kiro-cli"
+    meta = (m.get("params") or {}).get("_meta") or {}
+    inline = ((meta.get("claudeCode") or {}).get("options") or {}).get("settings") or {} if claude else {}
+    groups = [] if inline.get("disableAllHooks") else inline.get("hooks", {}).get("PreToolUse", [])
+    canary = spec.get("canary", "session_new") if claude else "never"
     new = spec.get("new", {})
     if "error" in new:
         send({"jsonrpc": "2.0", "id": m["id"], "error": new["error"]})
     else:
         send({"jsonrpc": "2.0", "id": m["id"], "result": {"sessionId": new.get("sessionId", "sess-1")}})
+    if canary == "session_new":
+        time.sleep(spec.get("canary_delay", 0))
+        run_session_start(inline, "startup")
     sid = new.get("sessionId", "sess-1")
     turns = deque(spec.get("turns", []))
     rid = 1000
@@ -292,7 +330,17 @@ def run_acp():
         send({"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": sid, "update": u}})
 
     while True:
-        m = next_msg(lambda x: x.get("method") == "session/prompt")
+        m = next_msg(lambda x: x.get("method") in ("session/prompt", "session/set_mode"))
+        if m["method"] == "session/set_mode":
+            rec(event="set_mode", mode=m["params"].get("modeId"))
+            if spec.get("set_mode_error"):
+                send({"jsonrpc": "2.0", "id": m["id"], "error": {"code": -32602, "message": "Invalid mode"}})
+            else:
+                send({"jsonrpc": "2.0", "id": m["id"], "result": {}})
+            continue
+        if canary == "first_prompt":
+            canary = "done"
+            run_session_start(inline, "startup")
         text = m["params"]["prompt"][0]["text"]
         actions = turns.popleft() if turns else [{"chunk": f"you said: {text}"}]
         stop, answer = "end_turn", True
@@ -303,7 +351,10 @@ def run_acp():
                 update(dict({"sessionUpdate": "tool_call", "toolCallId": "call-1", "status": "pending"}, **act["tool_call"]))
             if "update" in act:
                 update(act["update"])
-            if "permission" in act or "request" in act:
+            blocked = False
+            if "claude_tool" in act:  # the PreToolUse hooks run before any permission request
+                blocked = tool(act["claude_tool"]["tool"], act["claude_tool"].get("input", {})) in ("deny", "block")
+            if ("permission" in act or "request" in act) and not blocked:
                 rid += 1
                 if "permission" in act:
                     method, params = "session/request_permission", dict({"sessionId": sid}, **act["permission"])
@@ -328,6 +379,24 @@ def run_acp():
             if "spawn" in act:
                 p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
                 rec(event="spawn", pid=p.pid)
+            if "spawn_setsid" in act:  # a background command in its own session: out of reach of the group
+                p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True)
+                rec(event="spawn", pid=p.pid, setsid=True)
+            if "spawn_orphan" in act:  # a grandchild in its own session whose parent exits after 1.5 s
+                code = ("import subprocess, sys, time\n"
+                        "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'], "
+                        "start_new_session=True)\n"
+                        "print(p.pid, flush=True)\n"
+                        "time.sleep(1.5)\n")
+                mid = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, text=True)
+                rec(event="spawn", pid=int(mid.stdout.readline()), orphan=True, setsid=True)
+                rec(event="spawn", pid=mid.pid, intermediate=True)
+            if "spawn_stubborn" in act:  # its own session, and it ignores SIGTERM
+                p = subprocess.Popen([sys.executable, "-c", "import signal, time; signal.signal(signal.SIGTERM, "
+                                      "signal.SIG_IGN); print('ready', flush=True); time.sleep(120)"],
+                                     start_new_session=True, stdout=subprocess.PIPE, text=True)
+                p.stdout.readline()  # it ignores SIGTERM from here on
+                rec(event="spawn", pid=p.pid, setsid=True, stubborn=True)
             if "exit" in act:
                 rec(event="end")
                 sys.exit(act["exit"])

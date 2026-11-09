@@ -6,7 +6,10 @@ It answers the self-test programs of a Claude Code ACP chat (design.md part 7):
     node ADAPTER --version                 the adapter version
     node ADAPTER --cli --version           the bundled Claude Code version
     node ADAPTER --cli auth status         the sign-in check (exit code; prints a planted secret)
-    node ADAPTER                           the ACP chat: recorded as "started", then exits
+    node ADAPTER                           the ACP chat: recorded as "started"; with "acp" in node.json it
+                                           execs the scripted ACP agent of fake_agent.py in its Claude
+                                           flavour (bin/claude-acp, same pid), with that spec as FAKE_ACP
+                                           and "fake_log" as FAKE_LOG added to the environment it got
 
 umwayi gives these programs only an allow-listed environment, so the fake cannot be steered
 by environment variables. It reads its answers from `node.json` next to itself and appends
@@ -38,7 +41,8 @@ def main() -> int:
     except FileNotFoundError:
         pass
     args = sys.argv[1:]
-    data = sys.stdin.buffer.read() if not sys.stdin.isatty() else b""
+    is_chat = len(args) == 1 and args[0].endswith("/dist/index.js")  # stdin is the ACP pipe then: never read here
+    data = sys.stdin.buffer.read() if not (is_chat or sys.stdin.isatty()) else b""
     secret = cfg["secret"]
     call = {"argv": [sys.argv[0]] + args, "cwd": os.getcwd(), "pid": os.getpid(), "stdin": len(data),
             "env": sorted(os.environ), "protocol": os.environ.get("CLAUDE_AGENT_ACP_PROTOCOL"),
@@ -77,6 +81,9 @@ def main() -> int:
         return cfg["auth_exit"]
     if not rest:
         log(probe="chat", started=True)
+        if "acp" in cfg:  # become the scripted ACP agent (Claude flavour), keeping this pid and environment
+            env = dict(os.environ, FAKE_LOG=cfg["fake_log"], FAKE_ACP=json.dumps(cfg["acp"]), FAKE_SCRIPT="[]")
+            os.execve(sys.executable, [sys.executable, str(HERE / "claude-acp"), "acp"], env)
         return 0
     log(probe="unknown")
     return 9

@@ -1,4 +1,4 @@
-"""Layer 10 part 7a, tasks 10.23 and 10.25: a Claude Code agent with transport acp, its gate checks
+"""Layer 10 part 7a, tasks 10.23 and 10.25 (the chat itself, part 7b: test_agents_claude_acp_chat.py): a Claude Code agent with transport acp, its gate checks
 and the allow-listed child environment (requirement 10.R11, design.md part 7).
 
 Every test runs `python -m umwayi agent ...` as a real child process, with a fake `node`
@@ -111,7 +111,7 @@ class GatedTests(ClaudeAcpCase):
         self.assertEqual(len(line), 1)
         argv = json.loads(line[0][len("chat would start: "):].split(" with the allow-listed environment")[0])
         self.assertEqual(argv, [str(self.node), str(self.adapter)])  # no max_turns, no npx, no shell
-        self.assertIn("part 7b", line[0])
+        self.assertIn("only after the SessionStart canary has run", line[0])
         self.assertIn("ok: claude code version: 2.1.318", r.stdout)
         self.assertIn("Nothing was started.", self.lines(r)[-1])
         self.assert_no_chat_started()
@@ -329,16 +329,6 @@ class SecretTests(ClaudeAcpCase):
 
 
 class ChatAndRunTests(ClaudeAcpCase):
-    def test_the_chat_is_refused_with_64_until_part_7b(self):
-        before = tree_state(self.root)
-        r = self.umwayi("chat", "reviewer")
-        self.assertEqual(r.returncode, 64, r.stdout + r.stderr)
-        self.assertIn("comes in layer 10 part 7b", r.stderr)
-        self.assertIn("Nothing was started.", r.stderr)
-        self.assertEqual(self.node_calls(), [])
-        self.assertEqual(self.calls(), [])
-        self.assertEqual(tree_state(self.root), before, "a refused chat wrote to the root")
-
     def test_agent_run_stays_claude_p(self):
         r = self.umwayi("run", "reviewer", "--prompt", "say hello")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
