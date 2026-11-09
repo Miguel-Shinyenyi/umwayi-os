@@ -254,3 +254,100 @@ Sources:
 | starting mode | `session/set_mode` to `default` after `session/new` (proposed) |
 | capabilities | `{}`: none needed |
 | stop | stdin closed, then the process group and every seen descendant |
+
+## Login and billing for Claude Code (part 7c, spec only)
+
+Read on Nov 9 2026, for the part 7c spec (tasks.md 10.32 and up). Nothing was installed, signed in or run. **From the source** again means what the adapter's code does at tag v0.101.0 (commit `85aec26ef984a421fe8064ce43f60138a3372384`), not a documented promise.
+
+Pages and files read:
+
+| what | where |
+| --- | --- |
+| Claude Code sign-in, precedence, login restrictions | [Authentication](https://code.claude.com/docs/en/authentication) |
+| `claude auth status`, `claude auth login --console` | [CLI reference, CLI commands](https://code.claude.com/docs/en/cli-reference) |
+| `forceLoginMethod`, `forceLoginOrgUUID`, `apiKeyHelper` | [Settings reference](https://code.claude.com/docs/en/settings-reference) |
+| `AccountInfo`, `accountInfo()` | [Agent SDK TypeScript reference](https://code.claude.com/docs/en/agent-sdk/typescript.md) |
+| the adapter's own reading of `auth status --json`, and `_auth/status_update` | [src/auth-status.ts](https://github.com/agentclientprotocol/claude-agent-acp/blob/v0.101.0/src/auth-status.ts), `runCliAuthProbe` in [src/acp-agent.ts](https://github.com/agentclientprotocol/claude-agent-acp/blob/v0.101.0/src/acp-agent.ts) |
+| the adapter's billing guard (`--hide-claude-auth`) | [src/hide-claude-auth.ts](https://github.com/agentclientprotocol/claude-agent-acp/blob/v0.101.0/src/hide-claude-auth.ts) |
+
+### Which credential pays: the precedence
+
+- **Claude Code picks one credential, in this order** ([Authentication, Authentication precedence](https://code.claude.com/docs/en/authentication)):
+  1. cloud provider credentials, when `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX` or `CLAUDE_CODE_USE_FOUNDRY` is set;
+  2. `ANTHROPIC_AUTH_TOKEN`;
+  3. `ANTHROPIC_API_KEY`;
+  4. the output of an `apiKeyHelper` script;
+  5. `CLAUDE_CODE_OAUTH_TOKEN` (a long-lived token from `claude setup-token`);
+  6. Anthropic profile and federation credentials;
+  7. the subscription login from `/login`. This is the default for Pro, Max, Ultra, Team and Enterprise.
+  
+  A signed-in Claude apps gateway outranks all of them.
+- **So a subscription login is the last choice, not the first.** Any API key, token, helper or cloud variable that is present wins over it. The page says this outright: with a subscription and `ANTHROPIC_API_KEY` both set, Claude Code uses the key once you approve it. **In non-interactive mode (`-p`), the key is always used when present** ([Authentication](https://code.claude.com/docs/en/authentication)).
+- **What that means for umwayi today:**
+  - `umwayi agent run` (`claude -p`) and the cli chat give `claude` umwayi's whole environment. So when the owner's shell has `ANTHROPIC_API_KEY`, an `agent run` pays by API key, not by the subscription. Nothing in umwayi notices.
+  - The ACP chat (part 7a) already drops `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` (the allow list of 10.R11.9). It does not drop a credential that comes from a settings file.
+- **Credentials from settings files:** `apiKeyHelper` may be set in any settings file, the project's `.claude/settings.json` in the workdir included ([Settings reference, apiKeyHelper](https://code.claude.com/docs/en/settings-reference)). Claude Code runs it through `/bin/sh` and sends its output as the key. The adapter keeps settingSources user, project and local (approved answer 7), so a repository can make a session pay by API key, and the environment allow list cannot stop that. The Authentication page also names settings files that can set `CLAUDE_CODE_OAUTH_TOKEN` through their `env` key.
+- **Console logins are API billing:** `claude auth login --console` signs in "with Anthropic Console for API usage billing instead of a Claude subscription" ([CLI reference](https://code.claude.com/docs/en/cli-reference)). A Console login either stores an API key (legacy) or an Anthropic profile without a key ([Authentication, Sign in without an API key](https://code.claude.com/docs/en/authentication)).
+
+### What `claude auth status` reports
+
+- **Documented** ([CLI reference](https://code.claude.com/docs/en/cli-reference)):
+  - It shows the authentication status as JSON (`--text` for a human readable form).
+  - It exits 0 when logged in and 1 when not.
+  - The JSON has `configDirectory` (Claude Code 2.1.268 or later).
+  - The JSON has **`authMethod`, one of `none`, `claude.ai`, `oauth_token`, `api_key`, `api_key_helper` or `third_party`**.
+- **From the source, not documented by Claude Code:** the adapter reads the same output as `{loggedIn, authMethod, apiProvider, apiKeySource, email, orgId, orgName, subscriptionType}`. It notes that absent fields are left out, not null, and that a signed-out CLI still prints valid JSON while it exits 1 (`CliAuthStatus` in `src/auth-status.ts`).
+  - It runs `claude auth status --json` with a 5 second limit, in the session's working folder, with its environment.
+  - It puts `--settings JSON` before `auth status`, because the CLI refuses that global option after the subcommand (`runCliAuthProbe`).
+- **The output names the person:** `email`, `orgId` and `orgName` are in it. A client that parses it must read only the fields it needs, and must never print, log or store the rest.
+- **A helper next to a subscription:** with an `apiKeyHelper` in settings and a claude.ai login, the output has both `apiKeySource` and `subscriptionType`, and the helper's key is what pays (comment on `mapAuthFields`, from the source). So `subscriptionType` alone does not prove the subscription pays. `apiKeySource` must be absent as well.
+- **Not documented:**
+  - Whether `auth status` itself runs an `apiKeyHelper` to report it.
+  - Whether it reads project settings from the folder it runs in.
+  - Whether it reflects an `env` key in a settings file.
+  
+  The adapter's code assumes it reports the credential the session in that folder would use.
+
+### How the adapter decides "a subscription pays" (its billing guard)
+
+- `--hide-claude-auth` is the adapter's guard for the opposite case: an integration that must **never** bill a subscription. It refuses every session and turn that a subscription would pay for (`src/hide-claude-auth.ts`).
+- Its test, `billsClaudeSubscription(account)` on the SDK's `AccountInfo`, is the most precise statement found of when a subscription pays. All four must hold, and an unknown value counts as "not proven":
+  1. `subscriptionType` is set;
+  2. `tokenSource` is absent;
+  3. `apiProvider` is absent or `firstParty`;
+  4. `apiKeySource` is not `ANTHROPIC_API_KEY`, `apiKeyHelper` or `/login managed key` (a key that a Console `/login` created).
+- `AccountInfo` is documented as `{email?, organization?, subscriptionType?, tokenSource?, apiKeySource?}`. `accountInfo()` "Returns account information", with nothing about the values ([TypeScript reference](https://code.claude.com/docs/en/agent-sdk/typescript.md)).
+- **The account can change during a session:** the SDK caches the account at `initialize`, but the CLI picks up a login or logout made in another terminal (module comment, from the source). A session that started on the subscription can go on with an API key.
+- **The adapter tells the client:** a push-only notification `_auth/status_update` with `{authStatus: {kind, label, ...}}`. `kind` is `none`, `account` (a subscription; `account.plan` holds `subscriptionType`), `api_key`, `gateway` or `external` (Bedrock, Vertex and others).
+  - It is sent after `initialize`, at each `session/new`, and at the start of each prompt (an asynchronous probe), and only when the payload changed (`src/auth-status.ts`).
+  - Nothing waits for it, so it can arrive in the middle of a turn that is already being paid for.
+  - umwayi ignores it today (part 6 ignores unknown notifications).
+
+### Restricting the login method
+
+- **`forceLoginMethod`**: `"claudeai"` allows only claude.ai accounts to log in, and `"console"` only Console accounts. Its scope is "Any file" ([Settings reference](https://code.claude.com/docs/en/settings-reference)).
+  - Since Claude Code 2.1.212 every first-party login path applies it, the Agent SDK included. The exception is the terminal's interactive `/login` screen, which only pre-selects.
+  - With `"claudeai"`, an API key from an earlier Console login does not count as a sign-in ([Authentication, Login prompt still appears](https://code.claude.com/docs/en/authentication)).
+- **Environment credentials under it:** the Authentication page says `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `apiKeyHelper` are "blocked at startup", because "under `forceLoginMethod` the credential would stand in for the required sign-in".
+  - **Not confirmed:** that page describes the managed settings case. No page says whether a `forceLoginMethod` given in the flag-settings layer (`--settings`, or the SDK `settings` option) blocks an environment or helper credential at session start. The settings reference adds that the `"claudeai"` and `"console"` values follow "which managed source supplies login keys" rules.
+  - So `forceLoginMethod: "claudeai"` in umwayi's inline settings is at best a second line. The login check below is the first.
+- **`forceLoginOrgUUID`** only checks organizations when it comes from a managed source; from any other file it only pre-selects ([Settings reference](https://code.claude.com/docs/en/settings-reference)). Not useful to umwayi.
+
+### Billing beyond the subscription
+
+- **Not documented** in the pages read: whether a subscription session can bill pay-as-you-go usage beyond the plan's limits, how a client could tell, or how to turn it off.
+- `auth status` and `AccountInfo` say which credential pays, not how much, nor whether extra usage is on.
+- `ModelUsage.costUSD` in SDK result messages is "a client-side estimate" ([TypeScript reference](https://code.claude.com/docs/en/agent-sdk/typescript.md)), and the adapter does not pass it to an ACP client as a field umwayi reads.
+- So umwayi can make sure the subscription is the credential, but it cannot cap the spend. That stays with the budget governor (H-078).
+
+### What part 7c takes from this
+
+| need | how |
+| --- | --- |
+| prove a subscription pays before any Claude Code start | `auth status --json`, in the workdir, with the environment the agent will get: exit 0, `loggedIn` true, `authMethod` `claude.ai`, no `apiKeySource`, `apiProvider` absent or `firstParty`, `subscriptionType` a plain word; anything else refuses |
+| read nothing personal | only those six fields; `email`, `orgId`, `orgName` and the raw text are never printed, logged or stored |
+| keep environment credentials out of `agent run` and the cli chat | drop the precedence list's variables from their environment (the ACP allow list already does) |
+| a second line inside the session | `forceLoginMethod: "claudeai"` in the inline settings (not confirmed to block environment credentials) |
+| notice a change during an ACP chat | `_auth/status_update` with `kind` other than `account` ends the chat |
+| no login by umwayi | the owner signs in with `claude` then `/login` (claude.ai); umwayi never runs `auth login` or `logout` |
+| spend | not visible; budget governor |
