@@ -233,6 +233,7 @@ class AgentCase(unittest.TestCase):
         umwayi failed to stop, so a leftover agent could finish on its own and look stopped.
         """
         p.wait(timeout=timeout)
+        self.exited_at = time.monotonic()  # when umwayi exited; the quiet wait below is not part of the stop
         self.alive_at_exit = self.agent_pids_alive()
         for pid in self.alive_at_exit:
             os.kill(pid, signal.SIGKILL)

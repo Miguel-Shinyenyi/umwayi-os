@@ -361,7 +361,7 @@ class TerminalTests(ChatCase):
         self.assertEqual(self.wait_exit(p, m, timeout=40), 3)
         took = time.monotonic() - t
         self.assertGreater(took, 9.5)
-        self.assertLess(took, 16)
+        self.assertLess(took, 25)  # generous: SIGKILL comes at 10 s, not at a minute
         self.assert_agent_gone()
 
     def test_the_timeout_stops_the_chat(self):

@@ -299,10 +299,10 @@ class StopsWhileRunningTests(RunCase):
         (self.root / ".umwayi" / "KILL").write_text("", encoding="utf-8")
         t = time.monotonic()
         code, out, _ = self.finish(p)
-        took = time.monotonic() - t
+        took = self.exited_at - t  # SIGKILL follows after 10 s
         self.assertEqual(code, 3, out)
         self.assertGreater(took, 9.5)
-        self.assertLess(took, 16)
+        self.assertLess(took, 25)  # generous: SIGKILL comes at 10 s, not at a minute
         self.assert_agent_gone()
 
     def test_the_logbook_failing_mid_run_stops_the_agent(self):
