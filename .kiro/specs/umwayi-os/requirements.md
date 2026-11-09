@@ -321,6 +321,76 @@ Acceptance criteria:
 13. **Standard library core:** the core `umwayi` package stays standard library only and never imports `adapters`; the only third party code is the npm package in `adapters/claude_acp/`, pinned, listed in its README, and never needed by the core or its tests (the tests use a fake `node`).
 14. **Tests,** as for every part: real child processes, a fake `node` (a Python script on PATH) that answers the version, the CLI version and the sign-in check, and in ACP mode acts like the adapter (it runs the `SessionStart` canary and the `PreToolUse` hook from the inline settings of `_meta.claudeCode.options`, the way the Claude Code docs describe); planted faults and mutation checks with the counts in the pull request; no network, no real Node, no real Claude Code, no key.
 
+### 10.R12 Subscription first: the Claude Code login and billing check (part 7c: spec written Nov 9, waiting for owner approval)
+
+The owner asked on Nov 9: subscription first, with a login and billing check. Nothing of part 7c is built before the owner approves it (tasks.md 10.32). Doc and source facts with links: `adapters/NOTES-layer10.md`, section "Login and billing for Claude Code". Items marked "proposed" depend on an open question in design.md (layer 10, part 7c). When approved, item 3 replaces 10.R11.8 (sign-in by exit code only) for every Claude Code start; everything else in 10.R11 stays.
+
+Why: Claude Code picks the credential that pays by a fixed precedence, and a Claude subscription login comes last. Any `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `apiKeyHelper`, `CLAUDE_CODE_OAUTH_TOKEN`, cloud provider variable or gateway wins over it. In `claude -p` an API key in the environment is always used. Today `umwayi agent run` and the cli chat pass umwayi's whole environment, so an API key in the owner's shell silently turns a run into pay-as-you-go API billing. A project's `.claude/settings.json` can do the same with `apiKeyHelper`, even in an ACP chat.
+
+User story: as the owner, I want every Claude Code agent umwayi starts to be paid by my Claude subscription and nothing else, checked before the start, so that an API key in my shell or a setting in a repository never bills me by the token without my knowing.
+
+Acceptance criteria:
+
+1. **Scope:** every Claude Code start: `umwayi agent run`, `umwayi agent chat` with transport cli, and with transport acp. Kiro is unchanged (proposed, design open question 10).
+2. **Subscription first, fail closed:** a Claude Code agent is started only when the login check (item 3) proves that a Claude subscription login (claude.ai: Pro, Max, Ultra, Team or Enterprise) is the credential that will pay. Otherwise it is refused with exit 2 and nothing is started.
+   - This covers an API key, an auth token, an `apiKeyHelper`, an OAuth token from the environment, a Console login, a cloud provider, a gateway, no login, or an answer umwayi cannot read.
+   - There is no agents.yaml key or flag to allow API billing in part 7c (proposed, open question 7).
+3. **The login check**, a gate check run for every Claude Code start (and by `umwayi agent check NAME`), after the version check and before the hook checks (proposed, open question 8):
+   - **The program:**
+     - transport acp: `[NODE, ADAPTER, "--cli", "auth", "status", "--json"]`;
+     - `agent run` and the cli chat: `[CLAUDE, "auth", "status", "--json"]`, where CLAUDE is the absolute `claude` found by the gate check.
+   - **How it runs:** in the agent's `workdir` (so the project settings it would load are the same); with exactly the environment the agent will get (item 6 and 10.R11.9); stdin empty; no shell; a timeout of 15 s; stderr discarded; at most 64 KB of stdout read.
+   - **Passed** only when all of these hold:
+     - the exit code is 0 and stdout is one JSON object;
+     - `loggedIn` is `true`;
+     - `authMethod` is `"claude.ai"`;
+     - `apiKeySource` is absent;
+     - `apiProvider` is absent or `"firstParty"`;
+     - `subscriptionType` is a string of 1 to 40 characters from `a-z`, `0-9`, space, `_` and `-`.
+   - Anything else, a missing field included, is a failed check. Only `authMethod` is documented by Claude Code; the other names come from the pinned adapter's source, so an unknown or changed shape fails closed.
+   - Whether `authMethod` `"oauth_token"` (a `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, which is also billed to a subscription) may pass too is open question 2; proposed no.
+4. **Nothing personal is read, printed, logged or stored:**
+   - Only the six fields of item 3 are taken from the JSON.
+   - The output is held in memory only for the check, then dropped.
+   - `email`, `orgId`, `orgName`, any other field and the raw output never appear in a message, the logbook, the queue or an exception text.
+   - Only the plan word (`subscriptionType`) may be shown: in `agent check` and in the start entry, as "plan: WORD" (proposed, open question 5).
+5. **What the owner sees when it fails**, one line each, never the email (exit 2, one logbook entry "Refused agent NAME: not gated (login: ...)"):
+
+   | the check found | the line names the fix |
+   | --- | --- |
+   | not signed in | "Sign in to Claude Code with your Claude subscription first (claude, then /login, choose the Claude account), then try again." |
+   | an API key, auth token or helper (`api_key`, `api_key_helper`, or `apiKeySource` present) | the source kind: unset the variable, or remove `apiKeyHelper` from the settings file. The value is never shown. |
+   | `oauth_token` | `CLAUDE_CODE_OAUTH_TOKEN` is set |
+   | `third_party`, or an `apiProvider` other than `firstParty` | a cloud provider or gateway is selected |
+   | a Console login | Console is API billing; sign in with the Claude account |
+   | no answer in 15 s, or output umwayi cannot read | "could not be confirmed" |
+
+6. **Credential variables never reach `agent run` or the cli chat** (proposed, open question 3):
+   - These are removed from the environment the agent and its login check get: `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_USE_FOUNDRY`, `ANTHROPIC_PROFILE`, `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID` and `ANTHROPIC_IDENTITY_TOKEN_FILE`.
+   - Everything else is passed as today (the terminal chat needs the owner's environment).
+   - The ACP chat keeps the allow list of 10.R11.9, which already passes none of them.
+   - umwayi never reads a value of these names; it only leaves them out.
+7. **A second line in the session** (proposed, open question 4): `forceLoginMethod: "claudeai"` is added to the one `claude_settings()` template. It then reaches `agent run` and the cli chat (`--settings`) and the ACP chat (inline settings). It is a second line only: not confirmed to block an environment or helper credential from that settings layer.
+8. **During an ACP chat** (proposed, open question 6):
+   - An `_auth/status_update` notification whose `params.authStatus.kind` is not `"account"` ends the chat as a stop: the adapter is stopped as in 10.R11.11, exit 2, and one entry "Agent NAME was stopped: the Claude Code login changed and a subscription no longer pays".
+   - Only `kind` is read; the label, account, plan and email are not.
+   - A notification with no readable `kind` is ignored, because the adapter sends "cannot determine" as silence.
+   - There is no such watch for `agent run` or the cli chat (the CLI sends nothing umwayi can read); the check before the start is all.
+9. **umwayi signs in for no one:**
+   - It never runs `auth login`, `auth logout`, `setup-token` or `/login`.
+   - It never offers ACP auth methods (`clientCapabilities` stays `{}`).
+   - It never reads, copies or stores a credential, key, token or helper output.
+10. **Billing beyond the subscription is not visible:** the check proves which credential pays, not how much, and not whether a plan's extra usage is on. umwayi sets no spend limit. Spend stays with the budget governor (H-078), and KNOWN-LIMITS says so.
+11. **`umwayi agent check NAME`** prints the login line with the other checks, for example `ok: login: Claude subscription (plan: max)` or `no: login: signed in with an API key from the environment (ANTHROPIC_API_KEY is not passed; unset it or ...)`. It starts no agent and writes nothing.
+12. **Tests**, as for every part: real child processes, no network, no real Claude Code, no key.
+    - The fake `claude` and the fake `node` answer `auth status --json` from a scripted JSON object that includes a planted email, organization name and secret.
+    - Each failing shape of item 5 refuses with exit 2 and starts nothing.
+    - The planted email, organization and secret never appear in stdout, stderr, the logbook or the queue.
+    - The credential variables of item 6 are absent from what the fake records, even when set.
+    - `forceLoginMethod` is in every settings JSON.
+    - An `_auth/status_update` with `kind: "api_key"` stops an ACP chat with nothing left alive.
+    - Planted faults and mutation checks with the counts in the pull request.
+
 ### Out of scope for layer 10 (Dec 3)
 
 - A model client, model keys, or any network call by umwayi.

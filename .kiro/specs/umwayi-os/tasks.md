@@ -293,6 +293,29 @@ Requirement 10.R11, design.md "Part 7: Claude Code over ACP", facts in `adapters
 - [ ] 10.30 Planted faults and mutation checks (2 h), the counts in the pull request. Planted faults: the canary wait skipped; `ANTHROPIC_API_KEY` passed to the child; the version pin not compared; `allowDangerouslySkipPermissions` left out. Mutation checks: each gate check removed or loosened (node 22 to 20, the pin compare, the CLI version compare, the sign-in exit code), each allow-list exclusion removed, the canary token not compared, the set_mode error ignored, the stop without descendants, the platform in the action left as `kiro`; the Kiro ACP tests re-run on every mutation to show it is unchanged.
 - [ ] 10.31 Docs and the first real run (3 h, 1.5 of them the owner's): KNOWN-LIMITS for what is not confirmed (when `SessionStart` runs in an SDK session; that the permission answer sees no command; supply chain; the adapter's speed of change), README, design and tasks ticked; then one real chat by the owner on a machine with Node 22 and a Claude Code login, recorded in NOTES-layer10.md: whether the canary ran before the first prompt, whether hook entries appear in the logbook for every tool call, the real `--version` outputs.
 
+### Part 7c: subscription first, login and billing check (spec written Nov 9 2026, waiting for owner approval)
+
+Requirement 10.R12, design.md "Part 7c: subscription first, login and billing check", facts in `adapters/NOTES-layer10.md` ("Login and billing for Claude Code"). Tasks 10.29 to 10.31 above stay as they are. Nothing below starts before the owner approves 10.32. Effort about 9 hours (hours per task in brackets). Every test runs `python -m umwayi agent ...` as a real child process with the fake `claude` and the fake `node`, which answer `auth status --json` from a script that holds a planted email, organization and secret. No real Claude Code, no network, no key, no login.
+
+- [ ] 10.32 Requirement 10.R12, the design section, these tasks and the NOTES section written (Nov 9), **waiting for owner approval**, with the ten open questions of design.md part 7c answered.
+- [ ] 10.33 `login_check()` and the "login" gate check (3 h):
+  - the pure function over the six fields;
+  - the check for every Claude Code start, in the workdir and with the agent's environment, 15 s, at most 64 KB, stderr discarded;
+  - it replaces the 7a "sign-in" step of the ACP checks and goes after "version" in the cli checks;
+  - `agent check` shows "plan: WORD".
+  
+  Tests: every row of the design table, as a unit and end to end for `agent run`, the cli chat and the ACP chat, each exit 2 with nothing started and one refusal entry; the planted email, organization and secret never in stdout, stderr, the logbook or the queue; a code guard that only the six key names are read.
+- [ ] 10.34 `claude_env()`, the credential variables removed for `agent run` and the cli chat (1 h). Tests: the fake records the absence of every listed name even when set, for the agent and for its login check; the ACP allow list is unchanged; a Kiro start gets the environment as before.
+- [ ] 10.35 `forceLoginMethod: "claudeai"` in `claude_settings()` (0.5 h). Tests: it is in the `--settings` of `agent run` and the cli chat and in the ACP inline settings; the PreToolUse entries are still equal; the 7a and 7b template tests are updated, not removed.
+- [ ] 10.36 The watch during an ACP chat (1.5 h): `on_auth` in `acp.py` (about 10 lines) and the stop in `agents.py`. Tests: the scripted Claude fake pushes `_auth/status_update` with `kind: "api_key"` mid-turn, and the chat stops with exit 2, one entry and nothing alive (the 7b stop); `account` and a push without a kind change nothing; a Kiro ACP chat is unchanged.
+- [ ] 10.37 Planted faults, mutation checks and docs (2.5 h, 0.5 of them the owner's):
+  - Planted faults: `authMethod` not compared; `apiKeySource` ignored (a helper next to a subscription passes); `ANTHROPIC_API_KEY` passed to `agent run`; the email printed in a refusal message.
+  - Mutation checks: each field rule removed or loosened; each listed variable left in; `forceLoginMethod` left out; the watch ignoring `api_key`; the check moved after the start.
+  - Counts in the pull request.
+  - KNOWN-LIMITS: the undocumented fields; what `auth status` may not see; a project `apiKeyHelper` running at the check; extra usage not visible; the window between the check and the start.
+  - README and the adapter README.
+  - The owner's real check, recorded in NOTES-layer10.md and folded into 10.31: the real `auth status --json` field names (never the values) for the subscription login, with `ANTHROPIC_API_KEY` set, and with a project `apiKeyHelper`.
+
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
 
 Outline only. Built only after the owner approves its requirements, design and tasks.

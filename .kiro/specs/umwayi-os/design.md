@@ -1100,6 +1100,141 @@ Effort, if approved: about 20 hours (tasks.md 10.23 to 10.31, of which 1.5 are t
 | sign-in expires during a chat | the adapter answers with an error | the chat ends with exit 2; sign in again |
 | background commands | they outlive a cancel | stop by process group and seen descendants |
 
+### Part 7c: subscription first, login and billing check (spec written Nov 9, waiting for owner approval)
+
+Requirement 10.R12. Facts with links, and what is not documented: `adapters/NOTES-layer10.md`, section "Login and billing for Claude Code". Nothing of part 7c is built before the owner approves it.
+
+#### The idea
+
+Claude Code decides who pays from a fixed precedence, and the subscription login comes last. So "subscription first" cannot be a setting umwayi passes; it has to be a check umwayi makes:
+
+- **Before every Claude Code start**, umwayi asks the same Claude Code that will run (`claude`, or the adapter's bundled CLI) `auth status --json`, in the same folder and with the same environment as the agent. It starts the agent only when the answer proves a claude.ai subscription login is the credential in use, and that no key, token, helper or other provider outranks it.
+- **It takes the credentials it can see out of the way:** the variables are removed from the environment of `agent run` and the cli chat, as the ACP allow list already does.
+- **It adds `forceLoginMethod: "claudeai"`** to the one settings template, as a second line.
+- **During an ACP chat** it watches the adapter's own `_auth/status_update` and stops the chat if the payer changes.
+
+The check reads six fields and nothing else; the email and organization in the same output are never read into anything.
+
+#### What changes, file by file
+
+```
+umwayi/agents.py   CLAUDE_CREDENTIAL_ENV, claude_env(), login_check(), the "login" gate check for every
+                   Claude Code start (replacing the 7a "sign-in" check), forceLoginMethod in claude_settings(),
+                   the auth watch callback for the ACP chat, env= on the agent run and cli chat start
+umwayi/acp.py      one option on Chat: on_auth (a callback given the kind of each _auth/status_update), about 10 lines
+tests/agents/      fake_agent.py and fake_node.py answer `auth status --json` from a script, and the Claude ACP
+                   fake can push _auth/status_update; a new test_agents_claude_login.py
+```
+
+The core stays standard library only and never imports `adapters`. Nothing in `.claude` or `.kiro/hooks` is created or changed.
+
+#### The login check
+
+| start | argument list | cwd | environment |
+| --- | --- | --- | --- |
+| `agent run`, cli chat | `[CLAUDE, "auth", "status", "--json"]` | `workdir` | `claude_env(os.environ)` |
+| ACP chat | `[NODE, ADAPTER, "--cli", "auth", "status", "--json"]` | `workdir` | `child_env(os.environ)` |
+
+- It goes through `_run_child` with `keep_output=True`, stderr to `/dev/null`, stdin `b""`, `SIGNIN_TIMEOUT` (15 s), and only the first 64 KB of stdout are looked at.
+- `login_check(code, out) -> (ok, detail)` is pure and has its own unit tests. It decodes UTF-8, needs one JSON object, and takes these six keys:
+
+| field | must be | if not, the detail says |
+| --- | --- | --- |
+| exit code | 0 | exit 1 with `loggedIn` false or `authMethod` `none`: "not signed in"; otherwise "could not be confirmed" |
+| `loggedIn` | `true` | "not signed in" |
+| `authMethod` | `"claude.ai"` | `api_key`: "an API key pays"; `api_key_helper`: "an apiKeyHelper in a settings file pays"; `oauth_token`: "CLAUDE_CODE_OAUTH_TOKEN pays"; `third_party`: "a cloud provider or gateway pays"; anything else: "could not be confirmed" |
+| `apiKeySource` | absent | "an API key from SOURCE pays", where SOURCE is shown only when it is one of `ANTHROPIC_API_KEY`, `apiKeyHelper`, `/login managed key` (Console), `env`; else "an API key pays" |
+| `apiProvider` | absent or `"firstParty"` | "a cloud provider or gateway pays" |
+| `subscriptionType` | 1 to 40 of `[a-z0-9 _-]` | "no Claude subscription was reported" |
+
+- Every detail ends with its fix: sign in with the Claude account; unset the variable; remove `apiKeyHelper` from the settings file; Console is API billing.
+- The dict is dropped when the function returns. No field other than the six is read, and `email`, `orgId`, `orgName` and the raw text are never put in a string.
+- A code guard test checks that `login_check` reads the JSON only by those six key names.
+- Order in the Claude Code ACP checks (10.R11.6): step 7 "sign-in" becomes "login", with the same place, timeout and environment. In the cli checks: command, version, **login**, hook script, hook self-test.
+- `agent check` prints `ok: login: Claude subscription (plan: WORD)`, and the start entry gets "plan: WORD" (open question 5). The plan word is the only value from the output that is ever shown.
+
+#### Credential variables (agent run and the cli chat)
+
+```python
+CLAUDE_CREDENTIAL_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL",
+                         "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
+                         "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_PROFILE", "ANTHROPIC_FEDERATION_RULE_ID",
+                         "ANTHROPIC_ORGANIZATION_ID", "ANTHROPIC_IDENTITY_TOKEN_FILE")
+
+def claude_env(environ) -> dict:      # umwayi's environment minus those names; values never read
+```
+
+- `_start` passes `env=claude_env(os.environ)` for a Claude Code run or cli chat, and `env=child_env(os.environ)` for an ACP chat, as today. Kiro gets `env=None`, unchanged.
+- The deny list (not the ACP allow list) is proposed for the terminal chat, because an interactive `claude` needs the owner's terminal environment (`TERM`, `COLORTERM`, editor variables) that the allow list leaves out (open question 3).
+- A credential set in a **settings file** (`apiKeyHelper`, or `env` in settings) is not removed: umwayi does not edit settings. The login check sees it and refuses.
+
+#### The settings template
+
+`claude_settings()` gets `"forceLoginMethod": "claudeai"` next to `disableAllHooks`. It is the one template, so `agent run` (`--settings`), the cli chat and the ACP inline settings all get it. The tests that pin the template are updated. It is a second line only: whether it blocks an environment or helper credential from the flag layer is not documented (NOTES, "Restricting the login method").
+
+#### acp.py: one more option
+
+`Chat(..., on_auth=None)`:
+
+- When a notification `_auth/status_update` arrives and `on_auth` is set, `_update` calls `on_auth(kind)` with `params.authStatus.kind` if it is a short plain word, and ignores it otherwise.
+- `on_auth` returns None to go on, or a token; with a token the chat ends as a watcher stop (`_Stop`).
+- In agents.py the callback returns `("billing", kind)` for any kind other than `"account"`. `_tick_stop` then stops the adapter (10.R11.11), logs "Agent NAME was stopped: the Claude Code login changed and a subscription no longer pays" and exits 2.
+- Kiro passes None, unchanged. About 10 lines; nothing else in acp.py changes.
+- The push can come in the middle of a turn that the new credential already pays for, so this limits the damage, it does not prevent it (KNOWN-LIMITS).
+
+#### Failure table (added rows)
+
+| failure | what the owner sees | exit |
+| --- | --- | --- |
+| not signed in | "not gated (login: not signed in). Sign in to Claude Code with your Claude subscription first (claude, then /login, choose the Claude account), then try again." | 2 |
+| `ANTHROPIC_API_KEY` in a settings `env`, or a key that survives (cli start) | "not gated (login: an API key from ANTHROPIC_API_KEY pays ...)" | 2 |
+| `apiKeyHelper` in user or project settings | "not gated (login: an apiKeyHelper in a settings file pays; remove it from the settings file ...)" | 2 |
+| Console login | "not gated (login: an API key from a Console login pays; Console is API billing ...)" | 2 |
+| `CLAUDE_CODE_OAUTH_TOKEN` (through a settings `env`) | "not gated (login: CLAUDE_CODE_OAUTH_TOKEN pays ...)" | 2 |
+| cloud provider or gateway | "not gated (login: a cloud provider or gateway pays ...)" | 2 |
+| no subscription reported, unknown shape, not JSON, over 64 KB, no answer in 15 s | "not gated (login: could not be confirmed ...)" | 2 |
+| `_auth/status_update` kind not `account` during an ACP chat | "The Claude Code login changed and a subscription no longer pays, so agent NAME was stopped (exit 2)." | 2 |
+
+#### Tests
+
+- **The fakes:** `fake_agent.py` (as `claude`) and `fake_node.py` (for `ADAPTER --cli auth status --json`) print a scripted JSON object and exit code. The default is `{"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max", "email": PLANTED, "orgName": PLANTED, "orgId": PLANTED}`. The scripted Claude ACP agent can push `_auth/status_update` with a given kind mid-turn.
+- **Unit tests** for `login_check` over every row of the table, plus `null` values, booleans as strings, extra fields, a JSON list, invalid UTF-8, 64 KB plus one byte, and a `subscriptionType` with control or bidirectional characters.
+- **End to end**, for `agent run`, the cli chat and the ACP chat, each failing shape:
+  - refused with exit 2, the agent never started, one refusal entry;
+  - the planted email, organization and secret never in stdout, stderr, the logbook or the queue;
+  - the fake records that the credential variables were absent, even when set, and that the login check ran in the workdir with the same environment names as the agent.
+- **`forceLoginMethod`** is in every settings JSON, and the `agent run` and ACP PreToolUse entries are still equal.
+- **The auth watch:** an `api_key` push mid-chat stops the ACP chat with exit 2 and nothing alive; an `account` push and a push with no kind change nothing; Kiro is unchanged.
+- **Code guards:** `login_check` reads only the six key names; one `subprocess.run` site; no `auth login`, `logout` or `setup-token` string anywhere in agents.py.
+
+#### Schedule effect
+
+Effort, if approved: about 9 hours (tasks.md 10.33 to 10.37; 0.5 of them the owner's check on the real machine, folded into 10.31). Proposed: build on Nov 10 to Nov 11 next to 10.29 to 10.31, inside the part 7 days of Schedule A. That makes those two days full. If they slip, 10.36 (the in-chat watch) is the one to cut. Layer 11 stays Nov 12 to Nov 13.
+
+#### Open questions for the owner (part 7c)
+
+1. **Parse `auth status`.** 10.R11.8 says its output is "discarded, never parsed". Read the six named fields of the JSON (proposed), or keep the exit code only and refuse nothing on billing? Proposed: read the six fields; the email, organization and raw text are never read into anything.
+2. **`oauth_token`.** A `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` is billed to the subscription too. Refuse it (proposed: a long-lived token in the environment is a secret umwayi would hand on, and the ACP allow list does not pass it anyway), or accept it as the subscription?
+3. **Credential variables for `agent run` and the cli chat.** Remove the listed names and pass the rest (proposed), or use the ACP allow list of 10.R11.9 for every Claude Code start (stricter, but the terminal chat may then lose `TERM` and editor settings)?
+4. **`forceLoginMethod: "claudeai"` in the template.** Add it (proposed, a second line, not confirmed to block environment credentials), or leave the template unchanged?
+5. **Show the plan.** Print "plan: WORD" (for example `max`) in `agent check` and the start entry (proposed), or nothing at all from the output?
+6. **The watch during an ACP chat.** Stop the chat when `_auth/status_update` says a kind other than `account` (proposed), or check only before the start?
+7. **API billing on purpose.** No way to allow it in part 7c (proposed). Later, an explicit agents.yaml key (for example `billing: api`) could come with the budget governor, so that spend is capped before API billing is allowed.
+8. **Where the check sits.** After the version check and before the hook checks (proposed: it needs the found program, and a refused login should not run the hook self-test), replacing the 7a "sign-in" step for ACP.
+9. **When to build.** Nov 10 to Nov 11 with 10.29 to 10.31 (proposed), or after Dec 3 with a KNOWN-LIMITS item that `agent run` may bill an API key?
+10. **Kiro.** Unchanged (proposed): Kiro has its own login and plans, outside this requirement.
+
+#### Risks (part 7c)
+
+| risk | what happens | what we do |
+| --- | --- | --- |
+| `loggedIn`, `apiKeySource`, `apiProvider`, `subscriptionType` are not documented by Claude Code and can change | a newer `claude` (for `agent run`, not pinned) refuses every start | fail closed; the message says "could not be confirmed"; the ACP CLI is pinned by the lockfile |
+| `auth status` does not see a project setting or a settings `env` the session would use | a check passes and the session pays otherwise | `forceLoginMethod` as a second line; the ACP watch; KNOWN-LIMITS; the owner's real check (10.31) tries an `apiKeyHelper` in a project |
+| `auth status` runs a project's `apiKeyHelper` (a shell command) before any gate | a repository's command runs at the check | the agent would run it at start anyway; not documented; KNOWN-LIMITS |
+| the login changes between the check and the start, or during a run | the run pays by the new credential | the window is a second; the ACP watch covers chats; not covered for `agent run` and cli chat |
+| extra usage beyond the plan | billed, not seen | budget governor (H-078); KNOWN-LIMITS |
+| the plan word is shown | `max` or `pro` appears on screen and in the logbook | only that word, from an allow-listed character set; open question 5 |
+
 
 ## Layer 11: Linux-like features (outline, planned Nov 9 to Nov 10)
 
