@@ -207,7 +207,8 @@ class KiroGateTests(AgentCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn(f"ok: kiro hook file: {p}", r.stdout)
         self.assertEqual(tree_state(self.root, self.work, self.home), before)
-        self.assertEqual([c["argv"] for c in self.calls()], [["--version"]])
+        # the version, then the Kiro login check (10.R12.13, part 7c-2); nothing else is run
+        self.assertEqual([c["argv"] for c in self.calls()], [["--version"], ["whoami"]])
 
     def test_a_hook_file_in_home_is_accepted(self):
         p = self.kiro_hook_file(folder=self.home / ".kiro" / "hooks")
@@ -491,10 +492,11 @@ class CodeGuardTests(unittest.TestCase):
         tree, _ = self._calls()
         starts = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
                   and n.func.attr == "_start"]
-        self.assertEqual(len(starts), 1)
-        self.assertEqual(starts[0].args[0].id, "argv")
+        self.assertEqual(len(starts), 2)  # an agent (run, chat) and, since part 7c-2, the sign-in
+        self.assertEqual([s.args[0].id for s in starts], ["argv", "argv"])
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
         self.assertEqual(src.count("argv, stdin_text = build_argv("), 1)
+        self.assertEqual(src.count("argv, _ = build_argv(a, LOGIN, "), 1)
 
     def test_agents_py_never_writes_a_file_itself(self):
         import ast

@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first).
 
 ## Approval and the owner
 
@@ -395,3 +395,39 @@ The queue, the archive and the AI helpers change their files and then write thei
 ### 80. An interrupted seal that never wrote leaves no entry
 
 If `umwayi logbook seal` is stopped before it appends, the next write drops its intent without an entry, because the logbook was not sealed and still cannot take one: the owner seals again. An interrupted seal that did write its entry is finished and logged like any write.
+
+## Layer 10 part 7c-2: `umwayi agent login` and Kiro subscription first (found while building, not fixed)
+
+Written Nov 10 2026. Doc facts: `adapters/NOTES-layer10.md` ("Signing in from umwayi", "Kiro: login and billing"). The tests use fakes only; the owner's real check is folded into 10.31.
+
+### 81. `--claudeai` is not in the Claude Code CLI reference
+
+The sign-in runs the pinned adapter's `--cli auth login --claudeai`. The flag is in the adapter's bundled Claude Code, not in the public CLI reference. If a release drops it, the sign-in fails and the login check afterwards refuses with exit 2: fail closed, but the owner then signs in by hand (`claude`, then `/login`).
+
+### 82. The sign-in's own exit code is not documented
+
+umwayi only logs it ("the login exited with code N"); the login check afterwards decides. A sign-in that exits 0 without signing in is refused by that check; one that signs in and exits non-zero passes it.
+
+### 83. How the browser is opened is not documented
+
+The sign-in gets the terminal, `BROWSER`, `DISPLAY`, the XDG desktop names, the D-Bus address and the SSH markers, which is what `xdg-open` and the remote fallback read. The older `KDE_FULL_SESSION`, `KDE_SESSION_VERSION`, `GNOME_DESKTOP_SESSION_ID` and `MATE_DESKTOP_SESSION_ID` are left out. On a desktop that needs one of them the browser may not open; the sign-in then shows the URL and code to copy by hand.
+
+### 84. What the sign-in prints stays on the screen
+
+umwayi never reads the sign-in's output, but the owner's terminal shows it, and its scrollback keeps the URL and code until the terminal is closed or cleared. The code is short-lived and is not a credential afterwards.
+
+### 85. Kiro: the exit code of `whoami` when signed out is not documented
+
+umwayi refuses a Kiro start when `kiro-cli whoami` does not exit 0. If a Kiro release exits 0 while signed out, the check proves nothing and the start fails later at Kiro's own sign-in error (exit 2, still fail closed). The owner checks it on the real machine (10.31).
+
+### 86. Kiro: headless runs without `KIRO_API_KEY` are not confirmed
+
+The Kiro docs conflict on whether `kiro-cli chat --no-interactive` needs `KIRO_API_KEY`. umwayi never passes it. If headless runs need it, every Kiro `agent run` fails with exit 2 (fail closed) and only the chats work. The owner checks one real run (10.31).
+
+### 87. Kiro: the plan and the credits cannot be read
+
+Every Kiro login pays from the subscription's credits, so there is no separate pay-as-you-go path to block. But how many credits are left, and which plan, is only visible inside a Kiro session. umwayi does not read it and sets no limit; spend stays with the budget governor.
+
+### 88. Kiro gets the rest of umwayi's environment
+
+`kiro_env` removes only `KIRO_API_KEY` and passes the rest of the environment (for example AWS variables) to Kiro.

@@ -166,7 +166,10 @@ def build_parser() -> argparse.ArgumentParser:
     agr.add_argument("--prompt-file", help="a file that holds the prompt (at most 100 KB)")
     agch = agsub.add_parser("chat", help="a chat with an agent on your terminal (transport cli); 0, 2, 3 or 64")
     agch.add_argument("name", help="the agent name from agents.yaml")
-    for sp in (agv, agl, agc, agr, agch):
+    aglog = agsub.add_parser("login", help="sign in on your terminal (Claude Code ACP: claude.ai; Kiro: kiro-cli "
+                                           "login), then the login check; 0, 2, 3 or 64")
+    aglog.add_argument("name", help="the agent name from agents.yaml")
+    for sp in (agv, agl, agc, agr, agch, aglog):
         sp.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
@@ -351,6 +354,8 @@ def _cmd_agent(args, out) -> int:
             return _cmd_helper(agents.run_agent(Path(args.root), args.name, prompt, _today, args.agents), out)
         if args.agent_command == "chat":
             return _cmd_helper(agents.chat_agent(Path(args.root), args.name, _today, args.agents, out), out)
+        if args.agent_command == "login":
+            return _cmd_helper(agents.login_agent(Path(args.root), args.name, _today, args.agents), out)
         return _cmd_helper(agents.check_agent(Path(args.root), args.name, args.agents), out)
     except UsageError as e:
         sys.stderr.write(f"umwayi: error: {e}\n")

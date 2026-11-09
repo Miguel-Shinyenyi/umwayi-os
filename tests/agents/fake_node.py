@@ -7,6 +7,10 @@ It answers the self-test programs of a Claude Code ACP chat (design.md part 7):
     node ADAPTER --cli --version           the bundled Claude Code version
     node ADAPTER --cli auth status --json  the login check: the scripted "auth_json" (default: a Claude
                                            subscription with a planted email and organisation) and exit code
+    node ADAPTER --cli auth login --claudeai
+                                           the sign-in of `umwayi agent login`: prints a planted URL, code
+                                           and secret, then (with "login_flips_to") writes that answer as
+                                           the new "auth_json", and exits "login_exit"
     node ADAPTER                           the ACP chat: recorded as "started"; with "acp" in node.json it
                                            execs the scripted ACP agent of fake_agent.py in its Claude
                                            flavour (bin/claude-acp, same pid), with that spec as FAKE_ACP
@@ -45,6 +49,8 @@ def main() -> int:
         pass
     args = sys.argv[1:]
     is_chat = len(args) == 1 and args[0].endswith("/dist/index.js")  # stdin is the ACP pipe then: never read here
+    is_login = args[1:] == ["--cli", "auth", "login", "--claudeai"]  # stdin is the owner's terminal: never read
+    is_chat = is_chat or is_login
     data = sys.stdin.buffer.read() if not (is_chat or sys.stdin.isatty()) else b""
     secret = cfg["secret"]
     call = {"argv": [sys.argv[0]] + args, "cwd": os.getcwd(), "pid": os.getpid(), "stdin": len(data),
@@ -83,6 +89,19 @@ def main() -> int:
         if cfg["auth_hang"]:
             time.sleep(120)
         return cfg["auth_exit"]
+    if is_login:
+        log(probe="login run", login=True, tty=sys.stdout.isatty())
+        sys.stdout.write(f"Open https://claude.example.invalid/oauth?code=PLANTED-CODE {secret}\n")
+        sys.stdout.flush()
+        if cfg.get("login_hang"):
+            time.sleep(120)
+        if cfg.get("login_flips_to") is not None:
+            saved = json.loads((HERE / "node.json").read_text(encoding="utf-8"))
+            saved["auth_json"] = cfg["login_flips_to"]
+            saved["auth_exit"] = 0  # signed in now: auth status exits 0, as the real one does
+            saved.pop("login_flips_to")
+            (HERE / "node.json").write_text(json.dumps(saved), encoding="utf-8")
+        return cfg.get("login_exit", 0)
     if not rest:
         log(probe="chat", started=True)
         if "acp" in cfg:  # become the scripted ACP agent (Claude flavour), keeping this pid and environment

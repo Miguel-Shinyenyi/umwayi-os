@@ -152,6 +152,32 @@ LOGIN_FIX_PROVIDER = ("unset CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX and
                       "out of any gateway, then try again. umwayi uses only your Claude subscription.")
 LOGIN_UNCONFIRMED = "could not be confirmed (the login check gave no answer umwayi can read). " + SIGNIN_TEXT
 
+# Part 7c-2 (10.R12.9): `umwayi agent login NAME`. The sign-in runs on the owner's terminal with no pipe to umwayi, so
+# umwayi never sees its output, a URL, a code or a token; then the login check decides.
+CLAUDE_LOGIN_TAIL = ("--cli", "auth", "login", "--claudeai")  # after [NODE, ADAPTER]; never another word
+LOGIN_TIMEOUT = 600.0  # seconds: a fixed limit for one sign-in (timeout_minutes in agents.yaml is for agents)
+# The names a browser sign-in needs, passed on top of child_env() and each only if set (design.md part 7c):
+# the terminal, the browser opener (xdg-open and the desktop it hands over to) and the remote markers that switch
+# the login to the manual URL and code. Never CLAUDE_CODE_OAUTH_REFRESH_TOKEN, CLAUDE_CODE_OAUTH_SCOPES or
+# CLAUDE_CODE_REMOTE.
+LOGIN_ENV_NAMES = ("TERM", "COLORTERM", "BROWSER", "DISPLAY", "WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP",
+                   "XDG_DATA_DIRS", "DESKTOP_SESSION", "DBUS_SESSION_BUS_ADDRESS",
+                   "SSH_TTY", "SSH_CONNECTION", "SSH_CLIENT", "NO_BROWSER")
+# Never in any argument list (10.R12.9, 10.R12.13): another login method, a named account, a long-lived token,
+# a sign-out, or a client that answers token requests. A word "WORD=..." counts too.
+LOGIN_FORBIDDEN = ("--console", "--email", "--sso", "setup-token", "logout", "--license", "--identity-provider",
+                   "--social", "--auth-method")
+LOGIN_ONLY = ("agent login is only for platform claude-code with transport acp, or platform kiro. "
+              "Nothing was started.")
+LOGIN_ASK_RECOMMENDATION = ("Keep it stopped unless you want this agent signed in. To allow it, add a Yes rule for "
+                            "agent_login to rules.yaml; answering this item does not start the login.")
+
+# Part 7c-2 (10.R12.13): Kiro, subscription first as far as Kiro can be checked. Every Kiro login pays from the
+# subscription's credits, but a key is a long-lived credential that may belong to another account: only the
+# owner's own browser login is used. The value is never read.
+KIRO_CREDENTIAL_ENV = ("KIRO_API_KEY",)
+KIRO_SIGNIN_TEXT = "Sign in to Kiro first (kiro-cli login), then try again."
+
 # The built-in Kiro tool IDs the Kiro hook docs name (adapters/NOTES.md). Nothing else may be trusted.
 KIRO_TOOL_IDS = ("read_file", "grep_search", "execute_bash", "execute_pwsh",
                  "fs_write", "fs_append", "str_replace", "delete_file")
@@ -164,7 +190,7 @@ FORBIDDEN_TEXT = ("bypassPermissions",)
 KEYS = ("name", "platform", "command", "transport", "workdir", "kiro_agent", "trust_tools",
         "max_turns", "timeout_minutes")
 REQUIRED = ("name", "platform", "command", "workdir")
-RUN, CHAT = "run", "chat"
+RUN, CHAT, LOGIN = "run", "chat", "login"  # LOGIN: `umwayi agent login NAME` (10.R12.9, part 7c-2)
 CLI, ACP = "cli", "acp"
 
 _NAME = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
@@ -536,6 +562,23 @@ def _remove_canary_folder(folder: str) -> None:
     shutil.rmtree(folder, ignore_errors=True)
 
 
+def login_env(environ) -> dict:
+    """The environment of the claude.ai sign-in (10.R12.9): child_env() plus LOGIN_ENV_NAMES, each only if set."""
+    env = child_env(environ)
+    env.update({k: environ[k] for k in LOGIN_ENV_NAMES if isinstance(environ.get(k), str)})
+    return env
+
+
+def kiro_env(environ) -> dict:
+    """umwayi's environment minus KIRO_API_KEY (10.R12.13), for every Kiro start, `whoami` and `login`."""
+    return {k: v for k, v in environ.items() if k not in KIRO_CREDENTIAL_ENV}
+
+
+def can_login(agent: Agent) -> bool:
+    """`umwayi agent login` is for a Claude Code agent with transport acp, or any Kiro agent."""
+    return (agent.platform == "claude-code" and agent.transport == ACP) or agent.platform == "kiro"
+
+
 def claude_env(environ) -> dict:
     """umwayi's environment minus the credential names of 10.R12.6, for `agent run` and the cli chat of Claude Code."""
     return {k: v for k, v in environ.items() if k not in CLAUDE_CREDENTIAL_ENV}
@@ -640,15 +683,24 @@ def _assert_allowed(argv: list, skip: int | None = None) -> list:
             continue  # the prompt is the owner's text, not a flag
         if not isinstance(word, str) or word in FORBIDDEN_FLAGS or any(t in word for t in FORBIDDEN_TEXT):
             raise RuntimeError("agent: an argument list held a forbidden flag; nothing was started")
+        if word.split("=", 1)[0] in LOGIN_FORBIDDEN:
+            raise RuntimeError("agent: an argument list held a forbidden login word; nothing was started")
     return argv
 
 
 def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: str,
                prompt: str | None = None, src: Path | None = None) -> tuple:
     """(argument list, stdin text or None). The only place an agent's command line is made."""
-    if mode not in (RUN, CHAT):
-        raise UsageError("agent: the mode must be run or chat")
+    if mode not in (RUN, CHAT, LOGIN):
+        raise UsageError("agent: the mode must be run, chat or login")
     root = Path(root)
+    if mode == LOGIN:  # the sign-in, never an agent (10.R12.9, 10.R12.13)
+        if agent.platform == "claude-code" and agent.transport == ACP:
+            return _assert_allowed([command_path, str(claude_acp_path(CLAUDE_ACP_ADAPTER, src)),
+                                    *CLAUDE_LOGIN_TAIL]), None
+        if agent.platform == "kiro":
+            return _assert_allowed([command_path, "login"]), None
+        raise UsageError(LOGIN_ONLY)
     if is_claude_acp(agent, mode):
         # command_path is node here; the adapter is the fixed path, never looked up through PATH or npx
         return _assert_allowed([command_path, str(claude_acp_path(CLAUDE_ACP_ADAPTER, src))]), None
@@ -846,6 +898,18 @@ def _login_gate(argv: list, cwd: str, env: dict, gate: Gate, done) -> bool:
     return done("login", ok, detail)
 
 
+def _kiro_login_gate(kiro: str, cwd: str, env: dict, done) -> bool:
+    """The Kiro login check (10.R12.13): `kiro-cli whoami` by its exit code only.
+
+    Its output goes to /dev/null and is never read: the field names are not documented and it holds the email.
+    """
+    code, _ = _run_child(_assert_allowed([kiro, "whoami"]), b"", SIGNIN_TIMEOUT, cwd, env=env, keep_output=False)
+    if code == 0:
+        return done("login", True, "Kiro is signed in (kiro-cli whoami exited 0)")
+    how = f"no answer within {SIGNIN_TIMEOUT:.0f} s" if code is None else f"kiro-cli whoami exited {code}"
+    return done("login", False, f"Kiro is not signed in ({how}). {KIRO_SIGNIN_TEXT}")
+
+
 CLAUDE_ACP_ORDER = ["node", "node version", "adapter file", "adapter package", "adapter version",
                     "claude code version", "login", "hook script", "hook self-test"]
 
@@ -859,9 +923,14 @@ def _regular_file(path: Path) -> bool:
     return stat.S_ISREG(st.st_mode) and os.path.realpath(path) == str(path)
 
 
-def _claude_acp_checks(agent: Agent, root: Path, src: Path | None, gate: Gate) -> Gate:
-    """The gate checks of a Claude Code ACP chat, in the order of design.md part 7 (10.R11.6)."""
-    done = _recorder(gate, CLAUDE_ACP_ORDER)
+def _claude_acp_checks(agent: Agent, root: Path, src: Path | None, gate: Gate, login_only: bool = False) -> Gate:
+    """The gate checks of a Claude Code ACP chat, in the order of design.md part 7 (10.R11.6).
+
+    login_only (`umwayi agent login`): the checks up to and with the login check; no hook checks, because the
+    sign-in runs no agent and no tool. A failed login check is then what the login is for, not a refusal.
+    """
+    order = CLAUDE_ACP_ORDER[:CLAUDE_ACP_ORDER.index("login") + 1] if login_only else CLAUDE_ACP_ORDER
+    done = _recorder(gate, order)
     env = child_env(os.environ)
 
     # 1. node on PATH, an absolute path
@@ -952,7 +1021,7 @@ def _claude_acp_checks(agent: Agent, root: Path, src: Path | None, gate: Gate) -
         return gate
 
     # 7. the login check (10.R12.3): a Claude subscription must be what pays; only six fields are read
-    if not _login_gate(probe_argv(node, adapter, "login"), agent.workdir, env, gate, done):
+    if not _login_gate(probe_argv(node, adapter, "login"), agent.workdir, env, gate, done) or login_only:
         return gate
 
     # 8. the layer 9 Claude Code hook and its self-test, with the same environment
@@ -970,13 +1039,17 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     root = _root(root)
     plat = PLATFORMS[agent.platform]
     gate = Gate()
+    if mode == LOGIN and not can_login(agent):
+        raise UsageError(LOGIN_ONLY)
     if is_claude_acp(agent, mode):
-        return _claude_acp_checks(agent, root, src, gate)
+        return _claude_acp_checks(agent, root, src, gate, login_only=mode == LOGIN)
     claude = agent.platform == "claude-code"
-    order = (["command", "version"] + (["login"] if claude else []) + ["hook script", "hook self-test"]
-             + (["kiro hook file"] if agent.platform == "kiro" else []))
+    kiro = agent.platform == "kiro"
+    order = ["command", "version", "login"] + ([] if mode == LOGIN else
+                                               ["hook script", "hook self-test"] + (["kiro hook file"] if kiro else []))
     done = _recorder(gate, order)
-    env = claude_env(os.environ) if claude else None  # the environment the agent itself will get (10.R12.6)
+    # the environment the agent itself will get: without the credential names (10.R12.6, 10.R12.13)
+    env = claude_env(os.environ) if claude else kiro_env(os.environ)
 
     found = shutil.which(agent.command)
     if not found or not os.path.isabs(found):
@@ -1003,6 +1076,10 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
 
     if claude and not _login_gate(_assert_allowed([found, "auth", "status", "--json"]), agent.workdir, env, gate,
                                   done):
+        return gate
+    if kiro and not _kiro_login_gate(found, agent.workdir, env, done):
+        return gate
+    if mode == LOGIN:
         return gate
 
     if not _hook_checks(agent.platform, root, src, done):
@@ -1074,6 +1151,7 @@ ASK_RECOMMENDATION = ("Keep it stopped unless you trust this agent for this kind
                       "rule for action type agent_run with this agent in rules.yaml. Answering this item does not "
                       "start the agent.")
 NOT_LOGGED = "The prompt and the conversation are not written to the logbook."
+LOGIN_NOT_LOGGED = "What the login printed was not read and is not written to the logbook."
 
 
 def read_prompt(prompt: str | None, prompt_file: str | None, from_stdin: bool, stdin) -> str:
@@ -1191,7 +1269,8 @@ class _Signalled(BaseException):
 
 
 class _Run:
-    """One `umwayi agent run` or `umwayi agent chat`. go() returns a Result; the agent is stopped on every path out.
+    """One `umwayi agent run`, `umwayi agent chat` or `umwayi agent login`. go() returns a Result; the agent (or
+    the sign-in) is stopped on every path out.
 
     run:  the agent gets /dev/null or the prompt on stdin, in its own session and process group, and is
           stopped by signalling that group.
@@ -1200,6 +1279,8 @@ class _Run:
           stopped by signalling its pid and every descendant umwayi has seen (read from /proc once a
           second), never umwayi's own group. While it runs, Ctrl-C is caught by a no-op handler in umwayi,
           so it reaches the agent only; the old handler is put back on every path.
+    login: the sign-in (10.R12.9) gets the owner's terminal like a cli chat and is stopped the same way. umwayi
+          has no pipe to it, so it never sees what it prints; afterwards the login check decides.
     """
 
     def __init__(self, root: Path, agent: Agent, prompt: str | None, clock, mode: str = RUN, out=None):
@@ -1216,6 +1297,7 @@ class _Run:
         self.tty = None  # chat: (fd, termios attributes) to put back after the agent
         self.canary = None  # Claude Code ACP chat: (private folder, token) of this start
         self.meta = None  # Claude Code ACP chat: the _meta of session/new
+        self.gate = None  # login: the gate of the checks before the sign-in (the program found, for the check after)
 
     # ------------------------------------------------------------ logbook
 
@@ -1326,8 +1408,11 @@ class _Run:
             return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}", not_started], why)
 
         # 3. the rules, action agent_run, one entry through the same check as `umwayi check`
-        action = {"type": "agent_run", "agent": a.name, "platform": a.platform, "mode": self.mode,
-                  "transport": a.transport}
+        if self.mode == LOGIN:  # 10.R12.9: its own action type, so a rule for starts never allows a sign-in
+            action = {"type": "agent_login", "agent": a.name, "platform": a.platform, "transport": a.transport}
+        else:
+            action = {"type": "agent_run", "agent": a.name, "platform": a.platform, "mode": self.mode,
+                      "transport": a.transport}
         decision, logged = rules.check_and_log(json.dumps(action), root / "rules.yaml", root, self.clock(),
                                                kill_state=st)
         verdict = [decision.answer, f"Rule: {decision.rule_id or '(none)'}", f"Reason: {decision.reason}"]
@@ -1352,13 +1437,17 @@ class _Run:
 
         # 5. every gate check, again, just before the start
         gate = gate_checks(a, root, mode=self.mode)
+        if self.mode == LOGIN:
+            return self._login(gate, decision)
         if not gate.gated:
             why = self.log(f"Refused agent {a.name}: not gated ({gate.reason()})",
                            "the kill switch, the rules (Yes), the run lock, then the gate checks", "Nothing was started.")
             lines = [f"{'ok' if c.ok else ('no' if c.ok is False else 'not run')}: {c.name}: {c.detail}"
                      for c in gate.checks]
-            return self.result(2, lines + [f"Refused: agent {a.name} cannot be gated, so it was not started (exit 2)."],
-                               why)
+            lines.append(f"Refused: agent {a.name} cannot be gated, so it was not started (exit 2).")
+            if gate.reason().startswith("login: ") and can_login(a):  # run and chat never sign in themselves
+                lines.append(f"Run umwayi agent login {a.name} to sign in.")
+            return self.result(2, lines, why)
 
         # 5b. Claude Code ACP chat: the private canary folder, a fresh token and the inline settings
         if self._claude_acp():
@@ -1393,7 +1482,8 @@ class _Run:
         return self._watch()
 
     def _claude_acp(self) -> bool:
-        return is_claude_acp(self.agent, self.mode)
+        """A Claude Code ACP chat (the canary, the inline settings, the ACP client). Never the sign-in."""
+        return self.mode == CHAT and is_claude_acp(self.agent, self.mode)
 
     def _prepare_canary(self, stack: ExitStack) -> str | None:
         """The canary of this start (10.R11.4). None, or why it cannot be prepared (then nothing starts).
@@ -1428,13 +1518,19 @@ class _Run:
         return self.canary is not None and os.path.exists(os.path.join(self.canary[0], self.canary[1]))
 
     def _ask_owner(self) -> str:
-        title = f"Start agent {self.agent.name} ({self.mode})?"
+        if self.mode == LOGIN:
+            title, recommendation = f"Log in agent {self.agent.name}?", LOGIN_ASK_RECOMMENDATION
+        else:
+            title, recommendation = f"Start agent {self.agent.name} ({self.mode})?", ASK_RECOMMENDATION
         try:
-            row, added = taskqueue.add_once(self.root, "decision", title, ASK_RECOMMENDATION, self.clock())
+            row, added = taskqueue.add_once(self.root, "decision", title, recommendation, self.clock())
         except UmwayiError as e:
             return f"The queue item could not be added ({str(e).rstrip('. ')})."
         if not added:
             return f"Queue item {row.id} already asks the owner about this. Nothing was added."
+        if self.mode == LOGIN:
+            return (f"Added queue item {row.id} (decision) for the owner. Answering it does not start the login; "
+                    "add a Yes rule for agent_login to allow it.")
         return (f"Added queue item {row.id} (decision) for the owner. Answering it does not start the agent; "
                 "add a Yes rule for agent_run to allow it.")
 
@@ -1488,12 +1584,14 @@ class _Run:
             stdin, stdout = subprocess.PIPE, subprocess.PIPE
         else:
             stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
-        if self._claude_acp():
+        if self.mode == LOGIN and self.agent.platform == "claude-code":
+            env = login_env(os.environ)  # the allow list plus only what a browser sign-in needs (10.R12.9)
+        elif self._claude_acp():
             env = child_env(os.environ)  # the allow list of 10.R11.9
         elif self.agent.platform == "claude-code":
             env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
         else:
-            env = None
+            env = kiro_env(os.environ)  # umwayi's environment minus KIRO_API_KEY (10.R12.13)
         self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin,
                                      stdout=stdout, env=env)
         self.started = time.monotonic()
@@ -1504,7 +1602,8 @@ class _Run:
                              name="umwayi-agent-stdin", daemon=True).start()
 
     def _shares_terminal(self) -> bool:
-        return self.mode == CHAT and self.agent.transport == CLI
+        """The cli chat and the sign-in get the owner's terminal unchanged: umwayi has no pipe to them."""
+        return self.mode == LOGIN or (self.mode == CHAT and self.agent.transport == CLI)
 
     def _group_alive(self) -> bool:
         try:
@@ -1643,7 +1742,8 @@ class _Run:
             logbook.check_writable(self.root, self.clock())
         except UmwayiError as e:
             return ("logbook", e)
-        if time.monotonic() >= self.started + self.agent.timeout_minutes * SECONDS_PER_MINUTE:
+        limit = LOGIN_TIMEOUT if self.mode == LOGIN else self.agent.timeout_minutes * SECONDS_PER_MINUTE
+        if time.monotonic() >= self.started + limit:
             return ("timeout",)
         return None
 
@@ -1651,15 +1751,22 @@ class _Run:
         """Stop the agent for what _tick found, write the entry, give the exit code."""
         a = self.agent
         self.stop_agent()
+        whom = f"the login for agent {a.name}" if self.mode == LOGIN else f"agent {a.name}"
+        not_logged = LOGIN_NOT_LOGGED if self.mode == LOGIN else NOT_LOGGED
         if token[0] == "kill":
             st = token[1]
-            why = self.log(f"The kill switch stopped agent {a.name}", f"kill switch: {st}, checked every second",
-                           NOT_LOGGED)
+            why = self.log(f"The kill switch stopped {whom}", f"kill switch: {st}, checked every second", not_logged)
             return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {kill.reason(st)}",
-                                   f"The kill switch stopped agent {a.name} (exit 3)."], why)
+                                   f"The kill switch stopped {whom} (exit 3)."], why)
         if token[0] == "logbook":
-            return Result(2, [f"The logbook can no longer be written ({str(token[1]).rstrip('. ')}), so agent {a.name} "
+            return Result(2, [f"The logbook can no longer be written ({str(token[1]).rstrip('. ')}), so {whom} "
                               "was stopped: its checks could not be recorded (exit 2). Nothing was logged."])
+        if self.mode == LOGIN:
+            minutes = f"{LOGIN_TIMEOUT / 60:g} min"
+            why = self.log(f"The login for agent {a.name} was stopped after its limit of {minutes}",
+                           "the fixed limit of a sign-in was reached", not_logged)
+            return self.result(2, [f"The login for agent {a.name} was stopped after its limit of {minutes} (exit 2)."],
+                               why)
         why = self.log(f"Agent {a.name} stopped after its timeout of {a.timeout_minutes} min",
                        "the timeout from agents.yaml was reached", NOT_LOGGED)
         return self.result(2, [f"Agent {a.name} was stopped after its timeout of {a.timeout_minutes} min (exit 2)."],
@@ -1678,6 +1785,67 @@ class _Run:
             if token is not None:
                 return self._tick_stop(token)
         return self._end(code)
+
+    # ------------------------------------------------------------ the sign-in (part 7c-2, 10.R12.9)
+
+    def _ok_text(self, plan: str | None) -> str:
+        return f"Claude subscription OK (plan: {plan})" if self.agent.platform == "claude-code" else "Kiro login OK"
+
+    def _login(self, gate: Gate, decision) -> Result:
+        """`umwayi agent login`: the checks before the login check must pass; then the login check decides whether
+        a sign-in is needed at all; then the sign-in on the owner's terminal, watched like a cli chat."""
+        a = self.agent
+        lines = [f"{'ok' if c.ok else ('no' if c.ok is False else 'not run')}: {c.name}: {c.detail}"
+                 for c in gate.checks]
+        login = next((c for c in gate.checks if c.name == "login"), None)
+        if login is None or not all(c.ok for c in gate.checks if c.name != "login"):
+            why = self.log(f"Refused login for agent {a.name}: not gated ({gate.reason()})",
+                           "the kill switch, the rules (Yes), the run lock, then the gate checks before the login",
+                           "Nothing was started.")
+            return self.result(2, lines + [f"Refused: the login for agent {a.name} cannot be started (exit 2). "
+                                           "Nothing was started."], why)
+        if login.ok:
+            ok = self._ok_text(gate.plan)
+            why = self.log(f"Login for agent {a.name} not needed: {ok}", "the login check passed before any sign-in",
+                           "Nothing was started.")
+            return self.result(0, [f"{ok}. Nothing was started."], why)
+        self.gate = gate
+        argv, _ = build_argv(a, LOGIN, gate.command_path, self.root, python_path())
+        how = "claude.ai" if a.platform == "claude-code" else "kiro-cli login"
+        why = self.log(f"Started login for agent {a.name} ({how})",
+                       f"rule {decision.rule_id or '(none)'} gave Yes for agent_login; the run lock is held; every gate "
+                       f"check before the login passed; the login check found: {login.detail}", LOGIN_NOT_LOGGED)
+        if why is not None:
+            return self.result(2, [f"The logbook could not record the start of the login for agent {a.name}, so "
+                                   "nothing is started (exit 2)."], why)
+        try:
+            self._start(argv, a.workdir, None)
+        except OSError:
+            why = self.log(f"The login for agent {a.name} could not start", "the program could not be started",
+                           "Nothing ran.")
+            return self.result(2, [f"The login for agent {a.name} could not be started (exit 2)."], why)
+        return self._watch()
+
+    def _login_end(self, code: int) -> Result:
+        """The sign-in exited, whatever its code: the login check runs again with the agent's start environment."""
+        a, gate = self.agent, Gate()
+        done = _recorder(gate, ["login"])
+        if a.platform == "claude-code":
+            node = self.gate.command_path
+            _login_gate(probe_argv(node, claude_acp_path(CLAUDE_ACP_ADAPTER), "login"), a.workdir,
+                        child_env(os.environ), gate, done)
+        else:
+            _kiro_login_gate(self.gate.command_path, a.workdir, kiro_env(os.environ), done)
+        check = gate.checks[0]
+        if check.ok:
+            ok = self._ok_text(gate.plan)
+            short = f"subscription OK (plan: {gate.plan})" if a.platform == "claude-code" else "Kiro login OK"
+            why = self.log(f"Login for agent {a.name} ended: {short}",
+                           f"the login exited {_exit_text(code)}; then the login check passed", LOGIN_NOT_LOGGED)
+            return self.result(0, [f"{ok}."], why)
+        why = self.log(f"Login for agent {a.name} ended: not gated (login: {check.detail})",
+                       f"the login exited {_exit_text(code)}; then the login check failed", LOGIN_NOT_LOGGED)
+        return self.result(2, [f"Refused: login: {check.detail} (exit 2)."], why)
 
     # ------------------------------------------------------------ ACP chat (part 6)
 
@@ -1739,6 +1907,8 @@ class _Run:
         return self._end(code)
 
     def _end(self, code: int) -> Result:
+        if self.mode == LOGIN:
+            return self._login_end(code)
         a = self.agent
         seconds = round(time.monotonic() - self.started)
         why = self.log(f"Agent {a.name} exited {_exit_text(code)} after {seconds} s",
@@ -1798,6 +1968,16 @@ def chat_agent(root, name: str, clock, given: str | None = None, out=None) -> Re
     if agent.transport == ACP and agent.platform not in ("kiro", "claude-code"):
         raise UsageError("agent: ACP chat is only for platforms kiro and claude-code. Nothing was started.")
     return _Run(root, agent, None, clock, mode=CHAT, out=out).go()
+
+
+def login_agent(root, name: str, clock, given: str | None = None) -> Result:
+    """`umwayi agent login NAME` (10.R12.9, 10.R12.13): the claude.ai sign-in of a Claude Code ACP agent, or
+    `kiro-cli login` for a Kiro agent, on the owner's terminal; then the login check. 0, 2, 3 or 64."""
+    root = _root(root)
+    agent = find(load(root, given), name)
+    if not can_login(agent):
+        raise UsageError(LOGIN_ONLY)
+    return _Run(root, agent, None, clock, mode=LOGIN).go()
 
 
 def run_agent(root, name: str, prompt: str, clock, given: str | None = None) -> Result:

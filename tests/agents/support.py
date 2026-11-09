@@ -35,6 +35,13 @@ if os.environ.get("UMWAYI_TEST_MINUTE"):
         _agents.SECONDS_PER_MINUTE = float(os.environ["UMWAYI_TEST_MINUTE"])
     except ImportError:
         pass
+# Test only: a shorter fixed limit for `umwayi agent login` than the 600 s of agents.LOGIN_TIMEOUT.
+if os.environ.get("UMWAYI_TEST_LOGIN_TIMEOUT"):
+    try:
+        import umwayi.agents as _agents3
+        _agents3.LOGIN_TIMEOUT = float(os.environ["UMWAYI_TEST_LOGIN_TIMEOUT"])
+    except ImportError:
+        pass
 # Test only: a shorter wait for the first gate (the canary) than the 30 s of acp.GATE_WAIT,
 # for tests where the canary never runs. Tests where it runs keep the real 30 s.
 if os.environ.get("UMWAYI_TEST_GATE_WAIT"):
