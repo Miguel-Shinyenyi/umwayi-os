@@ -76,6 +76,29 @@ if KEY == "CLAUDE" and ARGS == ["auth", "status", "--json"]:
     sys.stderr.write("auth stderr owner@example.invalid\n")
     sys.exit(int(os.environ.get("FAKE_CLAUDE_AUTH_EXIT", "0")))
 
+if KEY == "KIRO" and ARGS == ["whoami"]:
+    # the Kiro login check (10.R12.13): umwayi reads only the exit code. The output names the person, so it is
+    # planted here to prove it is never shown. Signed in once FAKE_KIRO_STATE exists (a fake login wrote it).
+    rec(argv=ARGS, cwd=os.getcwd(), started=False, probe="whoami", env_keys=sorted(os.environ))
+    if os.environ.get("FAKE_KIRO_WHOAMI_HANG"):
+        time.sleep(60)
+    sys.stdout.write(json.dumps({"email": "owner@example.invalid", "note": os.environ.get("FAKE_PLANT", "")}) + "\n")
+    state = os.environ.get("FAKE_KIRO_STATE")
+    sys.exit(0 if state and os.path.exists(state) else int(os.environ.get("FAKE_KIRO_WHOAMI_EXIT", "0")))
+
+if KEY == "KIRO" and ARGS == ["login"]:
+    # `umwayi agent login` for Kiro: a sign-in on the owner's terminal that prints a planted URL, code and secret
+    rec(argv=ARGS, cwd=os.getcwd(), started=False, probe="kiro login", login=True, pid=os.getpid(),
+        env_keys=sorted(os.environ), tty=os.isatty(1))
+    sys.stdout.write(f"Open https://login.example.invalid/?code=PLANTED-CODE {os.environ.get('FAKE_PLANT', '')}\n")
+    sys.stdout.flush()
+    if os.environ.get("FAKE_KIRO_LOGIN_HANG"):
+        time.sleep(60)
+    code = int(os.environ.get("FAKE_KIRO_LOGIN_EXIT", "0"))
+    if code == 0 and os.environ.get("FAKE_KIRO_STATE"):
+        open(os.environ["FAKE_KIRO_STATE"], "w").close()
+    sys.exit(code)
+
 CHAT = ("-p" not in ARGS) if KEY == "CLAUDE" else ("--no-interactive" not in ARGS)
 stdin_text = "" if (CHAT or sys.stdin is None or os.environ.get("FAKE_NO_STDIN")) else sys.stdin.read()
 tty = {}

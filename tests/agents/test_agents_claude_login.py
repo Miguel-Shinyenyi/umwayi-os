@@ -158,11 +158,26 @@ class CodeGuardTests(unittest.TestCase):
         self.assertTrue(read)
         self.assertLessEqual(read, set(agents.LOGIN_FIELDS))
 
-    def test_no_login_or_token_command_is_ever_run(self):
+    def test_only_the_two_fixed_sign_ins_and_never_a_forbidden_login_word(self):
+        """Part 7c-2 (10.R12.9) replaced "umwayi signs in for no one": the sign-in is exactly
+        [NODE, ADAPTER, --cli, auth, login, --claudeai] or [KIRO, login], and the words of another method,
+        a named account, a token or a sign-out appear only in the list that forbids them."""
+        import ast
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
-        for bad in ('"setup-token"', '"logout"', '"auth", "login"', '"--console"', '"--email"'):
-            self.assertNotIn(bad, src)
-        self.assertEqual(src.count('"auth", "status", "--json"'), 2)  # cli and ACP: the only auth argument lists
+        tree = ast.parse(src)
+        forbidden = set(agents.LOGIN_FORBIDDEN)
+        allowed_nodes = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "LOGIN_FORBIDDEN" for t in node.targets):
+                allowed_nodes = {id(n) for n in ast.walk(node)}
+        self.assertTrue(allowed_nodes)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in forbidden:
+                self.assertIn(id(node), allowed_nodes, f"{node.value!r} outside LOGIN_FORBIDDEN (line {node.lineno})")
+        self.assertEqual(agents.CLAUDE_LOGIN_TAIL, ("--cli", "auth", "login", "--claudeai"))
+        self.assertEqual(src.count('"auth", "login"'), 1)  # CLAUDE_LOGIN_TAIL only
+        self.assertEqual(src.count('[command_path, "login"]'), 1)  # the Kiro sign-in only
+        self.assertEqual(src.count('"auth", "status", "--json"'), 2)  # cli and ACP: the only auth status lists
 
 
 class RunAndCliChatTests(AgentCase):
