@@ -249,14 +249,55 @@ class AgentCase(unittest.TestCase):
         self.assertIn(p.returncode, CODES, f"exit {p.returncode} is not allowed\n{out}\n{err}")
         return p.returncode, out, err
 
-    def wait_for(self, pred, timeout: float = 30, what: str = "an event") -> dict:
+    def wait_for(self, pred, timeout: float = 30, what: str = "an event", proc=None) -> dict:
+        """Wait for a call of the fake that matches pred.
+
+        With proc (the umwayi process the test started), stop waiting as soon as umwayi has exited, since
+        no agent can start after that, and fail with umwayi's exit code and output, which say why it
+        stopped (a refusal, a broken logbook). On a timeout the output is shown too.
+        """
         end = time.monotonic() + timeout
         while time.monotonic() < end:
+            exited = proc is not None and proc.poll() is not None
             for c in self.calls():
                 if pred(c):
                     return c
+            if exited:
+                self.fail(f"umwayi exited (code {proc.returncode}) before {what}; calls: {self.calls()}\n"
+                          f"{self._proc_output(proc)}\n{self._lock_state()}")
             time.sleep(0.05)
-        self.fail(f"timed out waiting for {what}; calls: {self.calls()}")
+        self.fail(f"timed out after {timeout:g} s waiting for {what}; calls: {self.calls()}"
+                  + (f"\n{self._proc_output(proc)}" if proc is not None else "") + f"\n{self._lock_state()}")
+
+    def _proc_output(self, p) -> str:
+        """umwayi's output for a failure message. A process still running is killed first, so its pipes close."""
+        if p.poll() is None:
+            p.kill()
+        try:
+            out, err = p.communicate(timeout=10)
+        except (subprocess.TimeoutExpired, ValueError):
+            return "umwayi output: not readable (a child still holds its pipes)"
+        return f"umwayi stdout:\n{out}\numwayi stderr:\n{err}"
+
+    def _lock_holder(self):
+        """(pid or None, alive) for .umwayi/logbook.lock, or None when there is no lock file."""
+        lock = self.root / ".umwayi" / "logbook.lock"
+        try:
+            text = lock.read_text(encoding="ascii").strip()
+        except FileNotFoundError:
+            return None
+        except (OSError, UnicodeDecodeError):
+            return (None, False)
+        pid = int(text) if text.isdigit() else None
+        return (pid, pid is not None and alive(pid))
+
+    def _lock_state(self) -> str:
+        holder = self._lock_holder()
+        if holder is None:
+            return "logbook lock: free"
+        pid, running = holder
+        return (f"logbook lock: held by PID {pid}, {'still running' if running else 'no longer running'}"
+                if pid is not None else "logbook lock: present, no PID written yet")
 
     def agent_pids_alive(self) -> list:
         pids = [c["pid"] for c in self.calls() if c.get("started") or c.get("event") == "spawn"]
@@ -289,22 +330,52 @@ class AgentCase(unittest.TestCase):
                 if needle in cmd and alive(int(name)):
                     busy = True
                     break
-            if not busy and not (self.root / ".umwayi" / "logbook.lock").exists():
-                return
+            if not busy:
+                holder = self._lock_holder()
+                if holder is None:
+                    return
+                if holder[0] is not None and not holder[1]:
+                    return  # the writer that holds the lock is gone, so it will never be freed: entries() says so
             time.sleep(0.05)
 
-    def entries(self) -> list:
+    def entries(self, timeout: float = 30) -> list:
+        """The logbook entries, read only when no writer is in the middle of a write.
+
+        Every umwayi writer appends to LOGBOOK.md and then records its hash, both under
+        .umwayi/logbook.lock; a read between the two sees a hash that does not match yet. So the read
+        waits for the processes on this root to finish, then takes the same lock itself. A lock whose
+        writer is no longer running is never freed, and the logbook it left is not a timing problem:
+        that fails at once and says so.
+        """
         from umwayi import logbook
         from umwayi.errors import UmwayiError
         self.wait_root_quiet()
-        end = time.monotonic() + 10
-        while True:  # a write that started before we looked may still be finishing
+        if not (self.root / logbook.LOGBOOK_NAME).exists():
+            return logbook.read_checked(self.root)  # no logbook: nothing to lock, and no .umwayi is created
+        end = time.monotonic() + timeout
+        last = None
+        while time.monotonic() < end:
+            holder = self._lock_holder()
+            if holder is not None and holder[0] is not None and not holder[1]:
+                self.fail(f"the logbook writer PID {holder[0]} was stopped while it held the logbook lock, so "
+                          f"the lock is never freed and the logbook may not match its hash: "
+                          f"{self._record_state()}")
             try:
-                return logbook.read_checked(self.root)
-            except UmwayiError:
-                if time.monotonic() > end:
-                    raise
+                with logbook._lock(self.root):  # no umwayi writer is between its append and its hash record
+                    return logbook.read_checked(self.root)
+            except UmwayiError as e:
+                last = e
                 time.sleep(0.1)
+        self.fail(f"the logbook could not be read within {timeout:g} s: {last}\n{self._lock_state()}; "
+                  f"{self._record_state()}")
+
+    def _record_state(self) -> str:
+        from umwayi import logbook
+        try:
+            data = (self.root / logbook.LOGBOOK_NAME).read_bytes()
+        except OSError:
+            return "LOGBOOK.md is not readable"
+        return f"LOGBOOK.md against its recorded hash: {logbook._record_state(self.root, data)}"
 
     def run_entries(self) -> list:
         return [e for e in self.entries() if e.source == "umwayi agent run"]
