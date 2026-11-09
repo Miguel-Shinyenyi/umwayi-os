@@ -293,6 +293,112 @@ Requirement 10.R11, design.md "Part 7: Claude Code over ACP", facts in `adapters
 - [ ] 10.30 Planted faults and mutation checks (2 h), the counts in the pull request. Planted faults: the canary wait skipped; `ANTHROPIC_API_KEY` passed to the child; the version pin not compared; `allowDangerouslySkipPermissions` left out. Mutation checks: each gate check removed or loosened (node 22 to 20, the pin compare, the CLI version compare, the sign-in exit code), each allow-list exclusion removed, the canary token not compared, the set_mode error ignored, the stop without descendants, the platform in the action left as `kiro`; the Kiro ACP tests re-run on every mutation to show it is unchanged.
 - [ ] 10.31 Docs and the first real run (3 h, 1.5 of them the owner's): KNOWN-LIMITS for what is not confirmed (when `SessionStart` runs in an SDK session; that the permission answer sees no command; supply chain; the adapter's speed of change), README, design and tasks ticked; then one real chat by the owner on a machine with Node 22 and a Claude Code login, recorded in NOTES-layer10.md: whether the canary ran before the first prompt, whether hook entries appear in the logbook for every tool call, the real `--version` outputs.
 
+### Part 7c: subscription first, login and billing check (spec written Nov 9 2026, waiting for owner approval)
+
+Requirement 10.R12, design.md "Part 7c: subscription first, login and billing check", facts in `adapters/NOTES-layer10.md` ("Login and billing for Claude Code"). Tasks 10.29 to 10.31 above stay as they are. Nothing below starts before the owner approves 10.32. Effort about 14 hours (hours per task in brackets). Every test runs `python -m umwayi agent ...` as a real child process with the fake `claude`, the fake `node` and the fake `kiro-cli`, which answer `auth status --json`, `auth login --claudeai`, `whoami` and `login` from a script that holds a planted email, organization, URL, code and secret. No real Claude Code or Kiro, no network, no key, no real login.
+
+- [ ] 10.32 Requirement 10.R12, the design section, these tasks and the NOTES sections written (Nov 9), amended the same day for the owner's decisions (option B: `umwayi agent login NAME`; subscription first on every platform, so a Kiro section), **waiting for owner approval**, with the twelve open questions of design.md part 7c answered.
+- [ ] 10.33 `login_check()` and the "login" gate check (3 h):
+  - the pure function over the six fields;
+  - the check for every Claude Code start, in the workdir and with the agent's environment, 15 s, at most 64 KB, stderr discarded;
+  - it replaces the 7a "sign-in" step of the ACP checks and goes after "version" in the cli checks;
+  - `agent check` shows "plan: WORD".
+  
+  Tests: every row of the design table, as a unit and end to end for `agent run`, the cli chat and the ACP chat, each exit 2 with nothing started and one refusal entry; the planted email, organization and secret never in stdout, stderr, the logbook or the queue; a code guard that only the six key names are read.
+- [ ] 10.34 `claude_env()`, the credential variables removed for `agent run` and the cli chat (1 h). Tests: the fake records the absence of every listed name even when set, for the agent and for its login check; the ACP allow list is unchanged; a Kiro start gets the environment as before.
+- [ ] 10.35 `forceLoginMethod: "claudeai"` in `claude_settings()` (0.5 h). Tests: it is in the `--settings` of `agent run` and the cli chat and in the ACP inline settings; the PreToolUse entries are still equal; the 7a and 7b template tests are updated, not removed.
+- [ ] 10.36 The watch during an ACP chat (1.5 h): `on_auth` in `acp.py` (about 10 lines) and the stop in `agents.py`. Tests: the scripted Claude fake pushes `_auth/status_update` with `kind: "api_key"` mid-turn, and the chat stops with exit 2, one entry and nothing alive (the 7b stop); `account` and a push without a kind change nothing; a Kiro ACP chat is unchanged.
+- [ ] 10.37 Planted faults, mutation checks and docs (2.5 h, 0.5 of them the owner's):
+  - Planted faults: `authMethod` not compared; `apiKeySource` ignored (a helper next to a subscription passes); `ANTHROPIC_API_KEY` passed to `agent run`; the email printed in a refusal message.
+  - Mutation checks: each field rule removed or loosened; each listed variable left in; `forceLoginMethod` left out; the watch ignoring `api_key`; the check moved after the start.
+  - Counts in the pull request.
+  - KNOWN-LIMITS: the undocumented fields; what `auth status` may not see; a project `apiKeyHelper` running at the check; extra usage not visible; the window between the check and the start.
+  - README and the adapter README.
+  - The owner's real check, recorded in NOTES-layer10.md and folded into 10.31: the real `auth status --json` field names (never the values) for the subscription login, with `ANTHROPIC_API_KEY` set, and with a project `apiKeyHelper`.
+- [ ] 10.38 `umwayi agent login NAME` (3.5 h): mode LOGIN in `_Run`; the `agent login` subcommand in `cli.py`.
+  - **Steps:**
+    - the start steps with action type `agent_login`, and the queue item `Log in agent NAME?` added once;
+    - the gate checks up to the login check;
+    - the login check first (already OK: exit 0, nothing started);
+    - `build_argv` for LOGIN: exactly `[NODE, ADAPTER, "--cli", "auth", "login", "--claudeai"]`;
+    - the forbidden words `--console`, `--email`, `--sso`, `setup-token`, `logout` and the Kiro login flags added to `_assert_allowed`;
+    - the owner's terminal unchanged, with no pipe;
+    - `login_env()` = `child_env()` plus `LOGIN_ENV_NAMES`;
+    - the watcher with `LOGIN_TIMEOUT` (10 minutes) and the part 5 stop;
+    - then the login check, and exactly one result line.
+  - **`agent run` and `agent chat`** never start a login; their refusal names `umwayi agent login NAME`.
+  - **Tests** (fake `node` as the login, a pty for the terminal cases):
+    - a login that flips the status gives `Claude subscription OK (plan: max)` and 0;
+    - a failed login, and an API key still in front, give 2 with the refusal line;
+    - already a subscription: nothing started, 0;
+    - the kill switch during the login gives 3 and nothing alive; the logbook and the limit give 2;
+    - the planted secret, URL and code printed by the fake are never in the logbook or the queue;
+    - the exact argv, and a scan that no argument list in any test has `--console`, `--email` or `--sso`;
+    - the environment names: listed names only, `BROWSER`, `DISPLAY` and `SSH_TTY` when set, never `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `CLAUDE_CODE_OAUTH_SCOPES`, `CLAUDE_CODE_REMOTE` or `ANTHROPIC_API_KEY`;
+    - rules No, Ask me first, run lock and a failing gate check start nothing;
+    - a Claude Code cli agent: 64;
+    - exit codes only 0, 2, 3 and 64.
+  - **Planted faults:** `--console` in place of `--claudeai`; the check after the login skipped.
+  - **Mutation checks:**
+    - `--email` added;
+    - stdout piped and read;
+    - the environment widened to `os.environ`;
+    - a listed name replaced by `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`;
+    - the kill switch not watched during LOGIN;
+    - "already OK" still starting the login;
+    - the action type left as `agent_run`;
+    - `agent chat` starting a login.
+  - **Counts** in the pull request.
+  - **KNOWN-LIMITS:**
+    - `--claudeai` not in the CLI reference;
+    - the login's own exit code not documented;
+    - the browser opener not documented;
+    - what the login prints stays in the terminal's scrollback.
+- [ ] 10.39 Kiro, subscription first (1.5 h):
+  - **What changes:**
+    - `kiro_env()`, with `KIRO_API_KEY` removed for every Kiro start, `whoami` and `login`;
+    - the Kiro login check `[KIRO, "whoami"]` by exit code only, output discarded, 15 s, after "version";
+    - `umwayi agent login NAME` for a Kiro agent: `[KIRO, "login"]`, no flags, then the `whoami` check.
+  - **Tests:**
+    - the fake `kiro-cli` records `KIRO_API_KEY` absent for run, cli chat, ACP chat, `whoami` and `login`, with it set in every test;
+    - `whoami` exiting 1 or hanging refuses with exit 2 and starts nothing;
+    - its output, with a planted email, is never shown;
+    - no Kiro argument list holds `--auth-method`, `logout` or a login flag;
+    - the part 4 and part 6 Kiro tests still pass.
+  - **Mutation checks:** `KIRO_API_KEY` left in; the `whoami` exit code ignored; `whoami` output printed.
+  - **KNOWN-LIMITS:**
+    - the `whoami` exit code when signed out is not documented;
+    - headless Kiro without `KIRO_API_KEY` is not confirmed (the docs conflict);
+    - the plan and credits cannot be read.
+  - **The owner's real check (10.31):** `kiro-cli whoami` exit code signed in and signed out, and one Kiro `agent run` without `KIRO_API_KEY`.
+
+### Other platforms: OpenCode and Muse Spark Open (spec tasks only, written Nov 9 2026, waiting for owner approval)
+
+design.md "OpenCode as a platform" and "Muse Spark Open as a platform"; facts in `adapters/NOTES-layer10.md` (sections of the same names). Nothing is built. Each task below writes a spec (requirement, design and build tasks) after the owner answers that section's open questions. The build is proposed for after Dec 3.
+
+- [ ] 10.41 The spec of the OpenCode adapter (2 h, spec only), from the answers to OC1 to OC6:
+  - **What it specifies:**
+    - `platform: opencode` with transport acp (`[OPENCODE, "acp"]`), and agents.yaml keys `provider` and `model`;
+    - the environment allow list without provider keys and without `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR` and `OPENCODE_DB`;
+    - the one generated inline config: every action `ask`, `provider.use` and `integration.use` allowing only the chosen free or subscription provider, the fixed model;
+    - the first gate (the umwayi plugin with `tool.execute.before` and the `session.created` canary, or the owner's alternative);
+    - the gate checks, including the managed-config refusal and the minimum version;
+    - the answers to permission requests (`once` or `reject` only, never `always`);
+    - the failure table and KNOWN-LIMITS.
+  - **Facts to check first**, each recorded in NOTES with the date:
+    - V2 support for `OPENCODE_CONFIG_CONTENT`;
+    - plugin loading from an absolute path;
+    - the `toolCall` fields of an OpenCode permission request;
+    - `opencode debug config` in V2;
+    - the first V2 version number.
+- [ ] 10.40 The spec of Muse Spark Open as an OpenCode model (1.5 h, spec only, after 10.41), from the answers to MS1 to MS5:
+  - the local provider entry (vLLM or another OpenAI-compatible server with tools enabled, a loopback or private URL only);
+  - the recommended settings (temperature 1.0, top_p 1.0, an explicit `reasoning_effort`);
+  - the refusal of any route that is not free or a subscription;
+  - the later paid route behind the budget governor (OpenRouter's prepaid credits first);
+  - the "Built with Muse Spark Open" notice after the owner has read `LICENSE.md`;
+  - whether Muse Code becomes its own platform (MS3).
+
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
 
 Outline only. Built only after the owner approves its requirements, design and tasks.
