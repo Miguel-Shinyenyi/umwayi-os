@@ -35,11 +35,12 @@ class ClaudeGateTests(AgentCase):
         before = tree_state(self.root, self.work, self.home)
         r = self.check()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        for name in ("command", "version", "hook script", "hook self-test"):
+        for name in ("command", "version", "login", "hook script", "hook self-test"):
             self.assertIn(f"ok: {name}: ", r.stdout)
+        self.assertIn("ok: login: Claude subscription (plan: max)", r.stdout)
         self.assertNotIn("kiro hook file", r.stdout)
         self.assertIn("Gated: agent reviewer can be started. Nothing was started.", r.stdout)
-        self.assertEqual([c["argv"] for c in self.calls()], [["-v"]])
+        self.assertEqual([c["argv"] for c in self.calls()], [["-v"], ["auth", "status", "--json"]])
         self.assert_nothing_started()
         self.assertEqual(tree_state(self.root, self.work, self.home), before)
         self.assertFalse((self.root / "LOGBOOK.md").exists())
@@ -369,7 +370,7 @@ class ArgumentListTests(unittest.TestCase):
         want = {"node version": ["/bin/node", "--version"],
                 "adapter version": ["/bin/node", str(adapter), "--version"],
                 "claude code version": ["/bin/node", str(adapter), "--cli", "--version"],
-                "sign-in": ["/bin/node", str(adapter), "--cli", "auth", "status"]}
+                "login": ["/bin/node", str(adapter), "--cli", "auth", "status", "--json"]}
         self.assertEqual(set(want) - {"node version"}, set(agents.CLAUDE_ACP_PROBES))
         for name, argv in want.items():
             with self.subTest(probe=name):
@@ -379,7 +380,7 @@ class ArgumentListTests(unittest.TestCase):
                     self.assertNotIn(bad, got)
                 self.assertFalse(any(w in ("npx", "npm", "sh", "-c", "--login") for w in got))
         self.assertEqual(agents.CLAUDE_ACP_ORDER, ["node", "node version", "adapter file", "adapter package",
-                                                  "adapter version", "claude code version", "sign-in",
+                                                  "adapter version", "claude code version", "login",
                                                   "hook script", "hook self-test"])
 
     def test_agent_run_of_a_claude_acp_agent_stays_claude_p(self):
@@ -401,7 +402,7 @@ class ArgumentListTests(unittest.TestCase):
 
     def test_the_settings_json_is_the_fixed_template(self):
         s = json.loads(agents.claude_settings(self.PY, Path("/u/adapters/claude_code/hook.py"), self.ROOT))
-        self.assertEqual(s, {"disableAllHooks": False, "hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{
+        self.assertEqual(s, {"disableAllHooks": False, "forceLoginMethod": "claudeai", "hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{
             "type": "command", "command": self.PY, "args": ["/u/adapters/claude_code/hook.py", "--root", str(self.ROOT)],
             "timeout": 30, "onFailure": "block"}]}]}})
 
@@ -522,7 +523,8 @@ class CodeGuardTests(unittest.TestCase):
         [popen] = [kw for f, attr, kw in calls if attr == "Popen"]
         self.assertEqual(popen["env"].id, "env")  # the allow list reaches the adapter
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
-        self.assertEqual(src.count("env = child_env(os.environ) if self._claude_acp() else None"), 1)
+        self.assertEqual(src.count("env = child_env(os.environ)  # the allow list of 10.R11.9"), 1)
+        self.assertEqual(src.count("env = claude_env(os.environ)  # umwayi's environment minus"), 1)
         self.assertEqual(src.count("secrets.token_hex(16)"), 1)
         # the canary is confirmed by the file existing, never by reading it
         self.assertEqual(src.count("os.path.exists(os.path.join(self.canary[0], self.canary[1]))"), 1)

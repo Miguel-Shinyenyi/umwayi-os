@@ -5,7 +5,8 @@ It answers the self-test programs of a Claude Code ACP chat (design.md part 7):
     node --version                         the Node version
     node ADAPTER --version                 the adapter version
     node ADAPTER --cli --version           the bundled Claude Code version
-    node ADAPTER --cli auth status         the sign-in check (exit code; prints a planted secret)
+    node ADAPTER --cli auth status --json  the login check: the scripted "auth_json" (default: a Claude
+                                           subscription with a planted email and organisation) and exit code
     node ADAPTER                           the ACP chat: recorded as "started"; with "acp" in node.json it
                                            execs the scripted ACP agent of fake_agent.py in its Claude
                                            flavour (bin/claude-acp, same pid), with that spec as FAKE_ACP
@@ -29,7 +30,9 @@ DEFAULTS = {
     "node_version": "v22.23.4\n", "node_exit": 0,
     "adapter_version": "0.101.0\n", "adapter_exit": 0,
     "cli_version": "2.1.318 (Claude Code)\n", "cli_exit": 0,
-    "auth_exit": 0, "auth_hang": False, "auth_output": "",
+    "auth_exit": 0, "auth_hang": False, "auth_extra": "",
+    "auth_json": {"loggedIn": True, "authMethod": "claude.ai", "subscriptionType": "max",
+                  "email": "owner@example.invalid", "orgId": "org-PLANTED", "orgName": "Planted Org"},
     "secret": "",
 }
 
@@ -70,11 +73,12 @@ def main() -> int:
         log(probe="claude code version")
         sys.stdout.write(cfg["cli_version"])
         return cfg["cli_exit"]
-    if rest == ["--cli", "auth", "status"]:
-        log(probe="sign-in")
-        sys.stdout.write(cfg["auth_output"])
+    if rest == ["--cli", "auth", "status", "--json"]:
+        log(probe="login")
+        answer = cfg["auth_json"]
+        sys.stdout.write((answer if isinstance(answer, str) else json.dumps(answer)) + cfg["auth_extra"] + "\n")
         sys.stdout.flush()
-        sys.stderr.write(cfg["auth_output"])
+        sys.stderr.write(f"auth stderr {cfg['auth_extra']} owner@example.invalid\n")
         sys.stderr.flush()
         if cfg["auth_hang"]:
             time.sleep(120)

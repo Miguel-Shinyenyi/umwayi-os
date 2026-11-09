@@ -65,6 +65,17 @@ if ARGS == [VERSION_FLAG]:
     sys.stdout.write(os.environ.get(f"FAKE_{KEY}_VERSION", DEFAULT_VERSION) + "\n")
     sys.exit(int(os.environ.get(f"FAKE_{KEY}_EXIT", "0")))
 
+if KEY == "CLAUDE" and ARGS == ["auth", "status", "--json"]:
+    # the login check (10.R12.3): a scripted JSON answer that also names the person, as the real one does
+    rec(argv=ARGS, cwd=os.getcwd(), started=False, probe="auth", env_keys=sorted(os.environ))
+    if os.environ.get("FAKE_CLAUDE_AUTH_HANG"):
+        time.sleep(60)
+    sys.stdout.write(os.environ.get("FAKE_CLAUDE_AUTH", json.dumps({
+        "loggedIn": True, "authMethod": "claude.ai", "subscriptionType": "max",
+        "email": "owner@example.invalid", "orgId": "org-PLANTED", "orgName": "Planted Org"})) + "\n")
+    sys.stderr.write("auth stderr owner@example.invalid\n")
+    sys.exit(int(os.environ.get("FAKE_CLAUDE_AUTH_EXIT", "0")))
+
 CHAT = ("-p" not in ARGS) if KEY == "CLAUDE" else ("--no-interactive" not in ARGS)
 stdin_text = "" if (CHAT or sys.stdin is None or os.environ.get("FAKE_NO_STDIN")) else sys.stdin.read()
 tty = {}

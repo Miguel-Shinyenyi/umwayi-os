@@ -106,15 +106,16 @@ CLAUDE_ACP_PACKAGE_DIR = CLAUDE_ACP_DIR + "/node_modules/" + CLAUDE_ACP_PACKAGE
 CLAUDE_ACP_ADAPTER = CLAUDE_ACP_PACKAGE_DIR + "/dist/index.js"
 CLAUDE_ACP_CANARY = CLAUDE_ACP_DIR + "/canary.py"
 NODE_COMMAND = "node"
-SIGNIN_TIMEOUT = 15.0  # seconds for `NODE ADAPTER --cli auth status`
-SIGNIN_TEXT = "Sign in to Claude Code first (claude, then /login), then try again."
+SIGNIN_TIMEOUT = 15.0  # seconds for the login check (`auth status --json`)
+SIGNIN_TEXT = ("Sign in to Claude Code with your Claude subscription first (claude, then /login, choose the Claude "
+               "account), then try again.")
 CLAUDE_ACP_MODE = "default"  # sent with session/set_mode once the canary is seen
 CANARY_TIMEOUT = 10  # seconds, the SessionStart canary hook's timeout in the inline settings
 CANARY_PREFIX = "umwayi-canary-"
 CLAUDE_ACP_PROBES = {  # the self-test programs after `node --version`, each [NODE, ADAPTER, *tail]
     "adapter version": ("--version",),
     "claude code version": ("--cli", "--version"),
-    "sign-in": ("--cli", "auth", "status"),
+    "login": ("--cli", "auth", "status", "--json"),
 }
 _NODE_VERSION = re.compile(rb"v(\d{1,6})\.(\d{1,6})\.(\d{1,6})\s*")
 
@@ -128,6 +129,28 @@ CHILD_ENV_NAMES = ("HOME", "USER", "LOGNAME", "PATH", "SHELL", "LANG", "LANGUAGE
                    "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy",
                    "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR")
 CHILD_ENV_SET = {"CLAUDE_AGENT_ACP_PROTOCOL": "v1"}
+
+# Part 7c (10.R12.6): credentials that would make a Claude Code run or cli chat pay by something other than the
+# owner's Claude subscription. Removed from umwayi's environment for `agent run` and the cli chat; values never read.
+CLAUDE_CREDENTIAL_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_OAUTH_TOKEN",
+                         "CLAUDE_CODE_OAUTH_REFRESH_TOKEN", "CLAUDE_CODE_OAUTH_SCOPES", "CLAUDE_CODE_USE_BEDROCK",
+                         "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_PROFILE",
+                         "ANTHROPIC_FEDERATION_RULE_ID", "ANTHROPIC_ORGANIZATION_ID", "ANTHROPIC_IDENTITY_TOKEN_FILE")
+
+# Part 7c (10.R12.3): the login check reads the exit code and these five fields of `auth status --json` and nothing else. The output
+# also names the person (email, organisation); that is never read into anything.
+LOGIN_FIELDS = ("loggedIn", "authMethod", "apiKeySource", "apiProvider", "subscriptionType")
+MAX_LOGIN_OUTPUT = 64 * 1024  # bytes of `auth status --json` that are looked at
+_PLAN = re.compile(r"^[a-z0-9 _-]{1,40}$")
+_KEY_SOURCES = {"ANTHROPIC_API_KEY": "ANTHROPIC_API_KEY", "apiKeyHelper": "an apiKeyHelper",
+                "env": "the environment"}
+LOGIN_FIX_KEY = ("unset that variable in your shell, or remove apiKeyHelper or the env entry from your Claude Code "
+                 "settings file, then try again. umwayi uses only your Claude subscription.")
+LOGIN_FIX_CONSOLE = ("Console is API billing; sign in with your Claude account instead (claude, then /login, choose "
+                     "the Claude account), then try again.")
+LOGIN_FIX_PROVIDER = ("unset CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX and CLAUDE_CODE_USE_FOUNDRY, and sign "
+                      "out of any gateway, then try again. umwayi uses only your Claude subscription.")
+LOGIN_UNCONFIRMED = "could not be confirmed (the login check gave no answer umwayi can read). " + SIGNIN_TEXT
 
 # The built-in Kiro tool IDs the Kiro hook docs name (adapters/NOTES.md). Nothing else may be trusted.
 KIRO_TOOL_IDS = ("read_file", "grep_search", "execute_bash", "execute_pwsh",
@@ -513,6 +536,69 @@ def _remove_canary_folder(folder: str) -> None:
     shutil.rmtree(folder, ignore_errors=True)
 
 
+def claude_env(environ) -> dict:
+    """umwayi's environment minus the credential names of 10.R12.6, for `agent run` and the cli chat of Claude Code."""
+    return {k: v for k, v in environ.items() if k not in CLAUDE_CREDENTIAL_ENV}
+
+
+def login_check(code, out: bytes) -> tuple:
+    """(passed, detail, plan word or None) for `auth status --json` (10.R12.3, design part 7c). Pure.
+
+    Only the five named keys of LOGIN_FIELDS are taken from the JSON; the dict is dropped on return and no other
+    field is ever read. Every detail is fixed text plus, at most, a value from a fixed set.
+    """
+    if code is None:
+        return False, "could not be confirmed (no answer within 15 s). " + SIGNIN_TEXT, None
+    if not isinstance(out, bytes) or len(out) > MAX_LOGIN_OUTPUT:
+        return False, LOGIN_UNCONFIRMED, None
+    try:
+        data = json.loads(out.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError, RecursionError):
+        return False, LOGIN_UNCONFIRMED, None
+    if not isinstance(data, dict):
+        return False, LOGIN_UNCONFIRMED, None
+    f = {k: data[k] for k in LOGIN_FIELDS if k in data}
+    del data
+    logged_in, method = f.get("loggedIn"), f.get("authMethod")
+    if code != 0:
+        if logged_in is False or method == "none":
+            return False, "not signed in. " + SIGNIN_TEXT, None
+        return False, LOGIN_UNCONFIRMED, None
+    if logged_in is not True:
+        return False, ("not signed in. " + SIGNIN_TEXT) if logged_in is False else LOGIN_UNCONFIRMED, None
+    if method != "claude.ai":
+        if method == "api_key":
+            return False, "an API key pays, not your Claude subscription; " + LOGIN_FIX_KEY, None
+        if method == "api_key_helper":
+            return False, "an apiKeyHelper in a settings file pays, not your Claude subscription; " + LOGIN_FIX_KEY, None
+        if method == "oauth_token":
+            return False, ("CLAUDE_CODE_OAUTH_TOKEN pays (a long-lived token from claude setup-token), which umwayi "
+                           "does not use; " + LOGIN_FIX_KEY), None
+        if method == "third_party":
+            return False, "a cloud provider or gateway pays, not your Claude subscription; " + LOGIN_FIX_PROVIDER, None
+        if method == "none":
+            return False, "not signed in. " + SIGNIN_TEXT, None
+        return False, LOGIN_UNCONFIRMED, None
+    if "apiKeySource" in f:
+        source = f["apiKeySource"]
+        if source == "/login managed key":
+            return False, "an API key from a Console login pays, not your Claude subscription. " + LOGIN_FIX_CONSOLE, None
+        if isinstance(source, str) and source in _KEY_SOURCES:
+            return False, (f"an API key from {_KEY_SOURCES[source]} pays, not your Claude subscription; "
+                           + LOGIN_FIX_KEY), None
+        if isinstance(source, str):
+            return False, "an API key pays, not your Claude subscription; " + LOGIN_FIX_KEY, None
+        return False, LOGIN_UNCONFIRMED, None
+    if "apiProvider" in f and f["apiProvider"] != "firstParty":
+        if isinstance(f["apiProvider"], str):
+            return False, "a cloud provider or gateway pays, not your Claude subscription; " + LOGIN_FIX_PROVIDER, None
+        return False, LOGIN_UNCONFIRMED, None
+    plan = f.get("subscriptionType")
+    if not (isinstance(plan, str) and _PLAN.match(plan)):
+        return False, "no Claude subscription was reported. " + SIGNIN_TEXT, None
+    return True, f"Claude subscription (plan: {plan})", plan
+
+
 def probe_argv(node: str, adapter: Path, name: str) -> list:
     """The argument list of one self-test program of a Claude Code ACP chat (design.md, part 7)."""
     if name == "node version":
@@ -524,6 +610,7 @@ def claude_settings(python: str, hook: Path, root: Path) -> str:
     """The --settings JSON for Claude Code, from a fixed template (design.md, layer 10)."""
     settings = {
         "disableAllHooks": False,
+        "forceLoginMethod": "claudeai",  # 10.R12.7: a second line; the login check is the first
         "hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{
             "type": "command", "command": python, "args": [str(hook), "--root", str(root)],
             "timeout": CLAUDE_HOOK_TIMEOUT, "onFailure": "block",
@@ -606,6 +693,7 @@ class Gate:
     checks: list = field(default_factory=list)
     command_path: str | None = None
     version: tuple | None = None
+    plan: str | None = None  # Claude Code: the plan word the login check read (10.R12.4)
 
     @property
     def gated(self) -> bool:
@@ -748,8 +836,18 @@ def _hook_checks(platform: str, root: Path, src: Path | None, done, env: dict | 
     return done("hook self-test", True, f"the hook started and blocked the self-test event (exit {SELFTEST_EXIT})")
 
 
+def _login_gate(argv: list, cwd: str, env: dict, gate: Gate, done) -> bool:
+    """Run `auth status --json` and record the login check. Its output is never printed, logged or kept."""
+    code, out = _run_child(argv, b"", SIGNIN_TIMEOUT, cwd, env=env)
+    ok, detail, plan = login_check(code, out[:MAX_LOGIN_OUTPUT + 1])
+    del out
+    if ok:
+        gate.plan = plan
+    return done("login", ok, detail)
+
+
 CLAUDE_ACP_ORDER = ["node", "node version", "adapter file", "adapter package", "adapter version",
-                    "claude code version", "sign-in", "hook script", "hook self-test"]
+                    "claude code version", "login", "hook script", "hook self-test"]
 
 
 def _regular_file(path: Path) -> bool:
@@ -853,14 +951,9 @@ def _claude_acp_checks(agent: Agent, root: Path, src: Path | None, gate: Gate) -
     if not ok:
         return gate
 
-    # 7. sign-in: the exit code of auth status only; its output is never read, printed or logged
-    code, _ = _run_child(probe_argv(node, adapter, "sign-in"), b"", SIGNIN_TIMEOUT, agent.workdir, env=env,
-                         keep_output=False)
-    if code != 0:
-        what = f"did not answer within {SIGNIN_TIMEOUT:.0f} s" if code is None else f"exited {code}"
-        done("sign-in", False, f"auth status {what}. {SIGNIN_TEXT}")
+    # 7. the login check (10.R12.3): a Claude subscription must be what pays; only six fields are read
+    if not _login_gate(probe_argv(node, adapter, "login"), agent.workdir, env, gate, done):
         return gate
-    done("sign-in", True, "auth status exited 0 (its output was not read)")
 
     # 8. the layer 9 Claude Code hook and its self-test, with the same environment
     _hook_checks("claude-code", root, src, done, env=env)
@@ -879,8 +972,11 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     gate = Gate()
     if is_claude_acp(agent, mode):
         return _claude_acp_checks(agent, root, src, gate)
-    order = ["command", "version", "hook script", "hook self-test"] + (["kiro hook file"] if agent.platform == "kiro" else [])
+    claude = agent.platform == "claude-code"
+    order = (["command", "version"] + (["login"] if claude else []) + ["hook script", "hook self-test"]
+             + (["kiro hook file"] if agent.platform == "kiro" else []))
     done = _recorder(gate, order)
+    env = claude_env(os.environ) if claude else None  # the environment the agent itself will get (10.R12.6)
 
     found = shutil.which(agent.command)
     if not found or not os.path.isabs(found):
@@ -889,7 +985,7 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     gate.command_path = found
     done("command", True, f"{agent.command} found at {found}")
 
-    code, out = _run_child([found, plat.version_flag], b"", VERSION_TIMEOUT, agent.workdir)
+    code, out = _run_child([found, plat.version_flag], b"", VERSION_TIMEOUT, agent.workdir, env=env)
     version = parse_version(out) if code == 0 else None
     if code is None:
         ok = done("version", False, f"{agent.command} {plat.version_flag} did not answer within {VERSION_TIMEOUT:.0f} s")
@@ -903,6 +999,10 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
         gate.version = version
         ok = done("version", True, f"{_show(version)} (at least {_show(plat.min_version)})")
     if not ok:
+        return gate
+
+    if claude and not _login_gate(_assert_allowed([found, "auth", "status", "--json"]), agent.workdir, env, gate,
+                                  done):
         return gate
 
     if not _hook_checks(agent.platform, root, src, done):
@@ -1276,7 +1376,8 @@ class _Run:
         how = f"{a.platform}, {a.transport}" + (", chat" if self.mode == CHAT else "")
         why = self.log(f"Started agent {a.name} ({how}): {gate.command_path}",
                        f"rule {decision.rule_id or '(none)'} gave Yes for agent_run ({self.mode}); the run lock is held; "
-                       f"every gate check passed (version {_show(gate.version)})", NOT_LOGGED)
+                       f"every gate check passed (version {_show(gate.version)}"
+                       + (f", plan: {gate.plan})" if gate.plan else ")"), NOT_LOGGED)
         if why is not None:
             return self.result(2, [f"{not_started} The logbook could not record the start, so nothing is started "
                                    "(exit 2)."], why)
@@ -1387,7 +1488,12 @@ class _Run:
             stdin, stdout = subprocess.PIPE, subprocess.PIPE
         else:
             stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
-        env = child_env(os.environ) if self._claude_acp() else None  # the allow list of 10.R11.9
+        if self._claude_acp():
+            env = child_env(os.environ)  # the allow list of 10.R11.9
+        elif self.agent.platform == "claude-code":
+            env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
+        else:
+            env = None
         self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin,
                                      stdout=stdout, env=env)
         self.started = time.monotonic()

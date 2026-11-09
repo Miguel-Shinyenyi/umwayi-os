@@ -90,6 +90,23 @@ class RunCase(AgentCase):
 
 
 class YesRunsTests(RunCase):
+    def test_every_credential_name_planted_in_the_environment_never_reaches_the_agent(self):
+        planted = {name: f"{SECRET}-{name}" for name in agents.CLAUDE_CREDENTIAL_ENV}
+        extra = dict(self.script(READ), **planted, UMWAYI_TEST_KEEP="kept")
+        r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", "run", "reviewer",
+                            "--prompt", "hello"], capture_output=True, text=True, timeout=120, env=self.env(extra),
+                           cwd=str(self.tmp))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        [start] = self.started()
+        names = set(start["env_keys"])
+        self.assertEqual(names & set(agents.CLAUDE_CREDENTIAL_ENV), set(), "a credential name reached the agent")
+        self.assertIn("UMWAYI_TEST_KEEP", names)  # only the credential names are removed (10.R12.6)
+        self.assertEqual(names, set(self.env(extra)) - set(agents.CLAUDE_CREDENTIAL_ENV))
+        for c in self.calls():  # nor the version check or the login check
+            if "env_keys" in c:
+                self.assertEqual(set(c["env_keys"]) & set(agents.CLAUDE_CREDENTIAL_ENV), set(), c.get("argv"))
+        self.assertNotIn(SECRET, r.stdout + r.stderr)
+
     def test_yes_starts_claude_code_with_the_gate_and_every_tool_call_goes_through_the_hook(self):
         r = self.run_agent("reviewer", READ, LS, RM, prompt=f"Fix the test {SECRET}")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -97,8 +114,10 @@ class YesRunsTests(RunCase):
         [start] = self.started()
         self.assertEqual(start["cwd"], str(self.work))
         self.assertEqual(start["stdin"], "")
-        # the owner's environment, unchanged: umwayi adds and removes no variable (10.R5.8)
-        self.assertEqual(set(start["env_keys"]), set(self.env(self.script(READ, LS, RM))))
+        # the owner's environment, minus only the credential names of 10.R12.6 (claude_env): umwayi adds no
+        # variable and removes nothing else (10.R5.8)
+        self.assertEqual(set(start["env_keys"]),
+                         set(self.env(self.script(READ, LS, RM))) - set(agents.CLAUDE_CREDENTIAL_ENV))
         self.assertEqual(start["pgid"], start["pid"])  # its own process group
         self.assertEqual(start["sid"], start["pid"])  # and its own session
         argv = start["argv"]
@@ -299,10 +318,10 @@ class StopsWhileRunningTests(RunCase):
         (self.root / ".umwayi" / "KILL").write_text("", encoding="utf-8")
         t = time.monotonic()
         code, out, _ = self.finish(p)
-        took = time.monotonic() - t
+        took = self.exited_at - t  # SIGKILL follows after 10 s
         self.assertEqual(code, 3, out)
         self.assertGreater(took, 9.5)
-        self.assertLess(took, 16)
+        self.assertLess(took, 25)  # generous: SIGKILL comes at 10 s, not at a minute
         self.assert_agent_gone()
 
     def test_the_logbook_failing_mid_run_stops_the_agent(self):

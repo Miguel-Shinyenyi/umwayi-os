@@ -69,8 +69,10 @@ claude
 ```
 
 The bundled CLI finds the same login through the same `HOME` (and `CLAUDE_CONFIG_DIR`, if you set one).
-umwayi checks it with `node .../dist/index.js --cli auth status`, by its exit code only (0 means signed
-in, within 15 seconds); the output is thrown away, never read, printed or logged.
+umwayi checks it with `node .../dist/index.js --cli auth status --json` (part 7c-1, Nov 9 2026): within
+15 seconds the answer must show a Claude subscription login (`loggedIn`, `authMethod` `claude.ai`, no
+`apiKeySource`, `apiProvider` absent or `firstParty`, a plan word). Only those fields are read; your email
+and organisation in the same output are never read, printed or logged.
 
 ## Check it
 

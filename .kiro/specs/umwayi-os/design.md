@@ -685,7 +685,7 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (approved; all six parts built; part 7 approved, parts 7a and 7b built)
+## Layer 10: Own command line and chat (approved; all six parts built; part 7 approved, parts 7a and 7b built; part 7c approved, 7c-1 built)
 
 Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17; part 6 (ACP chat for Kiro, `umwayi/acp.py`) in PR 18. All six parts are built. Part 7 (Claude Code over ACP, 10.R11) was approved on Nov 8 (tasks.md 10.22); part 7a (agents.yaml, `adapters/claude_acp/`, the gate checks and `child_env()`) is built in PR 20; part 7b (the chat: the inline settings and the canary, the three `acp.py` options, the stop) in PR 21. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
@@ -1100,7 +1100,7 @@ Effort, if approved: about 20 hours (tasks.md 10.23 to 10.31, of which 1.5 are t
 | sign-in expires during a chat | the adapter answers with an error | the chat ends with exit 2; sign in again |
 | background commands | they outlive a cancel | stop by process group and seen descendants |
 
-### Part 7c: subscription first, login and billing check (spec written Nov 9, waiting for owner approval)
+### Part 7c: subscription first, login and billing check (approved Nov 9; part 7c-1 built in PR 23: the login check, claude_env, forceLoginMethod)
 
 Requirement 10.R12. Facts with links, and what is not documented: `adapters/NOTES-layer10.md`, section "Login and billing for Claude Code". Nothing of part 7c is built before the owner approves it.
 

@@ -18,6 +18,7 @@ import unittest
 from pathlib import Path
 
 from tests.adapters.support import SITECUSTOMIZE
+from umwayi.agents import CLAUDE_CREDENTIAL_ENV
 
 REPO = Path(__file__).resolve().parents[2]
 SECRET = "sk-live-AGENTS-TEST-SECRET"
@@ -189,8 +190,12 @@ class AgentCase(unittest.TestCase):
     # ------------------------------------------------------------ run
 
     def env(self, extra: dict | None = None, fault: str | None = None) -> dict:
+        # The machine's own credential names (10.R12.6) are never inherited, so no test depends on whether the
+        # machine running it sets ANTHROPIC_BASE_URL or a key, and no real credential reaches a fake. A test that
+        # needs one plants it through `extra`.
         env = {k: v for k, v in os.environ.items()
-               if k not in ("PYTHONPATH", "UMWAYI_FAULT") and not k.startswith("FAKE_")}
+               if k not in ("PYTHONPATH", "UMWAYI_FAULT") and k not in CLAUDE_CREDENTIAL_ENV
+               and not k.startswith("FAKE_")}
         env["PATH"] = os.pathsep.join([str(self.bin), env.get("PATH", "")])
         env["HOME"] = str(self.home)
         env["FAKE_LOG"] = str(self.fake_log)
@@ -233,6 +238,7 @@ class AgentCase(unittest.TestCase):
         umwayi failed to stop, so a leftover agent could finish on its own and look stopped.
         """
         p.wait(timeout=timeout)
+        self.exited_at = time.monotonic()  # when umwayi exited; the quiet wait below is not part of the stop
         self.alive_at_exit = self.agent_pids_alive()
         for pid in self.alive_at_exit:
             os.kill(pid, signal.SIGKILL)

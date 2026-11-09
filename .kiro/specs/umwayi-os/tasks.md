@@ -16,7 +16,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
-| 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 to 10.31 open | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, on Python 3.10 to 3.13 |
+| 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 to 10.31 open; part 7c approved (10.32), part 7c-1 built (10.33 to 10.35), 10.36 to 10.39 open; OpenCode and Muse Spark Open specified (10.40, 10.41), build after Dec 3 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21; part 7c spec PR 22; part 7c-1 PR 23 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, 869 after PR 23, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
 | Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
 | Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
@@ -188,7 +188,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
 - [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
-## Layer 10: Own command line and chat (all six parts built; 10.20 and 10.21 open; part 7 approved, parts 7a and 7b built)
+## Layer 10: Own command line and chat (all six parts built; 10.20 and 10.21 open; part 7 approved, parts 7a and 7b built; part 7c approved, 7c-1 built)
 
 Planned for Nov 9 to Nov 10. Requirements 10.R1 to 10.R10, design in design.md, doc facts in `adapters/NOTES-layer10.md`. The owner approved 10.0 on Nov 8.
 
@@ -293,20 +293,32 @@ Requirement 10.R11, design.md "Part 7: Claude Code over ACP", facts in `adapters
 - [ ] 10.30 Planted faults and mutation checks (2 h), the counts in the pull request. Planted faults: the canary wait skipped; `ANTHROPIC_API_KEY` passed to the child; the version pin not compared; `allowDangerouslySkipPermissions` left out. Mutation checks: each gate check removed or loosened (node 22 to 20, the pin compare, the CLI version compare, the sign-in exit code), each allow-list exclusion removed, the canary token not compared, the set_mode error ignored, the stop without descendants, the platform in the action left as `kiro`; the Kiro ACP tests re-run on every mutation to show it is unchanged.
 - [ ] 10.31 Docs and the first real run (3 h, 1.5 of them the owner's): KNOWN-LIMITS for what is not confirmed (when `SessionStart` runs in an SDK session; that the permission answer sees no command; supply chain; the adapter's speed of change), README, design and tasks ticked; then one real chat by the owner on a machine with Node 22 and a Claude Code login, recorded in NOTES-layer10.md: whether the canary ran before the first prompt, whether hook entries appear in the logbook for every tool call, the real `--version` outputs.
 
-### Part 7c: subscription first, login and billing check (spec written Nov 9 2026, waiting for owner approval)
+### Part 7c: subscription first, login and billing check (approved Nov 9 2026; part 7c-1 built in PR 23; 7c-2 is 10.38 and 10.39, 7c-3 is 10.36 and 10.29 to 10.31)
 
 Requirement 10.R12, design.md "Part 7c: subscription first, login and billing check", facts in `adapters/NOTES-layer10.md` ("Login and billing for Claude Code"). Tasks 10.29 to 10.31 above stay as they are. Nothing below starts before the owner approves 10.32. Effort about 14 hours (hours per task in brackets). Every test runs `python -m umwayi agent ...` as a real child process with the fake `claude`, the fake `node` and the fake `kiro-cli`, which answer `auth status --json`, `auth login --claudeai`, `whoami` and `login` from a script that holds a planted email, organization, URL, code and secret. No real Claude Code or Kiro, no network, no key, no real login.
 
-- [ ] 10.32 Requirement 10.R12, the design section, these tasks and the NOTES sections written (Nov 9), amended the same day for the owner's decisions (option B: `umwayi agent login NAME`; subscription first on every platform, so a Kiro section), **waiting for owner approval**, with the twelve open questions of design.md part 7c answered.
-- [ ] 10.33 `login_check()` and the "login" gate check (3 h):
+- [x] 10.32 Requirement 10.R12, the design section, these tasks and the NOTES sections written (Nov 9) in PR 22, amended the same day for the owner's decisions, **approved and merged Nov 9**. The twelve open questions of design.md part 7c were answered as proposed:
+  1. Read the five named fields of `auth status --json` and its exit code; the email, organisation and raw output are never read into anything.
+  2. Refuse `oauth_token` (`CLAUDE_CODE_OAUTH_TOKEN`).
+  3. A deny list of credential names for `agent run` and the cli chat; the ACP allow list stays.
+  4. `forceLoginMethod: "claudeai"` in the one settings template.
+  5. Show the plan word ("plan: WORD") in `agent check` and the start entry.
+  6. The ACP watch of `_auth/status_update`.
+  7. No way to allow API billing now.
+  8. The login check after the version check and before the hook checks, replacing the 7a sign-in step.
+  9. Build now: 7c-1 (10.33 to 10.35), then 7c-2 (10.38, 10.39), then 7c-3 (10.36, 10.29 to 10.31). OpenCode (10.41) and Muse Spark Open (10.40) stay spec only, built after Dec 3.
+  10. Kiro: remove `KIRO_API_KEY`, a `whoami` exit-code check, `agent login` for Kiro, and refuse a headless Kiro run if it needs the key.
+  11. `agent login` skips the login when the check already passes.
+  12. The login environment as proposed.
+- [x] 10.33 (PR 23) `login_check()` and the "login" gate check (3 h):
   - the pure function over the six fields;
   - the check for every Claude Code start, in the workdir and with the agent's environment, 15 s, at most 64 KB, stderr discarded;
   - it replaces the 7a "sign-in" step of the ACP checks and goes after "version" in the cli checks;
   - `agent check` shows "plan: WORD".
   
   Tests: every row of the design table, as a unit and end to end for `agent run`, the cli chat and the ACP chat, each exit 2 with nothing started and one refusal entry; the planted email, organization and secret never in stdout, stderr, the logbook or the queue; a code guard that only the six key names are read.
-- [ ] 10.34 `claude_env()`, the credential variables removed for `agent run` and the cli chat (1 h). Tests: the fake records the absence of every listed name even when set, for the agent and for its login check; the ACP allow list is unchanged; a Kiro start gets the environment as before.
-- [ ] 10.35 `forceLoginMethod: "claudeai"` in `claude_settings()` (0.5 h). Tests: it is in the `--settings` of `agent run` and the cli chat and in the ACP inline settings; the PreToolUse entries are still equal; the 7a and 7b template tests are updated, not removed.
+- [x] 10.34 (PR 23) `claude_env()`, the credential variables removed for `agent run` and the cli chat (1 h). Tests: the fake records the absence of every listed name even when set, for the agent and for its login check; the ACP allow list is unchanged; a Kiro start gets the environment as before.
+- [x] 10.35 (PR 23) `forceLoginMethod: "claudeai"` in `claude_settings()` (0.5 h). Tests: it is in the `--settings` of `agent run` and the cli chat and in the ACP inline settings; the PreToolUse entries are still equal; the 7a and 7b template tests are updated, not removed.
 - [ ] 10.36 The watch during an ACP chat (1.5 h): `on_auth` in `acp.py` (about 10 lines) and the stop in `agents.py`. Tests: the scripted Claude fake pushes `_auth/status_update` with `kind: "api_key"` mid-turn, and the chat stops with exit 2, one entry and nothing alive (the 7b stop); `account` and a push without a kind change nothing; a Kiro ACP chat is unchanged.
 - [ ] 10.37 Planted faults, mutation checks and docs (2.5 h, 0.5 of them the owner's):
   - Planted faults: `authMethod` not compared; `apiKeySource` ignored (a helper next to a subscription passes); `ANTHROPIC_API_KEY` passed to `agent run`; the email printed in a refusal message.
