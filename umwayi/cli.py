@@ -16,7 +16,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import __version__, agents, archive, jobs, kill, logbook, publish, report, rules, taskqueue, workflow
+from umwayi import __version__, agents, archive, jobs, kill, logbook, publish, report, rules, schedule, taskqueue, workflow
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -171,6 +171,24 @@ def build_parser() -> argparse.ArgumentParser:
     aglog.add_argument("name", help="the agent name from agents.yaml")
     for sp in (agv, agl, agc, agr, agch, aglog):
         sp.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
+
+    sc = sub.add_parser("schedule", help="scheduled runs through systemd user timers (layer 11); 0, 2, 3 or 64, never 1")
+    scsub = sc.add_subparsers(dest="schedule_command", parser_class=_Parser)
+    scv = scsub.add_parser("validate", help="check schedule.yaml, every problem with a line number (writes nothing)")
+    scs = scsub.add_parser("show", help="print the unit files (or --cron lines) install would write (writes nothing)")
+    scs.add_argument("name", nargs="?", help="one entry from schedule.yaml (default: every entry)")
+    scs.add_argument("--cron", action="store_true", help="print the equivalent crontab lines instead (never installed)")
+    scc = scsub.add_parser("check", help="compare the installed unit files with what umwayi would write (writes nothing)")
+    scc.add_argument("name", nargs="?", help="one entry from schedule.yaml (default: every entry)")
+    sci = scsub.add_parser("install", help="write the two unit files of one entry (asks the rules); starts nothing")
+    sci.add_argument("name", help="the entry name from schedule.yaml")
+    sci.add_argument("--approved-by", help="the owner's name, when the rules say Ask me first")
+    scr = scsub.add_parser("remove", help="remove the two unit files umwayi wrote for one entry (asks the rules)")
+    scr.add_argument("name", help="the entry name from schedule.yaml")
+    for sp in (scv, scs, scc, sci, scr):
+        sp.add_argument("--file", help="the schedule file inside the root (default: schedule.yaml in the root)")
+    for sp in (sci, scr):
+        sp.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entry (default: today)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -369,6 +387,36 @@ def _cmd_agent(args, out) -> int:
         return EXIT_CRASH
 
 
+def _cmd_schedule(args, out) -> int:
+    """Layer 11. Its own error handling: 64 for usage and config, 2 for anything else, never 1 (11.R6)."""
+    root = Path(args.root)
+    try:
+        cmd = args.schedule_command
+        if cmd == "validate":
+            return _cmd_helper(schedule.validate_file(root, args.file), out)
+        if cmd == "show":
+            return _cmd_helper(schedule.show(root, args.name, args.cron, args.file), out)
+        if cmd == "check":
+            return _cmd_helper(schedule.check(root, args.name, args.file), out)
+        if cmd == "install":
+            return _cmd_helper(schedule.install(root, args.name, args.date or _today(), args.approved_by, args.file),
+                               out)
+        return _cmd_helper(schedule.remove(root, args.name, args.date or _today(), args.file), out)
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        try:
+            sys.stderr.write(f"umwayi: schedule: stopped by an unexpected error ({type(e).__name__}). "
+                             f"Exit {EXIT_CRASH}. Nothing was started.\n")
+        except Exception:
+            pass
+        return EXIT_CRASH
+
+
 def main(argv: list[str] | None = None, out=None) -> int:
     out = out or sys.stdout
     parser = build_parser()
@@ -381,6 +429,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_check(args, out)
         if args.command == "agent" and getattr(args, "agent_command", None):
             return _cmd_agent(args, out)
+        if args.command == "schedule" and getattr(args, "schedule_command", None):
+            return _cmd_schedule(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
         if args.command == "workflow" and getattr(args, "workflow_command", None) == "validate":

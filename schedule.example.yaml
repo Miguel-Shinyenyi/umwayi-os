@@ -1,0 +1,28 @@
+# An example schedule for layer 11. Copy it to schedule.yaml in your umwayi root and change it.
+#
+#   umwayi schedule validate                       check it (every problem with a line number)
+#   umwayi schedule show weekly-report             see the two unit files umwayi would write
+#   umwayi schedule install weekly-report --approved-by YOUR_NAME
+#   umwayi schedule check                          compare what is installed with what umwayi would write
+#
+# umwayi writes the unit files to ~/.config/systemd/user and prints the systemctl --user commands; it never runs
+# systemctl itself. Only jobs (jobs.yaml) and workflows (workflows/) can be scheduled, never an agent.
+# every: daily, weekly (with day: mon to sun) or monthly (with day: 1 to 28). at: local time "HH:MM".
+schedules:
+  - name: weekly-report
+    run: job
+    job: weekly-report
+    every: weekly
+    day: mon
+    at: "07:30"
+  - name: open-queue
+    run: job
+    jobs_file: jobs.yaml
+    job: open-queue
+    every: daily
+    at: "08:00"
+  - name: content-loop
+    run: workflow
+    workflow: content-loop
+    every: daily
+    at: "09:00"
