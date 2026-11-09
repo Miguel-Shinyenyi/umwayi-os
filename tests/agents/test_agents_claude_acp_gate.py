@@ -45,7 +45,7 @@ DROPPED = {  # never passed, even when set
     "ANTHROPIC_MODEL": SECRET, "OPENAI_API_KEY": SECRET, "AWS_SECRET_ACCESS_KEY": SECRET,
 }
 ALLOWED = set(agents.CHILD_ENV_NAMES) | set(agents.CHILD_ENV_SET)
-PROBES = ["node version", "adapter version", "claude code version", "sign-in"]
+PROBES = ["node version", "adapter version", "claude code version", "login"]
 
 
 class ClaudeAcpCase(AgentCase):
@@ -243,13 +243,14 @@ class FailingCheckTests(ClaudeAcpCase):
         self.assertEqual(self.check().returncode, 0)
 
     def test_not_signed_in(self):
-        self.answers(auth_exit=1, auth_output=f"Not logged in {SECRET}\n")
-        r = self.refused_at("sign-in", words=agents.SIGNIN_TEXT)
-        self.assertIn("auth status exited 1", r.stdout)
+        self.answers(auth_exit=1, auth_json={"loggedIn": False, "authMethod": "none", "note": SECRET})
+        r = self.refused_at("login", words=agents.SIGNIN_TEXT)
+        self.assertIn("no: login: not signed in.", r.stdout)
+        self.assertNotIn(SECRET, r.stdout + r.stderr)
 
     def test_sign_in_check_hangs(self):
-        self.answers(auth_hang=True, auth_output=f"{SECRET}\n")
-        r = self.refused_at("sign-in", words="did not answer within 15 s")
+        self.answers(auth_hang=True, auth_extra=SECRET)
+        r = self.refused_at("login", words="no answer within 15 s")
         self.assertIn(agents.SIGNIN_TEXT, r.stdout)
 
     def test_the_hook_missing(self):
@@ -263,14 +264,16 @@ class FailingCheckTests(ClaudeAcpCase):
 
 class SecretTests(ClaudeAcpCase):
     def test_the_sign_in_output_is_never_shown_or_logged(self):
-        self.answers(auth_output=f"Logged in as owner@example.invalid token {SECRET}\n", secret=SECRET)
+        self.answers(auth_json={"loggedIn": True, "authMethod": "claude.ai",
+                                                          "subscriptionType": "max", "email": "owner@example.invalid",
+                                                          "orgName": SECRET}, secret=SECRET)
         before = tree_state(self.root)
         r = self.check()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn(SECRET, r.stdout + r.stderr)
         self.assertNotIn("owner@example.invalid", r.stdout + r.stderr)
         self.assertEqual(tree_state(self.root), before, "agent check wrote to the root")
-        self.answers(auth_output=f"{SECRET}\n", auth_exit=1, secret=SECRET)
+        self.answers(auth_json={"loggedIn": False, "orgName": SECRET}, auth_exit=1, secret=SECRET)
         r = self.check()
         self.assertEqual(r.returncode, 2)
         self.assertNotIn(SECRET, r.stdout + r.stderr)
