@@ -92,3 +92,58 @@ Sources: [bubblewrap README](https://github.com/containers/bubblewrap/blob/main/
 - The exact enable-link path for a user timer, and `systemd-analyze --user verify` on the rendered files.
 - What a calendar timer does at a daylight saving change on the owner's time zone.
 - For a later sandbox: whether unprivileged user namespaces are allowed (`/proc/sys/kernel/apparmor_restrict_unprivileged_userns` on Ubuntu), and whether Claude Code and Kiro run inside bwrap with the network on.
+
+## The owner's real check (11.6): steps, expected output, results (NOT DONE YET)
+
+Written Nov 10 2026 with the layer 11 build (PR 31). Every test in the build used a temporary `HOME` and `XDG_CONFIG_HOME` and no systemd. This check is the first time real systemd loads the files. It is the owner's, on the owner's machine with a systemd user manager; nothing here was run by the build. umwayi itself never runs `systemctl`: every `systemctl` and `systemd-analyze` line below is typed by the owner.
+
+### 0. Prepare
+
+1. `systemctl --user is-system-running` prints `running` (or `degraded`). If it prints `offline`, there is no user manager in this session and the check cannot be done here.
+2. In the umwayi root: `cp schedule.example.yaml schedule.yaml`, then `umwayi schedule validate`. Expected: `ok: 3 schedule(s): weekly-report (job weekly-report, weekly), open-queue (job open-queue, daily), content-loop (workflow content-loop, daily)` and exit 0.
+3. `umwayi kill status` prints `off`.
+
+### 1. Install and verify
+
+1. `umwayi schedule install open-queue --approved-by YOUR_NAME; echo "exit $?"`. Expected: `Installed schedule open-queue:`, the two paths under `~/.config/systemd/user/`, `Approved by: YOUR_NAME`, the two `systemctl --user` lines, the lingering line, `exit 0`.
+2. `systemd-analyze --user verify ~/.config/systemd/user/umwayi-*-open-queue.service ~/.config/systemd/user/umwayi-*-open-queue.timer; echo "exit $?"`. Expected: no output and `exit 0`. Record any warning word for word.
+3. `systemd-analyze calendar "*-*-* 08:00:00"` shows the next time, to compare with the timer.
+
+### 2. Enable and look
+
+1. `systemctl --user daemon-reload` then `systemctl --user enable --now umwayi-ID-open-queue.timer` (the name install printed). Expected: a line `Created symlink ... timers.target.wants/umwayi-ID-open-queue.timer`. Record that link path.
+2. `systemctl --user list-timers 'umwayi-*'`. Expected: one row with the next time at 08:00 local.
+3. `umwayi schedule check open-queue; echo "exit $?"`. Expected: `open-queue (umwayi-ID-open-queue): installed; enabled`, `All schedules are installed as umwayi wrote them.`, `exit 0`.
+
+### 3. One run now
+
+1. `systemctl --user start umwayi-ID-open-queue.service; echo "exit $?"`. Expected `exit 0` (a oneshot waits for the run to end).
+2. `tail -8 LOGBOOK.md`: one entry `Source: umwayi run`, `Added: Job open-queue ran (command queue-list)...`.
+3. `journalctl --user -u umwayi-ID-open-queue.service -n 20`: umwayi's output of the run. Record which environment names the service got: run `systemctl --user show-environment` and copy only the **names**, never the values.
+
+### 4. The kill switch stops a scheduled run
+
+1. `umwayi kill on --reason "11.6 check"`.
+2. `systemctl --user start umwayi-ID-open-queue.service; echo "exit $?"`. Expected: not 0 (systemd reports the unit failed), and `systemctl --user status umwayi-ID-open-queue.service` shows `status=3`.
+3. `tail -8 LOGBOOK.md`: one entry `A job run was stopped before the jobs file was read: the kill switch is on`.
+4. `umwayi kill off`.
+
+### 5. Take it away
+
+1. `umwayi schedule remove open-queue; echo "exit $?"`. Expected while enabled: exit 2 and the two commands below. Run them:
+   `systemctl --user disable --now umwayi-ID-open-queue.timer` and `systemctl --user clean --what=state umwayi-ID-open-queue.timer`.
+2. `umwayi schedule remove open-queue; echo "exit $?"`. Expected: `Removed schedule open-queue:` with both paths, `exit 0`.
+3. `systemctl --user daemon-reload`; `systemctl --user list-timers 'umwayi-*'` shows no row.
+
+### Results (to be filled in by the owner; all NOT DONE)
+
+| step | what to record | result |
+| --- | --- | --- |
+| 0.1 | `is-system-running` output | not done |
+| 1.2 | `systemd-analyze --user verify` output and exit code | not done |
+| 2.1 | the enable link path | not done |
+| 2.2 | the next time `list-timers` shows | not done |
+| 3.2 | the `umwayi run` entry exists | not done |
+| 3.3 | the environment names the service got (names only) | not done |
+| 4.2 | the status code systemd shows with the kill switch on | not done |
+| 5.1 | remove refused while enabled, then removed | not done |

@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers).
 
 ## Approval and the owner
 
@@ -451,3 +451,51 @@ The adapter pushes `_auth/status_update` only when what it reports changed: afte
 ### 92. The watch trusts the adapter's push
 
 umwayi reads only `params.authStatus.kind`. A push with no readable kind is ignored, because the adapter sends "cannot tell" as silence. If a release stops sending the push, renames the kind, or cannot see a payer change, nothing stops the chat; the login check before the start is then the only check. Not yet confirmed with a real adapter (10.31).
+
+## Layer 11: scheduled runs (found while building, not fixed)
+
+Written Nov 10 2026. Facts: `adapters/NOTES-layer11.md`. No systemd ran in the tests; the owner's real check (11.6) is not done yet.
+
+### 93. Timers run only while the owner is logged in
+
+The systemd user manager starts at the first login and stops after the last session ends, unless lingering is on. umwayi never runs `loginctl enable-linger`; `schedule install` says so. A run missed while logged out happens at the next login (`Persistent=true`), where the layer 6 gap rule still applies.
+
+### 94. Anyone who can write the unit folder can change what runs
+
+`~/.config/systemd/user` belongs to the owner. Any program running as the owner can edit a unit umwayi wrote, add a drop-in (`UNIT.service.d/`) or add a unit of its own. `umwayi schedule check` finds a changed file, a drop-in next to it and left over `umwayi-` units in that folder only. It does not see a unit of the same name earlier in the user load path, a drop-in in another folder of the load path, or units that are not named `umwayi-`. `systemd-analyze --user cat-config UNIT` shows what systemd really loads.
+
+### 95. A scheduled run that finds the run lock held is skipped
+
+A long chat, an agent run, a helper or another job holds the run lock. A timer that fires then gets Ask me first (exit 3) and one logbook entry, and is not retried until its next time.
+
+### 96. A run stopped at the start limit writes no entry
+
+After `TimeoutStartSec=30min` systemd stops the run's control group (SIGTERM, SIGKILL after 15 s). The logbook stays whole (crash safety), but the run writes no entry about that stop; only the user journal has it.
+
+### 97. umwayi's output goes to the user journal
+
+A scheduled run prints what it would print on a terminal (queue titles, draft names, the reason of a stop). systemd keeps it in the user journal, which the owner and administrators can read (`journalctl --user -u UNIT`).
+
+### 98. A refusal of `umwayi run` shows as a failed unit
+
+`umwayi run` keeps layer 6's exit code 1 for a refusal (the gap rule, for example), as L11-Q9 decided. systemd marks the unit failed for 1, 2 and 3 alike; the logbook says which.
+
+### 99. Local time, and daylight saving changes
+
+The calendar is the owner's local time, with no time zone in the timer. What a systemd calendar timer does with a time that is skipped or repeated by a daylight saving change is not documented on the pages read. cron (printed only) skips a missing time and runs a repeated time twice.
+
+### 100. An install stopped by SIGKILL can leave one file
+
+Install writes the service, then the timer. A SIGKILL between the two (or a power cut) leaves the service alone. `schedule check` reports it as partly installed, and running `schedule install` again keeps the identical file and writes the missing one.
+
+### 101. The unit folder must be a real folder
+
+A dotfiles setup that makes `~/.config/systemd/user` a link is refused (exit 2), so that umwayi never writes through a link it did not choose.
+
+### 102. check and remove compare with what this Python would write
+
+The unit file holds the absolute path of the Python that ran `schedule install`. `schedule check` and `schedule remove` render again with the Python running them. Run with another interpreter (or after the root or the umwayi checkout moved), they report the files as changed and remove refuses; the owner removes them by hand or installs again from the new place.
+
+### 103. `--approved-by` is self-declared
+
+As for `publish-draft` (item 1): any name is accepted when the rules say Ask me first. Nothing proves the person typing it is the owner. An AI helper that can run shell commands as the owner can pass it; the layer 9 hook sees that command first (`tool_bash`).

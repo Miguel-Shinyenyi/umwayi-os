@@ -472,7 +472,7 @@ Acceptance criteria:
 
 ## Layer 11: Linux-like features
 
-Status: approved by the owner (tasks.md 11.0), with L11-Q1 to L11-Q13 answered as proposed and L11-Q14 changed: built now (PR 31), not on Nov 14 to Nov 15. Facts with links, and what the docs do not say: `adapters/NOTES-layer11.md`. The candidates and why most of them wait: design.md, "Layer 11", section "The candidates".
+Status: approved by the owner (tasks.md 11.0), with L11-Q1 to L11-Q13 answered as proposed and L11-Q14 changed: built now, not on Nov 14 to Nov 15. 11.R1 to 11.R7 are built in PR 31 (`umwayi/schedule.py`, `umwayi schedule`); 11.R7.8, the owner's real check (tasks.md 11.6), is not done. Facts with links, and what the docs do not say: `adapters/NOTES-layer11.md`. The candidates and why most of them wait: design.md, "Layer 11", section "The candidates".
 
 User story: as the owner, I want my jobs and workflows to run on a schedule while I am away, using the scheduler Linux already has, so that nothing new decides when umwayi runs and every run still goes through the kill switch, the run lock, the rules and the logbook.
 
