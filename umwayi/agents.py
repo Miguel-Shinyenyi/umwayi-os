@@ -6,7 +6,7 @@
     umwayi agent run NAME (--prompt TEXT | --prompt-file PATH | -)
                                               start NAME once (Claude Code or Kiro): 0, 2, 3 or 64
     umwayi agent chat NAME [--agents PATH]    a chat on your terminal (transport cli), or umwayi's own
-                                              ACP client for Kiro (transport acp): 0, 2, 3 or 64
+                                              ACP client for Kiro or Claude Code (transport acp): 0, 2, 3 or 64
 
 `agent run` takes these steps in order and the first that fails ends it: read
 agents.yaml and the prompt (64), the kill switch (3), the rules, action agent_run
@@ -29,8 +29,10 @@ pasted into a string, and no list may hold a flag on FORBIDDEN_FLAGS.
 Part 7a (10.R11): agents.yaml accepts claude-code with transport acp, and `agent check`
 runs the gate checks of a Claude Code ACP chat (node, the pinned adapter in
 adapters/claude_acp/, the bundled Claude Code version, sign-in by exit code, the hook),
-each program with the allow-listed environment of child_env(). The chat itself is part
-7b; until then `agent chat` refuses it with exit 64.
+each program with the allow-listed environment of child_env(). Part 7b: `agent chat`
+starts [NODE, ADAPTER] with that environment, hands it the agent run hook and a
+SessionStart canary in _meta of session/new, sends nothing of the owner before the canary
+file exists, sets mode default, and stops its process group and every seen descendant.
 
 The core knows where the layer 9 hook scripts and the adapter are, but never imports `adapters`.
 See design.md (layer 10) and adapters/NOTES-layer10.md.
@@ -41,11 +43,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import shutil
 import signal
 import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from contextlib import ExitStack
@@ -104,6 +108,9 @@ CLAUDE_ACP_CANARY = CLAUDE_ACP_DIR + "/canary.py"
 NODE_COMMAND = "node"
 SIGNIN_TIMEOUT = 15.0  # seconds for `NODE ADAPTER --cli auth status`
 SIGNIN_TEXT = "Sign in to Claude Code first (claude, then /login), then try again."
+CLAUDE_ACP_MODE = "default"  # sent with session/set_mode once the canary is seen
+CANARY_TIMEOUT = 10  # seconds, the SessionStart canary hook's timeout in the inline settings
+CANARY_PREFIX = "umwayi-canary-"
 CLAUDE_ACP_PROBES = {  # the self-test programs after `node --version`, each [NODE, ADAPTER, *tail]
     "adapter version": ("--version",),
     "claude code version": ("--cli", "--version"),
@@ -475,6 +482,35 @@ def child_env(environ) -> dict:
     env = {k: environ[k] for k in CHILD_ENV_NAMES if isinstance(environ.get(k), str)}
     env.update(CHILD_ENV_SET)
     return env
+
+
+def claude_acp_session_meta(python: str, root: Path, folder: str, token: str, src: Path | None = None) -> dict:
+    """The _meta of session/new for a Claude Code ACP chat (design.md part 7, 10.R11.4).
+
+    The PreToolUse entry is the one `agent run` passes with --settings (the same claude_settings());
+    the SessionStart canary writes FOLDER/TOKEN when command hooks from these settings run.
+    """
+    settings = json.loads(claude_settings(python, hook_path("claude-code", src), Path(root)))
+    settings["hooks"]["SessionStart"] = [{"hooks": [{
+        "type": "command", "command": python,
+        "args": [str(claude_acp_path(CLAUDE_ACP_CANARY, src)), "--dir", folder, "--token", token],
+        "timeout": CANARY_TIMEOUT,
+    }]}]
+    meta = {"claudeCode": {"options": {"allowDangerouslySkipPermissions": False, "settings": settings}}}
+    text = json.dumps(meta)
+    if any(t in text for t in FORBIDDEN_TEXT) or any(f in text for f in FORBIDDEN_FLAGS):
+        raise RuntimeError("agent: the session settings held a forbidden word; nothing was started")
+    return meta
+
+
+def _canary_folder() -> str:
+    """A private folder for one start's canary (mode 0700, made by tempfile). The only folder agents.py makes."""
+    return tempfile.mkdtemp(prefix=CANARY_PREFIX)
+
+
+def _remove_canary_folder(folder: str) -> None:
+    """The canary folder goes on every way out. The only thing agents.py removes."""
+    shutil.rmtree(folder, ignore_errors=True)
 
 
 def probe_argv(node: str, adapter: Path, name: str) -> list:
@@ -914,8 +950,8 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
     python = python_path()
     if is_claude_acp(agent, CHAT):
         argv, _ = build_argv(agent, CHAT, gate.command_path, root, python)
-        lines.append(f"chat would start: {json.dumps(argv)} with the allow-listed environment "
-                     "(the chat itself comes in layer 10 part 7b; until then 'umwayi agent chat' refuses it, exit 64)")
+        lines.append(f"chat would start: {json.dumps(argv)} with the allow-listed environment; the chat goes on only "
+                     "after the SessionStart canary has run in the session")
         lines.append(f"Gated: the checks for a Claude Code ACP chat of agent {agent.name} passed. Nothing was started.")
         return Result(0, lines)
     modes = [RUN, CHAT]
@@ -1078,6 +1114,8 @@ class _Run:
         self.signalled = False
         self.seen = {}  # chat: pid -> start time of every descendant of the agent seen so far
         self.tty = None  # chat: (fd, termios attributes) to put back after the agent
+        self.canary = None  # Claude Code ACP chat: (private folder, token) of this start
+        self.meta = None  # Claude Code ACP chat: the _meta of session/new
 
     # ------------------------------------------------------------ logbook
 
@@ -1222,6 +1260,15 @@ class _Run:
             return self.result(2, lines + [f"Refused: agent {a.name} cannot be gated, so it was not started (exit 2)."],
                                why)
 
+        # 5b. Claude Code ACP chat: the private canary folder, a fresh token and the inline settings
+        if self._claude_acp():
+            problem = self._prepare_canary(stack)
+            if problem is not None:
+                why = self.log(f"Refused agent {a.name}: not gated ({problem})",
+                               "the kill switch, the rules (Yes), the run lock, the gate checks, then the canary",
+                               "Nothing was started.")
+                return self.result(2, [f"Refused: {problem}, so agent {a.name} was not started (exit 2)."], why)
+
         # 6. the argument list, from the platform table only
         argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt)
 
@@ -1243,6 +1290,41 @@ class _Run:
 
         # 8. watch, 9. the end
         return self._watch()
+
+    def _claude_acp(self) -> bool:
+        return is_claude_acp(self.agent, self.mode)
+
+    def _prepare_canary(self, stack: ExitStack) -> str | None:
+        """The canary of this start (10.R11.4). None, or why it cannot be prepared (then nothing starts).
+
+        The folder is removed when the stack closes: on every way out, after the agent was stopped.
+        """
+        canary = claude_acp_path(CLAUDE_ACP_CANARY)
+        if not _regular_file(canary):
+            return f"the canary hook {canary} is missing, a link or not a regular file"
+        python = python_path()
+        if python is None:
+            return "the path of the Python running umwayi is not known"
+        try:
+            folder = _real(_canary_folder())  # the real path: the canary refuses '..' and links are not followed
+        except OSError:
+            return "the private canary folder could not be made"
+        stack.callback(_remove_canary_folder, folder)
+        try:
+            st = os.lstat(folder)
+        except OSError:
+            return "the private canary folder could not be made"
+        if (not stat.S_ISDIR(st.st_mode) or stat.S_IMODE(st.st_mode) != 0o700 or st.st_uid != os.getuid()
+                or _inside(folder, _real(str(self.root))) or _inside(folder, _real(self.agent.workdir))):
+            return "the private canary folder is not a private folder outside the root and the workdir"
+        token = secrets.token_hex(16)
+        self.canary = (folder, token)
+        self.meta = claude_acp_session_meta(python, self.root, folder, token)
+        return None
+
+    def _gate_ready(self) -> bool:
+        """The first gate is confirmed when the canary file of this start exists. Its content is never read."""
+        return self.canary is not None and os.path.exists(os.path.join(self.canary[0], self.canary[1]))
 
     def _ask_owner(self) -> str:
         title = f"Start agent {self.agent.name} ({self.mode})?"
@@ -1274,6 +1356,9 @@ class _Run:
             lines.append(f"Starting an ACP chat with agent {self.agent.name}. Every tool call it makes is checked by "
                          "the layer 9 hook, and every permission it asks for by the rules. Nothing of the "
                          "conversation is logged.")
+            if self._claude_acp():
+                lines.append(f"Nothing you type is sent until the hook is confirmed in the session (at most "
+                             f"{acp.GATE_WAIT:.0f} s).")
         else:
             lines.append(f"Starting a chat with agent {self.agent.name}. Every tool call it makes is checked by the "
                          "layer 9 hook. Nothing of the conversation is logged.")
@@ -1302,8 +1387,9 @@ class _Run:
             stdin, stdout = subprocess.PIPE, subprocess.PIPE
         else:
             stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
+        env = child_env(os.environ) if self._claude_acp() else None  # the allow list of 10.R11.9
         self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin,
-                                     stdout=stdout)
+                                     stdout=stdout, env=env)
         self.started = time.monotonic()
         if stdin_text is not None:
             # Written by a helper thread: a prompt bigger than the pipe buffer, sent to an agent that does not
@@ -1374,6 +1460,9 @@ class _Run:
         if self._shares_terminal():
             self._stop_chat()
             return
+        if self._claude_acp():
+            self._stop_group_and_seen()
+            return
         if self.mode == CHAT and p.stdin is not None:
             # ACP: the end of its input. Not in run mode: the prompt thread may be blocked writing to a full pipe
             # and holds the pipe's lock, so a close here would wait for it; stopping the agent ends that write.
@@ -1398,9 +1487,48 @@ class _Run:
         except subprocess.TimeoutExpired:
             pass
 
+    def _stop_group_and_seen(self) -> None:
+        """Claude Code ACP chat (10.R11.11): close its stdin, then SIGTERM its process group and every descendant
+        seen in /proc, SIGKILL after STOP_GRACE. Background commands outlive session/cancel and may leave the group."""
+        p = self.proc
+        if p.stdin is not None:
+            try:
+                p.stdin.close()
+            except (OSError, ValueError):
+                pass
+        if p.poll() is None:
+            self._track()
+
+        def others() -> dict:
+            return {pid: t for pid, t in self.seen.items() if _same_process(pid, t)}
+
+        if p.returncode is None or self._group_alive() or others():
+            signalled = set()
+            self._signal_group(signal.SIGTERM)  # once: a program may start its cleanup again on every SIGTERM
+            deadline = time.monotonic() + STOP_GRACE
+            while True:
+                for pid in set(others()) - signalled:  # each seen descendant once, also those seen while stopping
+                    _signal_pid(pid, signal.SIGTERM)
+                    signalled.add(pid)
+                p.poll()
+                if p.returncode is None:
+                    self._track()  # it may still start something while it stops
+                if p.returncode is not None and not self._group_alive() and not others():
+                    break
+                if time.monotonic() >= deadline:
+                    self._signal_group(signal.SIGKILL)
+                    for pid in others():
+                        _signal_pid(pid, signal.SIGKILL)
+                    break
+                time.sleep(0.05)
+        try:
+            p.wait(timeout=STOP_GRACE)
+        except subprocess.TimeoutExpired:
+            pass
+
     def _tick(self):
         """One watcher pass. None, or why the agent must stop now: ("kill", state), ("logbook", e), ("timeout",)."""
-        if self._shares_terminal():
+        if self._shares_terminal() or self._claude_acp():
             self._track()
         st = kill.state(self.root)
         if kill.stopped(st):
@@ -1467,9 +1595,12 @@ class _Run:
 
     def _acp_chat(self) -> Result:
         a = self.agent
+        claude = self._claude_acp()  # Kiro: no _meta, no waiting, no session/set_mode
         chat = acp.Chat(self.proc, out=self.out or sys.stdout, owner=_owner_input(), workdir=a.workdir,
                         permission=self._permission, tick=self._tick, queue_lines=self._queue_lines,
-                        client_version=__version__, tick_interval=WATCH_INTERVAL)
+                        client_version=__version__, tick_interval=WATCH_INTERVAL,
+                        session_meta=self.meta if claude else None, gate_ready=self._gate_ready if claude else None,
+                        set_mode=CLAUDE_ACP_MODE if claude else None)
         # Ctrl-C belongs to umwayi here (the agent is in its own session): it cancels the turn, never kills umwayi
         self._old_sigint = signal.signal(signal.SIGINT, lambda _s, _f: chat.interrupt())
         outcome = chat.run()
@@ -1477,9 +1608,16 @@ class _Run:
             return self._tick_stop(outcome[1])
         if outcome[0] == "failed":
             self.stop_agent()
-            why = self.log(f"ACP chat with agent {a.name} ended: {outcome[1]}", "the agent was stopped", NOT_LOGGED)
+            if outcome[1] == acp.GATE_NOT_CONFIRMED:
+                why = self.log(f"Refused agent {a.name}: {outcome[1]}", "the canary did not run in the session "
+                               f"within {acp.GATE_WAIT:.0f} s of session/new; the agent was stopped",
+                               "No prompt was sent.")
+            else:
+                why = self.log(f"ACP chat with agent {a.name} ended: {outcome[1]}", "the agent was stopped", NOT_LOGGED)
             return self.result(2, list(outcome[2]), why)
         # the owner ended it (:quit or the end of input): the agent gets the end of its stdin and should exit
+        if claude:
+            self._track()  # what it started, before its exit orphans it
         try:
             self.proc.stdin.close()
         except (OSError, ValueError):
@@ -1545,18 +1683,14 @@ def _owner_input():
 
 def chat_agent(root, name: str, clock, given: str | None = None, out=None) -> Result:
     """`umwayi agent chat NAME`: the same steps as run, then the owner's terminal (transport cli, part 5)
-    or umwayi's own ACP client (transport acp, part 6 for Kiro). A Claude Code ACP chat is refused
-    with exit 64 until layer 10 part 7b (the session and the canary) is built, so nothing starts ungated."""
+    or umwayi's own ACP client (transport acp: part 6 for Kiro, part 7 for Claude Code through the pinned
+    adapter, with the inline settings and the canary)."""
     root = _root(root)
     agent = find(load(root, given), name)
     if agent.platform not in PLATFORMS:
         raise UsageError("agent: unknown platform. Nothing was started.")
-    if is_claude_acp(agent, CHAT):
-        raise UsageError(f"agent: the Claude Code ACP chat comes in layer 10 part 7b and is not built yet, so "
-                         f"agent {agent.name} was refused. 'umwayi agent check {agent.name}' runs its gate checks; "
-                         "'umwayi agent run' and transport cli work today. Nothing was started.")
-    if agent.transport == ACP and agent.platform != "kiro":
-        raise UsageError("agent: ACP chat is only for platform kiro. Nothing was started.")
+    if agent.transport == ACP and agent.platform not in ("kiro", "claude-code"):
+        raise UsageError("agent: ACP chat is only for platforms kiro and claude-code. Nothing was started.")
     return _Run(root, agent, None, clock, mode=CHAT, out=out).go()
 
 
