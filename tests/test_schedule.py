@@ -398,6 +398,29 @@ class InstallTests(ScheduleCase):
             with self.subTest(approved_by=bad):
                 self.assertEqual(self.run_cli("install", "weekly-report", "--approved-by", bad).returncode, 64)
 
+    def test_a_rules_check_the_logbook_cannot_record_refuses_even_with_approved_by(self):
+        self.run_cli("validate")
+        (self.root / "LOGBOOK.md").write_text("# Logbook\n", encoding="utf-8")  # not sealed: every write refused
+        for extra in ((), ("--approved-by", "Miguel")):
+            with self.subTest(args=extra):
+                r = self.run_cli("install", "open-queue", *extra)
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertIn("The logbook could not record the check, so nothing was changed (exit 2).", r.stdout)
+                self.assert_no_files()
+        self.install_files_by_hand()
+        r = self.run_cli("remove", "open-queue")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertTrue(self.unit("open-queue", "service").exists())
+
+    def install_files_by_hand(self):
+        """The two files exactly as umwayi renders them, without going through install."""
+        out = self.run_cli("show", "open-queue").stdout.split("\n--- ")
+        self.units.mkdir(parents=True, exist_ok=True)
+        for block in out[1:]:
+            path, _, text = block.partition("\n")
+            Path(path).write_text(text if text.endswith("\n") else text + "\n", encoding="utf-8")
+        self.assertEqual(self.run_cli("check", "open-queue").returncode, 0)
+
     def test_the_kill_switch_on_or_unknown_gives_3_one_entry_and_no_file(self):
         self.rules(install="yes")
         (self.root / ".umwayi").mkdir()
@@ -749,6 +772,23 @@ class UnitTests(unittest.TestCase):
         for env in ({}, {"HOME": "rel"}):
             with self.assertRaises(schedule.UmwayiError):
                 schedule.unit_dir(env)
+
+    def test_create_never_overwrites_and_never_follows_a_link(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "u.timer"
+            p.write_bytes(b"old")
+            with self.assertRaises(FileExistsError):
+                schedule._create(p, b"new")
+            self.assertEqual(p.read_bytes(), b"old")
+            link = Path(d) / "l.timer"
+            link.symlink_to(Path(d) / "target")
+            with self.assertRaises(FileExistsError):
+                schedule._create(link, b"new")
+            self.assertFalse((Path(d) / "target").exists())
+            fresh = Path(d) / "n.timer"
+            schedule._create(fresh, b"x" * 70000)
+            self.assertEqual(fresh.read_bytes(), b"x" * 70000)
+            self.assertEqual(stat.S_IMODE(os.lstat(fresh).st_mode), 0o644)
 
     def test_a_target_that_is_not_a_job_or_a_workflow_cannot_be_rendered(self):
         paths = schedule.Paths("/r", "/r/schedule.yaml", "/py", "/src")
