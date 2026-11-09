@@ -279,25 +279,11 @@ class AgentCase(unittest.TestCase):
             return "umwayi output: not readable (a child still holds its pipes)"
         return f"umwayi stdout:\n{out}\numwayi stderr:\n{err}"
 
-    def _lock_holder(self):
-        """(pid or None, alive) for .umwayi/logbook.lock, or None when there is no lock file."""
-        lock = self.root / ".umwayi" / "logbook.lock"
-        try:
-            text = lock.read_text(encoding="ascii").strip()
-        except FileNotFoundError:
-            return None
-        except (OSError, UnicodeDecodeError):
-            return (None, False)
-        pid = int(text) if text.isdigit() else None
-        return (pid, pid is not None and alive(pid))
-
     def _lock_state(self) -> str:
-        holder = self._lock_holder()
-        if holder is None:
-            return "logbook lock: free"
-        pid, running = holder
-        return (f"logbook lock: held by PID {pid}, {'still running' if running else 'no longer running'}"
-                if pid is not None else "logbook lock: present, no PID written yet")
+        from tests.helpers import logbook_lock_held
+        held = "held by a running writer" if logbook_lock_held(self.root) else "free"
+        intent = "present" if (self.root / ".umwayi" / "logbook.pending").exists() else "none"
+        return f"logbook lock: {held}; intent of an interrupted write: {intent}"
 
     def agent_pids_alive(self) -> list:
         pids = [c["pid"] for c in self.calls() if c.get("started") or c.get("event") == "spawn"]
@@ -315,6 +301,7 @@ class AgentCase(unittest.TestCase):
         After umwayi exits, a hook started by an agent that was just killed can still be writing the
         logbook. Reading the logbook in the middle of that write sees a hash that does not match yet.
         """
+        from tests.helpers import logbook_lock_held
         needle = str(self.root).encode()
         end = time.monotonic() + timeout
         while time.monotonic() < end:
@@ -330,22 +317,17 @@ class AgentCase(unittest.TestCase):
                 if needle in cmd and alive(int(name)):
                     busy = True
                     break
-            if not busy:
-                holder = self._lock_holder()
-                if holder is None:
-                    return
-                if holder[0] is not None and not holder[1]:
-                    return  # the writer that holds the lock is gone, so it will never be freed: entries() says so
+            if not busy and not logbook_lock_held(self.root):  # flock: the kernel lets go when a writer dies
+                return
             time.sleep(0.05)
 
     def entries(self, timeout: float = 30) -> list:
-        """The logbook entries, read only when no writer is in the middle of a write.
+        """The logbook entries, read when no writer is in the middle of a write.
 
-        Every umwayi writer appends to LOGBOOK.md and then records its hash, both under
-        .umwayi/logbook.lock; a read between the two sees a hash that does not match yet. So the read
-        waits for the processes on this root to finish, then takes the same lock itself. A lock whose
-        writer is no longer running is never freed, and the logbook it left is not a timing problem:
-        that fails at once and says so.
+        The read waits for the processes on this root to finish, then takes the logbook lock itself, so no
+        umwayi writer is between its append and its hash record. A writer killed half way leaves an intent
+        (crash safety, L5.2); read_checked reads its two exact states as the file it left, and anything else
+        fails here with the state of the lock, the intent and the record.
         """
         from umwayi import logbook
         from umwayi.errors import UmwayiError
@@ -355,13 +337,8 @@ class AgentCase(unittest.TestCase):
         end = time.monotonic() + timeout
         last = None
         while time.monotonic() < end:
-            holder = self._lock_holder()
-            if holder is not None and holder[0] is not None and not holder[1]:
-                self.fail(f"the logbook writer PID {holder[0]} was stopped while it held the logbook lock, so "
-                          f"the lock is never freed and the logbook may not match its hash: "
-                          f"{self._record_state()}")
             try:
-                with logbook._lock(self.root):  # no umwayi writer is between its append and its hash record
+                with logbook._lock(self.root):
                     return logbook.read_checked(self.root)
             except UmwayiError as e:
                 last = e
@@ -389,7 +366,11 @@ class AgentCase(unittest.TestCase):
     def calls(self) -> list:
         if not self.fake_log.exists():
             return []
-        return [json.loads(line) for line in self.fake_log.read_text(encoding="utf-8").splitlines()]
+        # A fake may be in the middle of writing a line (a long record is written in more than one piece), so
+        # only lines that end with a newline are complete; the rest is read on the next call. A complete line
+        # that is not JSON is still an error.
+        data = self.fake_log.read_bytes()  # split before decoding: a piece can end inside a UTF-8 character
+        return [json.loads(line.decode("utf-8")) for line in data.split(b"\n")[:-1]]
 
     def assert_nothing_started(self):
         started = [c for c in self.calls() if c["started"]]

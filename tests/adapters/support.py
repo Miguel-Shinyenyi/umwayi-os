@@ -32,6 +32,8 @@ if fault:
                 raise KeyboardInterrupt
             if effect == "hang":
                 time.sleep(30)
+            if effect == "pause":  # a short, then the real call: holds a logbook write between two of its steps
+                time.sleep(float(os.environ.get("UMWAYI_FAULT_PAUSE", "1")))
             return real(*a, **k)
         setattr(mod, name, patched)
 '''

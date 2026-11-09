@@ -175,6 +175,12 @@ def build_parser() -> argparse.ArgumentParser:
     ls = lgsub.add_parser("seal", help="record the hash of LOGBOOK.md as it is now (explicit, never automatic)")
     ls.add_argument("--by", required=True, help="who seals it, one short line of plain text")
     ls.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+    lr = lgsub.add_parser("recover", help="cut back the torn tail an interrupted write left (explicit, never automatic)")
+    lr.add_argument("--torn-tail", action="store_true", required=True,
+                    help="cut LOGBOOK.md back to the last recorded entry, only if the extra bytes are exactly the "
+                         "start of the entry the interrupted write intended")
+    lr.add_argument("--by", required=True, help="who cuts it, one short line of plain text")
+    lr.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
     return p
 
 
@@ -236,10 +242,23 @@ def _cmd_logbook(args, out) -> int:
         out.write(f"Sealed LOGBOOK.md: {r.entries_before} earlier entries, hash recorded.\n")
         out.write(f"SHA-256: {r.sha256}\n")
         return 0
+    if args.logbook_command == "recover":
+        r = logbook.recover_torn_tail(root, args.date or _today(), args.by)
+        out.write(f"Cut back a torn tail of {r.cut} bytes from LOGBOOK.md.\n")
+        if r.logged:
+            out.write("The logbook is intact again, and the cut is in the logbook.\n")
+        else:
+            out.write("The interrupted write was a seal, so nothing could be logged: "
+                      "run 'umwayi logbook seal --by NAME' again.\n")
+        return 0
     report = logbook.verify(root)
     if not report.problems:
         out.write(f"ok: {report.entries} entries, the format is valid and the hash matches the record\n")
+        for note in report.notes:
+            out.write(f"info: {note}\n")
         return 0
+    for note in report.notes:
+        out.write(f"info: {note}\n")
     for p in report.problems:
         out.write(f"problem: {p.render()}\n")
     out.write(f"{len(report.problems)} problem(s) found\n")

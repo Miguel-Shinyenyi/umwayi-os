@@ -363,6 +363,32 @@ class StopsWhileRunningTests(RunCase):
                 self.assertIn(words, self.run_entries()[-1].added)
                 self.assert_agent_gone()
 
+    def test_a_signal_while_a_hook_check_is_mid_write_leaves_a_whole_logbook(self):
+        # The defect behind PR 25, end to end (crash safety, L5.4): every logbook write of every child pauses
+        # between its append and its record, and umwayi is signalled while the hook's umwayi check is in that
+        # pause. Stopping the process group must not cut that write: no recovery is needed afterwards.
+        pending = self.root / ".umwayi" / "logbook.pending"
+        for sig, words in ((signal.SIGINT, "Ctrl-C"), (signal.SIGHUP, "SIGHUP"), (signal.SIGTERM, "SIGTERM")):
+            with self.subTest(signal=words):
+                os.remove(self.fake_log) if self.fake_log.exists() else None
+                p = self.start_run("reviewer", LOOP, fault="umwayi.logbook:_record_hash:pause",
+                                   extra={"UMWAYI_FAULT_PAUSE": "0.5"})
+                self.first_tool(p)
+                end = time.monotonic() + FIRST_TOOL_WAIT
+                while not pending.exists():  # a hook's umwayi check is between its append and its record
+                    if p.poll() is not None or time.monotonic() > end:
+                        self.fail(f"no held hook write seen; {self._proc_output(p)}")
+                    time.sleep(0.005)
+                p.send_signal(sig)
+                code, out, _ = self.finish(p)
+                self.assertEqual(code, 2, out)
+                self.assertNotIn("could not be written", out)
+                self.assertIn(words, self.run_entries()[-1].added)
+                self.assertEqual([e for e in self.entries() if e.source == "umwayi logbook recover"], [])
+                self.assertFalse(pending.exists())
+                self.verify_logbook()
+                self.assert_agent_gone()
+
     def test_timeout_minutes_stops_the_run(self):
         p = self.start_run("slow", LOOP, extra={"UMWAYI_TEST_MINUTE": "2"})  # a "minute" of 2 s, test only
         self.first_tool(p)

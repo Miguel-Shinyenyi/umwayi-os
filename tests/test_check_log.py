@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, write_sealed_logbook
+from tests.helpers import entry_text, write_sealed_logbook, hold_logbook_lock, without_logbook_lock
 from umwayi import logbook
 from umwayi.cli import main
 from umwayi.logbook import parse
@@ -68,8 +68,8 @@ class CheckLogBase(unittest.TestCase):
         return parse(self.log.read_text(encoding="utf-8"))[0]
 
     def snap(self):
-        return {os.path.relpath(os.path.join(dp, f), self.root): Path(dp, f).read_bytes()
-                for dp, _d, fs in os.walk(self.root) for f in fs}
+        return without_logbook_lock({os.path.relpath(os.path.join(dp, f), self.root): Path(dp, f).read_bytes()
+                                     for dp, _d, fs in os.walk(self.root) for f in fs})
 
 
 class LoggingTests(CheckLogBase):
@@ -194,8 +194,7 @@ class FailingLogbookTests(CheckLogBase):
             self.log.unlink()
 
         def locked():
-            (self.root / ".umwayi").mkdir(exist_ok=True)
-            (self.root / ".umwayi" / "logbook.lock").write_text("1\n")
+            self.addCleanup(hold_logbook_lock(self.root))  # a running writer holds it; reset() removes the file
 
         def directory():
             self.log.mkdir()

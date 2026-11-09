@@ -123,7 +123,7 @@ Acceptance criteria:
 8. **Said plainly in KNOWN-LIMITS:** without an outside anchor, anyone who can write the files can rewrite the whole chain and the hash record together, and verify cannot tell. The owner anchors weekly and before each submission, in two places: the sync log of the hub repository, and the Kiro Notion page. umwayi prints the anchor; it never writes to either place.
 9. **Tests,** as for every layer: real child processes; a planted edit in an old entry, in the newest entry, a deleted entry, a reordered pair, a truncated tail, a missing Chain line after the start, a Chain line on an old entry, a whole chain rewritten consistently (found only with `--anchor`), a wrong anchor, a shorter chain than the anchor; no logbook text in any output; planted faults and mutation checks with the counts in the pull request.
 
-### Logbook crash safety (addendum, approved by the owner on Nov 9, tasks.md L5.0; build Nov 10 to Nov 11, tasks L5.1 to L5.5)
+### Logbook crash safety (addendum, approved by the owner on Nov 9, tasks.md L5.0; built Nov 10 in PR 27, tasks L5.1 to L5.5)
 
 User story: as the owner, I want a logbook write that is stopped half way (a signal, a kill, a power cut) never to leave a logbook that refuses every later write or looks like a hand edit, while a real hand edit is still refused.
 
