@@ -2,7 +2,7 @@
 
 umwayi-os is an AI operating system for one person and their AI helpers. It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change.
 
-It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is planned for Nov 8 to Nov 9. Layers 10 and 11 are planned for Nov 9 to Nov 10; each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 15, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) is specified and waits for owner approval. The schedule to Dec 3 is in tasks.md.
+It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is built (PRs 11 and 12). A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) was approved on Nov 9 and is planned for Nov 10 to Nov 11. Layer 10 is built up to part 7c-1; parts 7c-2 and 7c-3 are planned for Nov 12 to Nov 13. Layer 11 is planned for Nov 14 to Nov 15. Each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 16, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. The schedule to Dec 3 is in tasks.md.
 
 ## Glossary
 
@@ -107,7 +107,7 @@ Acceptance criteria:
 8. `umwayi check` appends one entry per check with the rule id and answer. It never writes the action JSON, only its type if that is a short plain string. If the entry cannot be written, a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. `--no-log` skips the entry for a dry run and says nothing was logged.
 9. A lock file stops two appends from interleaving. A held lock gives a clear message.
 
-### Logbook hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0; build Nov 15, tasks C.1 to C.4)
+### Logbook hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0; build Nov 16, after crash safety, tasks C.1 to C.4)
 
 User story: as the owner, I want each logbook entry tied to the one before it, so an edit anywhere in the record is found and named, and so I can prove later what the logbook held on a given day.
 
@@ -123,7 +123,7 @@ Acceptance criteria:
 8. **Said plainly in KNOWN-LIMITS:** without an outside anchor, anyone who can write the files can rewrite the whole chain and the hash record together, and verify cannot tell. The owner anchors weekly and before each submission, in two places: the sync log of the hub repository, and the Kiro Notion page. umwayi prints the anchor; it never writes to either place.
 9. **Tests,** as for every layer: real child processes; a planted edit in an old entry, in the newest entry, a deleted entry, a reordered pair, a truncated tail, a missing Chain line after the start, a Chain line on an old entry, a whole chain rewritten consistently (found only with `--anchor`), a wrong anchor, a shorter chain than the anchor; no logbook text in any output; planted faults and mutation checks with the counts in the pull request.
 
-### Logbook crash safety (addendum, spec written Nov 9, waiting for owner approval; tasks L5.0 to L5.5)
+### Logbook crash safety (addendum, approved by the owner on Nov 9, tasks.md L5.0; build Nov 10 to Nov 11, tasks L5.1 to L5.5)
 
 User story: as the owner, I want a logbook write that is stopped half way (a signal, a kill, a power cut) never to leave a logbook that refuses every later write or looks like a hand edit, while a real hand edit is still refused.
 
@@ -132,14 +132,14 @@ Found Nov 9, behind the flaky Ctrl-C and SIGHUP test (PR 25): `umwayi agent run`
 Acceptance criteria:
 
 1. **An intent before the append.** Before the first byte is appended, the writer records its intent in `.umwayi/logbook.pending`: the record value it started from, the hash and length of the whole file before, the hash and length after, the exact entry bytes, and its own PID and start time (for messages). The intent is written whole (temporary file, fsync, rename, folder fsync). Then the entry is appended and fsynced, the record written (fsync, folder fsync), and the intent removed.
-2. **The record only for the intended bytes.** After the append, the record is written only when the whole file hashes to the intended value. Otherwise nothing is recorded, the intent stays and the logbook is refused as tampered. (Today the record takes whatever the file holds after the append; design open question L-Q5.)
+2. **The record only for the intended bytes.** After the append, the record is written only when the whole file hashes to the intended value. Otherwise nothing is recorded, the intent stays and the logbook is refused as tampered. (Today the record takes whatever the file holds after the append; approved answer L-Q5.)
 3. **Recovery only for two exact states, only when no writer is running.** With an intent present and the lock held by the recovering process: the file is exactly the intended result (the write completed: its record is finished) or exactly the state before (the write never happened: the intent is dropped). The record must be the one the intent started from (or, for a completed write, the intended one), and the resulting file must pass the format and hash chain checks. Every other state is a tamper refusal, exactly like a hand edit: every append is refused, every agent start and a running agent stop with exit 2, `verify` exits 1. Nothing else is ever accepted automatically; `umwayi logbook seal` stays the only way to accept it.
 4. **One entry per recovery.** Each recovery writes one entry, source `umwayi logbook recover`, naming the state (completed or not written), the dead writer by PID and start time, and what was checked; never a logbook line or the intent's entry bytes. The recovery and its entry are one write with its own intent, so a recovery that is itself stopped half way is resumed by the same rules and still leaves exactly one recovery entry.
-5. **No stale lock.** A lock left by a writer that has died never blocks the next writer, and a lock held by a running writer is never taken over. Proposed: `fcntl.flock` on `.umwayi/logbook.lock`, which the kernel releases when the process dies, as `.umwayi/run.lock` already does (L-Q1). The owner's alternative: PID plus process start time in the lock, with the conditions in the design. The busy message no longer tells the owner to delete the lock file.
-6. **Signals do not cut a write.** SIGTERM, SIGHUP, SIGINT and SIGQUIT received from writing the intent to removing it are held off and delivered once afterwards, in every umwayi process, including those with more than one thread and those with umwayi's own handlers (agent run, agent chat) (L-Q2). A logbook write from a thread other than the main thread is refused. SIGKILL and a power cut cannot be held off; item 3 covers them.
-7. **With the hash chain.** The intended hash covers the whole new entry, Chain line included. Recovery of a completed write checks the chain before it records anything, and the recovery entry is chained like any entry.
-8. **check_writable, readers and verify.** `logbook.check_writable` recovers like a write (it holds the same lock), so a running agent is not stopped by an interrupted write that can be recovered. Readers that take no lock (`read_checked`, `verify`) read the two exact states of item 3 as consistent while an intent is present, and write nothing; `verify` prints it as information (L-Q4).
-9. **A torn tail.** A file that holds the state before plus only part of the intended entry (a power cut during the append) is refused with its own message, never accepted automatically (L-Q3 for an explicit owner command).
+5. **No stale lock.** A lock left by a writer that has died never blocks the next writer, and a lock held by a running writer is never taken over. `fcntl.flock` on `.umwayi/logbook.lock`, which the kernel releases when the process dies, as `.umwayi/run.lock` already does (approved answer L-Q1; PID plus start time was not chosen). The busy message no longer tells the owner to delete the lock file.
+6. **Signals do not cut a write.** SIGTERM, SIGHUP, SIGINT and SIGQUIT received from writing the intent to removing it are held off and delivered once afterwards, in every umwayi process, including those with more than one thread and those with umwayi's own handlers (agent run, agent chat): they are blocked in the writing thread and their Python handlers are deferred for the same span (approved answer L-Q2). A logbook write from a thread other than the main thread is refused. SIGKILL and a power cut cannot be held off; item 3 covers them.
+7. **With the hash chain.** The intended hash covers the whole new entry, Chain line included. Recovery of a completed write checks the chain before it records anything, and the recovery entry is chained like any entry. Crash safety is built first (Nov 10 to Nov 11); the chain (Nov 16) adds its checks to the new write.
+8. **check_writable, readers and verify.** `logbook.check_writable` recovers like a write (it holds the same lock), so a running agent is not stopped by an interrupted write that can be recovered. Readers that take no lock (`read_checked`, `verify`) read the two exact states of item 3 as consistent while an intent is present, and write nothing; `verify` prints it as information (approved answer L-Q4).
+9. **A torn tail.** A file that holds the state before plus only part of the intended entry (a power cut during the append) is refused with its own message, never accepted automatically. `umwayi logbook recover --torn-tail --by NAME` cuts the file back to the recorded length, only when the extra bytes are exactly a prefix of the intent's entry, and writes one entry that says so (approved answer L-Q3).
 10. **Durable on a power cut.** Every rename and removal of the record and the intent is followed by an fsync of `.umwayi/`, and creating `LOGBOOK.md` by an fsync of the root folder.
 11. **Said plainly in KNOWN-LIMITS:** the intent sits next to the record, so whoever can forge the record can forge an intent (no new weakness beyond KNOWN-LIMITS 3); durability depends on the disk honouring fsync; a torn tail needs the owner; the lock works on local file systems only, and deleting it by hand during a write can still let two writes overlap; a SIGKILL between a queue or archive change and its entry leaves the change without an entry (as today).
 12. **Tests,** as for every layer: real child processes; each signal during a held write; SIGKILL at each step; a simulated power cut; every other mismatch still refused; a hand edit while a dead writer's intent is present still refused; the recovery entry present once; the original defect end to end; planted faults and mutation checks with the counts in the pull request.
@@ -472,7 +472,7 @@ Acceptance criteria:
 
 ## Layer 11: Linux-like features (outline)
 
-Status: not started. Planned for Nov 13 to Nov 14. It still needs its own approved spec: built only after the owner approves its requirements, design and tasks.
+Status: not started. Planned for Nov 14 to Nov 15. It still needs its own approved spec: built only after the owner approves its requirements, design and tasks.
 
 User story: as the owner, I want umwayi-os to schedule, watch, limit and remember like an operating system, using the tools Linux already has.
 
@@ -484,7 +484,7 @@ Outline:
 
 ## Budget governor
 
-Status: approved by the owner on Nov 9 (tasks.md B.0), with open questions B-Q1 to B-Q6 answered as proposed. Planned build Nov 17 to Nov 22, after the logbook hash chain (Nov 15). The whole-system test and security scan on Nov 23 to Nov 26 cover it, including the telemetry receiver. It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used. Doc facts with links: design.md "Budget governor", section "Facts".
+Status: approved by the owner on Nov 9 (tasks.md B.0), with open questions B-Q1 to B-Q6 answered as proposed. Planned build Nov 17 to Nov 22, after the logbook hash chain (Nov 16). The whole-system test and security scan on Nov 23 to Nov 26 cover it, including the telemetry receiver. It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used. Doc facts with links: design.md "Budget governor", section "Facts".
 
 User story: as the owner, I want one unit for what every agent run costs, measured where it can be and declared or assumed at the worst case where it cannot, with limits per run and per day that stop a run before it starts or while it runs, so a runaway agent cannot spend without my knowing.
 

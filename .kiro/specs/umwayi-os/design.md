@@ -25,7 +25,7 @@ umwayi/
   runlock.py    one run at a time: .umwayi/run.lock (fcntl.flock, never waits)
 ```
 
-Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters live outside the core package, in `adapters/`, so they, and layer 10 adapter packages, may use third party packages, pinned and listed in their README, while `umwayi/` stays standard library only. Layers 10 and 11 (planned Nov 9 to Nov 10, each built only after the owner approves its requirements, design and tasks) and the budget governor (approved Nov 9, planned Nov 17 to Nov 22, after the logbook hash chain on Nov 15) are outlined at the end of this file.
+Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters live outside the core package, in `adapters/`, so they, and layer 10 adapter packages, may use third party packages, pinned and listed in their README, while `umwayi/` stays standard library only. Layers 10 and 11 (layer 10 parts 7c-2 and 7c-3 planned Nov 12 to Nov 13, after logbook crash safety on Nov 10 to Nov 11; layer 11 planned Nov 14 to Nov 15; each built only after the owner approves its requirements, design and tasks) and the budget governor (approved Nov 9, planned Nov 17 to Nov 22, after the logbook hash chain on Nov 16) are outlined at the end of this file.
 
 Layers 2 to 8 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
@@ -356,7 +356,7 @@ The queue and the archive call the same checked append. If it refuses, the queue
 
 ### Hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0)
 
-Requirements: Layer 5, "Logbook hash chain". Tasks C.1 to C.4, one day on Nov 15. Only `umwayi/logbook.py` and `umwayi/cli.py` change; nothing else writes the logbook directly.
+Requirements: Layer 5, "Logbook hash chain". Tasks C.1 to C.4, one day on Nov 16, after crash safety (L-Q6). Only `umwayi/logbook.py` and `umwayi/cli.py` change; nothing else writes the logbook directly.
 
 #### Format
 
@@ -425,11 +425,11 @@ The cost is linear in the file size; the logbook is small (C-Q2 for a cached new
 - **C-Q3. Exit code of verify.** Keep Layer 5's 0 and 1 (proposed, unchanged behaviour), or move verify to 0 and 2 like the agent commands?
 - **C-Q4. The day.** Nov 15 for the chain overlaps the first day of the whole-system test and security scan (Nov 15 to 16 in the part 7c schedule). Proposed: chain on Nov 15, scan on Nov 16 only and continued in the freeze as defect finding; or move the scan to Nov 16 and the first day of the governor?
 
-Answers (owner, Nov 9): C-Q1, C-Q2 and C-Q3 as proposed. C-Q4 changed by the owner: the whole-system test and security scan run after the budget governor is complete. The chain stays on Nov 15, the governor is built Nov 17 to Nov 22, and the scan and whole-system test run Nov 23 to Nov 26, covering the adapters, layers 10 and 11, the chain and the governor (including the telemetry receiver); README, demo and Devpost text run alongside; freeze Nov 29 to Dec 2; submit Dec 3.
+Answers (owner, Nov 9): C-Q1, C-Q2 and C-Q3 as proposed. C-Q4 changed by the owner: the whole-system test and security scan run after the budget governor is complete. The chain stays on Nov 15, the governor is built Nov 17 to Nov 22, and the scan and whole-system test run Nov 23 to Nov 26, covering the adapters, layers 10 and 11, the chain and the governor (including the telemetry receiver); README, demo and Devpost text run alongside; freeze Nov 29 to Dec 2; submit Dec 3. (Superseded Nov 9 by L-Q6: the chain is built Nov 16.)
 
-### Crash safety (addendum, spec written Nov 9, waiting for owner approval)
+### Crash safety (addendum, approved by the owner on Nov 9, tasks.md L5.0; build Nov 10 to Nov 11)
 
-Requirements: Layer 5, "Logbook crash safety". Tasks L5.0 to L5.5. Code that changes: `umwayi/logbook.py`, and `umwayi/fsutil.py` for a folder fsync; `umwayi/cli.py` only if L-Q3 adds the torn tail command. Tests that plant a lock file change (they must hold a real lock).
+Requirements: Layer 5, "Logbook crash safety". Tasks L5.0 to L5.5. Code that changes: `umwayi/logbook.py`, `umwayi/fsutil.py` for a folder fsync, and `umwayi/cli.py` for `umwayi logbook recover --torn-tail` (L-Q3). Tests that plant a lock file change (they must hold a real lock).
 
 #### The defect (found Nov 9, PR 25)
 
@@ -441,7 +441,7 @@ Kept: an intent written before the append; recovery only for two exact states an
 
 Challenged, with what this design does instead:
 
-1. **PID plus start time (b) is weaker than a kernel lock.** `/proc/PID/stat` exists only on Linux, not on macOS. The start time counts clock ticks since boot, so after a reboot it also needs the boot id. A killed writer that its parent has not reaped yet is a zombie with the same PID and start time, and must count as dead. Two umwayi processes in different PID namespaces (a container and the host working on one folder) cannot see each other's PIDs and would take over a live lock. Today the lock file is created empty and the PID written after it, so a writer killed in between leaves a lock with no PID. Two processes that find the same dead lock at once need a second lock to decide who takes it over. `fcntl.flock` avoids all of this: the kernel releases it when the process ends, SIGKILL included, so there is never a stale lock to judge. `umwayi/runlock.py` already works this way. Proposed: flock (L-Q1). The lock file still holds the PID and start time, only to name the writer in messages.
+1. **PID plus start time (b) is weaker than a kernel lock.** `/proc/PID/stat` exists only on Linux, not on macOS. The start time counts clock ticks since boot, so after a reboot it also needs the boot id. A killed writer that its parent has not reaped yet is a zombie with the same PID and start time, and must count as dead. Two umwayi processes in different PID namespaces (a container and the host working on one folder) cannot see each other's PIDs and would take over a live lock. Today the lock file is created empty and the PID written after it, so a writer killed in between leaves a lock with no PID. Two processes that find the same dead lock at once need a second lock to decide who takes it over. `fcntl.flock` avoids all of this: the kernel releases it when the process ends, SIGKILL included, so there is never a stale lock to judge. `umwayi/runlock.py` already works this way. Approved: flock (L-Q1). The lock file still holds the PID and start time, only to name the writer in messages.
 2. **pthread_sigmask (c) blocks a signal in one thread only.** In a process with more threads (the ACP chat has two reader threads), the kernel delivers the signal to a thread that does not block it, and Python then runs the handler in the main thread, inside the write. umwayi's own handlers (agent run: SIGTERM and SIGHUP raise `_Signalled`; SIGINT raises KeyboardInterrupt) would then abort the write half way. Proposed: block the signals in the writing thread and, for the same span, also replace their Python handlers with a recorder; afterwards put both back and deliver each recorded signal once (L-Q2). SIGQUIT (Ctrl-\) is added to the three: its default also ends the process.
 3. **The intent needs more than the expected hash.** With the new hash alone, recovery cannot tell a torn tail (a power cut during the append) from a hand edit, cannot check that the record it finds belongs to this write, and has nothing to resume from when the recovery itself is killed. The intent holds the record at the start, the hash and length before and after, the entry bytes, and the writer.
 4. **Today the record accepts whatever the file holds after the append.** `_write_and_record` re-reads the file and records its hash, so bytes that anything else appended between the read and the record are sealed in silently. With an intent, the record is written only when the file is exactly the intended result (L-Q5).
@@ -508,13 +508,13 @@ The recovery write is steps 2 to 6 with `record` = R and `before` = F, so when i
 
 The "not written" variant says "the entry was never written and the intent was dropped". The date is today; if today is before the last entry's date, the recovery is refused like any append and `verify` says so.
 
-#### The lock (proposed, L-Q1)
+#### The lock (approved, L-Q1)
 
 - `fcntl.flock(fd, LOCK_EX | LOCK_NB)` on `.umwayi/logbook.lock`, opened with `O_NOFOLLOW | O_CLOEXEC`, polled for up to 3 s as today. Never deleted, because deleting a flock file lets two processes lock two different files with the same name (as `runlock.py` says).
 - After taking it, the path and the open file are compared (device and inode). If the file was replaced, let go and try again.
 - Busy after 3 s: "logbook: another umwayi command (PID N) is writing the logbook. Try again in a moment. Nothing was written." It no longer tells the owner to delete the file.
 - Where `fcntl` is missing (Windows), every logbook write is refused, as the run lock is today.
-- The owner's alternative (b), if chosen instead: the lock file is made whole with `os.link` from a temporary file (never empty); it holds the PID, start time, boot id (`/proc/sys/kernel/random/boot_id`) and PID namespace (`/proc/self/ns/pid`); a holder counts as dead only when the namespace is ours and the boot id differs, or the PID is gone, is a zombie, or has another start time; a lock from another namespace is never taken over; a second lock, `.umwayi/logbook.recover`, decides which of two processes takes over a dead lock. Linux only.
+- Not chosen (L-Q1), kept as the record of the alternative: the owner's (b): the lock file is made whole with `os.link` from a temporary file (never empty); it holds the PID, start time, boot id (`/proc/sys/kernel/random/boot_id`) and PID namespace (`/proc/self/ns/pid`); a holder counts as dead only when the namespace is ours and the boot id differs, or the PID is gone, is a zombie, or has another start time; a lock from another namespace is never taken over; a second lock, `.umwayi/logbook.recover`, decides which of two processes takes over a dead lock. Linux only.
 
 #### Signals (L-Q2)
 
@@ -527,7 +527,7 @@ A context manager around steps 3 to 6, and around a whole recovery:
 
 #### Chain
 
-The intent's `after` covers the whole file, so it covers the new entry's Chain line. Recovery of a completed write checks the chain of F before it records anything, and the recovery entry is chained to the entry before it. If the chain is built first (C.1 to C.4), this addendum changes `_write_and_record` and the lock only. If this addendum is built first, C.2 adds its chain walk to step 1.
+The intent's `after` covers the whole file, so it covers the new entry's Chain line. Recovery of a completed write checks the chain of F before it records anything, and the recovery entry is chained to the entry before it. This addendum is built first (L-Q6: Nov 10 to Nov 11), so C.2 (Nov 16) adds its chain walk to step 1 and the chain cases to the recovery tests.
 
 #### Readers and verify (L-Q4)
 
@@ -536,7 +536,7 @@ The intent's `after` covers the whole file, so it covers the new entry's Chain l
 
 #### Messages
 
-- Torn tail: "logbook: LOGBOOK.md ends with part of an entry that was being written when the write stopped (a power cut or a crash). Nothing was written." If L-Q3 is approved, it adds: "Run 'umwayi logbook recover --torn-tail --by NAME' to cut it back to the last recorded entry."
+- Torn tail: "logbook: LOGBOOK.md ends with part of an entry that was being written when the write stopped (a power cut or a crash). Nothing was written." It adds: "Run 'umwayi logbook recover --torn-tail --by NAME' to cut it back to the last recorded entry." That command (L-Q3) refuses unless an intent is present, the first `before` bytes hash to I.before, the record is I.record, and the rest is exactly a prefix of I.entry; it then truncates to the `before` length, fsyncs, removes the intent and writes one `umwayi logbook recover` entry by NAME ("cut back a torn tail of K bytes left by writer PID N"). It never prints the cut bytes.
 - Tamper with an intent present: the existing mismatch message, plus "An interrupted write was found, but the file does not match what it intended."
 - No message prints a logbook line or the intent's entry bytes.
 
@@ -554,8 +554,9 @@ Real child processes. `UMWAYI_FAULT=umwayi.logbook:_record_hash:hang` holds a wr
 - A recovery SIGKILLed half way: resumed, still one recovery entry.
 - The defect end to end: agent run with the pause planted between append and record, then Ctrl-C, SIGHUP or SIGTERM: the stop entry is written and the logbook verifies.
 - Readers: `read_checked` during a held write returns the entries; `verify` prints the information line and exits 0.
-- Chain (if built): a recovered entry keeps a valid chain and the recovery entry is chained.
-- Mutation checks: recovery that accepts any mismatch; the record written without the hash comparison; the intent not fsynced, and the folder fsync dropped (an in-process test that records the order of `os.fsync`, `os.replace` and the appends; it shows the calls and their order, not that the disk keeps them); the handler swap dropped (the SIGTERM test then sees a cut write); the recovery entry not written; the intent removed before the record; PID without start time (only if (b) is chosen). Counts in the pull request.
+- Torn tail: `recover --torn-tail` cuts back exactly a prefix of the intended entry and logs it once; it refuses a tail that differs by one byte, a missing intent, a bad `--by`, and an intact logbook.
+- Chain: added with C.2 on Nov 16, which is built after this addendum: a recovered entry keeps a valid chain and the recovery entry is chained.
+- Mutation checks: recovery that accepts any mismatch; the record written without the hash comparison; the intent not fsynced, and the folder fsync dropped (an in-process test that records the order of `os.fsync`, `os.replace` and the appends; it shows the calls and their order, not that the disk keeps them); the handler swap dropped (the SIGTERM test then sees a cut write); the recovery entry not written; the intent removed before the record; the torn tail cut accepting any tail. Counts in the pull request.
 
 #### KNOWN-LIMITS (written with L5.5)
 
@@ -568,7 +569,7 @@ Real child processes. `UMWAYI_FAULT=umwayi.logbook:_record_hash:hang` holds a wr
 - `fsutil.atomic_write` leaves a `.umwayi-*.tmp` file when SIGKILLed. Harmless, not cleaned up.
 - An older umwayi (the old lock file) and the new one running at the same time on one root do not exclude each other.
 
-#### Open questions (crash safety)
+#### Open questions (crash safety, answered Nov 9)
 
 - **L-Q1. The lock.** flock on `.umwayi/logbook.lock`, the same as the run lock (proposed: no stale lock can exist, works on Linux and macOS), or the owner's PID plus start time with the boot id, namespace, zombie and takeover rules above (Linux only)?
 - **L-Q2. Signals.** Block in the writing thread and also defer the Python handlers, with writes allowed only in the main thread (proposed), or `pthread_sigmask` alone (not enough in a process with more threads)?
@@ -576,6 +577,8 @@ Real child processes. `UMWAYI_FAULT=umwayi.logbook:_record_hash:hang` holds a wr
 - **L-Q4. Readers.** `read_checked` and `verify` read the two exact states as consistent while an intent is present (proposed), or keep refusing during a write (readers keep seeing a mismatch for milliseconds during every write)?
 - **L-Q5. Bytes appended by something else during a write.** Refuse them as a hand edit (proposed), or keep today's behaviour of recording whatever the file holds after the append?
 - **L-Q6. When.** About 10.5 hours. Proposed: Nov 15, before the hash chain, so the chain is built on the safe write path; the chain moves to Nov 16, which has no work today; the governor stays Nov 17 to Nov 22. Or right after approval, before 7c-2 (pushes 7c-2 and 7c-3 back by more than a day); or Nov 16, after the chain?
+
+Answers (owner, Nov 9): L-Q1 to L-Q5 as proposed. L-Q6 changed by the owner: crash safety is built right after PR 26 merges, Nov 10 to Nov 11, before 7c-2. Then 7c-2 and 7c-3 Nov 12 to Nov 13, layer 11 Nov 14 to Nov 15, the hash chain Nov 16, the governor Nov 17 to Nov 22, the scan Nov 23 to Nov 26; README, demo and Devpost, the freeze and the submission unchanged.
 
 ## Layer 6: Automation
 
@@ -1663,7 +1666,7 @@ The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, releas
 | the licence file was read only through summaries | a duty is missed | the owner reads `LICENSE.md` (MS4) |
 
 
-## Layer 11: Linux-like features (outline, planned Nov 13 to Nov 14)
+## Layer 11: Linux-like features (outline, planned Nov 14 to Nov 15)
 
 It still needs its own approved spec. Built only after the owner approves its requirements, design and tasks. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
 
