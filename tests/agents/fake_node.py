@@ -98,6 +98,7 @@ def main() -> int:
         if cfg.get("login_flips_to") is not None:
             saved = json.loads((HERE / "node.json").read_text(encoding="utf-8"))
             saved["auth_json"] = cfg["login_flips_to"]
+            saved["auth_exit"] = 0  # signed in now: auth status exits 0, as the real one does
             saved.pop("login_flips_to")
             (HERE / "node.json").write_text(json.dumps(saved), encoding="utf-8")
         return cfg.get("login_exit", 0)
