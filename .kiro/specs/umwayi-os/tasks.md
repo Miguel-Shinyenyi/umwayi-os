@@ -19,6 +19,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 to 10.31 open; part 7c approved (10.32), part 7c-1 built (10.33 to 10.35), 10.36 to 10.39 open; OpenCode and Muse Spark Open specified (10.40, 10.41), build after Dec 3 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21; part 7c spec PR 22; part 7c-1 PR 23 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, 869 after PR 23, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 13 to Nov 14; still needs its own approved spec (11.0) | | |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); build one day, Nov 15 (C.1 to C.4) | spec PR 24 | |
+| Logbook crash safety (Layer 5 addendum) | spec written Nov 9, waiting for owner approval (L5.0); build about 10.5 h, proposed Nov 15 with the chain on Nov 16 (L-Q6) | spec PR 26 | |
 | Budget governor | approved Nov 9 (B.0); build Nov 17 to Nov 22 (B.1 to B.10) | spec PR 24 | |
 | Whole-system test and security scan | not started, planned Nov 23 to Nov 26, after the budget governor (C-Q4) | | |
 
@@ -37,6 +38,8 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | Nov 23 to Nov 28 | README, demo, Devpost text, alongside the scan |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
+
+Proposed, waiting for owner approval (L-Q6): logbook crash safety (L5.1 to L5.5) on Nov 15, and the hash chain moves to Nov 16, which has no work today. The rows above stay as approved until then.
 
 ## Setup
 
@@ -111,7 +114,7 @@ Still open:
 - Editing both `LOGBOOK.md` and its hash record is not detected (KNOWN-LIMITS 3).
 - Large logbooks are re-read on every append (KNOWN-LIMITS 4).
 - Owner commands (queue, archive) do not take the run lock, so two of them at once can still race on `queue.md` or the archive files (KNOWN-LIMITS 9). Each write is atomic and logged.
-- A stale `.umwayi/logbook.lock` left by a killed process is not removed automatically; the owner deletes it, as the message says. Not in `docs/KNOWN-LIMITS.md`.
+- A stale `.umwayi/logbook.lock` left by a killed process is not removed automatically; the owner deletes it, as the message says. Not in `docs/KNOWN-LIMITS.md`. The crash safety addendum (L5.1 to L5.5, waiting for owner approval) removes it.
 
 ## Layer 6: Automation (done, PR 6)
 
@@ -441,6 +444,17 @@ Requirements: Layer 5, "Logbook hash chain". Design: Layer 5, "Hash chain". Only
 - [ ] C.2 The checked append and `check_writable` (2 h): walk the chain under the lock after the whole-file hash; refuse a broken chain or a missing Chain line after the start; an agent start and a running agent stop with exit 2 through the existing checks. Tests: a planted edit in an old chained entry, the newest entry, a deleted entry, a reordered pair, a truncated tail, each refuses every append and every `agent run` and `agent chat` start (exit 2, nothing started); the kill switch still works.
 - [ ] C.3 `verify` and `anchor` (2 h): the first broken entry by number and line, never its text or Chain values; `umwayi logbook anchor` prints `COUNT:HEX`, refuses a broken logbook; `verify --anchor` finds a shorter or different chain, and a consistently rewritten whole chain (with its hash record) passes plain verify but fails against the anchor. Tests: every message; a planted secret in an entry never in any output; a malformed anchor is 64.
 - [ ] C.4 Docs, planted faults and mutation checks (1 h): KNOWN-LIMITS (without an outside anchor a writer can rewrite the whole chain; anchor weekly and before each submission in the hub repo sync log and the Kiro Notion page), README; planted faults (the previous value not used; the Chain line not checked on append; verify printing the line); mutation checks (the genesis taken from the whole file instead of the prefix, the anchor count not compared, the anchor value not compared, a missing Chain line accepted); counts in the pull request.
+
+## Logbook crash safety (addendum, spec written Nov 9 2026, waiting for owner approval; about 10.5 h, proposed Nov 15, L-Q6)
+
+Requirements: Layer 5, "Logbook crash safety". Design: Layer 5, "Crash safety", with open questions L-Q1 to L-Q6. Found behind the flaky Ctrl-C and SIGHUP test (PR 25). Nothing below starts before the owner approves this addendum. Code: `umwayi/logbook.py`, `umwayi/fsutil.py`, and `umwayi/cli.py` only if L-Q3 is approved.
+
+- [ ] L5.0 Requirements, design and these tasks written (Nov 9) in PR 26, **waiting for owner approval**, with the open questions L-Q1 to L-Q6 answered.
+- [ ] L5.1 The lock (2 h): flock on `.umwayi/logbook.lock` (or the owner's (b), per L-Q1), kept and never deleted, the inode check, the PID and start time for messages, the new busy message, refused where `fcntl` is missing. Tests: a writer SIGKILLed while holding the lock does not block the next; a live holder still gives the busy message after 3 s; the tests that plant a lock file (`tests/test_check_log.py`, `tests/test_logbook_integration.py`, `tests/agents/support.py`) hold a real lock instead.
+- [ ] L5.2 The intent and the write order (2 h): `.umwayi/logbook.pending` in its format, written whole; steps 3 to 6 as named functions; the record only when the file is exactly `after` (L-Q5); the folder fsyncs. Tests: the intent's format and its bad forms; bytes appended by something else during a held write are refused; the order of fsync, rename and append (in-process).
+- [ ] L5.3 Recovery (3 h): the four states of the table, the recovery as one write with its own intent, the recovery entry, recovery in `check_writable`, the readers and `verify` (L-Q4), the torn tail message (and the command, if L-Q3 is approved). Tests: SIGKILL after each step; the power cut cases; every other mismatch refused; a hand edit while a dead writer's intent is present refused; two writers after a crash give one recovery entry; a recovery SIGKILLed half way is resumed; no logbook text in any output.
+- [ ] L5.4 Signals (1 h): the four signals blocked and their handlers deferred around steps 3 to 6 and around a recovery, delivered once afterwards; a write outside the main thread refused (L-Q2). Tests: SIGTERM, SIGHUP, SIGINT and SIGQUIT during a held write leave a whole write, no intent and no recovery entry; agent run with the planted pause and Ctrl-C, SIGHUP and SIGTERM writes its stop entry and the logbook verifies (the PR 25 defect, end to end).
+- [ ] L5.5 Docs, planted faults and mutation checks (2.5 h): KNOWN-LIMITS (the list in the design) and item 39 updated (no stale lock any more), the Layer 5 "Still open" note above closed, README; the chain cases if the chain is built; mutation checks (recovery accepting any mismatch, the record written without the hash comparison, the intent not fsynced, the folder fsync dropped, the handler swap dropped, the recovery entry not written, the intent removed before the record, PID without start time if (b)); the full suite on Python 3.10 to 3.13 and the stop tests 20 times under load; counts in the pull request.
 
 ## Whole-system test and security scan (not started, planned Nov 23 to Nov 26, after the budget governor is complete)
 
