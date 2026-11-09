@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it.
 
 ## Approval and the owner
 
@@ -354,7 +354,7 @@ The login check runs in the agent's folder with the agent's own environment, so 
 
 ### 71. A window between the check and the start, and no watch during a run
 
-The login is checked a moment before the agent starts. A login or logout in another terminal in that moment, or during a run or a terminal chat, is not seen (the watch of 10.R12.8 is for the ACP chat and comes in part 7c-3).
+The login is checked a moment before the agent starts. A login or logout in another terminal in that moment, or during a run or a terminal chat, is not seen. Since part 7c-3 the ACP chat has a watch (10.R12.8), with its own limits (items 91 and 92); `agent run` and the terminal chat have none.
 
 ### 72. Usage beyond the plan is not visible
 
@@ -431,3 +431,23 @@ Every Kiro login pays from the subscription's credits, so there is no separate p
 ### 88. Kiro gets the rest of umwayi's environment
 
 `kiro_env` removes only `KIRO_API_KEY` and passes the rest of the environment (for example AWS variables) to Kiro.
+
+## Layer 10 part 7c-3: the watch during an ACP chat and the chat end to end (found while building, not fixed)
+
+Written Nov 10 2026. Items 59, 60 and 65 (nothing real was run, the supply chain, when SessionStart runs) still hold until the owner's first real run, whose steps are in `adapters/NOTES-layer10.md` ("The owner's first real run (10.31)").
+
+### 89. A permission answer never sees the command
+
+In a Claude Code ACP chat the rules answer a permission request from its `kind` (`read`, `execute`, `switch_mode`, `think` and others) and the tool name. The command, the path or the plan (`rawInput`) and the title are never in the action, so a rule can tell `Bash` from `Read` but not `ls` from `rm -rf`. The layer 9 hook, which runs first for every tool call, does see the command.
+
+### 90. The adapter changes fast
+
+The adapter publishes several preview builds a day. umwayi pins 0.101.0 and refuses anything else, so a new release cannot change the gate unnoticed; but staying on the pin means fixes arrive only when the owner updates it in a pull request that also updates NOTES, `package.json`, the lockfile and the constant. A release may change the session options, the permission shape or the `_auth/status_update` push; each update needs that review.
+
+### 91. The billing watch limits the damage, it does not prevent it
+
+The adapter pushes `_auth/status_update` only when what it reports changed: after `initialize`, at `session/new`, and at the start of each prompt, as an asynchronous probe. Nothing waits for it, so the push can arrive in the middle of a turn that the new payer is already paying for. umwayi then stops the chat (exit 2), but what was used until then is paid as the push says.
+
+### 92. The watch trusts the adapter's push
+
+umwayi reads only `params.authStatus.kind`. A push with no readable kind is ignored, because the adapter sends "cannot tell" as silence. If a release stops sending the push, renames the kind, or cannot see a payer change, nothing stops the chat; the login check before the start is then the only check. Not yet confirmed with a real adapter (10.31).

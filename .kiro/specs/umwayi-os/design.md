@@ -1183,7 +1183,7 @@ The owner approved the spec on Nov 8 with every answer as proposed (recorded in 
 | Kiro docs conflict (`content` and `prompt` in `session/prompt`) | the first ACP prompt fails | we follow the spec; the error ends the chat with exit 2, nothing ungated |
 | schedule: layers 10 and 11 share Nov 9 to 10 | not all parts land | parts 1 and 2 need no agent and can go first; ACP chat (part 6) is the one to cut |
 
-### Part 7: Claude Code over ACP (approved Nov 8; part 7a built in PR 20, part 7b in PR 21)
+### Part 7: Claude Code over ACP (approved Nov 8; part 7a built in PR 20, part 7b in PR 21; the chat end to end and the planted faults in PR 29; the owner's first real run not done)
 
 Requirement 10.R11. Facts with links, and what is not documented: `adapters/NOTES-layer10.md`, section "Claude Code over ACP" (the adapter `@agentclientprotocol/claude-agent-acp` 0.101.0, read from its README, `package.json`, the npm registry and its source at tag v0.101.0). Nothing of part 7 is built before the owner approves it.
 
@@ -1329,7 +1329,7 @@ Effort, if approved: about 20 hours (tasks.md 10.23 to 10.31, of which 1.5 are t
 | sign-in expires during a chat | the adapter answers with an error | the chat ends with exit 2; sign in again |
 | background commands | they outlive a cancel | stop by process group and seen descendants |
 
-### Part 7c: subscription first, login and billing check (approved Nov 9; part 7c-1 built in PR 23: the login check, claude_env, forceLoginMethod)
+### Part 7c: subscription first, login and billing check (approved Nov 9; part 7c-1 built in PR 23: the login check, claude_env, forceLoginMethod; part 7c-2 in PR 28: agent login and Kiro; part 7c-3 in PR 29: the ACP watch)
 
 Requirement 10.R12. Facts with links, and what is not documented: `adapters/NOTES-layer10.md`, section "Login and billing for Claude Code". Nothing of part 7c is built before the owner approves it.
 
