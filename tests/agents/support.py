@@ -289,7 +289,20 @@ class AgentCase(unittest.TestCase):
         except (OSError, UnicodeDecodeError):
             return (None, False)
         pid = int(text) if text.isdigit() else None
-        return (pid, pid is not None and alive(pid))
+        if pid is None or alive(pid):
+            return (pid, pid is not None)
+        # The writer may have removed its lock and exited between the read above and the check: only a lock
+        # that is still there, unchanged, after its writer is gone was left behind.
+        time.sleep(0.5)
+        try:
+            again = lock.read_text(encoding="ascii").strip()
+        except FileNotFoundError:
+            return None
+        except (OSError, UnicodeDecodeError):
+            return (None, False)
+        if again != text:
+            return self._lock_holder()
+        return (pid, False)
 
     def _lock_state(self) -> str:
         holder = self._lock_holder()
@@ -389,7 +402,11 @@ class AgentCase(unittest.TestCase):
     def calls(self) -> list:
         if not self.fake_log.exists():
             return []
-        return [json.loads(line) for line in self.fake_log.read_text(encoding="utf-8").splitlines()]
+        # A fake may be in the middle of writing a line (a long record is written in more than one piece), so
+        # only lines that end with a newline are complete; the rest is read on the next call. A complete line
+        # that is not JSON is still an error.
+        data = self.fake_log.read_bytes()  # split before decoding: a piece can end inside a UTF-8 character
+        return [json.loads(line.decode("utf-8")) for line in data.split(b"\n")[:-1]]
 
     def assert_nothing_started(self):
         started = [c for c in self.calls() if c["started"]]
