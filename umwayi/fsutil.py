@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import tempfile
@@ -39,3 +40,19 @@ def atomic_write(path: Path, data: bytes) -> None:
         except OSError:
             pass
         raise
+
+
+def fsync_dir(path: Path) -> None:
+    """Make a rename or removal in this folder durable (a power cut cannot undo it after this returns).
+
+    A file system that cannot fsync a folder (EINVAL) is skipped: there is nothing more to do there.
+    """
+    fd = os.open(str(path), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        try:
+            os.fsync(fd)
+        except OSError as e:
+            if e.errno not in (errno.EINVAL, getattr(errno, "ENOTSUP", errno.EINVAL)):
+                raise
+    finally:
+        os.close(fd)

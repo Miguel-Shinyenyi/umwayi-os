@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, write_sealed_logbook
+from tests.helpers import entry_text, hold_logbook_lock, without_logbook_lock, write_sealed_logbook
 from umwayi import logbook
 from umwayi.cli import main
 from umwayi.logbook import parse
@@ -46,8 +46,8 @@ class Base(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def snap(self):
-        return {os.path.relpath(os.path.join(dp, f), self.root): Path(dp, f).read_bytes()
-                for dp, _d, fs in os.walk(self.root) for f in fs}
+        return without_logbook_lock({os.path.relpath(os.path.join(dp, f), self.root): Path(dp, f).read_bytes()
+                                     for dp, _d, fs in os.walk(self.root) for f in fs})
 
     # one command per layer 3 and 4 write path, each as (argv, setup)
     def write_commands(self):
@@ -108,7 +108,9 @@ class TamperChecksReachEveryLayerTests(Base):
     def test_lock_held(self):
         def prepare():
             write_sealed_logbook(self.root, "# Logbook\n" + entry_text(date="2026-01-01"))
-            (self.root / ".umwayi" / "logbook.lock").write_text("1\n")
+            if not getattr(self, "_held", False):  # a running writer holds the lock for every command below
+                self._held = True
+                self.addCleanup(hold_logbook_lock(self.root))
         self.each(prepare, "another umwayi command")
 
     def test_malformed_logbook(self):

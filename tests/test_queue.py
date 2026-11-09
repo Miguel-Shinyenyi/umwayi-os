@@ -783,7 +783,7 @@ class LogbookCouplingTests(QueueBase):
         self.run_cli("add", "--kind", "task", "x")
         self.run_cli("answer", "Q-0001", "--answer", "ok")
         self.assertEqual(sorted(p.name for p in self.root.iterdir()), [".umwayi", "LOGBOOK.md", "queue.md"])
-        self.assertEqual(sorted(p.name for p in (self.root / ".umwayi").iterdir()), ["logbook.sha256"])
+        self.assertEqual(sorted(p.name for p in (self.root / ".umwayi").iterdir()), ["logbook.lock", "logbook.sha256"])
 
 
 class SubprocessTests(QueueBase):

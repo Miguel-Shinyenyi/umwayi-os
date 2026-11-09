@@ -461,6 +461,7 @@ The intent is ASCII lines, then the entry bytes:
 
 ```
 umwayi logbook intent 1
+kind KIND            write, recover or seal (added while building: see below)
 writer PID START
 record HEX           the record when the write started (64 lowercase hex, or none for a new logbook)
 before HEX LENGTH    the whole file before the write
@@ -494,6 +495,8 @@ Runs in step 1 of every write and in `check_writable` (same lock), only when an 
 | hash and length are I.before | I.record | not written | one write of the recovery entry with F as its before state |
 | the first I.before bytes hash to I.before; the rest is a strict prefix of I.entry | I.record | torn tail | refused with its own message (L-Q3) |
 | anything else, or the intent itself is bad | anything | tamper | refused like a hand edit, never accepted automatically |
+
+Added while building (PR 27), so each kind of interrupted write gets its own rule: the intent names its kind. A write intent must start from its record (I.before is the hash I.record holds, or a new logbook with no record); otherwise the intent is bad. A seal that was stopped before it appended ("seal not written") is dropped without an entry, because the logbook was never sealed and still cannot take one; the owner seals again. A recovery write that was itself stopped is resumed instead of logged again: completed, its record is finished and its intent removed; not written, its own intended bytes are appended. So a recovery leaves exactly one entry.
 
 For an ordinary write, I.before is the hash that I.record holds. For a recovery write, I.before is the recovered file and I.record the record found at that moment, so the same table resumes a recovery that was itself killed, and the result is still one recovery entry.
 

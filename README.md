@@ -136,13 +136,16 @@ umwayi archive verify
 ```
 umwayi logbook verify
 umwayi logbook seal --by "Your name" [--date 2026-11-07]
+umwayi logbook recover --torn-tail --by "Your name" [--date 2026-11-07]
 ```
 
 - After every write the SHA-256 of the whole file is recorded in `.umwayi/logbook.sha256`. Before every write it is checked. If you edit, delete or add a line by hand, every umwayi write is refused (and `umwayi check` answers Ask me first) until you look at the file and run `umwayi logbook seal`.
 - An existing logbook with no record is refused the same way. Nothing is sealed automatically.
 - `verify` prints `ok` or each problem with a line number (never the line text) and exits 0 only when the format is valid and the hash matches. It never changes a file.
 - Entry dates must be real and never go backwards.
-- `.umwayi/logbook.lock` stops two commands from writing at once. If a command was killed and left the lock behind, delete the file.
+- `.umwayi/logbook.lock` stops two commands from writing at once. It is a kernel lock (`flock`): a command that is killed lets go of it, so nothing is ever left behind. The file stays; never delete it while a command runs.
+- A write that is stopped half way cannot break the logbook. Before appending, umwayi records its intent in `.umwayi/logbook.pending` (the hashes and lengths before and after, and the exact bytes). SIGTERM, SIGHUP, Ctrl-C and SIGQUIT wait until the write is done. After a SIGKILL or a crash, the next write finishes or drops the interrupted one, only when the files are exactly in one of the two states the intent names, and adds one entry with source `umwayi logbook recover`. Anything else is refused like a hand edit. `verify` says when a write is in progress or was interrupted, and readers see the file it left.
+- A power cut during the append can leave the start of an entry at the end of the file (a torn tail). It is refused, never repaired automatically. `umwayi logbook recover --torn-tail --by NAME` cuts it back, only when the extra bytes are exactly the start of the entry that was being written, and logs the cut.
 
 ## Layer 6: automation
 

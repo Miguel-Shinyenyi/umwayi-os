@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, write_sealed_logbook
+from tests.helpers import entry_text, hold_logbook_lock, logbook_lock_held, without_logbook_lock, write_sealed_logbook
 from umwayi import logbook
 from umwayi.cli import main
 from umwayi.errors import UmwayiError
@@ -41,12 +41,13 @@ class LogbookBase(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def snap(self):
+        """Every file and its bytes and mtime, without the logbook lock file (kept by design, holds no data)."""
         out = {}
         for dp, _dn, fn in os.walk(self.root):
             for f in fn:
                 full = os.path.join(dp, f)
                 out[os.path.relpath(full, self.root)] = (Path(full).read_bytes(), os.stat(full).st_mtime_ns)
-        return out
+        return without_logbook_lock(out)
 
     def run_cli(self, *argv, clock="2026-11-07"):
         out, err = io.StringIO(), io.StringIO()
@@ -242,9 +243,10 @@ class AppendTests(LogbookBase):
         for p in (self.path, self.rec):
             self.assertEqual(stat.S_IMODE(os.stat(p).st_mode), 0o666 & ~mask)
 
-    def test_no_lock_or_temp_file_left_behind(self):
+    def test_no_intent_or_temp_file_left_behind_and_the_lock_is_free(self):
         append(self.root, entry())
-        self.assertEqual(sorted(p.name for p in (self.root / ".umwayi").iterdir()), ["logbook.sha256"])
+        self.assertEqual(sorted(p.name for p in (self.root / ".umwayi").iterdir()), ["logbook.lock", "logbook.sha256"])
+        self.assertFalse(logbook_lock_held(self.root))
 
     # -- tamper check
 
@@ -394,28 +396,43 @@ class AppendTests(LogbookBase):
 
     # -- failures in the middle
 
-    def test_failed_record_write_leaves_a_logbook_that_the_next_append_refuses(self):
+    def test_failed_record_write_is_finished_by_the_next_append_with_one_recovery_entry(self):
         append(self.root, entry(date="2026-01-01"))
-        with mock.patch("umwayi.logbook.atomic_write", side_effect=OSError("disk full")):
+        real = logbook.atomic_write
+
+        def record_fails(path, data):
+            if Path(path) == self.rec:
+                raise OSError("disk full")
+            return real(path, data)
+        with mock.patch("umwayi.logbook.atomic_write", side_effect=record_fails):
             with self.assertRaises(UmwayiError) as cm:
-                append(self.root, entry(date="2026-01-02"))
+                append(self.root, entry(date="2026-01-02", added="the second"))
         self.assertIn("could not be recorded", str(cm.exception))
-        self.refuse(entry(date="2026-01-03"), "does not match")
-        report = logbook.verify(self.root)
-        self.assertTrue(any(p.where == "record" for p in report.problems))
+        self.assertTrue((self.root / ".umwayi" / "logbook.pending").exists())  # the intent stays
+        self.assertEqual(logbook.verify(self.root).problems, [])  # the exact completed state reads as consistent
+        append(self.root, entry(date="2026-01-03", added="the third"))
+        added = [e.added for e in logbook.read_checked(self.root)]
+        self.assertEqual(added[:2], ["one thing", "the second"])
+        self.assertTrue(added[2].startswith("Recovered an interrupted logbook write (writer PID "), added[2])
+        self.assertIn("the entry was written in full and its hash is now recorded", added[2])
+        self.assertEqual(added[3], "the third")
+        self.assertFalse((self.root / ".umwayi" / "logbook.pending").exists())
+        self.assertEqual(logbook.verify(self.root).problems, [])
 
     def test_failed_append_write_is_an_error_and_releases_the_lock(self):
         with mock.patch("builtins.open", side_effect=OSError("nope")):
-            with self.assertRaises(UmwayiError):
+            with self.assertRaises(UmwayiError) as cm:
                 append(self.root, entry())
-        self.assertFalse(self.lock.exists())
+        self.assertIn("Nothing was written", str(cm.exception))
+        self.assertFalse(logbook_lock_held(self.root))
+        self.assertFalse((self.root / ".umwayi" / "logbook.pending").exists())  # nothing was appended: no intent left
 
     def test_lock_is_released_after_a_refusal(self):
         write_sealed_logbook(self.root, BASE)
         self.path.write_text(BASE + "x\n", encoding="utf-8")
         with self.assertRaises(UmwayiError):
             append(self.root, entry(date="2026-02-01"))
-        self.assertFalse(self.lock.exists())
+        self.assertFalse(logbook_lock_held(self.root))
 
     def test_cannot_forge_a_second_entry_with_a_line_break(self):
         with self.assertRaises(UmwayiError):
@@ -431,68 +448,112 @@ class AppendTests(LogbookBase):
 
 
 class LockTests(LogbookBase):
+    """The lock is fcntl.flock on .umwayi/logbook.lock (L5.1): held only while a writer runs, never deleted."""
+
+    def hold(self):
+        release = hold_logbook_lock(self.root)
+        self.addCleanup(release)
+        return release
+
     def test_held_lock_refuses_with_a_clear_message_and_changes_nothing(self):
         append(self.root, entry(date="2026-01-01"))
-        self.lock.write_text("4242\n", encoding="ascii")
+        self.hold()
         before = self.snap()
         with self.assertRaises(UmwayiError) as cm:
             append(self.root, entry(date="2026-01-02"))
         msg = str(cm.exception)
-        self.assertIn("another umwayi command is writing the logbook", msg)
-        self.assertIn(".umwayi/logbook.lock", msg)
-        self.assertIn("delete that file", msg)
+        self.assertIn("another umwayi command (PID 4242) holds the logbook lock (.umwayi/logbook.lock)", msg)
+        self.assertIn("Nothing was written", msg)
+        self.assertNotIn("delete", msg)  # the owner is never told to delete the lock file any more
         self.assertEqual(self.snap(), before)
-        self.assertTrue(self.lock.exists())  # a lock we do not own is never removed
+        self.assertTrue(self.lock.exists())
 
-    def test_seal_also_respects_the_lock(self):
+    def test_seal_and_check_writable_also_respect_the_lock(self):
         self.path.write_text(BASE, encoding="utf-8")
-        (self.root / ".umwayi").mkdir()
-        self.lock.write_text("4242\n", encoding="ascii")
+        self.hold()
         with self.assertRaises(UmwayiError) as cm:
             logbook.seal(self.root, "2026-02-01", "me")
         self.assertIn("another umwayi command", str(cm.exception))
+        with self.assertRaises(UmwayiError):
+            logbook.check_writable(self.root, "2026-02-01")
 
     def test_waits_for_a_lock_that_is_released(self):
-        (self.root / ".umwayi").mkdir()
-        self.lock.write_text("4242\n", encoding="ascii")
-        threading.Timer(0.15, lambda: os.unlink(self.lock)).start()
+        release = self.hold()
+        threading.Timer(0.15, release).start()
         with mock.patch.object(logbook, "LOCK_WAIT_SECONDS", 3):
             append(self.root, entry())
         self.assertEqual(len(parse(self.path.read_text(encoding="utf-8"))[0]), 1)
 
     def test_gives_up_after_the_wait(self):
-        (self.root / ".umwayi").mkdir()
-        self.lock.write_text("4242\n", encoding="ascii")
+        self.hold()
         start = time.monotonic()
         with mock.patch.object(logbook, "LOCK_WAIT_SECONDS", 0.2):
             with self.assertRaises(UmwayiError):
                 append(self.root, entry())
         self.assertGreaterEqual(time.monotonic() - start, 0.2)
 
-    def test_threads_appending_at_once_do_not_interleave(self):
-        errors = []
-        per, workers = 10, 8
-
-        def work(w):
-            try:
-                for i in range(per):
-                    append(self.root, entry(date="2026-11-07", added=f"worker {w} item {i}"))
-            except Exception as e:  # pragma: no cover
-                errors.append(e)
-
-        with mock.patch.object(logbook, "LOCK_WAIT_SECONDS", 30):
-            threads = [threading.Thread(target=work, args=(w,)) for w in range(workers)]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join()
-        self.assertEqual(errors, [])
-        entries, problems = parse(self.path.read_text(encoding="utf-8"))
-        self.assertEqual(problems, [])
-        self.assertEqual(len(entries), per * workers)
-        self.assertEqual({p.entry.added for p in entries}, {f"worker {w} item {i}" for w in range(workers) for i in range(per)})
+    def test_a_lock_file_left_by_an_old_umwayi_or_a_dead_writer_does_not_block(self):
+        (self.root / ".umwayi").mkdir()
+        self.lock.write_text("4242\n", encoding="ascii")  # the old lock file of a killed writer: nobody holds it
+        append(self.root, entry())
         self.assertEqual(logbook.verify(self.root).problems, [])
-        self.assertFalse(self.lock.exists())
+
+    def test_a_writer_killed_while_holding_the_lock_does_not_block_the_next(self):
+        code = ("import os, sys, time\nfrom pathlib import Path\nfrom tests.helpers import hold_logbook_lock\n"
+                "hold_logbook_lock(Path(sys.argv[1]))\nprint('held', flush=True)\ntime.sleep(60)\n")
+        env = dict(os.environ, PYTHONPATH=str(REPO))
+        p = subprocess.Popen([sys.executable, "-c", code, str(self.root)], env=env, stdout=subprocess.PIPE, text=True)
+        self.addCleanup(lambda: p.poll() is None and p.kill())
+        self.assertEqual(p.stdout.readline().strip(), "held")
+        self.assertTrue(logbook_lock_held(self.root))
+        with self.assertRaises(UmwayiError):
+            append(self.root, entry())
+        p.kill()
+        p.wait(timeout=30)
+        p.stdout.close()
+        append(self.root, entry())  # the kernel let go of the lock when the holder died
+        self.assertEqual(len(logbook.read_checked(self.root)), 1)
+
+    def test_a_replaced_lock_file_is_noticed(self):
+        (self.root / ".umwayi").mkdir()
+        real_flock = logbook.fcntl.flock
+        calls = []
+
+        def flock_then_replace(fd, op):
+            real_flock(fd, op)
+            calls.append(op)
+            if len(calls) == 1:  # the first time only: someone replaces the file right after we locked it
+                os.unlink(self.lock)
+                self.lock.write_text("", encoding="ascii")
+        with mock.patch.object(logbook.fcntl, "flock", side_effect=flock_then_replace):
+            with mock.patch.object(logbook, "LOCK_WAIT_SECONDS", 3):
+                append(self.root, entry())
+        self.assertEqual(len(calls), 2)  # the lock on the replaced file guarded nothing, so it locked again
+        self.assertEqual(len(logbook.read_checked(self.root)), 1)
+
+    def test_no_file_locking_means_no_write(self):
+        with mock.patch.object(logbook, "fcntl", None):
+            with self.assertRaises(UmwayiError) as cm:
+                append(self.root, entry())
+        self.assertIn("file locking is not available", str(cm.exception))
+        self.assertFalse(self.path.exists())
+
+    def test_a_write_from_another_thread_is_refused_and_writes_nothing(self):
+        errors = []
+
+        def work():
+            try:
+                append(self.root, entry())
+            except UmwayiError as e:
+                errors.append(str(e))
+        t = threading.Thread(target=work)
+        t.start()
+        t.join()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("a logbook write must run in the main thread. Nothing was written.", errors[0])
+        self.assertFalse(self.path.exists())
+        self.assertFalse((self.root / ".umwayi" / "logbook.pending").exists())
+        self.assertFalse(logbook_lock_held(self.root))
 
     def test_processes_appending_at_once_do_not_interleave(self):
         code = (
@@ -516,6 +577,7 @@ class LockTests(LogbookBase):
         self.assertEqual(problems, [])
         self.assertEqual(len(entries), 20)
         self.assertEqual(logbook.verify(self.root).problems, [])
+        self.assertFalse(logbook_lock_held(self.root))
 
 
 # ====================================================================== seal
@@ -743,9 +805,19 @@ class CodeGuardTests(unittest.TestCase):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "atomic_write":
                 arg = node.args[0]
                 targets.append(arg.func.id if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name) else None)
-        self.assertEqual(targets, ["record_path"])
-        for word in ("write_text", "write_bytes", "os.replace", "truncate", "rename", "shutil"):
+        self.assertEqual(sorted(targets), ["pending_path", "record_path"])  # the intent (L5.2) and the record
+        for word in ("write_text", "write_bytes", "os.replace", "rename", "shutil"):
             self.assertNotIn(word, src)
+
+    def test_bytes_are_cut_only_in_the_torn_tail_command(self):
+        tree = ast.parse(Path(logbook.__file__).read_text(encoding="utf-8"))
+        where = []
+        for fn in ast.walk(tree):
+            if isinstance(fn, ast.FunctionDef):
+                for node in ast.walk(fn):
+                    if isinstance(node, ast.Attribute) and node.attr in ("truncate", "ftruncate"):
+                        where.append(fn.name)
+        self.assertEqual(where, ["_cut_torn_tail"])
 
     def test_no_network_imports(self):
         src = Path(logbook.__file__).read_text(encoding="utf-8")

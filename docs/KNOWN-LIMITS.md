@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it.
 
 ## Approval and the owner
 
@@ -200,9 +200,9 @@ The kill switch is checked once a second while an agent runs, and stopping sends
 
 After the agent exits, or on any stop, umwayi signals its whole process group, so a server or watcher the agent started in the same group is stopped too, even after a normal exit. That is on purpose (nothing the agent started runs on after umwayi), but it may surprise.
 
-### 39. A logbook that cannot be written stops the agent, including a stale lock
+### 39. A logbook that cannot be written stops the agent
 
-Every second the run checks that the logbook could still take an entry (`logbook.check_writable`, under the logbook lock). A hand edit, a missing hash record, a broken format, or a `.umwayi/logbook.lock` left by a crashed command for more than 3 seconds stops the agent with exit 2. Nothing can be logged about that stop; umwayi prints why. The check reads and hashes the whole logbook once a second, which grows with every tool call; it was not measured on a large logbook.
+Every second the run checks that the logbook could still take an entry (`logbook.check_writable`, under the logbook lock). A hand edit, a missing hash record, a broken format, or a logbook lock held by another writer for more than 3 seconds stops the agent with exit 2. Nothing can be logged about that stop; umwayi prints why. Since the crash safety addendum a writer that was killed can no longer leave the lock behind (it is a kernel lock), and an interrupted write in one of the two states its intent names is recovered by the check itself, with one entry, instead of stopping the agent. The check reads and hashes the whole logbook once a second, which grows with every tool call; it was not measured on a large logbook.
 
 ### 40. Exit 0 means the agent exited 0, not that the task was done
 
@@ -359,3 +359,39 @@ The login is checked a moment before the agent starts. A login or logout in anot
 ### 72. Usage beyond the plan is not visible
 
 The check proves which credential pays, not how much. A plan's extra usage, if the owner turned it on in the Claude account, is billed without umwayi knowing. Spend limits stay with the budget governor (H-078).
+
+## Layer 5 addendum: logbook crash safety (found while building, not fixed)
+
+Written Nov 10 2026. Spec: requirements.md and design.md, Layer 5, "Logbook crash safety"; tasks L5.1 to L5.5.
+
+### 73. The intent sits next to the record
+
+`.umwayi/logbook.pending` is in the same folder as `.umwayi/logbook.sha256`. Whoever can write both can forge an "interrupted write" and have the next umwayi write finish it. That is no new weakness: the same person can already rewrite the record (item 3). The hash chain and its outside anchor are the answer.
+
+### 74. Durability depends on the disk
+
+Every step is fsynced before the next one starts (the intent, the append, the record, and the folder after each change). Whether a power cut keeps them depends on the file system and the disk honouring fsync. The tests check that the calls happen and in which order; they cannot prove what a disk keeps.
+
+### 75. A torn tail needs the owner
+
+A power cut during the append can leave the start of an entry at the end of LOGBOOK.md. It is refused and never repaired automatically; the owner runs `umwayi logbook recover --torn-tail --by NAME`. If that command is itself stopped after the cut and before its entry, the next write finds the state before the interrupted write and logs an ordinary recovery entry, which does not say that bytes were cut.
+
+### 76. The lock is a kernel lock on a local file
+
+`flock` excludes processes on one machine. On a network share it may not. Where `fcntl` is missing (Windows) the logbook cannot be written at all, as the run lock cannot be taken there. Deleting `.umwayi/logbook.lock` by hand while a write runs lets a second writer lock a new file and write at the same time; no message asks for that any more. An older umwayi (which used a lock file that existed only while it wrote) and this one running at the same time on one root do not exclude each other.
+
+### 77. Signals wait for the write
+
+SIGTERM, SIGHUP, SIGINT and SIGQUIT that arrive during a write are delivered once it is done: milliseconds (two fsyncs, two atomic writes and one hash of the file), longer on a stalled disk. Two of the same signal during one write are delivered once. A logbook write from any thread but the main one is refused, because only the main thread can hold the handlers off; no such write exists today.
+
+### 78. A SIGKILL between a change and its entry
+
+The queue, the archive and the AI helpers change their files and then write their logbook entry. A SIGKILL between the two leaves the change without an entry. That is as before the addendum and not fixed here; the addendum makes the logbook write itself safe, not the work around it.
+
+### 79. Leftover temporary files
+
+`fsutil.atomic_write` removes its temporary file on every error, but not when the process is SIGKILLed: a `.umwayi-*.tmp` file can stay in `.umwayi/`. It is harmless and not cleaned up.
+
+### 80. An interrupted seal that never wrote leaves no entry
+
+If `umwayi logbook seal` is stopped before it appends, the next write drops its intent without an entry, because the logbook was not sealed and still cannot take one: the owner seals again. An interrupted seal that did write its entry is finished and logged like any write.
