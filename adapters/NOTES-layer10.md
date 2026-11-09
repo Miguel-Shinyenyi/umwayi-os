@@ -207,7 +207,7 @@ Sources:
 
 - **The owner's existing Claude Code login is used as it is**, without the client touching it: the adapter starts the Claude CLI with its own environment, and the CLI reads its login itself (OAuth credentials or the system keychain; the Claude Code docs say only bare mode skips them, [Run Claude Code programmatically](https://code.claude.com/docs/en/headless.md)). The adapter's settings and identity checks use `CLAUDE_CONFIG_DIR` or `~/.claude` (`src/paths.ts`). So the same `HOME` (and `CLAUDE_CONFIG_DIR` if the owner sets one) gives the same login. Not documented by the adapter: where the credentials are stored.
 - **The adapter checks sign-in itself:** it runs the CLI with `auth status --json` in the background after `initialize` (5 second limit) and pushes an `_auth/status_update` notification with the identity (from the source). The Claude Code CLI reference says `claude auth status` exits 0 when signed in and 1 when not ([CLI reference](https://code.claude.com/docs/en/cli-reference)). So `NODE ADAPTER --cli auth status` answers "signed in?" by its exit code alone, without umwayi reading its output.
-- **The login methods** need a client that runs a terminal for them (see the table above). With `clientCapabilities: {}` none is offered: the owner signs in beforehand with `claude` (or `NODE ADAPTER --cli auth login`), outside umwayi.
+- **The login methods** need a client that runs a terminal for them (see the table above). With `clientCapabilities: {}` none is offered: the owner signs in beforehand with `claude` (or `NODE ADAPTER --cli auth login`), outside umwayi. (Part 7c, owner decision Nov 9: `umwayi agent login NAME` may start that sign-in on the owner's terminal; see "Signing in from umwayi" below.)
 - **Not documented:** what `session/new` or `session/prompt` answers when the owner is signed out (the source shows an `authRequired` error under `--hide-claude-auth`; without it, not documented).
 
 ### (c) Settings files and hooks inside an ACP session
@@ -349,5 +349,96 @@ Pages and files read:
 | keep environment credentials out of `agent run` and the cli chat | drop the precedence list's variables from their environment (the ACP allow list already does) |
 | a second line inside the session | `forceLoginMethod: "claudeai"` in the inline settings (not confirmed to block environment credentials) |
 | notice a change during an ACP chat | `_auth/status_update` with `kind` other than `account` ends the chat |
-| no login by umwayi | the owner signs in with `claude` then `/login` (claude.ai); umwayi never runs `auth login` or `logout` |
+| sign in from umwayi (owner decision Nov 9, option B) | `umwayi agent login NAME` runs `[NODE, ADAPTER, "--cli", "auth", "login", "--claudeai"]` on the owner's terminal, after the start steps; never `--console`, never `--email`; umwayi never reads its output; then the login check (section "Signing in from umwayi" below) |
 | spend | not visible; budget governor |
+
+### Signing in from umwayi: `auth login --claudeai` and what a browser login needs
+
+Read on Nov 9 2026, after the owner's decision (option B): umwayi may start the claude.ai sign-in for a Claude Code ACP agent, but never reads it.
+
+- **The command:** `claude auth login` signs in to an Anthropic account. `--console` signs in for API usage billing instead of a subscription, `--sso` forces SSO, and `--email` pre-fills the address ([CLI reference](https://code.claude.com/docs/en/cli-reference)).
+  - The adapter's own terminal method uses exactly `--cli auth login --claudeai` (and `--console` for its Console method), in `initialize` in `src/acp-agent.ts`, from the source.
+  - `--claudeai` is **not listed** in the CLI reference table. It is used by the pinned adapter for the pinned bundled CLI, so umwayi uses the same words, and the owner's real check (tasks.md 10.31) confirms it.
+  - umwayi never passes `--console`, `--email` or `--sso`.
+- **What the owner sees:**
+  - Claude Code opens a browser. If it does not, the URL can be copied.
+  - If the browser shows a code instead of returning to `localhost`, the owner pastes it at the `Paste code here` prompt.
+  - `claude auth login` reads the pasted code from standard input ([Troubleshoot, OAuth login fails in WSL2, SSH, or containers](https://code.claude.com/docs/en/troubleshoot-install.md)).
+  - So the login needs the owner's terminal for stdin, stdout and stderr, and umwayi must not sit between them.
+- **Where the login is stored:** Linux keeps it in `~/.claude/.credentials.json` (mode 0600); macOS uses the Keychain ([Authentication, Credential management](https://code.claude.com/docs/en/authentication)). `CLAUDE_CONFIG_DIR` picks another configuration folder with its own login. umwayi never opens that file.
+- **The remote markers:** the adapter treats `NO_BROWSER`, `SSH_CONNECTION`, `SSH_CLIENT`, `SSH_TTY` and `CLAUDE_CODE_REMOTE` as "the browser redirect to localhost will not work". Its comment says this "matches the SDK's internal isRemote check", and that `auth login` then falls back to a manual URL and code flow (from the source). That flow is the right one on a remote machine, so the first four are passed when set.
+  - `CLAUDE_CODE_REMOTE` is not passed. Claude Code sets it itself only in its own cloud sessions ([Environment variables](https://code.claude.com/docs/en/env-vars)).
+- **`BROWSER`:** documented: on WSL2, setting `BROWSER` to a browser's path lets Claude Code open it ([Troubleshoot](https://code.claude.com/docs/en/troubleshoot-install.md)).
+- **How the browser is opened on Linux: not documented** by Claude Code. The usual Linux opener, `xdg-open` (xdg-utils, [scripts at freedesktop.org](https://gitlab.freedesktop.org/xdg/xdg-utils/-/tree/master/scripts)), reads:
+  - `BROWSER`, `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_CURRENT_DESKTOP`, `DESKTOP_SESSION` and `XDG_DATA_DIRS`;
+  - the older `KDE_FULL_SESSION`, `KDE_SESSION_VERSION`, `GNOME_DESKTOP_SESSION_ID` and `MATE_DESKTOP_SESSION_ID`;
+  - plus `HOME`, `PATH`, `XDG_CONFIG_HOME` and `XDG_DATA_HOME`, which the ACP allow list already passes.
+  
+  The desktop programs it hands over to (for example `gio open`, `kde-open`) talk to the session bus through `DBUS_SESSION_BUS_ADDRESS`; not checked further.
+- **Never for a login:** `CLAUDE_CODE_OAUTH_REFRESH_TOKEN` makes `claude auth login` exchange that token instead of opening a browser, and it needs `CLAUDE_CODE_OAUTH_SCOPES` ([Environment variables](https://code.claude.com/docs/en/env-vars)). It is a credential, so it is never passed, like everything else left out of 10.R11.9.
+- **Not documented:**
+  - The exit code of `claude auth login` when the owner gives up or the code is wrong.
+  - Whether it ever prints a token. `claude setup-token` does print one, which is why umwayi never runs it.
+  - So umwayi trusts only the login check that follows, never the login's own exit code alone.
+
+## Kiro: login and billing (part 7c, spec only)
+
+Read on Nov 9 2026, for the owner's request that subscription comes first on every platform. Kiro pages were read as the Markdown copies listed in [kiro.dev/llms.txt](https://kiro.dev/llms.txt). Nothing was run.
+
+| what | where |
+| --- | --- |
+| sign-in methods, device flow, API keys, precedence | [Authentication](https://kiro.dev/docs/getting-started/authentication.md) |
+| `kiro-cli login`, `logout`, `whoami`, `acp --login`, environment variables | [CLI commands](https://kiro.dev/docs/reference/cli-commands.md) |
+| headless runs and `KIRO_API_KEY` | [Headless mode](https://kiro.dev/docs/cli/headless.md) |
+| plans and credits | [Billing](https://kiro.dev/docs/billing.md), [Usage beyond plan limits](https://kiro.dev/docs/billing/add-on-credits.md), [Related questions](https://kiro.dev/docs/billing/related-questions.md) |
+| API keys under an administrator | [API key governance](https://kiro.dev/docs/enterprise/governance/api-keys.md) |
+| ACP sign-in, `--auth-method` | [ACP (CLI)](https://kiro.dev/docs/cli/acp.md), [Migrate an ACP client to CLI V3](https://kiro.dev/docs/cli/v3/acp-migration.md) |
+| `/usage` | [Slash commands](https://kiro.dev/docs/reference/slash-commands.md) |
+
+### How Kiro bills
+
+- **Every plan is credits:** Free (50 a month), Pro (1,000), Pro+ (2,000), Pro Max (5,000) and Power (10,000). Credits are used fractionally per request, and models use them at different rates ([Billing](https://kiro.dev/docs/billing.md)).
+- **Beyond the plan, only credits bought on purpose:**
+  - Add-on credits cost $0.04 each and are bought by hand in the Kiro portal, in packs of $5 to $100, "billed immediately when you purchase them". They are not available on Free.
+  - When plan and add-on credits are used up, "Kiro pauses usage" ([Usage beyond plan limits](https://kiro.dev/docs/billing/add-on-credits.md)).
+  - The FAQ says that if you prefer a fixed bill, you buy no add-on credits and usage pauses at the cap ([Related questions](https://kiro.dev/docs/billing/related-questions.md)).
+  - So, by the docs, Kiro has **no automatic pay-as-you-go**: spend beyond the subscription needs a purchase the owner makes in a browser.
+- **An API key bills the same subscription:** `KIRO_API_KEY` (a long-lived key, `ksk_...`) works only for Pro, Pro+, Pro Max and Power subscribers. "Credits consumed using the API key are decremented from your subscription credits" ([Authentication, API key authentication](https://kiro.dev/docs/getting-started/authentication.md)).
+  - So, unlike Claude Code, a Kiro API key is not a different way of paying.
+  - It is still a credential that may belong to another account (a key in a CI shell).
+  - Under an administrator, API keys are off unless enabled ([API key governance](https://kiro.dev/docs/enterprise/governance/api-keys.md)).
+- **Organisation plans** (IAM Identity Center, "Kiro Pro" licence) are billed to the organisation through AWS ([Enterprise billing](https://kiro.dev/docs/enterprise/billing.md), listed in the index, not read further). Which credits pay is the organisation's choice, outside umwayi.
+- **Not documented:** an environment variable or flag that selects another way to pay. None was found besides `KIRO_API_KEY`.
+
+### Which login Kiro uses
+
+- **Precedence** ([Authentication](https://kiro.dev/docs/getting-started/authentication.md)): 1, an active browser session from `kiro-cli login`; 2, `KIRO_API_KEY`; 3, none, and the CLI asks you to sign in.
+  - So a key is used only when the browser login is missing or expired.
+  - Interactive sessions should use the browser sign-in; the key is meant for non-interactive runs.
+- **Conflict:** the Headless mode page says headless runs require `KIRO_API_KEY` ("Headless mode requires an API key"). The Authentication page puts the browser session first for every CLI use. layer 10 part 4 (`agent run` for Kiro) assumed the browser login works for `--no-interactive`. Not confirmed by a real run (KNOWN-LIMITS 41 to 45 area).
+- **`kiro-cli login`** has `--license pro|free`, `--identity-provider URL`, `--region`, `--social google|github` and `--use-device-flow` ([CLI commands](https://kiro.dev/docs/reference/cli-commands.md)).
+  - Locally it opens the browser portal, and the selection flags "are generally ignored". On a remote machine it uses a device code automatically.
+  - If you are already signed in, it gives an "Already logged in" error.
+  - How it decides "remote" is not documented.
+- **`kiro-cli acp --login`** runs the Kiro sign-in in the terminal, then exits without starting the server ([CLI commands, kiro-cli acp](https://kiro.dev/docs/reference/cli-commands.md)).
+  - Signed out, `kiro-cli acp` (2.37 or later) offers one auth method in `initialize`. For a client without terminal auth (umwayi), that method asks the owner to run `kiro-cli login` themselves ([ACP (CLI)](https://kiro.dev/docs/cli/acp.md)).
+  - `--auth-method client` would make the client answer `_kiro/auth/getAccessToken` with tokens ([Migrate an ACP client to CLI V3](https://kiro.dev/docs/cli/v3/acp-migration.md)). umwayi must never use it.
+- **`kiro-cli whoami`** shows the user and the authentication method (Builder ID, IAM Identity Center, social), the session status and the profile, including the email. `--format json` exists ([CLI commands, kiro-cli whoami](https://kiro.dev/docs/reference/cli-commands.md)).
+  - **Not documented:** the JSON field names (the page shows only plain text examples), the exit code when signed out, whether it reports an API key login, and whether it reports the plan.
+  - The Authentication page says to "run `kiro-cli whoami`" to see which method is active.
+- **Usage:** `/usage` in a chat shows billing and credits, and in non-interactive runs prints the full breakdown ([Slash commands](https://kiro.dev/docs/reference/slash-commands.md)). The V3 ACP server can advertise `_kiro/account/getUsage` ([Migrate an ACP client to CLI V3](https://kiro.dev/docs/cli/v3/acp-migration.md)).
+  - Both run inside a Kiro session. Whether `/usage` in a headless run costs credits is not documented.
+  - umwayi does not use either in part 7c.
+- **Kiro's own environment names** ([CLI commands, Log files](https://kiro.dev/docs/reference/cli-commands.md)):
+  - `KIRO_HOME` moves the whole Kiro folder, sign-ins included. A different `KIRO_HOME` is a different login.
+  - `KIRO_RUNTIME_DIR`, `KIRO_LOG_LEVEL` and `KIRO_LOG_NO_COLOR` carry no credential.
+
+### What part 7c takes for Kiro
+
+| question | answer |
+| --- | --- |
+| what can be checked | that a browser login exists: `kiro-cli whoami` exit code, with `KIRO_API_KEY` removed so a key cannot stand in. Not the plan, not the credits, and not the method by field, because the JSON names are not documented |
+| environment names to strip | `KIRO_API_KEY` for every Kiro start (run, cli chat, ACP) and for `whoami`. `KIRO_HOME` is passed unchanged: it is the owner's choice of Kiro folder, not a credential |
+| a Kiro billing check | not needed for "who pays": by the docs every Kiro login, a key included, is paid from the subscription's credits, and nothing beyond them is spent without a purchase. Not possible for "how much": no documented way to read credits outside a session |
+| a Kiro login command | possible: `umwayi agent login NAME` for a Kiro agent runs `[KIRO, "login"]` on the owner's terminal (no flags), then the `whoami` check. Proposed in design.md part 7c |
+| unknown | the `whoami` JSON fields and exit code; whether headless runs really work without `KIRO_API_KEY` (the Conflict above); how "remote" is detected for the device flow; what an organisation's plan bills |
