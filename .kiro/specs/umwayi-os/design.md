@@ -25,7 +25,7 @@ umwayi/
   runlock.py    one run at a time: .umwayi/run.lock (fcntl.flock, never waits)
 ```
 
-Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters live outside the core package, in `adapters/`, so they, and layer 10 adapter packages, may use third party packages, pinned and listed in their README, while `umwayi/` stays standard library only. Layers 10 and 11 (planned Nov 9 to Nov 10, each built only after the owner approves its requirements, design and tasks) and the budget governor (planned Nov 15 to Nov 21) are outlined at the end of this file.
+Layers 1 to 8 are built (PRs 1 to 8, hardening in PR 9). Layer 9 adapters live outside the core package, in `adapters/`, so they, and layer 10 adapter packages, may use third party packages, pinned and listed in their README, while `umwayi/` stays standard library only. Layers 10 and 11 (planned Nov 9 to Nov 10, each built only after the owner approves its requirements, design and tasks) and the budget governor (approved Nov 9, planned Nov 17 to Nov 22, after the logbook hash chain on Nov 15) are outlined at the end of this file.
 
 Layers 2 to 8 write to the logbook through one function, `logbook.append(root, Entry)`. It takes the lock, runs the tamper check, the format check and the date check, appends, and records the new hash. No layer writes `LOGBOOK.md` any other way. The module is named `taskqueue.py`, not `queue.py`, because a file named `queue.py` inside the package would shadow the standard library `queue` when a file in the package is run directly.
 
@@ -354,7 +354,7 @@ Every `umwayi check` appends one entry:
 
 The queue and the archive call the same checked append. If it refuses, the queue change or the move is undone as before, and the error now includes the logbook's reason.
 
-### Hash chain (addendum, spec written Nov 9, waiting for owner approval)
+### Hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0)
 
 Requirements: Layer 5, "Logbook hash chain". Tasks C.1 to C.4, one day on Nov 15. Only `umwayi/logbook.py` and `umwayi/cli.py` change; nothing else writes the logbook directly.
 
@@ -418,12 +418,14 @@ The cost is linear in the file size; the logbook is small (C-Q2 for a cached new
 
 "Without an outside anchor, anyone who can write LOGBOOK.md and .umwayi/logbook.sha256 can rewrite the whole chain consistently, and verify cannot tell. Anchor weekly and before each submission: copy `umwayi logbook anchor` into the hub repository's sync log and onto the Kiro Notion page, then check with `umwayi logbook verify --anchor COUNT:HEX`. umwayi never writes to either place."
 
-#### Open questions (chain)
+#### Open questions (chain, answered Nov 9)
 
 - **C-Q1. Starting the chain on today's sealed logbook.** `umwayi logbook seal --chain --by NAME`, once (proposed), or a separate `umwayi logbook chain-start --by NAME`?
 - **C-Q2. Speed.** Recompute the chain on every append (proposed; simple and the file is small), or cache the newest value next to the whole-file hash and check it?
 - **C-Q3. Exit code of verify.** Keep Layer 5's 0 and 1 (proposed, unchanged behaviour), or move verify to 0 and 2 like the agent commands?
 - **C-Q4. The day.** Nov 15 for the chain overlaps the first day of the whole-system test and security scan (Nov 15 to 16 in the part 7c schedule). Proposed: chain on Nov 15, scan on Nov 16 only and continued in the freeze as defect finding; or move the scan to Nov 16 and the first day of the governor?
+
+Answers (owner, Nov 9): C-Q1, C-Q2 and C-Q3 as proposed. C-Q4 changed by the owner: the whole-system test and security scan run after the budget governor is complete. The chain stays on Nov 15, the governor is built Nov 17 to Nov 22, and the scan and whole-system test run Nov 23 to Nov 26, covering the adapters, layers 10 and 11, the chain and the governor (including the telemetry receiver); README, demo and Devpost text run alongside; freeze Nov 29 to Dec 2; submit Dec 3.
 
 ## Layer 6: Automation
 
@@ -1143,7 +1145,7 @@ A fake `node` (a Python script put first on PATH) answers `--version` with `v22.
 
 Effort, if approved: about 20 hours (tasks.md 10.23 to 10.31, of which 1.5 are the owner's first real run), that is about 2.5 working days, planned as 3. Layer 11 and part 7 cannot both fit Nov 9 to Nov 10. Two choices:
 
-- **A (proposed):** part 7 on Nov 9 to Nov 11; layer 11 spec and build Nov 12 to Nov 13; the whole-system test and security scan Nov 14 to Nov 16 (3 days instead of 4, and the scan must cover the npm dependencies); the budget governor Nov 17 to Nov 22 (6 days instead of 7); README, demo and Devpost Nov 23 to Nov 28; freeze and submit unchanged.
+- **A (proposed):** part 7 on Nov 9 to Nov 11; layer 11 spec and build Nov 12 to Nov 13; the whole-system test and security scan Nov 14 to Nov 16 (3 days instead of 4, and the scan must cover the npm dependencies); the budget governor Nov 17 to Nov 22 (6 days instead of 7); README, demo and Devpost Nov 23 to Nov 28; freeze and submit unchanged. (Superseded Nov 9 by the addendum: see tasks.md "Schedule to Dec 3".)
 - **B:** part 7 after Dec 3; the schedule stays as it is, and Claude Code chat stays on the terminal (part 5) for the submission.
 
 #### Open questions for the owner (part 7)
@@ -1378,7 +1380,7 @@ Facts: NOTES-layer10.md, "Kiro: login and billing".
 
 #### Schedule effect
 
-Effort, if approved: about 14 hours (tasks.md 10.33 to 10.39: 9 for the check, the environment rule, the template and the watch, 3.5 for `agent login`, 1.5 for Kiro; 0.5 of them the owner's check on the real machine, folded into 10.31). That is more than the part 7 days of Schedule A can hold next to 10.29 to 10.31. Proposed: 10.33 to 10.35 and 10.38 on Nov 10 to Nov 11 with 10.29 to 10.31; 10.39 (Kiro) and 10.36 (the in-chat watch) on Nov 12; layer 11 moves to Nov 13 to Nov 14 and the whole-system test and security scan to Nov 15 to Nov 16 (two days instead of three). If time runs short, 10.36 is the one to cut (open question 9).
+Effort, if approved: about 14 hours (tasks.md 10.33 to 10.39: 9 for the check, the environment rule, the template and the watch, 3.5 for `agent login`, 1.5 for Kiro; 0.5 of them the owner's check on the real machine, folded into 10.31). That is more than the part 7 days of Schedule A can hold next to 10.29 to 10.31. Proposed: 10.33 to 10.35 and 10.38 on Nov 10 to Nov 11 with 10.29 to 10.31; 10.39 (Kiro) and 10.36 (the in-chat watch) on Nov 12; layer 11 moves to Nov 13 to Nov 14 and the whole-system test and security scan to Nov 15 to Nov 16 (two days instead of three). If time runs short, 10.36 is the one to cut (open question 9). (Superseded Nov 9 by the addendum: see tasks.md "Schedule to Dec 3".)
 
 #### Open questions for the owner (part 7c)
 
@@ -1390,7 +1392,7 @@ Effort, if approved: about 14 hours (tasks.md 10.33 to 10.39: 9 for the check, t
 6. **The watch during an ACP chat.** Stop the chat when `_auth/status_update` says a kind other than `account` (proposed), or check only before the start?
 7. **API billing on purpose.** No way to allow it in part 7c (proposed). Later, an explicit agents.yaml key (for example `billing: api`) could come with the budget governor, so that spend is capped before API billing is allowed.
 8. **Where the check sits.** After the version check and before the hook checks (proposed: it needs the found program, and a refused login should not run the hook self-test), replacing the 7a "sign-in" step for ACP.
-9. **When to build.** The plan under "Schedule effect" (proposed): 10.33 to 10.35 and 10.38 on Nov 10 to Nov 11 with 10.29 to 10.31, then 10.39 and 10.36 on Nov 12, with layer 11 on Nov 13 to Nov 14 and the whole-system test and security scan on Nov 15 to Nov 16. That changes approved Schedule A (answer 10 of 10.22) by one day for layer 11 and one day less for the scan. Or build only 10.33 to 10.35 and 10.38 now and move 10.36 and 10.39 after Dec 3, with KNOWN-LIMITS items, keeping Schedule A unchanged?
+9. **When to build.** The plan under "Schedule effect" (proposed): 10.33 to 10.35 and 10.38 on Nov 10 to Nov 11 with 10.29 to 10.31, then 10.39 and 10.36 on Nov 12, with layer 11 on Nov 13 to Nov 14 and the whole-system test and security scan on Nov 15 to Nov 16. That changes approved Schedule A (answer 10 of 10.22) by one day for layer 11 and one day less for the scan. Or build only 10.33 to 10.35 and 10.38 now and move 10.36 and 10.39 after Dec 3, with KNOWN-LIMITS items, keeping Schedule A unchanged? (Superseded Nov 9 by the addendum: see tasks.md "Schedule to Dec 3".)
 10. **Kiro** (replaces "Kiro unchanged"; the owner wants subscription first on every platform). By the Kiro docs every Kiro login, an API key included, pays from the subscription's credits, and nothing beyond them is spent without a purchase by hand. Proposed:
     - remove `KIRO_API_KEY` from every Kiro start, so only the owner's browser login is used;
     - add a `whoami` login check by exit code only (its JSON is not documented and holds the email);
@@ -1525,7 +1527,7 @@ It still needs its own approved spec. Built only after the owner approves its re
 
 No new scheduler, file system or shell is built.
 
-## Budget governor (spec written Nov 9, waiting for owner approval; build Nov 17 to Nov 22)
+## Budget governor (approved by the owner on Nov 9, tasks.md B.0; build Nov 17 to Nov 22; tested in the whole-system test Nov 23 to Nov 26)
 
 Requirements B.R1 to B.R3. Tasks B.0 to B.10. It fails closed and logs every change like the other layers. The core stays standard library only.
 
@@ -1656,7 +1658,7 @@ Kill switch (3), rules `agent_run`, run lock (3), gate checks (2), then the new 
 - 64: units.yaml invalid.
 - Never 1.
 
-### Open questions (governor)
+### Open questions (governor, answered Nov 9: all as proposed)
 
 - **B-Q1. The ledger.** Read it from chained logbook entries only (proposed: one source of truth, already tamper evident), or keep a separate `.umwayi/ledger.jsonl` for speed?
 - **B-Q2. Unknown at the worst case.** 100 UU per unknown run, so a day allows at most 4 unknown Kiro runs under the 400 per-platform placeholder (proposed), or a lower declared `run_micros` for Kiro from the start?

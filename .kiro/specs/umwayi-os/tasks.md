@@ -18,9 +18,9 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
 | 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 to 10.31 open; part 7c approved (10.32), part 7c-1 built (10.33 to 10.35), 10.36 to 10.39 open; OpenCode and Muse Spark Open specified (10.40, 10.41), build after Dec 3 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21; part 7c spec PR 22; part 7c-1 PR 23 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, 869 after PR 23, on Python 3.10 to 3.13 |
 | 11 Linux-like features | not started, planned Nov 13 to Nov 14; still needs its own approved spec (11.0) | | |
-| Logbook hash chain (addendum) | spec written Nov 9, waiting for owner approval (C.1 to C.4); one day, Nov 15 | spec PR 24 | |
-| Whole-system test and security scan | not started, planned Nov 15 to Nov 16 (see C-Q4 for the overlap with the chain day) | | |
-| Budget governor | spec written Nov 9, waiting for owner approval (B.0); build Nov 17 to Nov 22 | spec PR 24 | |
+| Logbook hash chain (addendum) | approved Nov 9 (C.0); build one day, Nov 15 (C.1 to C.4) | spec PR 24 | |
+| Budget governor | approved Nov 9 (B.0); build Nov 17 to Nov 22 (B.1 to B.10) | spec PR 24 | |
+| Whole-system test and security scan | not started, planned Nov 23 to Nov 26, after the budget governor (C-Q4) | | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
@@ -31,10 +31,10 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | Nov 8 to Nov 9 | Layer 9 adapters (part 1 in PR 11, part 2 in PR 12) |
 | Nov 8 to Nov 12 | Layer 10 parts 1 to 7 and 7c (7c-1 built Nov 9 in PR 23; 7c-2 is 10.38 and 10.39; 7c-3 is 10.36 and 10.29 to 10.31) |
 | Nov 13 to Nov 14 | Layer 11, only after its own spec is approved (11.0) |
-| Nov 15 | Logbook hash chain (C.1 to C.4), one day, after the owner approves this addendum |
-| Nov 15 to Nov 16 | Whole-system test again (with the adapters and layers 10 and 11) and a security scan; the chain takes Nov 15 (C-Q4) |
-| Nov 17 to Nov 22 | Budget governor (B.1 to B.10), after the owner approves B.0 |
-| Nov 23 to Nov 28 | README, demo, Devpost text |
+| Nov 15 | Logbook hash chain (C.1 to C.4), one day (approved, C.0) |
+| Nov 17 to Nov 22 | Budget governor (B.1 to B.10) (approved, B.0) |
+| Nov 23 to Nov 26 | Whole-system test again and security scan (S.1, S.2), after the governor: the adapters, layers 10 and 11, the chain and the governor, including the telemetry receiver (C-Q4) |
+| Nov 23 to Nov 28 | README, demo, Devpost text, alongside the scan |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
 
@@ -188,7 +188,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
   - [x] Claude Code: `tests/adapters/test_claude_code.py` (No blocks, Ask me first asks, Yes allows, a broken rules file does not allow, a crash in the adapter or in umwayi check blocks, bad or empty stdin blocks, a timeout blocks, one logbook entry per check and logbook verify ok). Three planted faults make them fail.
   - [x] Kiro and generic: `tests/adapters/test_kiro.py` and `tests/adapters/test_stdio.py`, plus `tests/adapters/test_core_for_adapters.py` for `--kill-switch` and `--if-not-open`, and kill switch tests for Claude Code. Planted faults and 28 mutations, all caught, are listed in PR 12.
 - [ ] 9.10 Starter rules for adapter actions in the repo rules.yaml. Done so far: example rules in `adapters/claude_code/rules.example.yaml`, `adapters/kiro/rules.example.yaml` and `adapters/stdio/rules.example.yaml`; the repo rules.yaml is unchanged.
-- [ ] 9.11 Whole-system test again with the adapters (Nov 11 to Nov 14, with the security scan)
+- [ ] 9.11 Whole-system test again with the adapters (Nov 23 to Nov 26, with the security scan, S.1)
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
 ## Layer 10: Own command line and chat (all six parts built; 10.20 and 10.21 open; part 7 approved, parts 7a and 7b built; part 7c approved, 7c-1 built)
@@ -269,7 +269,7 @@ The build is split into six parts, one pull request each, each small enough to r
 ### After the parts
 
 - [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, 41 to 45 for part 4, 46 to 51 for part 5, 52 to 58 for part 6, and the README section. Left: what the first real runs show, 10.21.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
-- [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 11 to Nov 14), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
+- [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 23 to Nov 26), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
 
 ### Part 7: Claude Code over ACP (approved Nov 8 2026; part 7a built in PR 20, part 7b in PR 21; 10.29 to 10.31 open)
 
@@ -285,7 +285,7 @@ Requirement 10.R11, design.md "Part 7: Claude Code over ACP", facts in `adapters
   7. Keep `settingSources` user, project and local.
   8. Keep `command: claude`; an ACP chat uses a fixed `node` from PATH.
   9. The canary wait is 30 seconds after `session/new`.
-  10. Schedule A: part 7 Nov 9 to 11; layer 11 Nov 12 to 13; the whole-system test and security scan Nov 14 to 16; the budget governor Nov 17 to 22; README, demo and Devpost Nov 23 to 28; freeze Nov 29 to Dec 2; submit Dec 3.
+  10. Schedule A: part 7 Nov 9 to 11; layer 11 Nov 12 to 13; the whole-system test and security scan Nov 14 to 16; the budget governor Nov 17 to 22; README, demo and Devpost Nov 23 to 28; freeze Nov 29 to Dec 2; submit Dec 3. (Superseded Nov 9 by the addendum: see tasks.md "Schedule to Dec 3".)
 - [x] 10.23 (PR 20) agents.yaml and the platform table (1.5 h): `claude-code` with `transport: acp`; `permission_action` takes the platform; the pinned name and version constants. Tests: validation accepts it, still refuses `kiro_agent` and `trust_tools` for claude-code; `agent list` and `agent check` show it; the Kiro ACP action still says `kiro`, the Claude one `claude-code`.
 - [x] 10.24 (PR 20) `adapters/claude_acp/` (2 h): `package.json` with one exact dependency, `package-lock.json` made once with network access in the build pull request (`npm install --package-lock-only`), `README.md` with the owner's install command and how to update the pin, `.gitignore` for `node_modules/`, `canary.py` (standard library). Tests: the version in `package.json`, the lockfile root and `agents.CLAUDE_ACP_VERSION` are equal; no range characters; `node_modules/` is ignored and not committed; `canary.py` imports only the standard library, writes exactly one empty file with O_EXCL and refuses a token that is not 32 hex characters or a folder that is not absolute.
 - [x] 10.25 (PR 20) The gate checks (3 h), in the order of design.md: node on PATH, node at least 22, the adapter file, its `package.json`, `--version`, `--cli --version` at least 2.1.295, sign-in by exit code, the layer 9 hook and its self-test; and `child_env()`, the environment allow list. Tests with the fake node: each check failing in turn (no node, `v20.11.0`, garbage, the file missing or a link, another name, `0.100.9`, `--version` differing from `package.json`, Claude Code `2.1.294`, `auth status` exiting 1 or hanging), each exit 2 with nothing started; `agent check` prints every line; the fake records the environment names it got: only allow-listed names, never `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_EXECUTABLE`, `NODE_OPTIONS` even when set, and `CLAUDE_AGENT_ACP_PROTOCOL=v1` always; the sign-in output (with a planted secret) is never printed or logged; every argument list has no shell and no forbidden flag.
@@ -427,25 +427,37 @@ Outline only. It still needs its own approved spec: built only after the owner a
 - [ ] 11.5 Terminal sessions with tmux
 - [ ] 11.6 No new scheduler, file system or shell is built
 
-## Logbook hash chain (addendum, spec written Nov 9 2026, waiting for owner approval; one day, Nov 15)
+## Logbook hash chain (addendum, approved by the owner on Nov 9 2026; one day, Nov 15)
 
-Requirements: Layer 5, "Logbook hash chain". Design: Layer 5, "Hash chain". Open questions C-Q1 to C-Q4. Nothing below starts before the owner approves this addendum. Only `umwayi/logbook.py` and `umwayi/cli.py` change.
+Requirements: Layer 5, "Logbook hash chain". Design: Layer 5, "Hash chain". Only `umwayi/logbook.py` and `umwayi/cli.py` change.
+
+- [x] C.0 Requirements, design and these tasks written (Nov 9) in PR 24, approved by the owner on Nov 9. Answers:
+  1. C-Q1: `umwayi logbook seal --chain --by NAME`, allowed once on a logbook that is already sealed and intact (no separate `chain-start`).
+  2. C-Q2: recompute the chain on every append (no cache).
+  3. C-Q3: verify keeps exit codes 0 and 1.
+  4. C-Q4 (changed by the owner): the whole-system test and security scan run after the budget governor is complete, Nov 23 to Nov 26; the chain stays Nov 15 and the governor Nov 17 to Nov 22.
 
 - [ ] C.1 The Chain line (2 h): `chain(prev, text)`, the five-field entry, the genesis from the file prefix, `render()` and `parse()` for four or five fields, the start of the chain through `umwayi logbook seal` (and `--chain` once on a sealed logbook, C-Q1). Tests: the first chained entry's previous value is the prefix hash; old entries untouched byte for byte; the seal entry is chained.
 - [ ] C.2 The checked append and `check_writable` (2 h): walk the chain under the lock after the whole-file hash; refuse a broken chain or a missing Chain line after the start; an agent start and a running agent stop with exit 2 through the existing checks. Tests: a planted edit in an old chained entry, the newest entry, a deleted entry, a reordered pair, a truncated tail, each refuses every append and every `agent run` and `agent chat` start (exit 2, nothing started); the kill switch still works.
 - [ ] C.3 `verify` and `anchor` (2 h): the first broken entry by number and line, never its text or Chain values; `umwayi logbook anchor` prints `COUNT:HEX`, refuses a broken logbook; `verify --anchor` finds a shorter or different chain, and a consistently rewritten whole chain (with its hash record) passes plain verify but fails against the anchor. Tests: every message; a planted secret in an entry never in any output; a malformed anchor is 64.
 - [ ] C.4 Docs, planted faults and mutation checks (1 h): KNOWN-LIMITS (without an outside anchor a writer can rewrite the whole chain; anchor weekly and before each submission in the hub repo sync log and the Kiro Notion page), README; planted faults (the previous value not used; the Chain line not checked on append; verify printing the line); mutation checks (the genesis taken from the whole file instead of the prefix, the anchor count not compared, the anchor value not compared, a missing Chain line accepted); counts in the pull request.
 
-## Whole-system test and security scan (not started, planned Nov 15 to Nov 16)
+## Whole-system test and security scan (not started, planned Nov 23 to Nov 26, after the budget governor is complete)
 
-- [ ] S.1 Whole-system test again, with the adapters and layers 10 and 11 (includes 9.11)
-- [ ] S.2 Security scan of the code and the dependencies of any adapter package
+- [ ] S.1 Whole-system test again, with the adapters, layers 10 and 11, the logbook hash chain and the budget governor including the telemetry receiver (includes 9.11 and 10.21)
+- [ ] S.2 Security scan of the code and the dependencies of any adapter package, and of the telemetry receiver (loopback binding only, the run header, the size caps)
 
-## Budget governor (spec written Nov 9 2026, waiting for owner approval; build Nov 17 to Nov 22)
+## Budget governor (approved by the owner on Nov 9 2026; build Nov 17 to Nov 22)
 
 Requirements B.R1 to B.R3, design.md "Budget governor" (with the dated doc facts), open questions B-Q1 to B-Q6. It needs the logbook hash chain (C.1 to C.4) first, because settled readings are chained entries. Every test runs `python -m umwayi ...` as a real child process with a fake telemetry sender; no real Claude Code, no network, no key.
 
-- [ ] B.0 Requirements B.R1 to B.R3, the design section and these tasks written (Nov 9) in PR 24, **waiting for owner approval**, with the open questions B-Q1 to B-Q6 answered.
+- [x] B.0 Requirements B.R1 to B.R3, the design section and these tasks written (Nov 9) in PR 24, approved by the owner on Nov 9, with B-Q1 to B-Q6 all as proposed:
+  1. B-Q1: the ledger is read from chained logbook entries only (no `.umwayi/ledger.jsonl`).
+  2. B-Q2: an unknown run counts at 100 UU, the worst case, including Kiro, until a rate is declared.
+  3. B-Q3: `calibrate` only proposes; the owner edits `units.yaml`, and the change is logged (no `--apply`).
+  4. B-Q4: a reservation without a settle stays counted in full until `umwayi budget settle-lost --by NAME`.
+  5. B-Q5: forged telemetry reports are accepted as a known limit, written in KNOWN-LIMITS.
+  6. B-Q6: the cap and the receiver also cover the terminal (cli) chat.
 - [ ] B.1 `umwayi/units.py` and `units.yaml` (3 h): the schema (platforms, models, rates with value, date and source, limits in UU), validation with line numbers (64), whole micros, `uu(micros) = ceil(micros / 10000)` only when checked or shown. Tests: every bad value with its line; floats refused; a rate without a date or source refused; a future date refused; a missing file is all unknown under the placeholders.
 - [ ] B.2 Readings and tags (2 h): `usd_micros` measured, `tokens` times rates per model and type, `credits` times a rate, `runs` times a flat value, each declared; unknown at `unknown_worst_case`, never zero; an unknown model or type is unknown. Tests: each kind, rounding up, an unknown model, a zero reading measured as zero but a missing one never zero.
 - [ ] B.3 The ledger in the logbook (3 h): the reserve, settle and change entries in their fixed shapes, chained; `budget.py` reads them back; a malformed `umwayi budget` entry is a logbook problem; a reservation without a settle counts in full (B-Q4). Tests: parse round trip; a hand-edited budget entry breaks the chain and stops starts.

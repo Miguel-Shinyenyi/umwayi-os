@@ -2,7 +2,7 @@
 
 umwayi-os is an AI operating system for one person and their AI helpers. It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change.
 
-It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is planned for Nov 8 to Nov 9. Layers 10 and 11 are planned for Nov 9 to Nov 10; each is built only after the owner approves its requirements, design and tasks. The budget governor is planned for Nov 15 to Nov 21. The schedule to Dec 3 is in tasks.md.
+It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is planned for Nov 8 to Nov 9. Layers 10 and 11 are planned for Nov 9 to Nov 10; each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 15, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. The schedule to Dec 3 is in tasks.md.
 
 ## Glossary
 
@@ -107,14 +107,14 @@ Acceptance criteria:
 8. `umwayi check` appends one entry per check with the rule id and answer. It never writes the action JSON, only its type if that is a short plain string. If the entry cannot be written, a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. `--no-log` skips the entry for a dry run and says nothing was logged.
 9. A lock file stops two appends from interleaving. A held lock gives a clear message.
 
-### Logbook hash chain (addendum, spec written Nov 9, waiting for owner approval; tasks C.1 to C.4)
+### Logbook hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0; build Nov 15, tasks C.1 to C.4)
 
 User story: as the owner, I want each logbook entry tied to the one before it, so an edit anywhere in the record is found and named, and so I can prove later what the logbook held on a given day.
 
 Acceptance criteria:
 
 1. **A Chain line on every new entry.** After the chain is started, every new entry ends with a fifth field `- Chain: HEX`, where HEX is the lowercase SHA-256 of the previous Chain value, one newline, and the entry text (from its `## DATE` heading through its `- Not done:` line, each line ending in a newline; the Chain line itself excluded).
-2. **The start of the chain.** The first chained entry uses, as its previous value, the SHA-256 of the whole file at seal time, that is, of the exact bytes of `LOGBOOK.md` before that entry was appended. It is the entry written by `umwayi logbook seal` (design open question C-Q1 for a logbook that is already sealed). Nothing starts the chain on its own.
+2. **The start of the chain.** The first chained entry uses, as its previous value, the SHA-256 of the whole file at seal time, that is, of the exact bytes of `LOGBOOK.md` before that entry was appended. It is the entry written by `umwayi logbook seal`; on a logbook that is already sealed and intact, `umwayi logbook seal --chain --by NAME`, allowed once (approved answer C-Q1). Nothing starts the chain on its own.
 3. **Old entries stay unchained.** Entries before the first chained entry keep their four fields and are not rewritten. After the first chained entry, an entry without a Chain line is a verify problem and an append refusal.
 4. **The whole-file hash stays.** `.umwayi/logbook.sha256` and its checks (Layer 5, items 4 and 5) stay as they are. The chain is an extra check, not a replacement.
 5. **Verify names the first broken entry.** `umwayi logbook verify` recomputes the chain and reports the first entry whose Chain value does not match, by its entry number and line number, never by its text. It never prints a logbook line, a Chain value of a broken entry, or the field values. Exit codes stay as in Layer 5 item 6.
@@ -171,7 +171,7 @@ Acceptance criteria:
 
 ## Layer 9: Adapters
 
-Status: built. Part 1 (the notes, the shared code, the Claude Code adapter) in PR 11; part 2 (the Kiro adapter, the generic stdin and stdout adapter, the kill switch in all adapters) in PR 12. Planned for Nov 8 to Nov 9. Open: starter rules in the repo rules.yaml, and the whole-system test with the adapters (Nov 11 to Nov 14).
+Status: built. Part 1 (the notes, the shared code, the Claude Code adapter) in PR 11; part 2 (the Kiro adapter, the generic stdin and stdout adapter, the kill switch in all adapters) in PR 12. Planned for Nov 8 to Nov 9. Open: starter rules in the repo rules.yaml, and the whole-system test with the adapters (Nov 23 to Nov 26).
 
 User story: as the owner, I want the AI platforms I already use to ask umwayi before they act, so the same rules, queue and logbook cover them, and a broken adapter never lets an action through.
 
@@ -195,7 +195,7 @@ Acceptance criteria:
 
 ## Layer 10: Own command line and chat
 
-Status: approved by the owner on Nov 8 (tasks.md 10.0), with every open question answered as proposed. Parts 1 and 2 are built in PR 14: 10.R2 (agents.yaml), 10.R1.3 to 10.R1.5 (`list`, `check`, `validate`), 10.R5.1 and 10.R5.7 (argument lists), 10.R6 (gate checks). Part 3 is built in PR 15: `umwayi agent run` for Claude Code (10.R1.1, 10.R3, 10.R4, 10.R5.2, 10.R5.8, 10.R5.9, 10.R8 for run). Part 4 is built in PR 16: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2 before every Kiro start). Part 5 is built in PR 17: `umwayi agent chat` with transport cli for Claude Code and Kiro (10.R1.2, 10.R5.3, 10.R5.5, 10.R7.1). Part 6 is built in PR 18: ACP chat for Kiro (10.R5.6, 10.R7.2 to 10.R7.7), in `umwayi/acp.py`. All six parts of layer 10 are built. Still open: the KNOWN-LIMITS items that first real runs may settle (10.20) and the whole-system test with a real run of each platform (10.21, Nov 11 to Nov 14). Part 7, Claude Code over ACP (10.R11), was approved by the owner on Nov 8 (tasks.md 10.22), with every open question answered as proposed. Part 7a is built in PR 20: 10.R11.1 (agents.yaml), 10.R11.6 (the gate checks, in `umwayi agent check`), 10.R11.7 (`adapters/claude_acp/`), 10.R11.8 (sign-in by exit code) and 10.R11.9 (the environment allow list). Part 7b is built in PR 21: the chat itself, 10.R11.2 to 10.R11.5 (the start steps, the inline settings and the canary, refused with exit 2 when the canary is not seen), 10.R11.10 (session/new with `_meta` and session/set_mode `default`) and 10.R11.11 (the stop of the process group and every seen descendant). Still open: 10.29 to 10.31 (the whole chat end to end with the fake, the planted faults of part 7, and the owner's first real run). Part 7c (10.R12, subscription first) was approved on Nov 9 (tasks.md 10.32); part 7c-1 is built in PR 23: the login check for every Claude Code start (10.R12.2 to 10.R12.5, 10.R12.11), the credential names removed for `agent run` and the cli chat (10.R12.6) and `forceLoginMethod` (10.R12.7). Still open: 10.R12.8 (the ACP watch), 10.R12.9 (`agent login`) and 10.R12.13 (Kiro). What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
+Status: approved by the owner on Nov 8 (tasks.md 10.0), with every open question answered as proposed. Parts 1 and 2 are built in PR 14: 10.R2 (agents.yaml), 10.R1.3 to 10.R1.5 (`list`, `check`, `validate`), 10.R5.1 and 10.R5.7 (argument lists), 10.R6 (gate checks). Part 3 is built in PR 15: `umwayi agent run` for Claude Code (10.R1.1, 10.R3, 10.R4, 10.R5.2, 10.R5.8, 10.R5.9, 10.R8 for run). Part 4 is built in PR 16: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2 before every Kiro start). Part 5 is built in PR 17: `umwayi agent chat` with transport cli for Claude Code and Kiro (10.R1.2, 10.R5.3, 10.R5.5, 10.R7.1). Part 6 is built in PR 18: ACP chat for Kiro (10.R5.6, 10.R7.2 to 10.R7.7), in `umwayi/acp.py`. All six parts of layer 10 are built. Still open: the KNOWN-LIMITS items that first real runs may settle (10.20) and the whole-system test with a real run of each platform (10.21, Nov 23 to Nov 26). Part 7, Claude Code over ACP (10.R11), was approved by the owner on Nov 8 (tasks.md 10.22), with every open question answered as proposed. Part 7a is built in PR 20: 10.R11.1 (agents.yaml), 10.R11.6 (the gate checks, in `umwayi agent check`), 10.R11.7 (`adapters/claude_acp/`), 10.R11.8 (sign-in by exit code) and 10.R11.9 (the environment allow list). Part 7b is built in PR 21: the chat itself, 10.R11.2 to 10.R11.5 (the start steps, the inline settings and the canary, refused with exit 2 when the canary is not seen), 10.R11.10 (session/new with `_meta` and session/set_mode `default`) and 10.R11.11 (the stop of the process group and every seen descendant). Still open: 10.29 to 10.31 (the whole chat end to end with the fake, the planted faults of part 7, and the owner's first real run). Part 7c (10.R12, subscription first) was approved on Nov 9 (tasks.md 10.32); part 7c-1 is built in PR 23: the login check for every Claude Code start (10.R12.2 to 10.R12.5, 10.R12.11), the credential names removed for `agent run` and the cli chat (10.R12.6) and `forceLoginMethod` (10.R12.7). Still open: 10.R12.8 (the ACP watch), 10.R12.9 (`agent login`) and 10.R12.13 (Kiro). What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
 
 User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them, and an agent umwayi cannot put a gate in front of is never started.
 
@@ -445,7 +445,7 @@ Acceptance criteria:
 - Any ACP agent or platform other than Kiro and, once part 7 is approved and built, Claude Code through the pinned `claude-agent-acp` adapter (10.R11): Codex, Gemini CLI and others are refused as not gated.
 - Kiro or Claude Code cloud sessions, background sessions, resuming or listing sessions, MCP configuration, model or effort choice.
 - More than one agent at a time, and agents talking to each other.
-- Spend limits (budget governor, Nov 15 to 21) and sandboxing (layer 11).
+- Spend limits (budget governor, Nov 17 to 22) and sandboxing (layer 11).
 - Windows and macOS.
 - Changing any `.claude` or `.kiro` file.
 
@@ -463,7 +463,7 @@ Outline:
 
 ## Budget governor
 
-Status: spec written Nov 9, waiting for owner approval (tasks.md B.0). Planned build Nov 17 to Nov 22. Built only after the owner approves it. It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used. Doc facts with links: design.md "Budget governor", section "Facts".
+Status: approved by the owner on Nov 9 (tasks.md B.0), with open questions B-Q1 to B-Q6 answered as proposed. Planned build Nov 17 to Nov 22, after the logbook hash chain (Nov 15). The whole-system test and security scan on Nov 23 to Nov 26 cover it, including the telemetry receiver. It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used. Doc facts with links: design.md "Budget governor", section "Facts".
 
 User story: as the owner, I want one unit for what every agent run costs, measured where it can be and declared or assumed at the worst case where it cannot, with limits per run and per day that stop a run before it starts or while it runs, so a runaway agent cannot spend without my knowing.
 
@@ -480,10 +480,10 @@ User story: as the owner, I want one unit for what every agent run costs, measur
 5. **Rates carry a date and a source** (a URL or "owner"). A rate or limit with no date or source is a validation problem (exit 64, with its line number). Any change to a rate or a limit is one logbook entry, written before the new value is first used. If that entry cannot be written, nothing starts (exit 2).
 6. **Reserve, settle, release.** Before an agent starts, the per-run cap is reserved against every limit it counts toward. After the run, the reading is settled and the rest of the reservation is released. If the reservation does not fit, the agent is not started.
 7. **Limits in UU** (placeholders until calibrated): per run 100, per day 500, per agent per day 300, per platform per day 400, unknown worst case 100. A day is the logbook date.
-8. **Calibration,** only after at least 20 measured runs over at least 7 days: per run becomes 1.5 times the 95th percentile of measured runs, per day 2 times the median measured day. Each proposed change is shown with the data it came from, and each applied change is one logbook entry with that data (design open question B-Q3: who applies it).
+8. **Calibration,** only after at least 20 measured runs over at least 7 days: per run becomes 1.5 times the 95th percentile of measured runs, per day 2 times the median measured day. Each proposed change is shown with the data it came from, and each applied change is one logbook entry with that data (approved answer B-Q3: `calibrate` only proposes; the owner edits `units.yaml`, and that change is logged).
 9. **Reaching a limit gives exit 3.** Before a start: the reservation does not fit. During a run: the measured cost passes the per-run cap; the agent is stopped as for the timeout (10.R4, 10.R11.11). The kill switch (exit 3) and a logbook failure (exit 2) are checked first and still win.
 10. **`umwayi budget status`** shows, for today and for each limit: used, reserved and left in UU, and the share of used that was measured, declared and unknown. It starts nothing and writes nothing.
-11. **Settled readings are chained logbook entries** (the Logbook hash chain addendum). The ledger is read from those entries; there is no second ledger file to drift from the logbook (design open question B-Q1).
+11. **Settled readings are chained logbook entries** (the Logbook hash chain addendum). The ledger is read from those entries; there is no second ledger file to drift from the logbook (approved answer B-Q1).
 12. **A new action type `budget_check`** in the rules: `{"type": "budget_check", "agent": NAME, "platform": P, "reserve_uu": N, "left_today_uu": M}`, asked once per start after the reservation fits. Yes goes on; No gives exit 2; Ask me first gives exit 3 and one queue item `Spend up to N UU on agent NAME?`, once.
 
 ### B.R2 Telemetry for Claude Code (tasks B.6 and B.7)
