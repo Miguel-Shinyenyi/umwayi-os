@@ -107,6 +107,22 @@ Acceptance criteria:
 8. `umwayi check` appends one entry per check with the rule id and answer. It never writes the action JSON, only its type if that is a short plain string. If the entry cannot be written, a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. `--no-log` skips the entry for a dry run and says nothing was logged.
 9. A lock file stops two appends from interleaving. A held lock gives a clear message.
 
+### Logbook hash chain (addendum, spec written Nov 9, waiting for owner approval; tasks C.1 to C.4)
+
+User story: as the owner, I want each logbook entry tied to the one before it, so an edit anywhere in the record is found and named, and so I can prove later what the logbook held on a given day.
+
+Acceptance criteria:
+
+1. **A Chain line on every new entry.** After the chain is started, every new entry ends with a fifth field `- Chain: HEX`, where HEX is the lowercase SHA-256 of the previous Chain value, one newline, and the entry text (from its `## DATE` heading through its `- Not done:` line, each line ending in a newline; the Chain line itself excluded).
+2. **The start of the chain.** The first chained entry uses, as its previous value, the SHA-256 of the whole file at seal time, that is, of the exact bytes of `LOGBOOK.md` before that entry was appended. It is the entry written by `umwayi logbook seal` (design open question C-Q1 for a logbook that is already sealed). Nothing starts the chain on its own.
+3. **Old entries stay unchained.** Entries before the first chained entry keep their four fields and are not rewritten. After the first chained entry, an entry without a Chain line is a verify problem and an append refusal.
+4. **The whole-file hash stays.** `.umwayi/logbook.sha256` and its checks (Layer 5, items 4 and 5) stay as they are. The chain is an extra check, not a replacement.
+5. **Verify names the first broken entry.** `umwayi logbook verify` recomputes the chain and reports the first entry whose Chain value does not match, by its entry number and line number, never by its text. It never prints a logbook line, a Chain value of a broken entry, or the field values. Exit codes stay as in Layer 5 item 6.
+6. **An outside anchor.** `umwayi logbook anchor` prints the newest Chain value and the number of chained entries, and changes nothing. `umwayi logbook verify --anchor VALUE` also fails when the chain is shorter than the anchored point, or when the Chain value at that point differs from VALUE (so a rewritten or truncated chain is found against a copy kept elsewhere). An anchor is `COUNT:HEX`.
+7. **A broken chain stops everything that writes.** While the chain does not verify, every append is refused and every agent start is refused with exit 2 and one clear message on stderr (the logbook cannot be written, so nothing is logged). The kill switch still works. The checks of Layer 5 run first; the chain check is part of the same checked append and of `logbook.check_writable`.
+8. **Said plainly in KNOWN-LIMITS:** without an outside anchor, anyone who can write the files can rewrite the whole chain and the hash record together, and verify cannot tell. The owner anchors weekly and before each submission, in two places: the sync log of the hub repository, and the Kiro Notion page. umwayi prints the anchor; it never writes to either place.
+9. **Tests,** as for every layer: real child processes; a planted edit in an old entry, in the newest entry, a deleted entry, a reordered pair, a truncated tail, a missing Chain line after the start, a Chain line on an old entry, a whole chain rewritten consistently (found only with `--anchor`), a wrong anchor, a shorter chain than the anchor; no logbook text in any output; planted faults and mutation checks with the counts in the pull request.
+
 ## Layer 6: Automation
 
 User story: as the owner, I want the layers to run on a schedule, so routine work happens without me.
@@ -435,7 +451,7 @@ Acceptance criteria:
 
 ## Layer 11: Linux-like features (outline)
 
-Status: not started. Planned for Nov 9 to Nov 10. Built only after the owner approves its requirements, design and tasks.
+Status: not started. Planned for Nov 13 to Nov 14. It still needs its own approved spec: built only after the owner approves its requirements, design and tasks.
 
 User story: as the owner, I want umwayi-os to schedule, watch, limit and remember like an operating system, using the tools Linux already has.
 
@@ -445,16 +461,63 @@ Outline:
 - Reuse cron or systemd timers, inotify, SQLite, tmux, Unix permissions, and bubblewrap or containers.
 - Do not build a new scheduler, file system or shell.
 
-## Budget governor (outline)
+## Budget governor
 
-Status: not started. Planned for Nov 15 to Nov 21. The owner decided to build it before Dec 3. Built only after the owner approves its requirements, design and tasks.
+Status: spec written Nov 9, waiting for owner approval (tasks.md B.0). Planned build Nov 17 to Nov 22. Built only after the owner approves it. It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used. Doc facts with links: design.md "Budget governor", section "Facts".
 
-Outline:
+User story: as the owner, I want one unit for what every agent run costs, measured where it can be and declared or assumed at the worst case where it cannot, with limits per run and per day that stop a run before it starts or while it runs, so a runaway agent cannot spend without my knowing.
 
-- A limit on how much the AI helpers may use, so a runaway run is stopped. What is counted and what the limits are is decided in its requirements.
-- It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used.
+### B.R1 One unit (tasks B.1 to B.5)
+
+1. **The unit UU is one US cent of estimated list price.** On a subscription, nothing is billed per token: UU then measures what the same use would cost at list price, so limits mean the same on every platform.
+2. **The ledger stores whole micros of a dollar** (integers, never floats). UU = micros / 10000, rounded up, computed only when a limit is checked or a value is shown.
+3. **`units.yaml`** in the root says how each platform's reading becomes micros. A reading is one of:
+   - `usd_micros`: micros reported by the agent itself (Claude Code telemetry, B.R2);
+   - `tokens`: tokens by type times a declared rate per model, in micros per million tokens;
+   - `credits`: credits times a declared rate in micros per credit;
+   - `runs`: one run times a declared flat value in micros.
+4. **Every reading is tagged** `measured` (from the agent's own report), `declared` (from rates in `units.yaml`) or `unknown`. An unknown reading counts at the worst case value (`limits.unknown_worst_case`), never zero.
+5. **Rates carry a date and a source** (a URL or "owner"). A rate or limit with no date or source is a validation problem (exit 64, with its line number). Any change to a rate or a limit is one logbook entry, written before the new value is first used. If that entry cannot be written, nothing starts (exit 2).
+6. **Reserve, settle, release.** Before an agent starts, the per-run cap is reserved against every limit it counts toward. After the run, the reading is settled and the rest of the reservation is released. If the reservation does not fit, the agent is not started.
+7. **Limits in UU** (placeholders until calibrated): per run 100, per day 500, per agent per day 300, per platform per day 400, unknown worst case 100. A day is the logbook date.
+8. **Calibration,** only after at least 20 measured runs over at least 7 days: per run becomes 1.5 times the 95th percentile of measured runs, per day 2 times the median measured day. Each proposed change is shown with the data it came from, and each applied change is one logbook entry with that data (design open question B-Q3: who applies it).
+9. **Reaching a limit gives exit 3.** Before a start: the reservation does not fit. During a run: the measured cost passes the per-run cap; the agent is stopped as for the timeout (10.R4, 10.R11.11). The kill switch (exit 3) and a logbook failure (exit 2) are checked first and still win.
+10. **`umwayi budget status`** shows, for today and for each limit: used, reserved and left in UU, and the share of used that was measured, declared and unknown. It starts nothing and writes nothing.
+11. **Settled readings are chained logbook entries** (the Logbook hash chain addendum). The ledger is read from those entries; there is no second ledger file to drift from the logbook (design open question B-Q1).
+12. **A new action type `budget_check`** in the rules: `{"type": "budget_check", "agent": NAME, "platform": P, "reserve_uu": N, "left_today_uu": M}`, asked once per start after the reservation fits. Yes goes on; No gives exit 2; Ask me first gives exit 3 and one queue item `Spend up to N UU on agent NAME?`, once.
+
+### B.R2 Telemetry for Claude Code (tasks B.6 and B.7)
+
+1. **A receiver for one run.** For every Claude Code start (`agent run`, the cli chat and the ACP chat), umwayi runs a standard library `http.server` receiver on 127.0.0.1, on a random free port, for that run only, and stops it when the run ends.
+2. **The agent's environment gets, set by umwayi:**
+   - `CLAUDE_CODE_ENABLE_TELEMETRY=1`, `OTEL_METRICS_EXPORTER=otlp`, `OTEL_LOGS_EXPORTER=otlp`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`;
+   - `OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:PORT`;
+   - `OTEL_EXPORTER_OTLP_HEADERS=x-umwayi-run=SECRET` (a fresh `secrets.token_hex(16)` per run);
+   - `OTEL_METRIC_EXPORT_INTERVAL=5000` and `OTEL_LOGS_EXPORT_INTERVAL=5000`;
+   - `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta`;
+   - `OTEL_LOG_USER_PROMPTS=0`, `OTEL_LOG_ASSISTANT_RESPONSES=0`, `OTEL_LOG_TOOL_DETAILS=0`, `OTEL_LOG_RAW_API_BODIES=0`, `OTEL_TRACES_EXPORTER=none`.
+   
+   These names are added to the ACP allowed environment (`CHILD_ENV_SET`, 10.R11.9) and to the run and cli chat environment, with their tests. Every other `OTEL_*` name the owner set, `BETA_TRACING_ENDPOINT` and `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA` are removed, so no export goes elsewhere.
+3. **What the receiver accepts:** only `POST /v1/metrics` and `POST /v1/logs`, from a loopback address, with the exact run header, `Content-Type: application/json`, a `Content-Length`, and a body of at most 1 MB (16 MB per run in all). Anything else is answered 401, 404, 411 or 413 and not read. The secret is compared in constant time.
+4. **Counts only.** It reads `claude_code.cost.usage`, `claude_code.token.usage` (by `type`: input, output, cacheRead, cacheCreation) and the `claude_code.api_request` event (`cost_usd_micros`, `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens`, `model`). Nothing else is read, kept or logged; a body is dropped as soon as it is parsed. `OTEL_LOG_USER_PROMPTS` stays off.
+5. **One logbook entry per run:** run id, models, tokens by type, cost in micros (and UU), request count, and the tag. A run with no report is `unknown`, never zero, and counts at the worst case.
+6. **`cost_usd` is an estimate** (the Claude Code docs say so). On a subscription it is the list price estimate the unit is defined by, not a bill.
+
+### B.R3 Status, the rules and tests (tasks B.8 to B.10)
+
+1. **B.8:** `umwayi budget status`, the `budget_check` action type, and its place in the start steps: kill switch, rules (`agent_run`), run lock, gate checks, the reservation (limits, then `budget_check`), the start entry, the start.
+2. **B.9 tests**, as for every layer, with real child processes and a fake telemetry sender:
+   - missing telemetry (unknown, worst case);
+   - huge numbers (a value above 10^12 micros, negative, a float, or a string is invalid and settles the full reservation);
+   - a wrong or missing header, a non-loopback peer, an oversize body, too many bodies;
+   - a rate change (one entry before use; refused when it cannot be logged);
+   - a limit hit before the start (exit 3, nothing started) and in the middle of a run (stopped, exit 3, settled);
+   - the kill switch and a logbook failure winning over the budget;
+   - no prompt or response text in any output.
+3. **B.10:** capture one real Claude Code export by the owner and record its field names only (never values) in NOTES; the receiver's parser is checked against it.
 
 ## Non goals for Dec 3
 
 - Finance and marketing loops
 - Web interface
+- Shared rule packs (after Dec 3)

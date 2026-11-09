@@ -354,6 +354,77 @@ Every `umwayi check` appends one entry:
 
 The queue and the archive call the same checked append. If it refuses, the queue change or the move is undone as before, and the error now includes the logbook's reason.
 
+### Hash chain (addendum, spec written Nov 9, waiting for owner approval)
+
+Requirements: Layer 5, "Logbook hash chain". Tasks C.1 to C.4, one day on Nov 15. Only `umwayi/logbook.py` and `umwayi/cli.py` change; nothing else writes the logbook directly.
+
+#### Format
+
+```
+## 2026-11-15
+
+- Source: umwayi queue add
+- Added: Q-0042 (task) as open: Write the README
+- Checked: ...
+- Not done: ...
+- Chain: 3f1c...e9 (64 lowercase hex)
+```
+
+- An entry has four fields (unchained, only before the first chained entry) or five fields, Chain last.
+- `chain(prev, text) = sha256((prev + "\n" + text).encode("utf-8")).hexdigest()`, where `text` is the entry's lines from `## DATE` through `- Not done: ...`, each followed by `\n`. The blank lines between entries are not part of `text`; the whole-file hash still covers them.
+- **Genesis:** the previous value of the first chained entry is `sha256` of the file bytes before that entry. The verifier recomputes it from that prefix, so nothing extra is stored. The seal entry already prints that same hash in its Added text ("its SHA-256 before this entry was ..."), which makes it visible to a reader too.
+- `render()` adds the Chain line; `parse()` accepts four or five fields and records where chaining starts.
+
+#### Starting the chain
+
+- **An unsealed logbook:** `umwayi logbook seal --by NAME` writes the seal entry as the first chained entry, as it does today plus the Chain line.
+- **A logbook that is already sealed and intact** (every logbook today): seal refuses it now ("already sealed and intact"). Proposed (C-Q1): `umwayi logbook seal --chain --by NAME` is allowed exactly once on such a logbook, writes a seal entry "the hash chain was started" as the first chained entry, and is refused when a chain already exists.
+- Until the owner runs it, appends stay unchained, and `verify` says "the hash chain is not started".
+
+#### Checked append and check_writable
+
+Under the existing lock and after the whole-file hash check:
+
+1. parse once;
+2. walk the chain from its start and keep the newest Chain value;
+3. refuse with "LOGBOOK.md: the hash chain is broken at entry N (line L). Nothing was written." if any value differs, or if an entry after the start has no Chain line;
+4. append the new entry with `chain(newest, text)`;
+5. record the whole-file hash as today.
+
+The cost is linear in the file size; the logbook is small (C-Q2 for a cached newest value).
+
+#### verify
+
+- Prints one problem per finding with the entry number and line number. A broken chain prints only the first broken entry, because every later value follows from it.
+- Never prints a logbook line, a field value, or the expected or found Chain value of a broken entry.
+- New messages:
+  - `the hash chain is not started`: information, not a problem;
+  - `entry N (line L): the Chain value does not match`;
+  - `entry N (line L): the entry has no Chain line but comes after the start of the chain`;
+  - `entry N (line L): an entry before the start of the chain has a Chain line`.
+- `--anchor COUNT:HEX`: a problem when the chain has fewer than COUNT chained entries ("the chain is shorter than the anchor"), or when the Chain value of entry COUNT differs ("the chain differs from the anchor at entry COUNT"). A malformed anchor is a usage error (64).
+- Exit codes stay as in Layer 5.
+
+#### anchor
+
+- `umwayi logbook anchor` prints `COUNT:HEX` (the number of chained entries and the newest Chain value) and one line saying where to keep it: the hub repo sync log and the Kiro Notion page, weekly and before each submission.
+- It refuses (exit 2) when the logbook does not verify, so a broken chain is never anchored. It writes nothing.
+
+#### Agent starts
+
+`logbook.check_writable` is already called before every agent start and every second while an agent runs (10.R3, 10.R4), so a broken chain stops a start with exit 2 and stops a running agent with exit 2 through the existing watcher, with no new code in agents.py.
+
+#### KNOWN-LIMITS (written with C.4)
+
+"Without an outside anchor, anyone who can write LOGBOOK.md and .umwayi/logbook.sha256 can rewrite the whole chain consistently, and verify cannot tell. Anchor weekly and before each submission: copy `umwayi logbook anchor` into the hub repository's sync log and onto the Kiro Notion page, then check with `umwayi logbook verify --anchor COUNT:HEX`. umwayi never writes to either place."
+
+#### Open questions (chain)
+
+- **C-Q1. Starting the chain on today's sealed logbook.** `umwayi logbook seal --chain --by NAME`, once (proposed), or a separate `umwayi logbook chain-start --by NAME`?
+- **C-Q2. Speed.** Recompute the chain on every append (proposed; simple and the file is small), or cache the newest value next to the whole-file hash and check it?
+- **C-Q3. Exit code of verify.** Keep Layer 5's 0 and 1 (proposed, unchanged behaviour), or move verify to 0 and 2 like the agent commands?
+- **C-Q4. The day.** Nov 15 for the chain overlaps the first day of the whole-system test and security scan (Nov 15 to 16 in the part 7c schedule). Proposed: chain on Nov 15, scan on Nov 16 only and continued in the freeze as defect finding; or move the scan to Nov 16 and the first day of the governor?
+
 ## Layer 6: Automation
 
 Nothing in umwayi installs a schedule. A cron line (or any scheduler the owner picks) calls `umwayi run`. Exit codes for all layer 6 commands: 0 done, 1 refused or failed (nothing changed), 2 No, 3 Ask me first, 64 usage error.
@@ -1440,9 +1511,9 @@ The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, releas
 | the licence file was read only through summaries | a duty is missed | the owner reads `LICENSE.md` (MS4) |
 
 
-## Layer 11: Linux-like features (outline, planned Nov 9 to Nov 10)
+## Layer 11: Linux-like features (outline, planned Nov 13 to Nov 14)
 
-Built only after the owner approves its requirements, design and tasks. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
+It still needs its own approved spec. Built only after the owner approves its requirements, design and tasks. Each feature reuses a tool Linux already has. umwayi only writes the configuration and keeps the rules, queue and logbook in front of it.
 
 | feature | reuse | what umwayi adds |
 | --- | --- | --- |
@@ -1454,9 +1525,156 @@ Built only after the owner approves its requirements, design and tasks. Each fea
 
 No new scheduler, file system or shell is built.
 
-## Budget governor (outline, planned Nov 15 to Nov 21)
+## Budget governor (spec written Nov 9, waiting for owner approval; build Nov 17 to Nov 22)
 
-The owner decided to build it before Dec 3. Built only after the owner approves its requirements, design and tasks. The design is written then; nothing about it is decided here except that it fails closed and logs every change like the other layers.
+Requirements B.R1 to B.R3. Tasks B.0 to B.10. It fails closed and logs every change like the other layers. The core stays standard library only.
+
+### Facts (read Nov 9 2026)
+
+From [Claude Code, Monitoring](https://code.claude.com/docs/en/monitoring-usage):
+- **Telemetry is on** with `CLAUDE_CODE_ENABLE_TELEMETRY=1`, and is exported with `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER` set to `otlp`.
+- **`OTEL_EXPORTER_OTLP_PROTOCOL`** has no default and accepts `grpc`, `http/json` or `http/protobuf`. For the HTTP protocols each request carries a `Content-Length`.
+- **Intervals:** `OTEL_METRIC_EXPORT_INTERVAL` defaults to 60000 ms; `OTEL_LOGS_EXPORT_INTERVAL` defaults to 5000 ms. `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` defaults to `delta`.
+- **Endpoints and headers:** `OTEL_EXPORTER_OTLP_HEADERS` takes `name=value` headers. Per-signal endpoint and protocol variables override the generic ones, and per-signal headers merge with them.
+- **Metrics:** `claude_code.cost.usage` (USD) and `claude_code.token.usage` (tokens), with a `type` attribute of `input`, `output`, `cacheRead` or `cacheCreation`, and `model`.
+- **The `claude_code.api_request` event** (`event.name` `api_request`) carries `model`, `cost_usd` ("Estimated cost in USD"), `cost_usd_micros` ("Estimated cost in millionths of a US dollar, emitted as an integer"), `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens`, `duration_ms` and `request_id`.
+- **"Cost metrics are approximations."**
+- **Content gates:** `OTEL_LOG_USER_PROMPTS` is off by default. `OTEL_LOG_ASSISTANT_RESPONSES` falls back to `OTEL_LOG_USER_PROMPTS` when unset. `OTEL_LOG_TOOL_DETAILS` and `OTEL_LOG_RAW_API_BODIES` add tool arguments and whole request bodies. Traces need `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA` and `OTEL_TRACES_EXPORTER`.
+- **Managed settings can lock the OTLP destination** and then remove developer-set telemetry variables. On such a machine umwayi's receiver gets nothing, which is the unknown case.
+
+Not confirmed until B.10: the exact OTLP JSON nesting Claude Code emits (`resourceMetrics` and `resourceLogs`, attribute value shapes), and whether metrics arrive before a short run exits.
+
+### Files
+
+```
+units.yaml               the owner's rates and limits (validated like agents.yaml, line numbers, exit 64)
+umwayi/units.py          units.yaml, micros and UU, readings and tags
+umwayi/budget.py         reserve, settle, release, limits, status; reads the ledger from the logbook
+umwayi/telemetry.py      the one-run OTLP/HTTP JSON receiver (http.server, threading)
+umwayi/agents.py         the reservation step, the telemetry environment, the mid-run check, settle on every way out
+umwayi/cli.py            umwayi budget status, umwayi budget calibrate
+```
+
+### units.yaml
+
+```yaml
+version: 1
+platforms:
+  claude-code:
+    reading: usd_micros            # measured, from telemetry
+    fallback: tokens               # if events carry tokens but no cost
+  kiro:
+    reading: runs
+    run_micros: {value: 400000, date: 2026-11-09, source: owner}
+models:                            # micros per million tokens, by type
+  claude-sonnet-5:
+    input:          {value: 3000000,  date: 2026-11-09, source: https://...}
+    output:         {value: 15000000, date: 2026-11-09, source: https://...}
+    cache_read:     {value: 300000,   date: 2026-11-09, source: https://...}
+    cache_creation: {value: 3750000,  date: 2026-11-09, source: https://...}
+limits:                            # UU
+  per_run: 100
+  per_day: 500
+  per_agent_per_day: 300
+  per_platform_per_day: 400
+  unknown_worst_case: 100
+```
+
+- Whole numbers only, no floats; values from 0 to 10^12.
+- Every rate has `value`, `date` (a real date, not in the future) and `source` (an https URL or `owner`).
+- An unknown platform, model or type is a reading of `unknown`, not an error at run time.
+- A missing `units.yaml` means every reading is unknown, under the placeholder limits.
+
+**Change detection:** the settle entry of every run records the SHA-256 of `units.yaml`. Before a reservation, if the file's hash differs from the newest recorded one, umwayi first writes one entry "units.yaml changed", listing each rate or limit that changed with its old value, new value, date and source (names and numbers only). If that entry cannot be written, nothing starts (exit 2).
+
+### The ledger in the logbook
+
+Three entry kinds, source `umwayi budget`, each one line per field, chained:
+
+| entry | Added (fixed format) |
+| --- | --- |
+| reserve | `Reserved run R for agent A (P): 1000000 micros (100 UU)` |
+| settle | `Settled run R for agent A (P): measured 123456 micros (13 UU); models m1, m2; tokens input I, output O, cache_read CR, cache_creation CC; requests N; released 876544 micros` |
+| change | `units.yaml changed: limits.per_day 500 to 600; ...` |
+
+- Model names are kept only when they match `[A-Za-z0-9._:/-]{1,64}`, otherwise `other`.
+- The run id is `secrets.token_hex(8)`.
+- `budget.py` parses only entries with source `umwayi budget` and these fixed shapes. Anything else with that source is a logbook problem, refused like a broken chain.
+- A reservation with no settle (umwayi was SIGKILLed) counts as fully settled at the reserved amount, tagged `unknown`, until the owner runs `umwayi budget settle-lost --by NAME` (B-Q4).
+
+### Start steps
+
+Kill switch (3), rules `agent_run`, run lock (3), gate checks (2), then the new steps, then the start entry and the start:
+
+1. **Logbook writable and chain intact** (2): `check_writable`, as today.
+2. **units.yaml** valid (64), with any change logged first (2 if it cannot be).
+3. **The reservation:** used + reserved today + per_run must fit per_day, per_agent_per_day and per_platform_per_day. Otherwise exit 3, one entry "Refused agent A: the budget limit LIMIT has N UU left, a run needs M UU", and nothing is started.
+4. **`budget_check`** in the rules (Yes on; No 2; Ask me first 3 and one queue item, once).
+5. **The reserve entry,** then the start entry, then the start.
+
+### Telemetry (Claude Code only)
+
+- `telemetry.Receiver(secret, caps)` is a `ThreadingHTTPServer(("127.0.0.1", 0), Handler)` in a daemon thread, started before the agent and stopped after the stop of the agent (on every way out, in the same `ExitStack` as the canary folder).
+- **The handler checks, in order:**
+  - the peer is loopback;
+  - the path is one of the two;
+  - `x-umwayi-run` equals the secret (`hmac.compare_digest`);
+  - `Content-Length` is present and at most 1 MB;
+  - the run total is at most 16 MB;
+  - the content type is JSON.
+  
+  Only then does it read the body, `json.loads` it, walk only the named paths and fold the numbers into a `Totals` object (integers; `cost_usd_micros` summed; requests counted by event). It answers 200 with `{}` and drops the body.
+- Rejections are counted by reason, never logged with content.
+- **Numbers:** an integer from 0 to 10^12, or for `claude_code.cost.usage` a non-negative finite double converted to micros rounded up. Anything else marks the run `invalid`, which settles the full reservation.
+- **Which source counts:**
+  - the `api_request` events (integers) are the measured reading;
+  - if no event arrived but `claude_code.cost.usage` did, the metric is the reading (still measured);
+  - if only token counts arrived, the declared rates of `units.yaml` give a declared reading;
+  - nothing at all is unknown, at the worst case.
+- **Environment:**
+  - `claude_env()` removes the owner's `OTEL_*`, `BETA_TRACING_ENDPOINT` and `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA`, then adds `TELEMETRY_ENV(port, secret)`;
+  - `child_env()` adds the same set for ACP;
+  - the names go into `CHILD_ENV_SET`'s tests and the 10.R11.9 allow-list tests.
+- **During the run:** the watcher (`_tick`) also checks `Totals.micros_so_far`. Above the per-run cap, it stops the agent like the timeout, exit 3: "Agent A was stopped: it passed its budget of 100 UU for one run".
+- **After the run:** a 6 s grace (more than one export interval) for the last export before the receiver stops, then the settle entry. Any way out settles: normal end, refusal after the reservation, the kill switch, the timeout, SIGTERM, a crash.
+
+### Other platforms
+
+- Kiro, and OpenCode later, have no telemetry umwayi reads. Their reading is whatever `units.yaml` declares (`runs`, or `credits` when the owner can enter a count), otherwise unknown at the worst case.
+- `budget status` shows the share that was unknown, so the owner sees how much of the number is a guess.
+
+### status and calibrate
+
+- **`umwayi budget status [--date D]`:** one line per limit, `used U UU, reserved R UU, left L UU`, then `measured X%, declared Y%, unknown Z%` of used. It reads only. Exit 0, or 2 when the logbook or units.yaml cannot be read.
+- **`umwayi budget calibrate`:** prints, when at least 20 measured runs over at least 7 days exist, the proposed `per_run = ceil(1.5 * p95)` and `per_day = ceil(2 * median day)`, with the run count, the days and the percentile values. It changes nothing (B-Q3). Fewer runs: it says how many more are needed.
+
+### Exit codes
+
+- 0: done.
+- 2: logbook or chain broken, units.yaml change not loggable, rules No, invalid telemetry stop.
+- 3: a limit (before or during), Ask me first, the kill switch, the run lock.
+- 64: units.yaml invalid.
+- Never 1.
+
+### Open questions (governor)
+
+- **B-Q1. The ledger.** Read it from chained logbook entries only (proposed: one source of truth, already tamper evident), or keep a separate `.umwayi/ledger.jsonl` for speed?
+- **B-Q2. Unknown at the worst case.** 100 UU per unknown run, so a day allows at most 4 unknown Kiro runs under the 400 per-platform placeholder (proposed), or a lower declared `run_micros` for Kiro from the start?
+- **B-Q3. Who applies a calibration.** `calibrate` only proposes and the owner edits `units.yaml`, whose change is then logged (proposed), or `calibrate --apply --by NAME`?
+- **B-Q4. A lost settle.** A reservation without a settle (SIGKILL) stays counted at the full reservation until `umwayi budget settle-lost --by NAME` (proposed), or it is released after a day?
+- **B-Q5. Forged reports.** The run secret is in the agent's environment, so a tool call could send its own report. A report only adds to the total, but a forged small report could turn an unknown run into a measured cheap one. Accept and say so in KNOWN-LIMITS (proposed), or treat a run with any report from an unexpected `service.name` as invalid?
+- **B-Q6. A cli chat.** The cap and the receiver also cover the terminal chat (proposed), where a long chat can reach the cap and be stopped mid-conversation; or only `agent run` and the ACP chat?
+
+### Risks (governor)
+
+| risk | what happens | what we do |
+| --- | --- | --- |
+| managed settings pin the OTLP destination | no report reaches umwayi | unknown at the worst case; status shows the share |
+| the export interval loses the last report | a short run looks unknown or low | 6 s grace; unknown is never zero; B.10 checks it |
+| `cost_usd` is an estimate | UU differs from a real bill | the unit is defined as estimated list price; said in status and KNOWN-LIMITS |
+| placeholder limits are wrong | needless refusals or too much room | calibration after 20 runs and 7 days |
+| the agent forges a report | an unknown run looks measured | B-Q5; KNOWN-LIMITS |
+| the logbook grows with three entries per run | slower appends | linear and small; C-Q2 |
 
 ## Testing
 

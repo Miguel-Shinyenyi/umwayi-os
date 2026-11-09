@@ -17,9 +17,10 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
 | 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 to 10.31 open; part 7c approved (10.32), part 7c-1 built (10.33 to 10.35), 10.36 to 10.39 open; OpenCode and Muse Spark Open specified (10.40, 10.41), build after Dec 3 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21; part 7c spec PR 22; part 7c-1 PR 23 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, 869 after PR 23, on Python 3.10 to 3.13 |
-| 11 Linux-like features | not started, planned Nov 9 to Nov 10, after the owner approves requirements, design and tasks | | |
-| Whole-system test and security scan | not started, planned Nov 11 to Nov 14 | | |
-| Budget governor | not started, planned Nov 15 to Nov 21 (owner decided yes) | | |
+| 11 Linux-like features | not started, planned Nov 13 to Nov 14; still needs its own approved spec (11.0) | | |
+| Logbook hash chain (addendum) | spec written Nov 9, waiting for owner approval (C.1 to C.4); one day, Nov 15 | spec PR 24 | |
+| Whole-system test and security scan | not started, planned Nov 15 to Nov 16 (see C-Q4 for the overlap with the chain day) | | |
+| Budget governor | spec written Nov 9, waiting for owner approval (B.0); build Nov 17 to Nov 22 | spec PR 24 | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
@@ -28,10 +29,12 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | dates | work |
 | --- | --- |
 | Nov 8 to Nov 9 | Layer 9 adapters (part 1 in PR 11, part 2 in PR 12) |
-| Nov 9 to Nov 10 | Layers 10 and 11. Each is built only after the owner approves its requirements, design and tasks. Layer 10 spec approved Nov 8; parts 1 and 2 built Nov 8 (PR 14) |
-| Nov 11 to Nov 14 | Whole-system test again (with the adapters and layers 10 and 11) and a security scan |
-| Nov 15 to Nov 21 | Budget governor (the owner decided to build it before Dec 3), after the owner approves its requirements, design and tasks |
-| Nov 22 to Nov 28 | README, demo, Devpost text |
+| Nov 8 to Nov 12 | Layer 10 parts 1 to 7 and 7c (7c-1 built Nov 9 in PR 23; 7c-2 is 10.38 and 10.39; 7c-3 is 10.36 and 10.29 to 10.31) |
+| Nov 13 to Nov 14 | Layer 11, only after its own spec is approved (11.0) |
+| Nov 15 | Logbook hash chain (C.1 to C.4), one day, after the owner approves this addendum |
+| Nov 15 to Nov 16 | Whole-system test again (with the adapters and layers 10 and 11) and a security scan; the chain takes Nov 15 (C-Q4) |
+| Nov 17 to Nov 22 | Budget governor (B.1 to B.10), after the owner approves B.0 |
+| Nov 23 to Nov 28 | README, demo, Devpost text |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
 
@@ -411,9 +414,9 @@ design.md "OpenCode as a platform" and "Muse Spark Open as a platform"; facts in
   - the "Built with Muse Spark Open" notice after the owner has read `LICENSE.md`;
   - whether Muse Code becomes its own platform (MS3).
 
-## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
+## Layer 11: Linux-like features (not started, planned Nov 13 to Nov 14)
 
-Outline only. Built only after the owner approves its requirements, design and tasks.
+Outline only. It still needs its own approved spec: built only after the owner approves its requirements, design and tasks (11.0).
 
 - [ ] 11.0 Requirements, design and tasks written and approved by the owner
 
@@ -424,17 +427,36 @@ Outline only. Built only after the owner approves its requirements, design and t
 - [ ] 11.5 Terminal sessions with tmux
 - [ ] 11.6 No new scheduler, file system or shell is built
 
-## Whole-system test and security scan (not started, planned Nov 11 to Nov 14)
+## Logbook hash chain (addendum, spec written Nov 9 2026, waiting for owner approval; one day, Nov 15)
+
+Requirements: Layer 5, "Logbook hash chain". Design: Layer 5, "Hash chain". Open questions C-Q1 to C-Q4. Nothing below starts before the owner approves this addendum. Only `umwayi/logbook.py` and `umwayi/cli.py` change.
+
+- [ ] C.1 The Chain line (2 h): `chain(prev, text)`, the five-field entry, the genesis from the file prefix, `render()` and `parse()` for four or five fields, the start of the chain through `umwayi logbook seal` (and `--chain` once on a sealed logbook, C-Q1). Tests: the first chained entry's previous value is the prefix hash; old entries untouched byte for byte; the seal entry is chained.
+- [ ] C.2 The checked append and `check_writable` (2 h): walk the chain under the lock after the whole-file hash; refuse a broken chain or a missing Chain line after the start; an agent start and a running agent stop with exit 2 through the existing checks. Tests: a planted edit in an old chained entry, the newest entry, a deleted entry, a reordered pair, a truncated tail, each refuses every append and every `agent run` and `agent chat` start (exit 2, nothing started); the kill switch still works.
+- [ ] C.3 `verify` and `anchor` (2 h): the first broken entry by number and line, never its text or Chain values; `umwayi logbook anchor` prints `COUNT:HEX`, refuses a broken logbook; `verify --anchor` finds a shorter or different chain, and a consistently rewritten whole chain (with its hash record) passes plain verify but fails against the anchor. Tests: every message; a planted secret in an entry never in any output; a malformed anchor is 64.
+- [ ] C.4 Docs, planted faults and mutation checks (1 h): KNOWN-LIMITS (without an outside anchor a writer can rewrite the whole chain; anchor weekly and before each submission in the hub repo sync log and the Kiro Notion page), README; planted faults (the previous value not used; the Chain line not checked on append; verify printing the line); mutation checks (the genesis taken from the whole file instead of the prefix, the anchor count not compared, the anchor value not compared, a missing Chain line accepted); counts in the pull request.
+
+## Whole-system test and security scan (not started, planned Nov 15 to Nov 16)
 
 - [ ] S.1 Whole-system test again, with the adapters and layers 10 and 11 (includes 9.11)
 - [ ] S.2 Security scan of the code and the dependencies of any adapter package
 
-## Budget governor (not started, planned Nov 15 to Nov 21)
+## Budget governor (spec written Nov 9 2026, waiting for owner approval; build Nov 17 to Nov 22)
 
-The owner decided to build it before Dec 3. Built only after the owner approves its requirements, design and tasks.
+Requirements B.R1 to B.R3, design.md "Budget governor" (with the dated doc facts), open questions B-Q1 to B-Q6. It needs the logbook hash chain (C.1 to C.4) first, because settled readings are chained entries. Every test runs `python -m umwayi ...` as a real child process with a fake telemetry sender; no real Claude Code, no network, no key.
 
-- [ ] B.0 Requirements, design and tasks written and approved by the owner
+- [ ] B.0 Requirements B.R1 to B.R3, the design section and these tasks written (Nov 9) in PR 24, **waiting for owner approval**, with the open questions B-Q1 to B-Q6 answered.
+- [ ] B.1 `umwayi/units.py` and `units.yaml` (3 h): the schema (platforms, models, rates with value, date and source, limits in UU), validation with line numbers (64), whole micros, `uu(micros) = ceil(micros / 10000)` only when checked or shown. Tests: every bad value with its line; floats refused; a rate without a date or source refused; a future date refused; a missing file is all unknown under the placeholders.
+- [ ] B.2 Readings and tags (2 h): `usd_micros` measured, `tokens` times rates per model and type, `credits` times a rate, `runs` times a flat value, each declared; unknown at `unknown_worst_case`, never zero; an unknown model or type is unknown. Tests: each kind, rounding up, an unknown model, a zero reading measured as zero but a missing one never zero.
+- [ ] B.3 The ledger in the logbook (3 h): the reserve, settle and change entries in their fixed shapes, chained; `budget.py` reads them back; a malformed `umwayi budget` entry is a logbook problem; a reservation without a settle counts in full (B-Q4). Tests: parse round trip; a hand-edited budget entry breaks the chain and stops starts.
+- [ ] B.4 Reserve, settle, release and the limits (4 h): the reservation against per run, per day, per agent per day and per platform per day; no start when it does not fit (exit 3, one entry, nothing started); settle on every way out (normal end, refusal after the reservation, kill switch, timeout, SIGTERM, crash); release the rest; an overrun is settled as measured. Tests: each limit refusing in turn; the kill switch and a logbook failure winning; settle after every way out.
+- [ ] B.5 Rate changes and calibration (2 h): the `units.yaml` change entry before first use (2 when it cannot be logged); `umwayi budget calibrate` proposes per run 1.5 times p95 and per day 2 times the median day after at least 20 measured runs over 7 days, with its data (B-Q3). Tests: a rate change logged once; 19 runs or 6 days give no proposal; the proposal numbers on a fixed data set.
+- [ ] B.6 The telemetry receiver (3 h): `umwayi/telemetry.py`, `ThreadingHTTPServer` on 127.0.0.1 port 0 for one run; loopback only, the two paths, the run header compared in constant time, `Content-Length` required, 1 MB per body, 16 MB per run, JSON only; counts only from `claude_code.cost.usage`, `claude_code.token.usage` and `claude_code.api_request`; the body dropped after parsing; numbers from 0 to 10^12 or the run is invalid. Tests with a fake sender: each rejection answered and counted, never read; huge, negative, float and string numbers; a body with prompt text never kept or printed.
+- [ ] B.7 The telemetry environment and the run entry (3 h): `TELEMETRY_ENV` (`CLAUDE_CODE_ENABLE_TELEMETRY=1`, `OTEL_METRICS_EXPORTER=otlp`, `OTEL_LOGS_EXPORTER=otlp`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`, the local endpoint, the run header, 5000 ms intervals, delta temporality, `OTEL_LOG_USER_PROMPTS=0`, `OTEL_LOG_ASSISTANT_RESPONSES=0`, `OTEL_LOG_TOOL_DETAILS=0`, `OTEL_LOG_RAW_API_BODIES=0`, `OTEL_TRACES_EXPORTER=none`) for `agent run`, the cli chat and the ACP chat; every other `OTEL_*`, `BETA_TRACING_ENDPOINT` and `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA` removed; the names added to `CHILD_ENV_SET` and to the 10.R11.9 and 10.R12.6 environment tests; the mid-run cap check in the watcher (stop, exit 3); the 6 s grace; one settle entry per run (run id, models, tokens by type, micros and UU, requests, tag); no report is unknown. Tests: the fake `claude` and fake ACP agent send scripted exports; the agent gets exactly these names; an owner `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` never reaches it.
+- [ ] B.8 `budget_check` and `umwayi budget status` (2 h): the action type in the rules after the reservation fits (Yes, No 2, Ask me first 3 with one queue item, once); its place in the start steps; `status` with used, reserved and left per limit and the measured, declared and unknown shares. Tests: Yes, No and Ask; status on a fixed ledger; status writes nothing.
+- [ ] B.9 The governor tests listed in B.R3.2, end to end (3 h): missing telemetry, huge numbers, a wrong header, an oversize body, a rate change, a limit hit before the start and in the middle of a run; planted faults (unknown counted as zero; the reservation skipped; the header not checked; the per-run cap not checked mid run) and mutation checks; counts in the pull request.
+- [ ] B.10 One real export (0.5 h, the owner's): run one short Claude Code `agent run` with the receiver in a capture mode that writes field names and shapes only (never values) to a scratch file; record them in NOTES-layer10.md with the date; adjust the parser if they differ from the docs.
 
 ## Non goals for Dec 3
 
-Finance and marketing loops, web interface.
+Finance and marketing loops, web interface, shared rule packs (after Dec 3).
