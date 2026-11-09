@@ -58,11 +58,11 @@ REMOVE_ASK_RECOMMENDATION = "Remove it if this schedule should no longer run. Ad
 LINGER_LINE = ("Timers run only while you are logged in, unless you enable lingering yourself (loginctl enable-linger); "
                "umwayi never does.")
 
-_NAME = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
-_AT = re.compile(r"^([01][0-9]|2[0-3]):([0-5][0-9])$")
-_SAFE_PATH = re.compile(r"^/[A-Za-z0-9/._+-]*$")
+_NAME = re.compile(r"[a-z][a-z0-9-]{0,31}")  # always fullmatch: "$" would let a final newline through
+_AT = re.compile(r"([01][0-9]|2[0-3]):([0-5][0-9])")
+_SAFE_PATH = re.compile(r"/[A-Za-z0-9/._+-]*")
 _PLAIN_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,39}$")
-_UNIT = re.compile(r"^umwayi-([0-9a-f]{8})-([a-z][a-z0-9-]{0,31})\.(service|timer)$")
+_UNIT = re.compile(r"umwayi-([0-9a-f]{8})-([a-z][a-z0-9-]{0,31})\.(service|timer)")
 
 
 @dataclass(frozen=True)
@@ -226,7 +226,7 @@ def check_text(text: str, root: Path) -> tuple:
             continue
         found = len(problems)
         name = item.get("name")
-        if not isinstance(name, str) or not _NAME.match(name):
+        if not isinstance(name, str) or not _NAME.fullmatch(name):
             problem("name must be a lowercase letter, then lowercase letters, digits and '-' (up to 32)", *here, "name")
             name = None
         elif name in seen:
@@ -250,7 +250,7 @@ def check_text(text: str, root: Path) -> tuple:
             problem("every must be daily, weekly or monthly", *here, "every")
             every = None
         at = item.get("at")
-        if "at" in item and not (isinstance(at, str) and _AT.match(at)):
+        if "at" in item and not (isinstance(at, str) and _AT.fullmatch(at)):
             problem("at must be a local time HH:MM from 00:00 to 23:59, written in quotes", *here, "at")
             at = None
         day = item.get("day")
@@ -267,7 +267,7 @@ def check_text(text: str, root: Path) -> tuple:
             why = _jobs_file_problem(jobs_file, root_real)
             if why:
                 problem(why, *here, "jobs_file")
-            elif not (isinstance(target, str) and jobs._NAME.match(target)):
+            elif not (isinstance(target, str) and jobs._NAME.fullmatch(target)):
                 problem("job must be a job name from the jobs file", *here, "job")
             else:
                 try:
@@ -309,7 +309,7 @@ def path_problems(paths: Paths) -> list:
 
 
 def _safe_path(value: str) -> bool:
-    if not isinstance(value, str) or len(value) > MAX_PATH or not _SAFE_PATH.match(value):
+    if not isinstance(value, str) or len(value) > MAX_PATH or not _SAFE_PATH.fullmatch(value):
         return False
     return not any(part in (".", "..") for part in value.split("/")[1:])
 
@@ -333,7 +333,7 @@ def load(root: Path, given: str | None = None) -> tuple:
 
 
 def find(entries: list, name: str) -> Entry:
-    if not isinstance(name, str) or not _NAME.match(name):
+    if not isinstance(name, str) or not _NAME.fullmatch(name):
         raise UsageError("schedule: the name must be a lowercase letter, then lowercase letters, digits and '-' "
                          "(up to 32)")
     for e in entries:
@@ -427,9 +427,12 @@ def render(paths: Paths, entry: Entry) -> tuple:
 def cron_line(paths: Paths, entry: Entry) -> str:
     """The equivalent crontab line, printed only (L11-Q2). umwayi never installs a crontab."""
     hh, mm = entry.at.split(":")
-    fields = {"daily": f"{int(mm)} {int(hh)} * * *",
-              "weekly": f"{int(mm)} {int(hh)} * * {WEEKDAYS.index(entry.day) + 1 if entry.day else 0}",
-              "monthly": f"{int(mm)} {int(hh)} {entry.day} * *"}[entry.every]
+    if entry.every == "daily":
+        fields = f"{int(mm)} {int(hh)} * * *"
+    elif entry.every == "weekly":
+        fields = f"{int(mm)} {int(hh)} * * {WEEKDAYS.index(entry.day) + 1}"
+    else:
+        fields = f"{int(mm)} {int(hh)} {entry.day} * *"
     return (f"# umwayi schedule {entry.name}: the same run as the timer {unit_base(paths, entry)}.timer. "
             "umwayi never installs a crontab.\n"
             f"{fields} /usr/bin/env PYTHONPATH={paths.src} {_command(paths, entry)}\n")
@@ -551,7 +554,7 @@ def check(root, name: str | None = None, given: str | None = None) -> Result:
         names = {e.name for e in entries}
         rid = root_id(paths.root)
         for f in sorted(os.listdir(folder)):
-            m = _UNIT.match(f)
+            m = _UNIT.fullmatch(f)
             if m and m.group(1) == rid and m.group(2) not in names:
                 lines.append(f"left over: {f} (no entry in the schedule file)")
                 good = False

@@ -32,6 +32,12 @@ if fault:
                 raise KeyboardInterrupt
             if effect == "hang":
                 time.sleep(30)
+            if effect == "error_after":  # the first UMWAYI_FAULT_AFTER calls work, every later one is a known error
+                count = getattr(patched, "calls", 0) + 1
+                patched.calls = count
+                if count > int(os.environ.get("UMWAYI_FAULT_AFTER", "0")):
+                    from umwayi.errors import UmwayiError
+                    raise UmwayiError("planted: this write fails")
             if effect == "pause":  # a short, then the real call: holds a logbook write between two of its steps
                 time.sleep(float(os.environ.get("UMWAYI_FAULT_PAUSE", "1")))
             return real(*a, **k)
