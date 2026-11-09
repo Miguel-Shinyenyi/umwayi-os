@@ -442,3 +442,241 @@ Read on Nov 9 2026, for the owner's request that subscription comes first on eve
 | a Kiro billing check | not needed for "who pays": by the docs every Kiro login, a key included, is paid from the subscription's credits, and nothing beyond them is spent without a purchase. Not possible for "how much": no documented way to read credits outside a session |
 | a Kiro login command | possible: `umwayi agent login NAME` for a Kiro agent runs `[KIRO, "login"]` on the owner's terminal (no flags), then the `whoami` check. Proposed in design.md part 7c |
 | unknown | the `whoami` JSON fields and exit code; whether headless runs really work without `KIRO_API_KEY` (the Conflict above); how "remote" is detected for the device flow; what an organisation's plan bills |
+
+## Muse Spark Open as a platform (spec only, read Nov 9 2026)
+
+Read on Nov 9 2026 for the owner's request: include Meta's Muse Spark Open as another platform, subscription or free first, pay-as-you-go only later. Nothing was installed, signed in or run. Facts are in my own words. **From a secondary source** marks a page that is not Meta's, a provider's or a harness's own. Prices are as seen on the day and change without notice.
+
+### The model
+
+- **Muse Spark Open** is Meta Superintelligence Labs' open-weight model, released Oct 15 2026: a mixture-of-experts transformer with 816B total and 42B active parameters, 256 experts with 8 routed per token, 62 layers, a 1M-token context, text, image, video and audio in, and text out ([Meta Research, Introducing Muse Spark Open](https://research.meta.ai/blog/muse-spark-open); [model card copy at unsloth/Muse-Spark-Open-816B-A42B-GGUF](https://huggingface.co/unsloth/Muse-Spark-Open-816B-A42B-GGUF)).
+  - It shares the base model with the closed Muse Spark 1.3 ([PyTorch blog, Oct 15 2026](https://pytorch.org/blog/muse-spark-open/)).
+  - Recommended settings: temperature 1.0, top_p 1.0, top_k off, and reasoning effort `low`, `medium`, `high` or `xhigh` (the default is `xhigh`; any other value is an error) (model card).
+- **Not on Meta's own API:** Meta's model list says Muse Spark Open has no Model API endpoint. You self-host it or call a hosted provider ([dev.meta.ai, Models](https://dev.meta.ai/docs/models)).
+- **Official weights:**
+  - BF16 is about 1.5 to 1.65 TB, and NVFP4 about 530 GB. The card asks for at least 700 GB of VRAM for NVFP4 and 2 TB for BF16.
+  - Meta shows NVFP4 on two 512 GB M5 Ultra Mac Studios with MLX.
+  - The official weights repo `meta-models/Muse-Spark-Open-816B-A42B` is gated: fetching it gave HTTP 401 on Nov 9.
+  - Community GGUF builds go down to about 176 GB (1-bit) and about 300 GB (2-bit) ([musesparkopen.app](https://musesparkopen.app/), from a secondary source; [Digital Applied, Oct 16 2026](https://www.digitalapplied.com/blog/meta-muse-spark-open-open-weights-licence-hardware), from a secondary source).
+
+### The licence, for the owner's use
+
+- **Read only through secondary summaries:** the licence file sits behind the Hugging Face gate, so I could not fetch `LICENSE.md` myself. The owner must read it.
+- **What the summaries say** (Meta Research's own post only calls it the Muse Model License, "with limited commercial terms, which allow many developers to use the model for free" ([Meta Research](https://research.meta.ai/blog/muse-spark-open))):
+  - **Attribution:** any product that uses the model or a Derivative must prominently show "Built with Muse Spark Open", in the UI, the docs, the website or the settings.
+  - **Derivatives** include models trained or distilled on its outputs.
+  - **Model as a Service:** a provider of AI models as a service whose group revenue exceeds $20 million in any 12 months must notify Meta and sign a separate agreement first. Internal use, research, and powering features of your own product are exempt.
+  - **Usage Policy:** it excludes, among other things, critical infrastructure and weapons uses, and the model is not intended for anyone under 18.
+  - Sources: [dev.to summary citing sections 2 and 3, Oct 2026](https://dev.to/clydaralab/muse-spark-open-what-metas-open-weight-license-actually-lets-you-do-5dib), [Digital Applied](https://www.digitalapplied.com/blog/meta-muse-spark-open-open-weights-licence-hardware) and [ibl.ai](https://ibl.ai/blog/meta-muse-spark-open-weight-licence-self-host-reality), all from a secondary source.
+- **For umwayi-os** (a solo owner's tool, far below $20M, not selling model access), the summaries put it in the exempt case. One duty remains: the attribution line in the README or docs once umwayi-os ships an adapter that uses the model.
+- **This is not legal advice.** The owner reads the licence.
+
+### Routes that cost nothing or use a subscription
+
+| route | what it costs | runs Muse Spark Open itself? | source |
+| --- | --- | --- | --- |
+| **Muse Code subscription** (Meta) | flat monthly plans: Everyday, High, Power and Maximum Usage. They cover Muse Spark, Muse Wonder and Muse Image, are Contributor mode by default (more usage in exchange for Meta training on your content), and work only through the Muse Code CLI signed in with the Meta account | **No.** The plans list Muse Spark (closed 1.x), not Spark Open. Muse Code's default model is `muse-spark-1.2` | [Subscriptions](https://dev.meta.ai/docs/muse-code/subscriptions), [Configuration](https://dev.meta.ai/docs/muse-code/configuration) |
+| **Meta Model API** pay-as-you-go | Muse Spark $1.25 / $4.25 per 1M tokens in and out; Contributor variants $0.10 / $0.20 | No (Spark Open has no endpoint) | [Pricing and rate limits](https://dev.meta.ai/docs/pricing-rate-limits) |
+| **Meta AI / Meta Muse app** (consumer) | free tier, plus paid plans reported at $20 and $100 a month (from a secondary source) | No: a consumer app, not something umwayi can start | [c-sharpcorner, from a secondary source](https://www.c-sharpcorner.com/article/meta-muse-metas-ai-agent-app-and-models) |
+| **OpenRouter** | the providers listed for `meta/muse-spark-open` (Fireworks, Makora, Modal, Together, Nebius, Baseten) all show $1.25 / $4.25 per 1M. A search result on Nov 9 showed a `meta/muse-spark-open:free` page with a price of zero and rate limits, but that page **returned 404** when I fetched it the same day. Free models are capped at 20 requests a minute and 50 a day, or 1,000 a day after $10 of credits were ever bought. Credits are prepaid, and a call without enough credit fails with 402 | Yes, paid. Free: **not confirmed** | [OpenRouter model page](https://openrouter.ai/meta/muse-spark-open), [OpenRouter limits (help centre)](https://openrouter.zendesk.com/hc/en-us/articles/39501163636379-OpenRouter-Rate-Limits-What-You-Need-to-Know), [API errors](https://openrouter.ai/docs/api/reference/limits) |
+| **Groq** | "limited preview" on GroqCloud, access by request, 131,072-token context, text and image in. No price or free tier stated for this model | Yes, preview | [Groq blog, Oct 15 2026](https://groq.com/blog/meta-s-muse-spark-open-release-is-now-in-limited-preview-on-groqcloud) |
+| **Together AI** | $1.25 / $4.25 per 1M; no free tier stated for this model | Yes, paid | [Together model page](https://www.together.ai/models/muse-spark-open) |
+| **Hugging Face Inference Providers** | Free users get no monthly credits. PRO (a subscription) gets $2 a month of compute credits, then pay-as-you-go after a credit purchase. Whether HF routes Muse Spark Open to a provider was not checked | Not confirmed | [HF Inference Providers pricing](https://huggingface.co/docs/inference-providers/pricing) |
+| **Vercel AI Gateway** (not asked; found) | $5 of credits every 30 days for accounts that never paid (search snippet, not opened) | Listed | [Vercel AI Gateway model page](https://vercel.com/ai-gateway/models/muse-spark-open) |
+| **Local** (llama.cpp, vLLM, SGLang, MLX) | no money per token, but hardware: about 300 GB of memory for a 2-bit build, 700 GB of VRAM for NVFP4, or two 512 GB Mac Studios | Yes | [Meta Research](https://research.meta.ai/blog/muse-spark-open), [dev.meta.ai Run inference](https://dev.meta.ai/docs/muse-spark-open/deploy), [musesparkopen.app](https://musesparkopen.app/) (from a secondary source) |
+
+- **The one subscription route** (Muse Code) does not run Muse Spark Open. It runs the closed Muse Spark that shares its base model.
+- **No free hosted route for Spark Open was confirmed** on Nov 9.
+- **The truly free route is local**, and only for an owner with roughly 300 GB or more of memory.
+- **Muse Glimmer 30B**, Meta's smaller open model distilled from Muse Spark under Apache 2.0, is the local option for ordinary hardware ([dev.meta.ai, Models](https://dev.meta.ai/docs/models)). It is a different model.
+
+### Harnesses that could start it as an umwayi agent
+
+**1. Muse Code (`muse`)**, Meta's terminal coding agent ([Muse Code overview](https://dev.meta.ai/docs/muse-code)).
+- **Login and billing** ([Authentication and billing](https://dev.meta.ai/docs/muse-code/auth)):
+  - A browser sign-in or an API key. **`META_API_KEY` outranks everything**: env key first, then a stored key (`muse auth set`), and only then the browser session.
+  - The subscription applies only to the Muse Code key connected during onboarding, and any other key is billed pay-as-you-go ([Subscriptions](https://dev.meta.ai/docs/muse-code/subscriptions)).
+  - Pay-as-you-go is charged when a balance threshold is reached and on the first of each month.
+  - `muse logout` does not unset an exported `META_API_KEY`.
+- **Hooks** ([Extending and automating](https://dev.meta.ai/docs/muse-code/extending)):
+  - Shell commands bound to events, among them `SessionStart`, `PreToolUse`, `PermissionRequest`, `PostToolUse` and `SessionEnd`. A hook can block an action.
+  - Sources: project `.muse/hooks.json` (run only after the folder is trusted), user hooks in `~/.config/muse/settings.json`, and a managed file named by `managed_hooks_path`.
+  - **Not documented** in what I read: the hook input and output format, the exit-code meaning, and an inline or per-run settings layer for hooks. `-c key=value` exists for some settings, but for hooks it was not checked.
+- **Approvals and sandbox:** on from the first run. `--disable-approval`, `--yolo` (no approval and no sandbox, and it trusts the workspace), `--disable-sandbox` and `--trust-workspace` turn them down (Configuration, Extending).
+- **Headless:** `muse exec "prompt"` (`--prompt-file`, `--json`, `--max-model-steps`). Exit codes: 0 completed, 1 failed or cancelled, 2 usage, 130 or 143 on signals (Extending).
+- **Model:** `--model`, default `muse-spark-1.2` (Configuration). **Not documented:** whether Muse Code can use a third-party or local endpoint, so whether it can run Spark Open at all. The page `docs/muse-code/third-party-providers` gave 404 on Nov 9.
+- **ACP: no native ACP** found. Community adapters exist (for example [BrokkAi/muse-acp](https://github.com/BrokkAi/muse-acp), [bex-co/muse-code-acp](https://github.com/bex-co/muse-code-acp)); they are not Meta's and were not read further.
+- **Contributor mode** (Meta may train on your content) is the subscription default and can be set per run with `--contributor-mode on|off` or `MUSE_CONTRIBUTOR_MODE=1|0` ([Subscriptions](https://dev.meta.ai/docs/muse-code/subscriptions)). This is a data choice, not a billing one.
+
+**2. OpenCode (`opencode`)**, an open-source coding agent that takes any provider and model.
+- **ACP:** `opencode acp` serves ACP over stdio JSON-RPC ([OpenCode ACP](https://docs.opencode.ai/docs/acp/)). The v2 docs say `opencode acp --login` runs `opencode auth login` and exits 0 on success (search snippet of [dev.opencode.ai v2 ACP](https://dev.opencode.ai/v2/docs/cli/acp/), not opened).
+- **Providers:** OpenRouter, Together, Fireworks, Groq, Ollama, and any OpenAI-compatible endpoint by `baseURL`, which covers a local llama.cpp, vLLM or SGLang server. A provider entry can name the environment variables it reads (`"env": [...]`) ([Providers](https://opencode.ai/docs/providers/)).
+- **Permissions** ([Permissions](https://opencode.ai/docs/permissions/)):
+  - Rules are `{action, resource, effect}` with `allow`, `deny` or `ask`; the last match wins, and `ask` "waits for a decision from the client".
+  - **The default policy allows everything** (`*`, `*`, `allow`), apart from `.env` reads. So without `ask` rules there are no permission requests to answer.
+  - Resources carry the command string for `shell` and the path for `edit` or `read`.
+  - Answers are `once`, `always` or `reject`. `always` saves a durable project-scoped allow rule. An open issue reports that it overrides a configured `ask` in later sessions ([anomalyco/opencode #48456](https://github.com/anomalyco/opencode/issues/48456)).
+  - V1 and V2 use different key names (`permission` and `permissions`).
+- **Configuration layers** ([Config](https://opencode.ai/docs/config/)): managed (`/etc/opencode`, highest), global `~/.config/opencode/`, project `opencode.json(c)` and `.opencode/`. An inline config in the `OPENCODE_CONFIG_CONTENT` variable is listed in the precedence order (search snippet of [OpenCode Config, French page](https://opencode.ai/docs/fr/config/), not confirmed for V2).
+- **A hook point:** plugins (JS or TS) with `tool.execute.before`, which can throw to block a tool call ([Plugins](https://docs.opencode.ai/docs/plugins/)). Plugins load from `.opencode/plugins/`, `~/.config/opencode/plugins/` or npm packages, and npm plugins are installed with Bun at startup. **Not documented:** loading a plugin from an arbitrary path given in config.
+- **Billing:** whatever the chosen provider bills. A provider key in the environment or config is pay-as-you-go unless the provider's free route applies.
+- **OpenCode's own offerings** (section "OpenCode" below) list Muse Spark 1.2 and 1.3 (closed, Console pay-as-you-go) and Muse Spark 1.2 and 1.3 Contributor (in the Go subscription). They do **not** list Muse Spark Open, as read Nov 9.
+
+**3. Claude Code with another model** (via `ANTHROPIC_BASE_URL`, or a community proxy such as [Wraient/muse-cc](https://github.com/Wraient/muse-cc) that reuses a Muse Code subscription credential): **rejected**.
+- It conflicts with 10.R12, which removes `ANTHROPIC_BASE_URL` and requires a claude.ai subscription.
+- The Muse Code credential "is for use with Muse Code only" ([Subscriptions](https://dev.meta.ai/docs/muse-code/subscriptions)).
+
+**4. Kiro CLI:** models come from Kiro's own catalogue; Muse Spark Open was not checked there. Out of scope.
+
+### Can umwayi gate it as it gates Claude Code and Kiro?
+
+| question | Muse Code | OpenCode |
+| --- | --- | --- |
+| a hook in front of every tool call (layer 9 style) | **Yes in principle:** `PreToolUse` and `PermissionRequest` shell hooks exist. Their input and output format is not documented in the pages read, and umwayi would need a hook source it does not have to write (user settings or a project file both need editing; a managed path is a machine setting) | **Only through a plugin:** `tool.execute.before` in JS or TS, loaded from a plugin folder or npm. That would be third-party code, and a JS file would be umwayi's first in the core path |
+| permission requests umwayi can answer | no native ACP; only the community adapters | **Yes:** native ACP. With `ask` rules for every action, every tool call becomes a request whose resource is the command or path, which shows more than Claude Code's ACP permission requests do |
+| a way to make the policy strict without editing files | not found | `OPENCODE_CONFIG_CONTENT` inline config (not confirmed for V2). A managed `/etc/opencode` overrides it, and saved `always` approvals may override `ask` |
+| proof the gate is active (like the 7b canary) | a `SessionStart` hook would do it, as for Claude Code, if a hook source can be given | a plugin event, or the first `ask` arriving; not designed |
+| headless run | `muse exec`, exit codes documented | `opencode run` (`--auto` approves everything not denied, so it is never used) |
+
+### Environment names that switch to paid billing
+
+- **Muse Code:**
+  - `META_API_KEY` (outranks the subscription and is billed pay-as-you-go).
+  - A stored key from `muse auth set` is not an environment name: umwayi cannot strip it, only detect it, and no documented status command reports it.
+  - `MUSE_CONTRIBUTOR_MODE` changes data use, not billing.
+- **OpenCode:**
+  - the chosen provider's key;
+  - `OPENCODE_API_KEY` (shown in OpenCode's ACP examples);
+  - `OPENCODE_CONFIG` and `OPENCODE_CONFIG_CONTENT`, which can add a paid provider;
+  - any name a provider entry lists in `env`;
+  - cloud variables such as `AWS_BEARER_TOKEN_BEDROCK` and `GOOGLE_APPLICATION_CREDENTIALS` ([Providers](https://opencode.ai/docs/providers/)).
+  
+  The exact names each built-in provider reads (for example `OPENROUTER_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `GROQ_API_KEY`, `HF_TOKEN`) were **not checked** against OpenCode's code. OpenRouter's own docs use `OPENROUTER_API_KEY` in their examples.
+- **Hosted providers in general:** an account with prepaid credits only (OpenRouter) cannot be billed beyond its balance: a paid call fails with 402. Postpaid providers bill as you go.
+
+### What stays unknown
+
+- Whether a free hosted route for Muse Spark Open exists today (OpenRouter `:free` was seen in a search result and then gave 404; Groq is a limited preview with no stated price).
+- Whether Muse Code can use any non-Meta endpoint, and so whether it can run Spark Open; also its hook input and output format, and an inline hook source.
+- OpenCode V2's inline config, plugin loading by path, and the exact ACP permission request shape (one client reports the request arriving before `rawInput` is filled: [xenodium/agent-shell #614](https://github.com/xenodium/agent-shell/issues/614)).
+- The full licence text (gated).
+- The owner's hardware.
+- How fast both harnesses change: OpenCode has V1 and V2 docs live at once.
+
+## OpenCode as a platform (spec only, read Nov 9 2026)
+
+Read on Nov 9 2026, for the owner's request to include OpenCode as a platform, subscription or free first. Nothing was installed or run.
+- **Two doc trees are live at once:** opencode.ai/docs (V2: `permissions` as a rule array, `providers`) and docs.opencode.ai (V1 wording: `permission` objects, `provider`, `enabled_providers`).
+- Each fact below names the page it is from. Where they differ, both are given.
+
+### The project and its licence
+
+- **OpenCode is an open-source coding agent by Anomaly** (the SST team). The canonical repository is [github.com/anomalyco/opencode](https://github.com/anomalyco/opencode); `github.com/sst/opencode` redirects there ([aiwiki, from a secondary source](https://www.aiwiki.ai/wiki/opencode)).
+- **Licence: MIT**, "Copyright (c) 2025 opencode" ([LICENSE on the dev branch](https://raw.githubusercontent.com/anomalyco/opencode/dev/LICENSE), read Nov 9). Using it as an external program puts no duty on umwayi-os beyond keeping its notice if umwayi-os ever redistributed it (it does not).
+
+### How it starts
+
+- **TUI:** `opencode [project]`.
+- **One prompt for scripts:** `opencode run "PROMPT"` ([CLI intro](https://opencode.ai/docs/cli/)). V1 flags include `--model provider/model`, `--agent` and `--auto` ("auto-approve permissions that are not explicitly denied") ([V1 CLI](https://docs.opencode.ai/docs/cli/)). `--auto` would remove the ask, so umwayi never passes it.
+- **Background service:** by default every OpenCode client connects to one shared background server per user, which owns sessions, config, permissions and tool execution. `--standalone` runs a private one ([CLI intro](https://opencode.ai/docs/cli/)).
+- **ACP:** `opencode acp` serves ACP v1 over stdio (newline-delimited JSON-RPC), and stdout carries only ACP messages ([V2 ACP reference](https://dev.opencode.ai/v2/docs/cli/acp/)).
+  - It starts its **own private server**, opens no port and does not join the shared service.
+  - It exits when the client closes stdin.
+  - `--print-logs` sends logs to stderr.
+- **ACP sessions** take the directory's whole configuration (models, agents, plugins, MCP servers) from `cwd`, which must be absolute. One prompt runs at a time, and `session/cancel` ends the prompt and rejects pending permission requests (same page).
+
+### Login and providers
+
+- **`opencode auth login [provider] [--method ...]`** saves a provider account through one of four methods ([Provider accounts](https://opencode.ai/docs/cli/providers)):
+  - API key;
+  - OAuth (browser URL or device code);
+  - Command (it runs a provider's command and saves its output as a key);
+  - Environment (it reads a supported variable from the server process, without saving it).
+- **Where accounts live:** in the server's SQLite database (`~/.local/share/opencode/opencode.db`; `OPENCODE_DB` and `XDG_DATA_HOME` move it). A saved account outranks an environment connection for the same provider. `auth logout` cannot remove an environment connection.
+- **ACP login:** `opencode acp` offers one auth method, `opencode-login`. With `clientCapabilities.auth.terminal` the client runs `opencode acp --login`, which runs `opencode auth login` and exits 0 on success ([V2 ACP reference](https://dev.opencode.ai/v2/docs/cli/acp/)). umwayi offers no capabilities, so it gets the agent method, which collects nothing. If a provider needs sign-in, a prompt fails with `auth_required`.
+- **Claude Pro or Max login:** not offered.
+  - OpenCode merged "Remove anthropic references per legal requests" (PR #18186) on Mar 19 2026 ([jcubic/opencode-claude-plan, from a secondary source](https://github.com/jcubic/opencode-claude-plan)).
+  - Anthropic reportedly blocked Claude subscription tokens in third-party tools from Apr 4 2026 ([dev.to, from a secondary source](https://dev.to/mcrolly/anthropic-kills-claude-subscription-access-for-third-party-tools-like-openclaw-what-it-means-for-3ipc)).
+  - The current Providers page lists no Claude subscription sign-in. Community plugins that restore it exist and are **rejected**: they go against Anthropic's terms as reported.
+- **ChatGPT Plus or Pro:** **documented.** Connect OpenAI and choose "Sign in with ChatGPT" (or the legacy Codex methods). "Usage counts against your plan, so these models show no cost." OpenCode caps the context below the model limit by default, to match Codex ([Providers, ChatGPT](https://opencode.ai/docs/providers/)).
+- **GitHub Copilot:** **documented.** Device OAuth, needs Copilot Chat access, and Copilot Free is named as a way in ([Providers, Copilot](https://opencode.ai/docs/providers/)).
+- **OpenCode Go** (subscription): $10 a month (Go), $40 (Go Plus), or $20 per member (Go Teams), with monthly dollar allowances per model and a 5-hour share ([Go](https://opencode.ai/docs/console/go)).
+  - The list includes open models and **Muse Spark 1.3 and 1.2 Contributor**, which train on request data and need a privacy switch.
+  - It also includes some "Free" models (limited time, limited regions).
+  - It does **not** list Muse Spark Open.
+- **OpenCode Console** (pay-as-you-go credits; formerly Zen) ([Console models](https://opencode.ai/docs/console/models/)):
+  - "Sign in, add credits, and get an API key"; charged per request.
+  - A set of free models is listed (Big Pickle, GLM-5.3-Flash Free, DeepSeek V4.1 Flash Free, Nemotron 3 Ultra Free and others, mostly "for a limited time"), and "free-tier chat models require OpenCode".
+  - Paid Meta models: Muse Wonder 1.0 ($4 / $20), Muse Spark 1.3 and 1.2 ($1.25 / $4.25).
+  - **No Muse Spark Open.**
+  - The [Policies page](https://opencode.ai/docs/policies/) names "the signed-out free tier" as the integration `opencode`, so the free models work without an account.
+- **Local models:** built-in discovery for Ollama (`127.0.0.1:11434`), LM Studio (`:1234/v1`) and vLLM (`:8000/v1`). Discovered vLLM models start with tools disabled. Any other OpenAI-compatible server (llama.cpp, SGLang) is a custom provider with `baseURL` ([Providers](https://opencode.ai/docs/providers/)).
+- **API keys:** any provider on models.dev, plus custom providers with an `env` list of variable names ([Providers](https://opencode.ai/docs/providers/)). The V1 CLI page says OpenCode also loads keys "defined in your environments or a .env file in your project" ([V1 CLI, auth login](https://docs.opencode.ai/docs/cli/)): **a project `.env` can supply a paid key.**
+
+### What switches it to pay as you go
+
+- **A provider credential in the environment of the OpenCode process**, for example:
+  - `OPENROUTER_API_KEY` (named on the Providers page), `ANTHROPIC_API_KEY` (named on the Provider accounts page);
+  - `AWS_BEARER_TOKEN_BEDROCK` and the AWS credential chain (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, web identity, container credentials);
+  - `GOOGLE_APPLICATION_CREDENTIALS` and ADC with a project variable;
+  - `AZURE_RESOURCE_NAME` with an Entra session;
+  - any name a custom provider lists in `env` ([Providers](https://opencode.ai/docs/providers/), [Provider accounts](https://opencode.ai/docs/cli/providers)).
+  
+  The full list of names that each built-in provider reads lives in models.dev and OpenCode's code, and was **not** collected.
+- **A saved account** (API key, OAuth, or Console or Go key) in the SQLite database. It is not in the environment, so umwayi cannot remove it, only refuse with a policy (below).
+- **Configuration that adds or points a provider:** `OPENCODE_CONFIG` (a custom config file), `OPENCODE_CONFIG_DIR` (a config directory with agents and plugins), `OPENCODE_CONFIG_CONTENT` (inline config), the project's `opencode.json(c)` and `.opencode/`, remote config from `.well-known/opencode`, and a project `.env` ([Config](https://docs.opencode.ai/docs/config/)).
+- **Plans:**
+  - ChatGPT and Copilot sign-ins count against the plan; overage behaviour is the plan's own, not documented by OpenCode.
+  - The Go allowance runs out; what happens then is not read.
+  - Console credits are prepaid; whether auto-reload exists was not read.
+- **The tool to restrict it** (V2 [Policies](https://opencode.ai/docs/policies/)):
+  - `provider.use` and `integration.use` allow or deny providers and connected accounts. "Policy applies however a provider became known", whether from environment variables, saved accounts, plugins or configuration.
+  - Example: deny `*` and allow only `opencode` (the signed-out free tier) or one local provider.
+  - The V1 equivalent is `enabled_providers` and `disabled_providers` ([Config](https://docs.opencode.ai/docs/config/)).
+
+### Permissions, hooks and ACP permission requests
+
+- **Permission rules (V2)** `{action, resource, effect}` with `allow`, `deny` or `ask`; the last match wins ([Permissions](https://opencode.ai/docs/permissions/)).
+  - Actions include `read`, `edit`, `shell` (the scanned command string, each subcommand), `glob`, `grep`, `webfetch`, `websearch`, `subagent`, `skill`, `external_directory`, MCP tools and `execute`.
+  - **The base policy allows everything** except `.env` reads, and with no `external_directory` rule, paths outside the project are allowed.
+  - Saved "Allow always" approvals are durable project-scoped allows that never override a `deny`. An open issue reports one overriding a configured `ask` in later sessions ([#48456](https://github.com/anomalyco/opencode/issues/48456)).
+- **Policies (V2)** run after rules and saved approvals and can only deny. A `tool.use` deny "overrides an ask and an 'Allow always' approval alike" ([Policies](https://opencode.ai/docs/policies/)).
+  - Global and managed policies override project configuration.
+  - A `plugin.use` deny stops a plugin from loading.
+- **ACP permission requests** offer `once` (allow_once), `always` (allow_always) and `reject` (reject_once), with a diff for file changes ([V2 ACP reference](https://dev.opencode.ai/v2/docs/cli/acp/)).
+  - Child-session (subagent) requests reach the client too, marked in `toolCall._meta`.
+  - One client reports a request arriving before the tool call's `rawInput` is filled ([xenodium/agent-shell #614](https://github.com/xenodium/agent-shell/issues/614)).
+  - **Not documented:** the exact `toolCall` fields (whether the permission `action` and `resource` are in it).
+- **Plugins** are JS or TS modules from `.opencode/plugins/`, `~/.config/opencode/plugins/` or npm (installed with Bun at startup) ([Plugins](https://docs.opencode.ai/docs/plugins/)).
+  - **`tool.execute.before`** runs before every tool call and can throw to abort it. That is the closest thing to the layer 9 PreToolUse hook.
+  - Events include `permission.asked` and `permission.replied`.
+  - A V2 Providers page shows a local package by an absolute `file://` URL for a provider ([Providers](https://opencode.ai/docs/providers/)). The V2 Policies page names plugins "by unversioned package name or absolute path", which suggests path loading, but loading a plugin from a path in config was **not confirmed** on a plugin page.
+  - The `permission.ask` plugin hook "is defined but not triggered" ([#7006](https://github.com/anomalyco/opencode/issues/7006)).
+- **So, can umwayi gate every tool call as for Claude Code and Kiro?**
+  - **First gate:** a hook in front of every tool call exists only as a JS plugin (`tool.execute.before`). It would be umwayi's first non-Python adapter code, run by Bun inside OpenCode. No documented command or exec-form hook exists like Claude Code's or Kiro's.
+  - **Second gate:** ACP permission requests, which umwayi already answers, but only for actions whose effect is `ask`. With the base policy allowing everything, there are none unless umwayi's config makes every action `ask`.
+  - **What could make that strict without editing the owner's files:** an inline `OPENCODE_CONFIG_CONTENT` (listed in the V1 precedence order above the project config and below the managed files), plus a policy that denies every provider but the chosen one. Not confirmed for V2.
+  - **Limits:** a managed `/etc/opencode` file or macOS MDM profile outranks anything umwayi passes, and saved approvals may override `ask`.
+- **A canary** (to prove the gate is active before the first prompt, as in 7b): a plugin that writes the token file at `session.created`, or the first `ask` arriving. Not designed; not confirmed.
+
+### OpenCode and Muse Spark Open
+
+- **OpenCode can run Muse Spark Open** through any hosted provider that serves it:
+  - OpenRouter: `openrouter/meta/muse-spark-open`, $1.25 / $4.25 per 1M; `:free` was seen in a search and then gave 404.
+  - Together, Fireworks, Groq (preview).
+  - A local OpenAI-compatible server (vLLM, llama.cpp, SGLang, MLX) as a vLLM or custom provider, with tool support switched on explicitly.
+  
+  Sources: section "Muse Spark Open as a platform" above, and [Providers](https://opencode.ai/docs/providers/).
+- **Not through OpenCode's own subscription or free tier** (Go, Console). They list Muse Spark (closed) and Muse Spark Contributor, not Muse Spark Open.
+- **So the owner's "subscription or free first" for Muse Spark Open through OpenCode comes down to:** local hardware (about 300 GB of memory or more), or a free hosted route that was not confirmed on Nov 9.
+
+### What stays unknown
+
+- The exact ACP `toolCall` shape of OpenCode's permission requests.
+- Whether `OPENCODE_CONFIG_CONTENT` and path plugins work in V2.
+- What the `opencode.db` holds for the owner (saved accounts umwayi cannot see).
+- How Go and Console behave at the end of an allowance or balance.
+- Overage rules of ChatGPT and Copilot plans.
+- Which environment names each built-in provider reads.
+- Which OpenCode version the owner runs (V1 and V2 differ in key names).
+- How fast all of this changes.
