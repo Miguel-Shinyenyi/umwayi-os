@@ -2,7 +2,7 @@
 
 umwayi-os is an AI operating system for one person and their AI helpers. It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change.
 
-It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is built (PRs 11 and 12). A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) was approved on Nov 9 and is planned for Nov 10 to Nov 11. Layer 10 is built up to part 7c-1; parts 7c-2 and 7c-3 are planned for Nov 12 to Nov 13. Layer 11 is planned for Nov 14 to Nov 15. Each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 16, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. The schedule to Dec 3 is in tasks.md.
+It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is built (PRs 11 and 12). A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) was approved on Nov 9 and is planned for Nov 10 to Nov 11. Layer 10 is built up to part 7c-1; parts 7c-2 and 7c-3 are planned for Nov 12 to Nov 13. Layer 11 (proposed scope: scheduled runs through systemd user timers; spec written Nov 10, waiting for owner approval) is planned for Nov 14 to Nov 15. Each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 16, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. The schedule to Dec 3 is in tasks.md.
 
 ## Glossary
 
@@ -466,21 +466,114 @@ Acceptance criteria:
 - Any ACP agent or platform other than Kiro and, once part 7 is approved and built, Claude Code through the pinned `claude-agent-acp` adapter (10.R11): Codex, Gemini CLI and others are refused as not gated.
 - Kiro or Claude Code cloud sessions, background sessions, resuming or listing sessions, MCP configuration, model or effort choice.
 - More than one agent at a time, and agents talking to each other.
-- Spend limits (budget governor, Nov 17 to 22) and sandboxing (layer 11).
+- Spend limits (budget governor, Nov 17 to 22) and sandboxing (layer 11 proposes to defer it to its own spec after Dec 3, 11.R8).
 - Windows and macOS.
 - Changing any `.claude` or `.kiro` file.
 
-## Layer 11: Linux-like features (outline)
+## Layer 11: Linux-like features
 
-Status: not started. Planned for Nov 14 to Nov 15. It still needs its own approved spec: built only after the owner approves its requirements, design and tasks.
+Status: spec written Nov 10, waiting for owner approval (tasks.md 11.0). Planned build Nov 14 to Nov 15, only after the owner approves it. Facts with links, and what the docs do not say: `adapters/NOTES-layer11.md`. The candidates and why most of them wait: design.md, "Layer 11", section "The candidates".
 
-User story: as the owner, I want umwayi-os to schedule, watch, limit and remember like an operating system, using the tools Linux already has.
+User story: as the owner, I want my jobs and workflows to run on a schedule while I am away, using the scheduler Linux already has, so that nothing new decides when umwayi runs and every run still goes through the kill switch, the run lock, the rules and the logbook.
 
-Outline:
+Scope for Dec 3 (proposed, design open question L11-Q1): **scheduled runs through systemd user timers** (11.R1 to 11.R7). The other candidates (file watching with inotify, SQLite, tmux, bubblewrap) are deferred or cut (11.R8). No new scheduler, file system or shell is built.
 
-- Scheduling, file watching, process limits, a small database and terminal sessions.
-- Reuse cron or systemd timers, inotify, SQLite, tmux, Unix permissions, and bubblewrap or containers.
-- Do not build a new scheduler, file system or shell.
+Layer 11 commands follow the layer 10 exit codes: 0 done, 2 a refusal or any error, 3 Ask me first, 64 a usage or config error. Never 1. (The steering file's older code 1 for refusals is not used by new commands.)
+
+### 11.R1 The schedule file (`schedule.yaml`)
+
+1. `schedule.yaml` in the root (or `--file PATH` inside the root) is read with the existing `miniyaml` reader: a normal file, not a link, at most 64 KB, UTF-8. One top key `schedules`, a list of 1 to 20 entries.
+2. Each entry has exactly these keys:
+   - `name`: lowercase letters, digits and `-`, starting with a letter, at most 32 characters, unique in the file;
+   - `run`: `job` or `workflow`;
+   - for `run: job`: `job` (a job name from the jobs file) and optionally `jobs_file` (a relative path inside the root, default `jobs.yaml`);
+   - for `run: workflow`: `workflow` (a name from `workflows/`);
+   - `every`: `daily`, `weekly` or `monthly`;
+   - `at`: local time `HH:MM` (00:00 to 23:59);
+   - `day`: for `weekly` one of `mon` to `sun`, for `monthly` a day from 1 to 28; not allowed for `daily`.
+   No other key, no free text schedule (no `OnCalendar` string and no cron line from the file).
+3. Cross checks: the jobs file and the job exist and validate (layer 6), and the job's `min_gap_days` is not longer than the schedule's period (daily 1, weekly 7, monthly 28 days); the workflow exists and validates (layer 8).
+4. **The path rule.** Every path umwayi writes into a unit file or prints in a cron line (the root, the jobs file, the Python interpreter, the umwayi source folder) must be absolute, have no `..` part, be at most 1024 characters, and use only `A-Z a-z 0-9 / . _ + -`. Otherwise the schedule is refused (64) with a line that names the path's role, never its text if it holds a control character. This avoids systemd specifiers (`%`), variable expansion (`$`), quoting, and cron and shell syntax, instead of escaping them.
+5. Every problem is reported with a line number, all problems at once, as `umwayi agent validate` does (64).
+
+### 11.R2 The files umwayi renders
+
+1. For each entry, one systemd **user** service and one timer, from fixed templates in `umwayi/schedule.py`, named `umwayi-ROOTID-NAME.service` and `umwayi-ROOTID-NAME.timer`, where ROOTID is the first 8 hex characters of the SHA-256 of the root's real path (two roots never share a unit).
+2. The service is `Type=oneshot` and runs exactly one umwayi front door, with no shell: `PYTHON -m umwayi --root ROOT run JOBS_FILE --job JOB`, or `PYTHON -m umwayi --root ROOT workflow run WORKFLOW`. PYTHON is the interpreter running `umwayi schedule install`. It sets only `PYTHONPATH` (the umwayi source folder), `WorkingDirectory=ROOT`, a start limit (`TimeoutStartSec`, proposed 30 min, L11-Q7), `TimeoutStopSec=15s` and `KillMode=control-group`, so a stop ends every process the run started.
+3. The timer has one `OnCalendar=` from `every`, `day` and `at` (for example `Mon *-*-* 07:30:00`), `Persistent=true` (proposed, L11-Q6), `Unit=` naming its service, and `WantedBy=timers.target`.
+4. Both files start with a comment that says umwayi wrote them, from which root and entry, and that `umwayi schedule check` compares them byte for byte.
+5. `umwayi schedule show [NAME] --cron` prints the equivalent crontab line for owners without systemd. umwayi never installs a crontab (proposed, L11-Q2).
+6. Rendering is deterministic: the same `schedule.yaml`, root and interpreter always give the same bytes.
+
+### 11.R3 `umwayi schedule` commands
+
+```
+umwayi schedule validate [--file PATH]                  check schedule.yaml: 0 or 64; writes nothing
+umwayi schedule show [NAME] [--cron] [--file PATH]      print the unit files (or cron lines) and where they go; writes nothing
+umwayi schedule check [NAME] [--file PATH]              compare installed files with what umwayi would write: 0 or 2; writes nothing
+umwayi schedule install NAME [--approved-by WHO] [--file PATH] [--date D]   write the two unit files: 0, 2, 3 or 64
+umwayi schedule remove NAME [--file PATH] [--date D]    remove the two unit files umwayi wrote: 0, 2, 3 or 64
+```
+
+1. The unit folder is `$XDG_CONFIG_HOME/systemd/user`, or `$HOME/.config/systemd/user` when `XDG_CONFIG_HOME` is not set or not absolute (the user unit load path in NOTES-layer11.md). It must be a normal folder, not a link; it is created (with its missing parents) only by `install`.
+2. **umwayi never runs `systemctl`, `crontab`, `loginctl` or any other program** for scheduling (proposed, L11-Q3). `install` and `remove` print the exact `systemctl --user` commands for the owner to run. `schedule.py` imports no program runner.
+3. `check` reports, for each entry: installed and identical; not installed; changed by hand; not a regular file; a drop-in folder (`UNIT.d/`) next to it, which can override it; and whether the timer's enable link exists. It also lists `umwayi-ROOTID-*` units in the folder with no entry in `schedule.yaml`. It exits 0 only when every entry is installed, identical and has no drop-in, and nothing is left over.
+4. `show`, `validate` and `check` write nothing, take no lock and are not stopped by the kill switch, like `umwayi logbook verify`.
+
+### 11.R4 Install and remove: the kill switch, the rules, the run lock and the logbook
+
+1. **install**, in this order:
+   - `schedule.yaml` and the entry are valid (64);
+   - the two rendered files already installed with identical bytes: "already installed", exit 0, nothing asked or written;
+   - the kill switch: on or unknown stops it (3, one entry);
+   - the rules, with `{"type": "schedule_install", "schedule": NAME, "run": "job"|"workflow", "target": JOB_OR_WORKFLOW, "every": EVERY}`: No stops it (2); Ask me first stops it (3, one queue item `Install schedule NAME?`, added once) unless `--approved-by WHO` is given, as for `publish-draft` (proposed, L11-Q4); Yes goes on;
+   - the run lock (busy: 3, one entry);
+   - each file is created with `O_CREAT | O_EXCL | O_NOFOLLOW` (an existing file that differs is never overwritten: 2), the service first, then the timer; if the timer cannot be written, the service just written is removed;
+   - one logbook entry with the unit names, the folder, the SHA-256 of each file and who approved it; if it cannot be written, both files are removed and the answer is 2;
+   - the output names the two files and the commands `systemctl --user daemon-reload` and `systemctl --user enable --now UNIT.timer`, and says that timers run only while the owner is logged in unless the owner enables lingering (`loginctl enable-linger`), which umwayi never does (L11-Q8).
+2. **remove**, in this order:
+   - the entry is valid (64); neither file present: "not installed", 0;
+   - the timer's enable link exists: refused (2) with the commands `systemctl --user disable --now UNIT.timer` and `systemctl --user clean --what=state UNIT.timer` to run first;
+   - a file that differs from what umwayi would write, a drop-in folder, or a file that is not a regular file: refused (2), the owner removes it by hand;
+   - the rules, with `{"type": "schedule_remove", "schedule": NAME}` (proposed starter rule: Yes, because removing a schedule is the safe direction); No 2, Ask me first 3 with one queue item;
+   - the timer, then the service, are removed; one logbook entry; if it cannot be written, both files are put back and the answer is 2;
+   - the output says to run `systemctl --user daemon-reload`.
+   remove is not stopped by the kill switch and takes no run lock, so the owner can always take a schedule away (the same reason `umwayi kill on` works with a broken logbook).
+3. Messages never print the contents of a unit file, a jobs file or a workflow.
+
+### 11.R5 What a scheduled run does, and never does
+
+1. A timer starts only the command of 11.R2, which is an existing umwayi front door. That front door already checks, in order, the kill switch (3, one entry), the run lock (busy: 3, one entry), the rules (`run_job` or `workflow_step`) and the logbook, as layers 6 and 8 specify. Layer 11 adds no new way to run anything.
+2. Only jobs and workflows can be scheduled. **Never `umwayi agent run`, `agent chat` or `agent login`** (proposed, L11-Q5): no agent runs unattended before the budget governor exists, and a sign-in needs the owner at the terminal.
+3. A scheduled run gets the user manager's environment plus `PYTHONPATH`; umwayi adds no credential, and jobs and workflows start no agent and use no network.
+4. When the start limit passes, systemd stops the whole run (SIGTERM, SIGKILL after 15 s). The logbook stays whole (crash safety, Layer 5 addendum); the run itself writes no entry for that stop, and the journal records it (KNOWN-LIMITS).
+5. The run's exit code is the front door's: 0 done, 2 No, 3 Ask me first (kill switch, run lock, an approve step), and for `umwayi run` the layer 6 code 1 for a refusal (proposed: kept as is, L11-Q9). Any code but 0 shows the unit as failed in `systemctl --user status`.
+
+### 11.R6 Fail closed
+
+1. Any unexpected error in a `schedule` command exits 2 and leaves no file it created half way; the error text never holds file contents.
+2. An unknown or malformed state (the unit folder a link, a unit file a folder, a drop-in folder, an unreadable file) is a refusal, never a guess.
+3. `schedule.py` does not touch the network, imports no program runner, and stays standard library only.
+
+### 11.R7 Tests
+
+As for every layer: real child processes (`python -m umwayi schedule ...`), with `HOME` and `XDG_CONFIG_HOME` in a temporary folder, so the real `~/.config` is never touched. No systemd, cron, network or credential is needed or used.
+
+1. Every bad `schedule.yaml` shape and every path rule case refuses with 64 and a line number, and writes nothing.
+2. The exact bytes of both rendered files and of the cron line, for each `every`.
+3. install and remove through every branch of 11.R4: rules Yes, No and Ask me first (one queue item, not two), `--approved-by`, the kill switch on and unknown, the run lock held, an existing different file, a linked folder, a logbook that fails (no file left), already installed, the enable link present, a changed file, a drop-in.
+4. check reports each state of 11.R3.3.
+5. The scheduled run end to end: the `ExecStart=` and `Environment=` lines of a rendered service are run as a real child process exactly as written; a job runs with its one entry; the kill switch on gives 3 and one entry; the run lock held by another process gives 3.
+6. Code guards: `schedule.py` imports no `subprocess`, `os.system`, network or third party module, and no argument list anywhere names `systemctl`, `crontab` or `loginctl`.
+7. Only exit codes 0, 2, 3 and 64 from `schedule` commands. Planted faults and mutation checks with the counts in the pull request.
+8. The owner's real check on a machine with a systemd user manager (task 11.6): `systemd-analyze --user verify` on the rendered files, enable, one run, and the kill switch stopping a run. Not done until the owner runs it.
+
+### 11.R8 Not in layer 11 for Dec 3 (proposed; the evaluation is in design.md)
+
+- **File watching with inotify: cut** (L11-Q10). The standard library has no inotify, and `ctypes` would turn a bug into a crash that is not exit 2. inotify cannot tell an AI helper's own writes from anyone else's (a loop), drops events on overflow, is not recursive and misses network file systems. A timer covers the use case (the content loop picks up new articles on its next run). A systemd path unit may be specified after Dec 3.
+- **SQLite for queryable state: deferred** (L11-Q11). No requirement before Dec 3 needs it, the plain files are small, and the logbook (with its hash chain) stays the only source of truth (B-Q1). After Dec 3: a read only index that is rebuilt from the files and never written by an AI helper.
+- **tmux for long chats: cut from umwayi** (L11-Q12). The owner can already run `tmux new -s chat`, then `umwayi agent chat NAME` inside it, with no umwayi change. Starting tmux from umwayi would pass commands through a shell (not documented otherwise), give the chat the tmux server's environment instead of umwayi's filtered one, hold the run lock for hours, and let any process of the same user type into the chat (`send-keys`) or read it (`capture-pane`).
+- **bubblewrap or a similar sandbox: deferred to its own spec after Dec 3** (L11-Q13). It is the most valuable candidate, but the layer 9 hook runs inside the agent's process tree and must write `.umwayi/` and `LOGBOOK.md`, so a sandbox around the agent cannot protect the logbook or the kill switch until the check moves outside it. Agents need the network, Ubuntu blocks unprivileged user namespaces by default, and Claude Code already runs its own bwrap sandbox for Bash (nesting not documented).
 
 ## Budget governor
 
@@ -542,3 +635,4 @@ User story: as the owner, I want one unit for what every agent run costs, measur
 - Finance and marketing loops
 - Web interface
 - Shared rule packs (after Dec 3)
+- File watching, an SQLite index, tmux sessions and a sandbox for agents and helpers (layer 11 proposes to cut or defer them, 11.R8)

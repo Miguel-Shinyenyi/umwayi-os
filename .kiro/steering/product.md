@@ -60,24 +60,26 @@ Done (PRs 1 to 8, then hardening and the whole-system test in PR 9, 556 tests, P
 7. Helpers: Steward and a social helper, draft only.
 8. Workflows: named workflow files, content loop (collect, brief, draft, approve), kill switch flag.
 
-In progress (part 1 in PR 11):
+Built since (tasks.md has the status of every task):
 
-9. Adapters: a thin adapter per AI platform (Claude Code PreToolUse hooks, Kiro hooks, a generic stdin and stdout adapter) turns hook input into `umwayi check` input and the answer back into allow, deny or ask. Read the official hook docs first.
+9. Adapters (PRs 11 and 12): a thin adapter per AI platform (Claude Code PreToolUse hooks, Kiro hooks, a generic stdin and stdout adapter) turns hook input into `umwayi check` input and the answer back into allow, deny or ask.
+10. Own command line and chat (PRs 13 to 29): one front door that starts Claude Code and Kiro through their own CLI or the Agent Client Protocol, with the queue, rules and logbook in front, subscription first. No model client. Open: the owner's first real run (10.31).
+- Logbook crash safety (PR 27).
 
-Not started:
+Not started, each only after the owner approves its requirements, design and tasks:
 
-10. Own command line and chat (Nov 9 to Nov 10, after the owner approves its requirements, design and tasks): one front door that starts any agent through its own CLI or the Agent Client Protocol, with the queue, rules and logbook in front. No model client.
-11. Linux-like features (Nov 9 to Nov 10, after the owner approves its requirements, design and tasks): scheduling, file watching, process limits, a small database, terminal sessions, reusing cron or systemd timers, inotify, SQLite, tmux, Unix permissions, bubblewrap or containers. No new scheduler, file system or shell.
-
-Then: the budget governor (Nov 15 to Nov 21; the owner decided to build it before Dec 3, after approving its requirements, design and tasks).
+11. Linux-like features: spec written (PR 30), waiting for approval. Proposed scope for Dec 3: scheduled runs through systemd user timers that call the existing front doors; file watching and tmux cut, SQLite and a sandbox deferred to after Dec 3. No new scheduler, file system or shell.
+- The logbook hash chain (approved) and the budget governor (approved).
 
 ## Schedule to Dec 3
 
-- Nov 8 to Nov 9: layer 9 adapters
-- Nov 9 to Nov 10: layers 10 and 11, each only after the owner approves its requirements, design and tasks
-- Nov 11 to Nov 14: whole-system test again and a security scan
-- Nov 15 to Nov 21: budget governor
-- Nov 22 to Nov 28: README, demo, Devpost text
+The schedule in `.kiro/specs/umwayi-os/tasks.md` ("Schedule to Dec 3") is the one to follow. In short:
+
+- Nov 14 to Nov 15: layer 11, only after its spec is approved
+- Nov 16: logbook hash chain
+- Nov 17 to Nov 22: budget governor
+- Nov 23 to Nov 26: whole-system test again and a security scan
+- Nov 23 to Nov 28: README, demo, Devpost text
 - Nov 29 to Dec 2: freeze, only fixes for defects that tests find
 - Dec 3: submit
 
