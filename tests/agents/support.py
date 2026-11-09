@@ -34,6 +34,14 @@ if os.environ.get("UMWAYI_TEST_MINUTE"):
         _agents.SECONDS_PER_MINUTE = float(os.environ["UMWAYI_TEST_MINUTE"])
     except ImportError:
         pass
+# Test only: a shorter wait for the first gate (the canary) than the 30 s of acp.GATE_WAIT,
+# for tests where the canary never runs. Tests where it runs keep the real 30 s.
+if os.environ.get("UMWAYI_TEST_GATE_WAIT"):
+    try:
+        import umwayi.acp as _acp
+        _acp.GATE_WAIT = float(os.environ["UMWAYI_TEST_GATE_WAIT"])
+    except ImportError:
+        pass
 # Test only: the logbook is edited by hand right after the gate checks, so the rules check
 # was logged but the start entry cannot be.
 if os.environ.get("UMWAYI_TEST_BREAK_LOGBOOK_AFTER_GATE"):
