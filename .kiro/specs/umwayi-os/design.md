@@ -1346,6 +1346,99 @@ Effort, if approved: about 14 hours (tasks.md 10.33 to 10.39: 9 for the check, t
 | Kiro `whoami` exits 0 when signed out | the Kiro check proves nothing | the start then fails at Kiro's own sign-in error (exit 2); KNOWN-LIMITS; the owner's real check |
 | a headless Kiro run needs `KIRO_API_KEY` | Kiro `agent run` fails with `KIRO_API_KEY` removed | fail closed; open question 10 |
 
+### OpenCode as a platform (spec only, written Nov 9, waiting for owner approval)
+
+The owner asked on Nov 9 to include OpenCode (opencode.ai, `anomalyco/opencode`, formerly `sst/opencode`) as a platform, subscription or free first. Facts with links: `adapters/NOTES-layer10.md`, section "OpenCode as a platform". **Nothing is built.** Task 10.41 writes the adapter's spec once the open questions below are answered.
+
+#### What OpenCode gives umwayi, and what it does not
+
+| need (as for Claude Code and Kiro) | OpenCode | fit |
+| --- | --- | --- |
+| a fixed program, no shell | `opencode` (MIT), installed by the owner | yes |
+| a headless run | `opencode run "PROMPT"` (never `--auto`) | yes |
+| an ACP chat | `opencode acp`: ACP v1 over stdio, its own private server, exits when stdin closes | **yes, the best match**: umwayi's `acp.py` already speaks it |
+| a first gate in front of every tool call | only a JS or TS plugin with `tool.execute.before`, which can throw to block. No command or exec-form hook | **partial**: it would be umwayi's first non-Python adapter code, and how a plugin loads from a path is not confirmed |
+| a second gate: permission requests | ACP `session/request_permission` with `once`, `always` and `reject`, also for subagents; but only for actions whose effect is `ask`, and the base policy allows everything | **yes, if** umwayi's config makes every action `ask` |
+| a way to set that config without editing the owner's files | `OPENCODE_CONFIG_CONTENT` (inline config, above the project config, below managed files), V1 precedence list; not confirmed for V2 | **not confirmed** |
+| a hard limit nobody can widen | V2 `policies`: `tool.use` deny overrides `ask` and saved approvals; `provider.use` and `integration.use` restrict providers however they became known | yes, for denies |
+| proof that the gate is active | none documented. A plugin could write the canary token at `session.created` | **not designed** |
+| a login and billing check | no `auth status` JSON. `opencode auth list` lists accounts, including environment connections; its output format is not documented | **partial**: restrict by policy, not by reading |
+
+#### The route proposed for the adapter spec (task 10.41)
+
+1. **Transport acp only at first.** `[OPENCODE, "acp"]` in the workdir, with the same start steps as every chat: kill switch, rules with `platform: opencode`, run lock, gate checks, start entry, queue summary. It goes through `acp.py` unchanged, and permission requests are answered by the rules with `once` or `reject` only.
+2. **The environment is an allow list** like 10.R11.9, which drops every provider key and `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR` and `OPENCODE_DB`. umwayi passes only one generated `OPENCODE_CONFIG_CONTENT` (open question OC2) that holds:
+   - `permissions`: `[{"action": "*", "resource": "*", "effect": "ask"}]`, so every tool call becomes a permission request umwayi answers;
+   - `policies`: `provider.use` deny `*`, then allow only the agent's chosen provider. Free first means `opencode` (the signed-out free tier) or a local `ollama`, `vllm` or `lmstudio` provider. Subscription means `openai` with the owner's ChatGPT sign-in, or `github-copilot` (open question OC3).
+   - `integration.use` deny `*` except that provider, so a saved paid account or a project `.env` key cannot be used;
+   - `model`: fixed from agents.yaml (a new `model` key, validated against a plain `provider/model` pattern).
+3. **The first gate** (open question OC1): an umwayi plugin in `adapters/opencode/`, plain JS with no npm dependencies, whose `tool.execute.before` runs the layer 9 hook in exec form and throws on a block. A `session.created` handler writes the 7b canary token, so the chat is refused unless the canary is seen. If plugin loading by path cannot be confirmed, the alternative is to accept the permission answer as the only gate for OpenCode, with every action `ask`. That is weaker than Claude Code and Kiro (KNOWN-LIMITS), and needs the owner's explicit yes.
+4. **Gate checks:** `opencode` on PATH, its version at least the first V2 release (to be read), the hook script, the plugin file (a regular file, not a link), and the generated config round-trip (`opencode debug config` with the same environment, if it exists in V2; to be checked).
+5. **Billing check:** by construction (the policy allows one provider). There is no JSON status to read. A managed `/etc/opencode` file can override umwayi's inline config, so the gate checks refuse when such a file exists (open question OC4).
+6. **No login by umwayi in the first adapter.** `opencode acp` with `clientCapabilities: {}` offers only the agent auth method; the owner runs `opencode auth login` (ChatGPT or Copilot) or nothing (free tier, local) beforehand. An `umwayi agent login` for OpenCode could follow the 10.38 shape later.
+
+#### Open questions for the owner (OpenCode)
+
+- **OC1. The first gate.** An umwayi JS plugin with `tool.execute.before` that calls the layer 9 hook (proposed, if path loading is confirmed), or the permission answer as the only gate (every action `ask`), or no OpenCode until a command hook exists? Proposed: the plugin, and refuse the chat when the plugin canary is not seen (as in 7b).
+- **OC2. Inline config.** Pass the whole strict config through `OPENCODE_CONFIG_CONTENT` (proposed), or a private config file through `OPENCODE_CONFIG` in umwayi's temporary folder (the canary folder pattern)?
+- **OC3. Which routes count as "subscription or free first".** Free: the `opencode` signed-out free tier and local servers (proposed, first). Subscription: ChatGPT Plus or Pro sign-in and GitHub Copilot (proposed, allowed by an explicit agents.yaml `provider` value). OpenCode Go ($10 a month) is a third subscription (proposed: allowed the same way). Pay-as-you-go (Console credits, provider API keys): never in this adapter; only with the budget governor.
+- **OC4. Managed configuration.** Refuse when `/etc/opencode/opencode.json(c)` exists, since it outranks umwayi's config (proposed), or read it and refuse only if it widens permissions?
+- **OC5. Version.** Pin a minimum OpenCode version and refuse V1 (proposed: the V2 `permissions` and `policies` keys are what the gate relies on), or support both?
+- **OC6. When.** Spec only now (task 10.41), build after Dec 3 (proposed: four parts of Schedule A are already full), or build before Dec 3 in place of part of layer 11?
+
+### Muse Spark Open as a platform (spec only, written Nov 9, waiting for owner approval)
+
+The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, released Oct 15 2026, 816B total and 42B active parameters, Muse Model License), subscription or free first, pay-as-you-go only later. Facts with links: `adapters/NOTES-layer10.md`, section "Muse Spark Open as a platform". **Nothing is built.** Task 10.40 writes the adapter's spec once the open questions below are answered.
+
+#### What was found
+
+- **It is a model, not an agent.** umwayi needs a harness to start it. Meta's own API does not serve it; hosted providers (OpenRouter, Together, Fireworks, Groq preview, Baseten, Modal, Nebius) and local runtimes do.
+- **No subscription runs it.** The Muse Code subscription covers the closed Muse Spark, Muse Wonder and Muse Image, and OpenCode Go lists Muse Spark Contributor. Neither lists Muse Spark Open.
+- **No free hosted route was confirmed on Nov 9.** An OpenRouter `:free` page appeared in a search, then returned 404. Groq is a limited preview with no stated price. Hugging Face PRO's $2 of monthly credits apply only if HF routes it (not checked).
+- **The free route that is sure is local:** about 300 GB of memory for a 2-bit build, 700 GB of VRAM for NVFP4, or two 512 GB Mac Studios.
+- **The licence** (read through summaries; the file is gated):
+  - free for the owner's use;
+  - a "Built with Muse Spark Open" notice in the README or docs once umwayi-os ships an adapter that uses it;
+  - the Usage Policy;
+  - not for anyone under 18;
+  - the $20M model-as-a-service clause does not apply.
+- **The harnesses:**
+  - **OpenCode** (above) can run it through any provider or a local server, over ACP.
+  - **Muse Code** has shell hooks (`PreToolUse`, `PermissionRequest`, `SessionStart`), approvals and a sandbox, but no native ACP, no documented third-party endpoint, and a default model of `muse-spark-1.2`. `META_API_KEY` outranks the subscription.
+  - **Claude Code** with another base URL is rejected (10.R12).
+
+#### The route proposed
+
+1. **Muse Spark Open runs as an OpenCode agent**, not as a platform of its own. In agents.yaml it is `platform: opencode` with `provider` and `model` set. The OpenCode adapter (task 10.41) carries the gate, and task 10.40 adds only what Muse Spark Open needs:
+   - the provider entries (local `vllm` or a custom OpenAI-compatible server with tools enabled; later hosted providers);
+   - the recommended settings (temperature 1.0, top_p 1.0, an explicit `reasoning_effort`);
+   - the licence notice;
+   - the refusal when the chosen route is not free or a subscription.
+2. **Free first:** local only, through the owner's own server URL in agents.yaml (`http://127.0.0.1:...`, refused if not loopback or a private address, open question MS2). A hosted free route is added only after the owner confirms one exists.
+3. **Pay-as-you-go later:** OpenRouter, Together or Fireworks at about $1.25 / $4.25 per 1M tokens, only after the budget governor (H-078) can cap it. OpenRouter's prepaid credits fail with 402 instead of billing beyond the balance, which makes it the first paid candidate.
+4. **Muse Code stays a separate, later candidate** (open question MS3). It is the only subscription route to Meta's models (the closed Muse Spark), and its shell hooks fit layer 9 better than OpenCode's JS plugins. But it has no ACP, and no documented inline hook source.
+
+#### Open questions for the owner (Muse Spark Open)
+
+- **MS1. Platform or model.** Treat Muse Spark Open as a model behind the OpenCode platform (proposed), or as a platform of its own with its own harness?
+- **MS2. Free first means local.** Accept local-only for now (proposed; it needs about 300 GB of memory or more), or wait for a confirmed free hosted route? Which machine would run it?
+- **MS3. Muse Code.** Add Muse Code as its own platform for the closed Muse Spark under a Muse Code subscription (`META_API_KEY` removed, Contributor mode off by default), after Dec 3 (proposed), or not at all?
+- **MS4. The licence notice.** Put "Built with Muse Spark Open" in the README when the adapter ships (proposed), after the owner has read `LICENSE.md` on Hugging Face.
+- **MS5. When.** Spec only now (task 10.40), build after Dec 3 and after OpenCode (proposed).
+
+#### Risks (OpenCode and Muse Spark Open)
+
+| risk | what happens | what we do |
+| --- | --- | --- |
+| OpenCode's default policy allows every tool | permission requests never come, and the rules see nothing | umwayi's inline config makes everything `ask`; refuse if that config cannot be confirmed in effect |
+| a saved "Allow always" approval overrides `ask` | some calls run without a request | umwayi never answers `always`; a `tool.use` policy deny for what must never run; KNOWN-LIMITS |
+| a managed `/etc/opencode` or MDM profile outranks umwayi | the strict config is overridden | refuse when a managed file exists (OC4) |
+| a project `.env` or saved account holds a paid key | the session pays as you go | `integration.use` and `provider.use` allow only the chosen provider |
+| the gate needs a JS plugin run by Bun | third-party runtime code inside the first gate | plain JS, no dependencies, in `adapters/opencode/`, with a canary; the owner decides (OC1) |
+| OpenCode V1 and V2 differ | the config keys umwayi relies on do not exist | pin a minimum version (OC5) |
+| Muse Spark Open has no confirmed free hosted route | free first is local only | MS2 |
+| the licence file was read only through summaries | a duty is missed | the owner reads `LICENSE.md` (MS4) |
+
 
 ## Layer 11: Linux-like features (outline, planned Nov 9 to Nov 10)
 

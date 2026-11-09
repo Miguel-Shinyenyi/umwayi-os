@@ -372,6 +372,33 @@ Requirement 10.R12, design.md "Part 7c: subscription first, login and billing ch
     - the plan and credits cannot be read.
   - **The owner's real check (10.31):** `kiro-cli whoami` exit code signed in and signed out, and one Kiro `agent run` without `KIRO_API_KEY`.
 
+### Other platforms: OpenCode and Muse Spark Open (spec tasks only, written Nov 9 2026, waiting for owner approval)
+
+design.md "OpenCode as a platform" and "Muse Spark Open as a platform"; facts in `adapters/NOTES-layer10.md` (sections of the same names). Nothing is built. Each task below writes a spec (requirement, design and build tasks) after the owner answers that section's open questions. The build is proposed for after Dec 3.
+
+- [ ] 10.41 The spec of the OpenCode adapter (2 h, spec only), from the answers to OC1 to OC6:
+  - **What it specifies:**
+    - `platform: opencode` with transport acp (`[OPENCODE, "acp"]`), and agents.yaml keys `provider` and `model`;
+    - the environment allow list without provider keys and without `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR` and `OPENCODE_DB`;
+    - the one generated inline config: every action `ask`, `provider.use` and `integration.use` allowing only the chosen free or subscription provider, the fixed model;
+    - the first gate (the umwayi plugin with `tool.execute.before` and the `session.created` canary, or the owner's alternative);
+    - the gate checks, including the managed-config refusal and the minimum version;
+    - the answers to permission requests (`once` or `reject` only, never `always`);
+    - the failure table and KNOWN-LIMITS.
+  - **Facts to check first**, each recorded in NOTES with the date:
+    - V2 support for `OPENCODE_CONFIG_CONTENT`;
+    - plugin loading from an absolute path;
+    - the `toolCall` fields of an OpenCode permission request;
+    - `opencode debug config` in V2;
+    - the first V2 version number.
+- [ ] 10.40 The spec of Muse Spark Open as an OpenCode model (1.5 h, spec only, after 10.41), from the answers to MS1 to MS5:
+  - the local provider entry (vLLM or another OpenAI-compatible server with tools enabled, a loopback or private URL only);
+  - the recommended settings (temperature 1.0, top_p 1.0, an explicit `reasoning_effort`);
+  - the refusal of any route that is not free or a subscription;
+  - the later paid route behind the budget governor (OpenRouter's prepaid credits first);
+  - the "Built with Muse Spark Open" notice after the owner has read `LICENSE.md`;
+  - whether Muse Code becomes its own platform (MS3).
+
 ## Layer 11: Linux-like features (not started, planned Nov 9 to Nov 10)
 
 Outline only. Built only after the owner approves its requirements, design and tasks.
