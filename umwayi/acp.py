@@ -45,6 +45,8 @@ SIGN_IN = "Sign in with kiro-cli login, then try again."
 GATE_WAIT = 30.0  # seconds after session/new for gate_ready (part 7: the Claude Code canary)
 GATE_NOT_CONFIRMED = "the first gate could not be confirmed in the ACP session"
 MODE_REFUSED = "the agent did not accept the default permission mode"
+AUTH_UPDATE = "_auth/status_update"  # part 7c (10.R12.8): the Claude adapter's push when who pays changes
+_AUTH_KIND = re.compile(r"^[a-z][a-z0-9_]{0,39}$")  # params.authStatus.kind: only a short plain word is read
 
 _INVISIBLE = ({0x061C, 0x200E, 0x200F, 0x2028, 0x2029, 0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF, 0x180E}
               | set(range(0x202A, 0x202F)) | set(range(0x2066, 0x206A)) | set(range(0x2061, 0x2065)))
@@ -135,7 +137,7 @@ class Chat:
     """One ACP chat. run() returns ("done", how) | ("failed", why, lines) | ("stopped", token)."""
 
     def __init__(self, proc, out, owner, workdir: str, permission, tick, queue_lines, client_version: str,
-                 tick_interval: float = 1.0, session_meta=None, gate_ready=None, set_mode=None):
+                 tick_interval: float = 1.0, session_meta=None, gate_ready=None, set_mode=None, on_auth=None):
         self.proc = proc
         self.out = out  # the owner's screen
         self.owner = owner  # the owner's input, a file descriptor (stdin)
@@ -162,6 +164,8 @@ class Chat:
         self.session_meta = session_meta  # a dict sent as _meta of session/new
         self.gate_ready = gate_ready  # callback() -> True once the first gate is confirmed
         self.set_mode = set_mode  # a mode id sent with session/set_mode once the gate is confirmed
+        # part 7c (10.R12.8); None for Kiro: callback(kind) -> None, or a token that stops the chat
+        self.on_auth = on_auth
 
     # ------------------------------------------------------------ called from the SIGINT handler
 
@@ -285,6 +289,16 @@ class Chat:
 
     def _update(self, msg: dict) -> None:
         params = msg.get("params")
+        if msg.get("method") == AUTH_UPDATE:
+            # only params.authStatus.kind, and only a short plain word; the label, account, plan and email are not
+            # read. No readable kind is ignored: the adapter sends "cannot tell" as silence.
+            status = params.get("authStatus") if isinstance(params, dict) else None
+            kind = status.get("kind") if isinstance(status, dict) else None
+            if self.on_auth is not None and isinstance(kind, str) and _AUTH_KIND.match(kind):
+                token = self.on_auth(kind)
+                if token is not None:
+                    raise _Stop(token)
+            return
         if msg.get("method") != "session/update" or not isinstance(params, dict):
             return
         u = params.get("update")
