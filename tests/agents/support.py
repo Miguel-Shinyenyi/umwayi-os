@@ -64,6 +64,21 @@ if os.environ.get("UMWAYI_TEST_BREAK_LOGBOOK_AFTER_GATE"):
         _agents2.gate_checks = _gate_then_break
     except ImportError:
         pass
+# Test only (budget governor): the same hand edit right after the reserve entry, so the budget steps passed and the
+# start entry is the first write that cannot be made.
+if os.environ.get("UMWAYI_TEST_BREAK_LOGBOOK_AFTER_RESERVE"):
+    try:
+        import umwayi.agents as _agents4
+        _real_reserve = _agents4._Run._reserve
+        def _reserve_then_break(self):
+            refused = _real_reserve(self)
+            if refused is None:
+                with open(os.path.join(os.environ["UMWAYI_TEST_ROOT"], "LOGBOOK.md"), "a", encoding="utf-8") as f:
+                    f.write("edited by hand\n")
+            return refused
+        _agents4._Run._reserve = _reserve_then_break
+    except ImportError:
+        pass
 '''
 
 RULES = """rules:
@@ -107,6 +122,26 @@ RULES = """rules:
     matchers:
       type: tool_bash
       command__contains: ["rm -rf"]
+"""
+
+# Budget governor (B.8): every start asks the rules for budget_check after the reservation fits, and no matching rule
+# is Ask me first. The layer 10 tests are not about the budget, so write_rules adds this Yes rule to any rules text
+# that does not name budget_check itself. The budget tests write their own.
+BUDGET_YES = """  - id: budget-yes
+    title: the budget check is fine in the layer 10 tests
+    text: The layer 10 tests are not about the budget.
+    verdict: yes
+    matchers:
+      type: budget_check
+"""
+
+# Limits far above what the layer 10 tests use, for a test that starts one agent more often than the placeholder
+# limits allow in one day (per_agent_per_day 300 UU is three unknown runs of 100 UU).
+ROOMY_UNITS = """version: 1
+limits:
+  per_day: 1000000
+  per_agent_per_day: 1000000
+  per_platform_per_day: 1000000
 """
 
 CLAUDE_AGENT = """agents:
@@ -364,7 +399,12 @@ class AgentCase(unittest.TestCase):
     def run_entries(self) -> list:
         return [e for e in self.entries() if e.source == "umwayi agent run"]
 
+    def roomy_budget(self) -> None:
+        (self.root / "units.yaml").write_text(ROOMY_UNITS, encoding="utf-8")
+
     def write_rules(self, text: str = RULES):
+        if "budget_check" not in text and text.lstrip().startswith("rules:"):
+            text = text.rstrip("\n") + "\n" + BUDGET_YES
         (self.root / "rules.yaml").write_text(text, encoding="utf-8")
 
     def script(self, *steps) -> dict:

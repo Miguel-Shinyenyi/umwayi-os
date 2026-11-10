@@ -371,6 +371,7 @@ class EndsTests(AcpCase):
         self.assertEqual(self.sent("session/prompt"), [])
 
     def test_a_garbage_line_and_a_line_over_4_mb_end_with_2(self):
+        self.roomy_budget()  # four chats of one agent: more than the placeholder per_agent_per_day allows
         for label, act in (("garbage", {"garbage": "this is not { json"}), ("array", {"garbage": "[1, 2]"}),
                            ("empty", {"garbage": ""}), ("big", {"big": 4 * 1024 * 1024 + 10})):
             with self.subTest(case=label):
