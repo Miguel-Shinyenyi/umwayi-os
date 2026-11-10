@@ -2063,6 +2063,165 @@ Kill switch (3), rules `agent_run`, run lock (3), gate checks (2), then the new 
 | the agent forges a report | an unknown run looks measured | B-Q5; KNOWN-LIMITS |
 | the logbook grows with three entries per run | slower appends | linear and small; C-Q2 |
 
+## Whole-system test and security scan (approved Nov 10, tasks.md S.0; built Nov 10 to Nov 12)
+
+Requirements S.R1 to S.R10. Tasks S.0 to S.2.7. The documentation layout (tasks.md D.1) is built first, so S.1 and S.2 write their docs into `docs/` (`testing.md`, `security.md`, `SECURITY-SCAN.md`), not the README. Approved by the owner on Nov 10 with S-Q1 to S-Q16 all as proposed (answers below the questions). No code, no test and no scan was run for this spec.
+
+### Facts (read Nov 10 2026)
+
+- **npm audit** sends a description of the project's dependencies to the configured registry and asks for known vulnerabilities; it needs a `package-lock.json` by default ([npm-audit](https://docs.npmjs.com/cli/v9/commands/npm-audit), [Auditing package dependencies](https://docs.npmjs.com/auditing-package-dependencies-for-security-vulnerabilities)). So it needs the network and tells the registry what the adapter uses. It checks direct, dev, bundled and optional dependencies, not peer dependencies (same page). The npm CLI can also verify the registry signatures of downloaded packages (`npm audit signatures`, [npm-audit man page](https://manpages.ubuntu.com/manpages/noble/man1/npm-audit.1.html)); that needs the packages installed.
+- **OSV-Scanner** (Google) extracts packages from a lockfile and matches them against OSV databases. Its offline mode uses previously downloaded local databases and then sends nothing anywhere; `--download-offline-databases` fetches them first ([Offline Mode](https://google.github.io/osv-scanner/usage/offline-mode/), [Usage](https://google.github.io/osv-scanner/usage/)). It is a separate program, not an npm or PyPI package.
+- **Bandit** builds an AST of each Python file and runs security plugins against it; it is distributed on PyPI ([bandit on PyPI](https://pypi.org/project/bandit/), [Getting Started](https://bandit.readthedocs.io/en/latest/start.html)). It needs no network once installed and sees only Python source.
+- **pip-audit** scans Python environments using the Python Packaging Advisory Database through the PyPI JSON API, or OSV; both need the network ([pip-audit on PyPI](https://pypi.org/p/pip-audit/), [issue 698](https://github.com/pypa/pip-audit/issues/698)). umwayi has no Python dependency, so there is nothing for it to scan except the scan tools themselves.
+- **This repo, read Nov 10:** `pyproject.toml` has `dependencies = []`. The only adapter package is `adapters/claude_acp/` (`package.json` pins `@agentclientprotocol/claude-agent-acp` 0.101.0; `package-lock.json` is lockfile version 3 with 115 packages, among them `@anthropic-ai/claude-agent-sdk` 0.3.318 with eight optional platform packages, `express` 5, `hono` 4, `@modelcontextprotocol/sdk`, `zod` and `cross-spawn`). The SDK and its platform packages give their licence as "SEE LICENSE IN README.md" or "LICENSE.md"; every other package names an open licence. The receiver (`umwayi/telemetry.py`) uses `ThreadingHTTPServer` with daemon threads, a 5 s socket timeout per handler (`READ_TIMEOUT`) and no limit on connections (KNOWN-LIMITS 122).
+- **This sandbox, Nov 10:** `node` and `npm` are installed; `osv-scanner`, `bandit` and `pip-audit` are not. Network access for an advisory database was not tried.
+
+Not read for this spec: the content of the platform packages (they were not installed), the current advisories for any package, and the Python security release pages (S-Q5 says how they are read in S.2).
+
+### Layout (if approved)
+
+```
+tests/test_whole_system.py      S.1: the owner's day and the fault scenarios (S.R2, S.R3)
+tests/whole_system_support.py   the root builder, the fakes on PATH, the copy of the day's end state, the sweeps
+tests/test_scan_receiver.py     S.R5: the receiver cases with a raw socket client
+tests/test_scan_files.py        S.R6, S.R7: modes, links and paths
+tests/test_scan_secrets.py      S.R8: the planted secrets and the sweep over every byte written or printed
+docs/SECURITY-SCAN.md           S.R9: the recorded scan, its findings and decisions, and S.R10
+```
+
+No new file in `umwayi/` unless a test of S.R5 to S.R8 shows a defect (S-Q6, S-Q7); then the fix goes into the module it belongs to, test first.
+
+### S.1, the owner's day
+
+- One test class builds the root once (`setUpClass`) and runs the steps of S.R2 in order as real child processes, asserting after each step the exit code, the new logbook entries by source and shape, and the state files. Ordered steps run in one test method each, named `test_01_...` to `test_08_...`, and a failed step skips the rest (they depend on it) with the reason.
+- The end state is copied (`shutil.copytree`, links kept as links) once per fault scenario, so each fault starts from the same day.
+- The fakes are put first on `PATH` as today (`tests/agents/support.py`); the fake `node` serves the Claude Code ACP chat; the fake `claude` sends the telemetry; the layer 9 hooks are the real scripts.
+- The day ends with the checks of S.R1.5, run again after every fault scenario.
+
+### S.1, the fault scenarios
+
+| scenario | how | expected |
+| --- | --- | --- |
+| tampered: old chained entry | edit one field, rewrite the hash record | `verify` 1, "the Chain value does not match" at that entry; every start, check, job, workflow, schedule install and budget status refused; `kill on` 0 with the "could not be written" line; `schedule remove` 2 with both files back; no byte written by a refusal |
+| tampered: budget settle, shape broken | change released only, re-chain, rewrite the record | `verify` 0; every agent start and `budget status` 2 (the ledger shape check) |
+| tampered: budget settle, consistent | change micros, UU and released together, re-chain, rewrite the record | `verify` 0, starts go on, `status` shows the edited number (KNOWN-LIMITS 115); only `verify --anchor` with the day's anchor gives 1 |
+| tampered: truncated tail | cut the last entries, rewrite the record | `verify` 0; `verify --anchor` 1 "shorter"; starts go on (nothing else can tell) |
+| lost reservation | SIGKILL `umwayi agent run` while the fake agent loops; kill its group | `status` counts it in full; a start that no longer fits 3; `settle-lost` 3 while a run holds the lock, then 0; next start 0; `verify` 0 |
+| kill switch mid run | `kill on` while each kind of start runs (run, cli chat, ACP chat, for both platforms; a scheduled job from `ExecStart=`) | exit 3 within 1 s plus the 10 s stop grace; nothing left alive; one settle; `kill off`, the next start 0 |
+| schedule with no systemd | `PATH` without `systemctl`, `systemd-analyze`, `crontab`; then a fake `systemctl` that records calls | `install` 0, files 0644, the commands printed; `check` 2 (not enabled); no call recorded; `ExecStart=` by hand gives the job's entry; `remove` 0 |
+| limit mid chat | ACP chat with `per_run: 1`, the second turn reports 20000 micros | exit 3, "it passed its budget", settled measured |
+| crash in umwayi | the planted fault hook (`UMWAYI_FAULT`) in `logbook.append`, `agents._Run._reserve`, the settle, and `schedule.install` after the service file | the next command recovers or refuses as its layer says; no unit file left half; `verify` 0 at the end |
+
+### S.2, the tools (proposed, S-Q3, S-Q4, S-Q5)
+
+| target | tool | what it needs | what it cannot see |
+| --- | --- | --- | --- |
+| umwayi's Python code | Bandit (PyPI), all plugins, in a throwaway virtual environment outside the repo | Python, one `pip install` from PyPI (network once), no network for the scan | anything that is not a known pattern; logic errors; what the code does at run time; the adapters' JavaScript |
+| umwayi's own rules | the code guards already in the suite (`test_system.CodeTests`, `test_automation.CodeGuardTests`, `test_agents_gate.CodeGuardTests`), listed in SECURITY-SCAN.md | nothing new | the same as any static check |
+| the adapter's npm tree | OSV-Scanner on `adapters/claude_acp/package-lock.json`, offline mode with a database downloaded once | the OSV-Scanner release binary, its checksum checked against the release page; the network once for the database | advisories not in OSV; the contents of prebuilt programs; whether a vulnerable function is reachable |
+| the same tree, a second source | `npm audit --package-lock-only` in a copy of the folder | npm and the network; it tells the registry the package list | the same as OSV-Scanner, from GitHub's advisories |
+| registry signatures | `npm ci --ignore-scripts` in a throwaway copy, then `npm audit signatures` | npm, the network, about the size of the tree on disk | whether the published files are safe, only that they are the published ones |
+| licences | read from `package-lock.json` and each installed `package.json` | the throwaway install above | licence text in a README (the SDK); whether a licence allows the owner's use (the owner decides, S-Q11) |
+| Python interpreters | the version of each interpreter (3.10.20, 3.11.15, 3.12.13, 3.13.13 in this sandbox, and the owner's) compared by hand with python.org's security releases | the network to read the pages | vulnerabilities fixed but not yet listed; the owner's distribution patches |
+
+No tool is committed, installed into the repo, or added to `pyproject.toml`, `package.json` or CI. Each command, version and checksum goes into SECURITY-SCAN.md so the owner can run it again.
+
+### S.2, the receiver tests (S.R5)
+
+All through `umwayi agent run` with the fake `claude`, whose `otlp` step gets a raw socket mode for these cases (a test helper, no change to umwayi):
+
+- **binding:** the fake reads `OTEL_EXPORTER_OTLP_ENDPOINT`, then tries the same port on every non-loopback address of the machine and on `::1`; each connect is refused.
+- **header:** the seven cases of S.R5.2; only the exact secret gives 200.
+- **sizes:** 1 MB exactly (200), 1 MB plus 1 (413, the test checks the body was not read by sending it only after the status line arrives), the 16 MB total, a short body (400 after the 5 s timeout, run invalid), a long body (the extra bytes ignored, the connection closed), `Transfer-Encoding: chunked` without a length (411), `Content-Encoding: gzip` (415).
+- **slow client:** headers at one byte every 4 s. Today each `recv` gets its own 5 s timeout, so such a client can hold a handler thread for as long as it keeps sending. Expected after S-Q6: the request is cut at a whole-request deadline (proposed 10 s) and answered 408 or closed; the run is not made invalid by a client that never sent the header (it cannot be the agent's own report).
+- **many connections:** 200 sockets opened and held. Today each gets a thread. Expected after S-Q7: at most a fixed number of handlers (proposed 16) at once, the rest closed at once; the agent's own report sent after them still gives 200; the thread count of umwayi read from `/proc/PID/status` stays under the cap plus a margin.
+- **closed after:** the port refuses connections after umwayi exits, for a normal end, the kill switch, SIGTERM and a planted crash.
+
+### S.2, modes, links and paths (S.R6, S.R7)
+
+- **modes:** one test runs the owner's day under `umask 022` and once under `077` and lists every path under the root, `$XDG_CONFIG_HOME/systemd/user`, the canary folder and the capture file with its mode. The expected table (S-Q9) is in the test.
+- **links:** a table test, one row per file umwayi opens (the logbook, the record, the intent, the lock, `KILL`, the run lock, `queue.md`, the archive index and targets, drafts, the outbox, `rules.yaml`, `agents.yaml`, `units.yaml`, `schedule.yaml`, jobs files, workflows, memory files, the unit folder and files, the capture file): a link to outside the root, a link to `/dev/zero`, a folder, and for writes a hard link to a file outside the root. Each row states the expected answer (refused with its layer's code, or read as allowed, never a write outside the root); a row with no expectation yet is a finding.
+- **paths:** each argument of S.R7.2 with each bad shape; the answer is 64 (or the layer's refusal), the message never holds the path's control characters.
+- **races:** where umwayi opens with `O_NOFOLLOW` or `O_EXCL` (the unit files, `KILL`, the capture file), a test swaps the file for a link between a planted pause and the open; elsewhere the race is listed in KNOWN-LIMITS.
+
+### S.2, secrets (S.R8)
+
+- A fixed list of planted secrets, each a unique word (for example `S2-SECRET-PROMPT`, `S2-SECRET-ENV-ANTHROPIC_API_KEY`), set in every entry place of S.R8.1 during the owner's day and every fault scenario.
+- The sweep reads every byte of S.R8.2 and fails on any planted word, any run header secret (read from the fake's record of its environment) and any canary token, with the file and line (never the text around it).
+- The allowed places are a short list in the test, each with the layer that allows it.
+
+### Results and the freeze
+
+- `docs/SECURITY-SCAN.md` (S-Q12) has the sections of S.R9.1, one table per target, and S.R10 word for word.
+- A finding is High or Critical (the tool's own rating), or Medium and reachable from umwayi's own use, or any defect a test of S.R5 to S.R8 shows: it is fixed in S.2 (test first) or the owner accepts it in KNOWN-LIMITS (S-Q8). Everything else is listed with its decision.
+- A dependency fix means a new pin of the adapter, which is a layer 10 change: the owner approves it, and its gate check (the pinned version in `agents.py`, `package.json` and the lockfile) changes in the same PR.
+
+### Failure table
+
+| what goes wrong | what happens |
+| --- | --- |
+| a step of the owner's day fails | the later steps are skipped with the reason; the test fails |
+| a fault scenario leaves a process alive | the test kills it and fails |
+| a scan tool cannot be installed or has no network | SECURITY-SCAN.md says "not run" with the reason; S.2 is not ticked (S.R9.2) |
+| two advisory sources disagree | both are listed; the stricter one decides |
+| a planted secret is found | the test fails with the file and line; it is fixed before S.2 is ticked |
+| a receiver case shows a defect | the defect is fixed test first, or written into KNOWN-LIMITS if the owner decides so |
+
+### KNOWN-LIMITS (written with S.2.7, numbered from 129)
+
+At least: S.R10 items 1 to 6 in short; the advisory scan was true on its date only; `npm audit` tells the registry the package list; the receiver cases that stay limits after S-Q6 and S-Q7; every link or path race left open by S.R7.3.
+
+### Hours and schedule effect
+
+| task | hours |
+| --- | --- |
+| S.1.1 support: root builder, copies, sweeps | 2 |
+| S.1.2 the owner's day | 3 |
+| S.1.3 fault scenarios: tampered logbook, lost reservation, crashes | 2.5 |
+| S.1.4 fault scenarios: kill switch mid run (six kinds), no systemd, limit mid chat | 2.5 |
+| S.2.1 receiver tests | 2.5 |
+| S.2.2 receiver fixes, if S-Q6 and S-Q7 say so | 2 |
+| S.2.3 modes, links, paths | 3 |
+| S.2.4 secrets sweep | 2 |
+| S.2.5 static and dependency scans, run and recorded | 2.5 |
+| S.2.6 interpreters and licences | 1 |
+| S.2.7 SECURITY-SCAN.md and security.md under docs/, KNOWN-LIMITS, the README link, mutation checks, the full suite | 2 |
+| **total** | **25** |
+
+That is about three working days: Nov 10 to Nov 12 (S-Q16, moved up by the owner from Nov 23 to Nov 26). The web interface follows it with its own spec; README, demo and Devpost, the freeze Nov 29 to Dec 2 and the submission on Dec 3 do not move.
+
+### Risks
+
+| risk | what happens | what we do |
+| --- | --- | --- |
+| the whole-system test is slow | the suite takes much longer than about 14 min per Python | one day of state copied for the faults instead of rebuilt; the mid-run cases share one wait; measure and report the time (S-Q1) |
+| the test is flaky under load | a timing case fails now and then | every wait is for an event with a generous timeout, never a short sleep, as in the layer 10 tests |
+| the scan needs the network and the sandbox has none | S.2.5 cannot finish | recorded as not run; the owner runs the listed commands (S-Q4) |
+| an advisory hits the pinned adapter | the ACP chat for Claude Code is affected | a new pin is a layer 10 change with the owner's approval, or the chat is turned off until then |
+| a fix to the receiver changes its behaviour | the governor tests change | the fix comes with its tests first and the full suite on 3.10 to 3.13 |
+| the scan is taken as proof | the owner trusts more than was shown | S.R10 in SECURITY-SCAN.md, KNOWN-LIMITS and the PR |
+
+### Open questions for the owner (S.1 and S.2, answered Nov 10: all as proposed)
+
+1. **S-Q1. Where S.1 runs.** In the normal suite, so CI runs it on every pull request (proposed; about 5 to 8 more minutes per Python, measured in S.1.4). Or a separate command that only runs before a release?
+2. **S-Q2. One root or many.** One ordered owner's day, then each fault in its own copy of the day's end state (proposed). Or every scenario from an empty root (slower, but no step depends on another)?
+3. **S-Q3. The static scan of umwayi's code.** Bandit with all plugins, from a throwaway virtual environment, plus the existing code guards (proposed). Or also Semgrep (more rules, but its rule registry needs the network and an account for some rules)?
+4. **S-Q4. The dependency scan.** OSV-Scanner offline (one database download) as the main tool, and `npm audit --package-lock-only` as a second source, accepting that it sends the package list to the registry (proposed). Or OSV-Scanner only, so nothing about the tree leaves the machine?
+5. **S-Q5. The interpreters.** Compare each Python version by hand with python.org's security releases and record it (proposed). Or leave the interpreter to the owner's operating system and only record the versions?
+6. **S-Q6. A slow client.** Add a whole-request deadline of 10 s to the receiver and close a request that passes it, without making the run invalid unless the run header had matched (proposed; a change to `telemetry.py` with its tests). Or record it as a known limit?
+7. **S-Q7. Many connections.** Cap the receiver at 16 handlers at once and close the rest at once (proposed). Or record it as a known limit next to item 122?
+8. **S-Q8. What blocks the freeze.** High or Critical, Medium and reachable, and every defect a test shows, must be fixed or accepted by the owner in KNOWN-LIMITS before Nov 29 (proposed). Or only High and Critical?
+9. **S-Q9. File modes.** The canary folder 0700, the capture file 0600, the intent 0600 while it holds an entry, the unit files 0644, everything else the owner's umask (proposed). Or 0600 and 0700 for everything under `.umwayi/`?
+10. **S-Q10. The same-user boundary.** State it plainly and test nothing against it (proposed: every layer runs as the owner, and only a sandbox, deferred by L11-Q13, could change that). Or add tests that show which same-user attacks the chain and the anchor make visible?
+11. **S-Q11. Licences.** List every licence and point out the SDK's "SEE LICENSE IN README.md" for the owner to read, with no decision by umwayi (proposed). Or treat any package without an open licence as a finding that blocks?
+12. **S-Q12. Where the results go.** `docs/SECURITY-SCAN.md` in the repo, dated, without anything secret (proposed). Or only in the pull request body?
+13. **S-Q13. CI.** Leave the CI workflow as it is for Dec 3; the scan is run by hand and recorded (proposed: CI would need third party actions and the network). Or add a scan job now?
+14. **S-Q14. The owner's real runs.** Not part of S.1; 10.21 (a real run of each platform), 10.31, 11.6 and B.10 stay open as the owner's checks, and SECURITY-SCAN.md lists them as not done (proposed). Or make one of them a condition for ticking S.1?
+15. **S-Q15. Fixes found by S.1.** A defect S.1 finds in any layer is fixed in the S.1 pull request, test first, and named in it (proposed). Or a separate fix pull request per defect?
+16. **S-Q16. When.** Build right after approval, one pull request for S.1 and one for S.2 (proposed, about 25 hours). Or keep Nov 23 to Nov 26, or one pull request for both?
+
+Answers (owner, Nov 10): S-Q1 to S-Q16 as proposed. S.1 and S.2 are built right after PR 34 merges, Nov 10 to Nov 12, in two pull requests (S.1 first); the web interface follows the scan, with its own spec first; README, demo and Devpost stay Nov 23 to Nov 28.
+
 ## Testing
 
 - Standard library `unittest`, also run by `pytest`.

@@ -21,7 +21,8 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Logbook crash safety (Layer 5 addendum) | approved Nov 9 (L5.0); built Nov 10 (L5.1 to L5.5), before 7c-2 | spec PR 26; build PR 27 | 906 after PR 27, on Python 3.10 to 3.13 |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
 | Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
-| Whole-system test and security scan | not started, planned Nov 23 to Nov 26, after the budget governor (C-Q4) | | |
+| Documentation layout (D.1) | added Nov 10 (PR 34); built first, before S.1, as its own pull request | spec PR 34 | |
+| Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); build Nov 10 to Nov 12 (S.1, then S.2), moved up from Nov 23 to Nov 26 | spec PR 34 | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
@@ -37,8 +38,10 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | Nov 14 to Nov 15 | Free (layer 11 moved up) |
 | Nov 16 | Logbook hash chain (C.1 to C.4), one day (approved, C.0); built early, PR 32 |
 | Nov 17 to Nov 22 | Budget governor (B.1 to B.10) (approved, B.0); built early, PR 33; B.10 waits for the owner |
-| Nov 23 to Nov 26 | Whole-system test again and security scan (S.1, S.2), after the governor: the adapters, layers 10 and 11, the chain and the governor, including the telemetry receiver (C-Q4) |
-| Nov 23 to Nov 28 | README, demo, Devpost text, alongside the scan |
+| Nov 10 | Documentation layout (D.1): a short README and one doc per layer under `docs/`, right after PR 34 merges, before S.1 |
+| Nov 10 to Nov 12 | Whole-system test and security scan (S.1, then S.2; approved, S.0), moved up by the owner from Nov 23 to Nov 26: the adapters, layers 10 and 11, the chain and the governor, including the telemetry receiver |
+| Nov 13 onward | Web interface, after the scan (the owner's order, Nov 10). Its own spec first, approved before it is built; requirements.md still lists a web interface under "Non goals for Dec 3", which that spec has to change with the owner's approval |
+| Nov 23 to Nov 28 | README, demo, Devpost text (the scan moved up to Nov 10 to Nov 12) |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
 
@@ -492,10 +495,67 @@ Requirements: Layer 5, "Logbook crash safety". Design: Layer 5, "Crash safety", 
 - [x] L5.4 Signals (1 h): the four signals blocked and their handlers deferred around steps 3 to 6 and around a recovery, delivered once afterwards; a write outside the main thread refused (L-Q2). Tests: SIGTERM, SIGHUP, SIGINT and SIGQUIT during a held write leave a whole write, no intent and no recovery entry; agent run with the planted pause and Ctrl-C, SIGHUP and SIGTERM writes its stop entry and the logbook verifies (the PR 25 defect, end to end).
 - [x] L5.5 Docs, planted faults and mutation checks (2.5 h): KNOWN-LIMITS (the list in the design) and item 39 updated (no stale lock any more), the Layer 5 "Still open" note above closed, README; the chain cases go to C.2 (Nov 16); mutation checks (recovery accepting any mismatch, the record written without the hash comparison, the intent not fsynced, the folder fsync dropped, the handler swap dropped, the recovery entry not written, the intent removed before the record, the torn tail cut accepting any tail); the full suite on Python 3.10 to 3.13 and the stop tests 20 times under load; counts in the pull request.
 
-## Whole-system test and security scan (not started, planned Nov 23 to Nov 26, after the budget governor is complete)
+## Documentation layout (D.1, the owner's first task before S.1; added Nov 10 to PR 34)
 
-- [ ] S.1 Whole-system test again, with the adapters, layers 10 and 11, the logbook hash chain and the budget governor including the telemetry receiver (includes 9.11 and 10.21)
-- [ ] S.2 Security scan of the code and the dependencies of any adapter package, and of the telemetry receiver (loopback binding only, the run header, the size caps)
+The README is 447 lines with every layer in one file. D.1 follows the documentation pattern of the owner's other projects (`routine-machine`, `Invoice-Financing`): a root `PROJECT.md` that says what to read first, a short README, and one file per component under `docs/`, each with the same four parts, kept current in the same turn as the behaviour it describes. Built as its own pull request right after PR 34 merges, before S.1. Docs only: no change to `umwayi/`, `adapters/` or any test except the new docs test. About 6 hours.
+
+- [ ] D.1 The short README and `docs/` (6 h):
+  - **README.md, at most 120 lines:** what it is; a status table (one row per layer and addendum, its state and its pull requests, from the status table above); install and test; exit codes in five lines (the full table in `docs/exit-codes.md`); a table of the layers where each row links to its doc; security and known limits (links to `docs/security.md` and `docs/KNOWN-LIMITS.md`); contributing (branches, pull requests, tests first, `docs/DOCS_MAINTENANCE.md`).
+  - **`PROJECT.md` in the root:** what umwayi-os is, what to read first (this file, then `docs/DOCS_MAINTENANCE.md`, then the doc of the part being worked on, then its section of the `.kiro` specs), and the project structure with one line per file.
+  - **One file per layer under `docs/`:** `memory.md`, `rules.md`, `queue.md`, `archive.md`, `logbook.md` (with the crash safety and the hash chain), `automation.md`, `helpers.md`, `workflows.md`, `adapters.md`, `agent-front-door.md`, `scheduled-runs.md`, `budget-governor.md`; plus `exit-codes.md`, `architecture.md`, `testing.md`, `security.md`, `status-log.md` (the status table and the counts after each pull request) and `schedule.md` (the schedule to Dec 3).
+  - **Each file has four parts:** Purpose (one paragraph); Current state (what is built now, moved from the README); Decisions log (a table of date, decision and reason, newest first, from the answers recorded in the `.kiro` specs, each row naming its question, for example L11-Q6); Open questions (from the specs and the owner's open checks). Each file under 300 lines; a longer one is split into linked sub-files (for example `agent-front-door.md` and `agent-front-door-acp.md`).
+  - **`docs/DOCS_MAINTENANCE.md`:** a doc update ships in the same turn and pull request as the behaviour change; docs describe the current state, not the history (history goes to `status-log.md` and the Decisions logs); the four-part format; the 300-line rule; and which file to update when (a new command or exit code, a rules action type, a logbook entry shape, an adapter, a limit, a schedule change, a status change, a scan result).
+  - **Lossless:** text is moved, not rewritten. No fact, number, command, exit code, link or limit is dropped. Only headings, the order and the relative link paths change. The README's example logbook entry (README line 128, "## 2026-11-07") stays inside its code block, which is marked `text` and introduced as an example entry, so no tool reads it as a heading.
+  - **Kept where they are and linked:** `docs/KNOWN-LIMITS.md` (numbering unchanged), the `.kiro/specs/umwayi-os/` requirements, design and tasks, `adapters/NOTES*.md` and each adapter's README. `agents.example.yaml`, `schedule.example.yaml` and the rules examples stay where they are.
+  - **`tests/test_docs.py`** (standard library only, no network): every relative link in `README.md`, `PROJECT.md` and every `docs/*.md` resolves to a file in the repo, and an `#anchor` to a heading in that file; `README.md` is at most 120 lines; no em dash in `README.md`, `PROJECT.md` or any file under `docs/`; every layer doc has the four parts in order and is under 300 lines; headings are found outside code blocks only.
+  - Acceptance tests:
+    - `tests/test_docs.py` passes; it fails on a planted broken link, a planted anchor that does not exist, a README of 121 lines, a planted em dash, a doc of 300 lines and a doc missing one of the four parts (each planted in a temporary copy, never in the repo);
+    - the lossless check, run once and its result put in the pull request: every non-blank line of the old README outside code blocks, with link paths normalised, is found in exactly one new file, except the headings the move replaced (listed); every code block is found byte for byte; every KNOWN-LIMITS item number the old README named is still named;
+    - the full suite on Python 3.10 to 3.13, with the counts in the pull request;
+    - no file under `umwayi/`, `adapters/` or `tests/` changes except `tests/test_docs.py`.
+
+## Whole-system test and security scan (spec PR 34, approved Nov 10 (S.0); built Nov 10 to Nov 12, moved up by the owner from Nov 23 to Nov 26)
+
+Requirements S.R1 to S.R10, design.md "Whole-system test and security scan" (facts with links, the tools and what each cannot see, open questions S-Q1 to S-Q16). Approved with S-Q1 to S-Q16 as proposed (S.0). About 25 hours (design, "Hours and schedule effect"). Every test runs `python -m umwayi ...` as a real child process with `HOME`, `XDG_CONFIG_HOME` and `TMPDIR` in a temporary folder and the fake agents on `PATH`; no real agent, systemd, network or account. The scan tools run outside the repo and are never a dependency.
+
+- [x] S.0 Requirements S.R1 to S.R10, the design section and these tasks written (Nov 10) in PR 34, approved by the owner on Nov 10 with S-Q1 to S-Q16 all as proposed:
+  1. S-Q1: S.1 runs in the normal suite, so CI runs it on every pull request; the added time is measured in S.1.4.
+  2. S-Q2: one ordered owner's day, then each fault scenario in its own copy of the day's end state.
+  3. S-Q3: Bandit with all plugins from a throwaway virtual environment, plus the existing code guards; no Semgrep.
+  4. S-Q4: OSV-Scanner offline (one database download) as the main tool, and `npm audit --package-lock-only` as a second source, accepting that it sends the package list to the registry.
+  5. S-Q5: each Python version compared by hand with python.org's security releases, and recorded.
+  6. S-Q6: a whole-request deadline of 10 s in the receiver; a request past it is closed, and the run is made invalid only if the run header had matched.
+  7. S-Q7: the receiver handles at most 16 requests at once and closes the rest at once.
+  8. S-Q8: High or Critical, Medium and reachable, and every defect a test shows must be fixed or accepted by the owner in KNOWN-LIMITS before the freeze (Nov 29).
+  9. S-Q9: the canary folder 0700, the capture file 0600, the intent 0600 while it holds an entry, the unit files 0644, everything else the owner's umask.
+  10. S-Q10: the same-user boundary is stated plainly and not tested against.
+  11. S-Q11: every licence is listed and the SDK's "SEE LICENSE IN README.md" is pointed out for the owner to read; umwayi decides nothing.
+  12. S-Q12: the results go to `docs/SECURITY-SCAN.md`, dated, with nothing secret.
+  13. S-Q13: the CI workflow is not changed for Dec 3; the scan is run by hand and recorded.
+  14. S-Q14: the owner's real runs (10.21's real run of each platform, 10.31, 11.6, B.10) are not part of S.1 and are listed as not done.
+  15. S-Q15: a defect S.1 finds in any layer is fixed in the S.1 pull request, test first, and named in it.
+  16. S-Q16: built right after approval (now Nov 10 to Nov 12, moved up by the owner from Nov 23 to Nov 26), one pull request for S.1 and one for S.2.
+- [ ] S.1 Whole-system test (includes 9.11 and the test part of 10.21):
+  - [ ] S.1.1 Support (2 h): `tests/whole_system_support.py`: the root builder from the example files, the fakes on `PATH`, the copy of the day's end state per scenario, the end checks of S.R1.5 (verify, budget status, nothing alive, allowed exit codes).
+    - Acceptance tests: a fresh root validates (`agent validate`, `budget validate`, `schedule validate`, `workflow validate` all 0); a copy is byte for byte the original, links kept; the end checks fail on a planted leftover process and on a planted exit code 1 from `agent`.
+  - [ ] S.1.2 The owner's day (3 h): the eight steps of S.R2 in order, each with its exit code, the logbook entries it adds (by source and shape) and the state files after it.
+    - Acceptance tests: each step's entries and nothing else; the chain started in step 3 covers every later entry; the shares in `budget status` match the day (one measured, one declared or unknown); `verify --anchor` with step 3's anchor gives 1 "shorter" and with a new anchor 0.
+  - [ ] S.1.3 Faults: a tampered logbook, a lost reservation, crashes (2.5 h): S.R3.1, S.R3.2 and S.R3.6, each from a copy of the day.
+    - Acceptance tests: the four tampering cases of the design's table with their exact answers, and nothing written by a refusal (snapshot equal); the lost reservation through `status`, a refused start (3), `settle-lost` refused while a run holds the lock (3) then 0, the next start 0; each planted crash recovered or refused, `verify` 0 at the end.
+  - [ ] S.1.4 Faults: the kill switch mid run, no systemd, a limit mid chat (2.5 h): S.R3.3 for each of the six kinds of start, S.R3.4 with and without a recording fake `systemctl`, S.R3.5.
+    - Acceptance tests: each kind stopped with exit 3, nothing alive, one settle, the next start 0 after `kill off`; no call to `systemctl` recorded, the files 0644, `ExecStart=` by hand gives the job's entry; the chat stopped with 3 and settled measured. The suite time on 3.13 before and after S.1 is in the pull request (S-Q1).
+- [ ] S.2 Security scan:
+  - [ ] S.2.1 The receiver (2.5 h): `tests/test_scan_receiver.py`, every case of S.R5 through `agent run` with the fake sender's raw socket mode.
+    - Acceptance tests: no connect on any non-loopback address or `::1`; only the exact header gives 200, in all seven cases; 1 MB is 200 and 1 MB plus 1 is 413 with the body not read; the 16 MB total; a short body, a long body, chunked (411), gzip (415); the slow client and the 200 connections as S-Q6 and S-Q7 decide; the port closed after a normal end, the kill switch, SIGTERM and a crash.
+  - [ ] S.2.2 Receiver fixes, only if S-Q6 and S-Q7 are answered as proposed (2 h): a whole-request deadline and a cap on handlers in `umwayi/telemetry.py`, each test first.
+    - Acceptance tests: the S.2.1 cases for the slow client and many connections, which fail before the fix; the full budget suite unchanged; a planted fault for each (the deadline removed, the cap removed) killed.
+  - [ ] S.2.3 Modes, links and paths (3 h): `tests/test_scan_files.py`, the mode table under umask 022 and 077 (S-Q9), the link table, the path cases, the races of S.R7.3.
+    - Acceptance tests: every row of the three tables with its expected answer; no write outside the root in any row; every row with no expectation yet is listed as a finding in SECURITY-SCAN.md.
+  - [ ] S.2.4 Secrets (2 h): `tests/test_scan_secrets.py`, the planted secrets of S.R8.1 through the owner's day and every fault scenario, and the sweep of S.R8.2.
+    - Acceptance tests: no planted word, run header secret or canary token in any byte swept, except the listed allowed places; a planted leak (a test-only fault that prints the prompt) is found with its file and line.
+  - [ ] S.2.5 The static and dependency scans, run and recorded (2.5 h): Bandit on umwayi's Python; the code guards listed; OSV-Scanner offline and, if S-Q4 says so, `npm audit --package-lock-only` on `adapters/claude_acp/package-lock.json`; `npm ci --ignore-scripts` in a throwaway copy and `npm audit signatures`. Each tool's version, source and checksum, the exact command and its result go into SECURITY-SCAN.md; a tool that cannot run is "not run" with the reason.
+  - [ ] S.2.6 Interpreters and licences (1 h): each Python version against python.org's security releases (S-Q5); every licence of the npm tree listed, the SDK's pointed out (S-Q11).
+  - [ ] S.2.7 Results and docs (2 h): the scan results under `docs/`: `docs/SECURITY-SCAN.md` (S.R9.1 and S.R10, dated) and `docs/security.md` (what was scanned, with which tool, and where the results are; its Decisions log has the S-Q answers); a decision for every finding (S-Q8); KNOWN-LIMITS from 129; the README only links `docs/security.md` from its security row (D.1) and holds no scan detail; `docs/DOCS_MAINTENANCE.md` names both files; planted faults and mutation checks for the new tests; the full suite on Python 3.10 to 3.13 with the counts in the pull request.
 
 ## Budget governor (approved by the owner on Nov 9 2026; build Nov 17 to Nov 22)
 
