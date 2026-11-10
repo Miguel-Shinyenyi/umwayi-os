@@ -708,7 +708,7 @@ Each from the end state of the day, in its own copy:
 
 ### S.R9 Results and fail closed
 
-1. The results are one file, `docs/SECURITY-SCAN.md` (proposed, S-Q12): the date, each tool with its version, where it came from and how it was checked, the exact command, what it scanned, its result (or "not run" and why), each finding with its decision (fixed in PR N, accepted as KNOWN-LIMITS N, or false positive with the reason), and what the scan cannot prove (S.R10).
+1. The results are under `docs/`: one file, `docs/SECURITY-SCAN.md` (S-Q12), linked from `docs/security.md` and from the README's security row (tasks.md D.1, S.2.7): the date, each tool with its version, where it came from and how it was checked, the exact command, what it scanned, its result (or "not run" and why), each finding with its decision (fixed in PR N, accepted as KNOWN-LIMITS N, or false positive with the reason), and what the scan cannot prove (S.R10).
 2. **Fail closed:** a scan that could not run (no network for an advisory database, a tool that would not install) is recorded as not run, never as a pass. A finding nobody decided on blocks the freeze (proposed, S-Q8).
 3. **No new runtime dependency.** The scan tools are never a dependency of `umwayi` or of an adapter, are never committed, and run from a throwaway environment outside the repo (S-Q3, S-Q4). The CI workflow is not changed for Dec 3 (proposed, S-Q13).
 4. S.1 and S.2 add tests to the normal suite (`python -m unittest discover -s tests -t .`), which still needs no network and no third party package. The scan commands themselves are not tests.

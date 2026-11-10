@@ -2065,7 +2065,7 @@ Kill switch (3), rules `agent_run`, run lock (3), gate checks (2), then the new 
 
 ## Whole-system test and security scan (approved Nov 10, tasks.md S.0; built Nov 10 to Nov 12)
 
-Requirements S.R1 to S.R10. Tasks S.0 to S.2.7. Approved by the owner on Nov 10 with S-Q1 to S-Q16 all as proposed (answers below the questions). No code, no test and no scan was run for this spec.
+Requirements S.R1 to S.R10. Tasks S.0 to S.2.7. The documentation layout (tasks.md D.1) is built first, so S.1 and S.2 write their docs into `docs/` (`testing.md`, `security.md`, `SECURITY-SCAN.md`), not the README. Approved by the owner on Nov 10 with S-Q1 to S-Q16 all as proposed (answers below the questions). No code, no test and no scan was run for this spec.
 
 ### Facts (read Nov 10 2026)
 
@@ -2185,7 +2185,7 @@ At least: S.R10 items 1 to 6 in short; the advisory scan was true on its date on
 | S.2.4 secrets sweep | 2 |
 | S.2.5 static and dependency scans, run and recorded | 2.5 |
 | S.2.6 interpreters and licences | 1 |
-| S.2.7 SECURITY-SCAN.md, KNOWN-LIMITS, README, mutation checks, the full suite | 2 |
+| S.2.7 SECURITY-SCAN.md and security.md under docs/, KNOWN-LIMITS, the README link, mutation checks, the full suite | 2 |
 | **total** | **25** |
 
 That is about three working days: Nov 10 to Nov 12 (S-Q16, moved up by the owner from Nov 23 to Nov 26). The web interface follows it with its own spec; README, demo and Devpost, the freeze Nov 29 to Dec 2 and the submission on Dec 3 do not move.
