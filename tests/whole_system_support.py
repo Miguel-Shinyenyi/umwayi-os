@@ -160,6 +160,7 @@ class World:
         self.units = self.xdg / "systemd" / "user"
         self.fake_log = self.base / "fake-calls.jsonl"
         self.seen: list = []  # (command words, exit code) of every umwayi command run
+        self.outputs: list = []  # (command words, stdout and stderr) of every umwayi command and hook run
         self.procs: list = []  # every Popen, so none is left behind
 
     # ------------------------------------------------------------ building the fresh root (S.R2.1)
@@ -235,6 +236,7 @@ class World:
             else:
                 shutil.copy2(p, dest, follow_symlinks=False)
         self.seen = []
+        self.outputs = []
 
     def cleanup(self) -> None:
         self.stop_all()
@@ -260,19 +262,22 @@ class World:
         env.update(extra or {})
         return env
 
-    def u(self, *args, input: str | None = None, extra=None, fault=None, path=None, timeout: float = 180):
-        """`python -m umwayi --root ROOT ARGS` as a real child process; its exit code is checked and recorded."""
+    def u(self, *args, input: str | None = None, extra=None, fault=None, path=None, timeout: float = 180,
+          umask: int = -1):
+        """`python -m umwayi --root ROOT ARGS` as a real child process; its exit code is checked and recorded, and
+        its output kept in self.outputs (the security scan sweeps every byte umwayi printed)."""
         r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args], input=input,
                            capture_output=True, text=True, env=self.env(extra, fault, path), cwd=str(self.base),
-                           timeout=timeout)
+                           timeout=timeout, umask=umask)
         self.record(args, r.returncode)
+        self.outputs.append((" ".join(args[:3]), r.stdout + r.stderr))
         return r
 
-    def start(self, *args, extra=None, fault=None):
+    def start(self, *args, extra=None, fault=None, umask: int = -1):
         """`python -m umwayi ...` in the background, its stdin a pipe the test writes to."""
         p = subprocess.Popen([sys.executable, "-m", "umwayi", "--root", str(self.root), *args],
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                             env=self.env(extra, fault), cwd=str(self.base))
+                             env=self.env(extra, fault), cwd=str(self.base), umask=umask)
         p.words = args
         self.procs.append(p)
         return p
@@ -292,6 +297,7 @@ class World:
         p.stdin = None
         out, err = p.communicate(timeout=30)
         self.record(p.words, p.returncode)
+        self.outputs.append((" ".join(p.words[:3]), out + err))
         return p.returncode, out, err, left
 
     def record(self, args, code: int) -> None:
@@ -308,9 +314,11 @@ class World:
     def hook(self, platform: str, payload, args=()):
         """A layer 9 hook script as the platform runs it: the payload on stdin, --root from the command line."""
         script = self.src / "adapters" / platform / "hook.py"
-        return subprocess.run([sys.executable, str(script), "--root", str(self.root), *args],
-                              input=json.dumps(payload), capture_output=True, text=True, env=self.env(),
-                              cwd=str(self.work), timeout=60)
+        r = subprocess.run([sys.executable, str(script), "--root", str(self.root), *args],
+                           input=json.dumps(payload), capture_output=True, text=True, env=self.env(),
+                           cwd=str(self.work), timeout=60)
+        self.outputs.append((f"hook {platform}", r.stdout + r.stderr))
+        return r
 
     def run_unit(self, name: str, extra: dict | None = None):
         """The rendered service, run the way systemd would: its ExecStart=, Environment= and WorkingDirectory=."""
@@ -323,6 +331,7 @@ class World:
         r = subprocess.run(value["ExecStart"].split(" "), capture_output=True, text=True, timeout=300, env=env,
                            cwd=value["WorkingDirectory"])
         self.record(("run", "(scheduled)"), r.returncode)
+        self.outputs.append(("run (scheduled)", r.stdout + r.stderr))
         return r
 
     def unit_base(self, name: str) -> str:
