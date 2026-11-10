@@ -192,9 +192,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
-    lgsub.add_parser("verify", help="check the format and the hash record of LOGBOOK.md (changes nothing)")
+    lgv = lgsub.add_parser("verify", help="check the format, the hash record and the hash chain of LOGBOOK.md "
+                                          "(changes nothing)")
+    lgv.add_argument("--anchor", help="also compare the chain with an anchor COUNT:HEX kept elsewhere")
+    lgsub.add_parser("anchor", help="print COUNT:HEX of the hash chain, to keep outside this machine (changes nothing)")
     ls = lgsub.add_parser("seal", help="record the hash of LOGBOOK.md as it is now (explicit, never automatic)")
     ls.add_argument("--by", required=True, help="who seals it, one short line of plain text")
+    ls.add_argument("--chain", action="store_true",
+                    help="start the hash chain on a logbook that is already sealed and intact (allowed once)")
     ls.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
     lr = lgsub.add_parser("recover", help="cut back the torn tail an interrupted write left (explicit, never automatic)")
     lr.add_argument("--torn-tail", action="store_true", required=True,
@@ -259,7 +264,7 @@ def _cmd_helper(result, out) -> int:
 def _cmd_logbook(args, out) -> int:
     root = Path(args.root)
     if args.logbook_command == "seal":
-        r = logbook.seal(root, args.date or _today(), args.by)
+        r = logbook.seal(root, args.date or _today(), args.by, start_chain=args.chain)
         out.write(f"Sealed LOGBOOK.md: {r.entries_before} earlier entries, hash recorded.\n")
         out.write(f"SHA-256: {r.sha256}\n")
         return 0
@@ -272,10 +277,23 @@ def _cmd_logbook(args, out) -> int:
             out.write("The interrupted write was a seal, so nothing could be logged: "
                       "run 'umwayi logbook seal --by NAME' again.\n")
         return 0
-    report = logbook.verify(root)
+    if args.logbook_command == "anchor":
+        try:
+            count, value = logbook.anchor(root)
+        except UsageError:
+            raise
+        except UmwayiError as e:
+            sys.stderr.write(f"umwayi: {e}\n")
+            return EXIT_CRASH  # a logbook that does not verify is never anchored: exit 2, like a refused agent start
+        out.write(f"{count}:{value}\n")
+        out.write("Keep this anchor outside this machine: in the hub repository's sync log and on the Kiro Notion "
+                  "page, weekly and before each submission. Check it later with "
+                  f"umwayi logbook verify --anchor {count}:{value}\n")
+        return 0
+    report = logbook.verify(root, logbook.parse_anchor(args.anchor) if args.anchor is not None else None)
     if not report.problems:
         out.write(f"ok: {report.entries} entries, the format is valid and the hash matches the record\n")
-        for note in report.notes:
+        for note in report.notes + ([report.chain_note] if report.chain_note else []):
             out.write(f"info: {note}\n")
         return 0
     for note in report.notes:

@@ -51,6 +51,7 @@ class BrokenChainStopsAgentsTests(RunCase):
     def test_a_chain_broken_while_an_agent_runs_stops_it_with_2(self):
         self.assertEqual(self.run_agent("reviewer", READ).returncode, 0)
         self.seal_chain()
+        self.fake_log.unlink()  # the tool call of the first run must not count as the first tool of this one
         p = self.start_run("reviewer", LOOP)
         self.first_tool(p)
         self.break_chain()

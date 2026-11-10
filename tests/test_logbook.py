@@ -591,14 +591,16 @@ class SealTests(LogbookBase):
         self.assertEqual(r.entries_before, 2)
         text = self.path.read_text(encoding="utf-8")
         self.assertTrue(text.startswith(BASE))
-        self.assertEqual(
-            text[len(BASE):],
-            "\n## 2026-02-01\n\n- Source: umwayi logbook seal\n"
-            f"- Added: Seal by Miguel: the logbook was sealed with 2 earlier entries; its SHA-256 before this entry was {old_hash}\n"
-            "- Checked: the format of every earlier entry is valid and no date goes backwards; the earlier hash record was missing\n"
-            "- Not done: The earlier entries were not rewritten or judged. Sealing records what the file holds now, "
-            "it does not prove the file was never edited before.\n",
-        )
+        body = ("## 2026-02-01\n\n- Source: umwayi logbook seal\n"
+                f"- Added: Seal by Miguel: the logbook was sealed with 2 earlier entries; its SHA-256 before this entry was {old_hash}\n"
+                "- Checked: the format of every earlier entry is valid and no date goes backwards; the earlier hash record was missing; "
+                "this entry starts the hash chain\n"
+                "- Not done: The earlier entries were not rewritten or judged. Sealing records what the file holds now, "
+                "it does not prove the file was never edited before.\n")
+        # since the hash chain addendum a seal of a logbook with no chain starts it: the previous value of this
+        # first chained entry is the hash of the file before it
+        chained = logbook.hashlib.sha256((old_hash + "\n" + body).encode("utf-8")).hexdigest()
+        self.assertEqual(text[len(BASE):], "\n" + body + f"- Chain: {chained}\n")
         self.assertEqual(self.rec.read_text(encoding="ascii").strip(), r.sha256)
         self.assertEqual(r.sha256, logbook.sha256_hex(self.path.read_bytes()))
         self.assertEqual(logbook.verify(self.root).problems, [])

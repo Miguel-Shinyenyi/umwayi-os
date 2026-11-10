@@ -141,8 +141,8 @@ class StartTests(ChainCase):
         block = after[len(before):].decode("utf-8")
         self.assertTrue(block.startswith("\n## 2026-11-16\n\n- Source: umwayi logbook seal\n"), block)
         lines = block[1:].split("\n")
-        self.assertTrue(lines[2].startswith("- Added: Seal by Owner: the hash chain was started with 2 earlier "
-                                            f"entries; its SHA-256 before this entry was {sha(before)}"), lines[2])
+        self.assertTrue(lines[3].startswith("- Added: Seal by Owner: the hash chain was started with 2 earlier "
+                                            f"entries; its SHA-256 before this entry was {sha(before)}"), lines[3])
         text = "".join(x + "\n" for x in lines[:6])
         self.assertEqual(lines[6], "- Chain: " + chain(sha(before), text))
         self.assertEqual(lines[7:], [""])
