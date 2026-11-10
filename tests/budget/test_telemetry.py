@@ -4,6 +4,7 @@ The fake `claude` is the fake sender: it posts to the receiver of its run with t
 a test plants. Every test runs `python -m umwayi agent run|chat ...` as a real child process.
 """
 
+import shutil
 import socket
 import subprocess
 import sys
@@ -135,6 +136,65 @@ class ReceiverTests(BudgetCase):
                 self.fake_log.unlink(missing_ok=True)
                 r = self.run_agent("reviewer", step, WAIT)
                 self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+    def test_every_negative_whole_number_cost_makes_the_run_invalid(self):
+        # Review of PR 33: a negative whole number must never subtract from a run, on any path. Each case is answered
+        # 400, the run is invalid (exit 2) and settled at the full reservation, like a negative float.
+        self.limits(per_run=1000, per_day=100000, per_agent_per_day=100000, per_platform_per_day=100000)
+        full = ": unknown 10000000 micros (1000 UU);"  # per_run 1000 UU, never less
+
+        def point(**value):
+            return dict({"attributes": [{"key": "model", "value": {"stringValue": "claude-sonnet-5"}}],
+                         "timeUnixNano": "1"}, **value)
+
+        def cost_usd(value):
+            return api_request(cost_micros=None, extra=[{"key": "cost_usd", "value": value}])
+
+        cases = {
+            "metrics asDouble -3 (a whole number)": [send_metrics([point(asDouble=-3)])],
+            "metrics asInt -3": [send_metrics([point(asInt=-3)])],
+            "events cost_usd intValue -5": [send_logs(cost_usd({"intValue": -5}))],
+            "events cost_usd doubleValue -5 (a whole number)": [send_logs(cost_usd({"doubleValue": -5}))],
+            "events cost_usd_micros intValue -5": [send_logs(api_request(raw_cost={"intValue": -5}))],
+        }
+        def fresh():
+            """Each case on its own logbook: a negative settle would make the ledger malformed and refuse every
+            later start (exit 2 before the agent), which would hide the next case."""
+            self.fake_log.unlink(missing_ok=True)
+            (self.root / "LOGBOOK.md").unlink(missing_ok=True)
+            shutil.rmtree(self.root / ".umwayi", ignore_errors=True)
+
+        def next_start_works():
+            self.fake_log.unlink(missing_ok=True)
+            r = self.run_agent("reviewer", END)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)  # the settle above kept the ledger well formed
+
+        for label, steps in cases.items():
+            with self.subTest(case=label):
+                fresh()
+                n = len(self.settles())
+                r = self.run_agent("reviewer", *steps, WAIT)
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertEqual(self.otlp_statuses(), [400])
+                self.assertIn("Agent reviewer was stopped: its telemetry report was not valid (", r.stdout)
+                self.assertIn(full, self.settles()[n].added)
+                next_start_works()
+        # +2 then -1 dollars must not end as 1 dollar: in one body, and in two reports where the first one counted
+        for label, steps, statuses in (
+                ("one body", [send_metrics([point(asDouble=2), point(asDouble=-1)])], [400]),
+                ("two reports", [send_metrics([point(asDouble=2)]), send_metrics([point(asDouble=-1)])], [200, 400]),
+                ("two event reports", [send_logs(cost_usd({"intValue": 2})), send_logs(cost_usd({"intValue": -1}))],
+                 [200, 400])):
+            with self.subTest(case="+2 then -1, " + label):
+                fresh()
+                n = len(self.settles())
+                r = self.run_agent("reviewer", *steps, WAIT)
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertEqual(self.otlp_statuses(), statuses)
+                st = self.settles()[n].added
+                self.assertIn(full, st)
+                self.assertNotIn("1000000 micros (100 UU)", st)
+                next_start_works()
 
     def test_a_body_with_prompt_text_is_never_kept_or_printed(self):
         r = self.run_agent("reviewer", send_logs(user_prompt_event(), api_request(cost_micros=50)),
