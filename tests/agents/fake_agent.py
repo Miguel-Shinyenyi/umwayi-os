@@ -35,6 +35,10 @@ It records every call to the JSON lines file in FAKE_LOG.
   default; or "first_prompt", or "never"), answers session/set_mode, and for a "claude_tool"
   action runs the PreToolUse hooks of those settings before it sends a permission request;
   a deny or block from a hook means no permission request is sent.
+* Budget governor (B.6, B.7): an "otlp" step (FAKE_SCRIPT, or an ACP turn action {"otlp": {...}}) is a fake
+  telemetry sender. It posts to OTEL_EXPORTER_OTLP_ENDPOINT with the header of OTEL_EXPORTER_OTLP_HEADERS, as
+  Claude Code's exporter would, or with a planted wrong header, path, type or length, and records the answer's
+  status. At the start it records the values of the telemetry names it got ("otel").
 """
 import json
 import os
@@ -70,6 +74,8 @@ if KEY == "CLAUDE" and ARGS == ["auth", "status", "--json"]:
     rec(argv=ARGS, cwd=os.getcwd(), started=False, probe="auth", env_keys=sorted(os.environ))
     if os.environ.get("FAKE_CLAUDE_AUTH_HANG"):
         time.sleep(60)
+    if os.environ.get("FAKE_CLAUDE_GONE_AFTER_AUTH"):  # budget tests: the start after the reservation then fails
+        os.unlink(sys.argv[0])
     sys.stdout.write(os.environ.get("FAKE_CLAUDE_AUTH", json.dumps({
         "loggedIn": True, "authMethod": "claude.ai", "subscriptionType": "max",
         "email": "owner@example.invalid", "orgId": "org-PLANTED", "orgName": "Planted Org"})) + "\n")
@@ -112,8 +118,71 @@ if CHAT:
            "sigint_ignored": INHERITED_SIGINT_IGNORED}
 with open("/proc/self/cmdline", "rb") as f:
     cmdline = f.read().decode("utf-8", "replace").split("\x00")
+TELEMETRY_EXACT = ("CLAUDE_CODE_ENABLE_TELEMETRY", "BETA_TRACING_ENDPOINT", "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA")
 rec(argv=ARGS, cwd=os.getcwd(), started=True, pid=os.getpid(), pgid=os.getpgid(0), sid=os.getsid(0),
-    stdin=stdin_text, env_keys=sorted(os.environ), cmdline=cmdline, chat=CHAT, **tty)
+    stdin=stdin_text, env_keys=sorted(os.environ), cmdline=cmdline, chat=CHAT,
+    otel={k: v for k, v in os.environ.items() if k.startswith("OTEL_") or k in TELEMETRY_EXACT}, **tty)
+
+
+def otlp(step: dict) -> None:
+    """One or more reports to umwayi's receiver, over a plain socket so a test can plant any header or length."""
+    import socket
+    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
+        rec(event="otlp", status=None, why="no endpoint")
+        return
+    host, port = endpoint.split("//", 1)[1].rsplit(":", 1)
+    host = step.get("host", host)
+    path = step.get("path", "/v1/logs")
+    if "big" in step:
+        data = json.dumps({"resourceLogs": [], "pad": "x" * step["big"]}).encode("utf-8")
+    elif "raw" in step:
+        data = step["raw"].encode("utf-8")
+    else:
+        data = json.dumps(step.get("body", {})).encode("utf-8")
+    headers = []
+    header = step.get("header", "auto")
+    if header == "auto":
+        name, value = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "=").split("=", 1)
+        headers.append(f"{name}: {value}")
+    elif header is not None:
+        headers.append(f"x-umwayi-run: {header}")
+    if step.get("content_type", "application/json"):
+        headers.append(f"Content-Type: {step.get('content_type', 'application/json')}")
+    length = step.get("length", "auto")
+    if length == "auto":
+        headers.append(f"Content-Length: {len(data)}")
+    elif length is not None:
+        headers.append(f"Content-Length: {length}")
+    head = (f"{step.get('method', 'POST')} {path} HTTP/1.1\r\nHost: {host}\r\n" + "".join(h + "\r\n" for h in headers)
+            + "Connection: close\r\n\r\n").encode("ascii")
+    for _ in range(step.get("repeat", 1)):
+        resp = b""
+        try:
+            s = socket.create_connection((host, int(port)), timeout=10)
+        except OSError as e:
+            rec(event="otlp", path=path, status=None, why=type(e).__name__)
+            continue
+        try:
+            s.sendall(head)
+            s.settimeout(0.3)  # a refusal comes right after the headers, before any body is read
+            try:
+                resp = s.recv(65536)
+            except socket.timeout:
+                s.settimeout(10)
+                s.sendall(data)
+            s.settimeout(10)
+            while True:
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                resp += chunk
+        except OSError:
+            pass
+        finally:
+            s.close()
+        status = int(resp.split(b" ")[1]) if resp.startswith(b"HTTP/") else None
+        rec(event="otlp", path=path, status=status)
 trusted = set()
 for a in ARGS:
     if a.startswith("--trust-tools="):
@@ -249,6 +318,8 @@ for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     elif kind == "spawn_setsid":  # a child in its own session: out of reach of a process group signal
         p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True)
         rec(event="spawn", pid=p.pid, setsid=True)
+    elif kind == "otlp":
+        otlp(step)
     elif kind == "crash":
         raise RuntimeError("the fake agent crashed")
     elif kind == "exit":
@@ -401,6 +472,8 @@ def run_acp():
                 rec(event="request_sent", method=method)
                 r = next_msg(lambda x, rid=rid: x.get("id") == rid and "method" not in x)
                 rec(event="permission_answer" if "permission" in act else "request_answer", method=method, answer=r)
+            if "otlp" in act:  # a telemetry report in the middle of a turn (budget governor)
+                otlp(act["otlp"])
             if "garbage" in act:
                 send(act["garbage"])
             if "big" in act:

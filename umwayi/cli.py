@@ -5,6 +5,7 @@ Exit codes:
   usage errors:  64 (never 0, 2 or 3)
   other errors:  1
   umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
+  umwayi budget: 0, 2, 3 or 64 only, never 1 (budget governor)
 """
 
 from __future__ import annotations
@@ -16,7 +17,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import __version__, agents, archive, jobs, kill, logbook, publish, report, rules, schedule, taskqueue, workflow
+from umwayi import (__version__, agents, archive, budget, jobs, kill, logbook, publish, report, rules, schedule,
+                    taskqueue, units, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -189,6 +191,20 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--file", help="the schedule file inside the root (default: schedule.yaml in the root)")
     for sp in (sci, scr):
         sp.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entry (default: today)")
+
+    bg = sub.add_parser("budget", help="the budget governor (units.yaml, the ledger in the logbook); 0, 2, 3 or 64, "
+                                       "never 1")
+    bgsub = bg.add_subparsers(dest="budget_command", parser_class=_Parser)
+    bgsub.add_parser("validate", help="check units.yaml, every problem with a line number (writes nothing)")
+    bgs = bgsub.add_parser("status", help="used, reserved and left per limit, and the measured, declared and unknown "
+                                          "shares (writes nothing)")
+    bgs.add_argument("--date", type=_date_arg, help="the day YYYY-MM-DD to show (default: today)")
+    bgsub.add_parser("calibrate", help="propose per_run and per_day from 20 measured runs over 7 days (changes "
+                                       "nothing)")
+    bgl = bgsub.add_parser("settle-lost", help="settle every reservation that has no settle (after a SIGKILL or a "
+                                               "crash), as unknown at the worst case")
+    bgl.add_argument("--by", required=True, help="who settles them (your name)")
+    bgl.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entries (default: today)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -405,6 +421,36 @@ def _cmd_agent(args, out) -> int:
         return EXIT_CRASH
 
 
+def _cmd_budget(args, out) -> int:
+    """The budget governor. Its own error handling: 64 for usage and config, 2 for anything else, never 1."""
+    root = Path(args.root)
+    try:
+        cmd = args.budget_command
+        if cmd == "validate":
+            code, lines = units.validate(root, _today())
+        elif cmd == "status":
+            code, lines = budget.status(root, args.date or _today(), _today())
+        elif cmd == "calibrate":
+            code, lines = budget.calibrate(root, _today())
+        else:
+            code, lines = budget.settle_lost(root, args.date or _today(), args.by)
+        out.write("\n".join(lines) + "\n")
+        return code
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        try:
+            sys.stderr.write(f"umwayi: budget: stopped by an unexpected error ({type(e).__name__}). "
+                             f"Exit {EXIT_CRASH}. Nothing was started.\n")
+        except Exception:
+            pass
+        return EXIT_CRASH
+
+
 def _cmd_schedule(args, out) -> int:
     """Layer 11. Its own error handling: 64 for usage and config, 2 for anything else, never 1 (11.R6)."""
     root = Path(args.root)
@@ -449,6 +495,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_agent(args, out)
         if args.command == "schedule" and getattr(args, "schedule_command", None):
             return _cmd_schedule(args, out)
+        if args.command == "budget" and getattr(args, "budget_command", None):
+            return _cmd_budget(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
         if args.command == "workflow" and getattr(args, "workflow_command", None) == "validate":

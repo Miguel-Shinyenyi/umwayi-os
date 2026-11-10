@@ -19,6 +19,7 @@ import unittest
 from pathlib import Path
 
 from umwayi import acp, agents
+from umwayi.telemetry import TELEMETRY_NAMES
 
 from tests.agents.support import RULES as BASE_RULES
 from tests.agents.support import SECRET, alive
@@ -218,7 +219,9 @@ class SessionTests(ClaudeChatCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         [chat] = [c for c in self.node_calls() if c["probe"] == "chat"]
         names = set(chat["env"])
-        self.assertLessEqual(names, set(agents.CHILD_ENV_NAMES) | set(agents.CHILD_ENV_SET))
+        # plus the telemetry names of this chat's own receiver (budget governor, B.R2.2), and nothing else
+        self.assertLessEqual(names, set(agents.CHILD_ENV_NAMES) | set(agents.CHILD_ENV_SET) | set(TELEMETRY_NAMES))
+        self.assertLessEqual(set(TELEMETRY_NAMES), names)
         self.assertIn("LANG", names)
         self.assertNotIn("ANTHROPIC_API_KEY", names)
         self.assertNotIn("NODE_OPTIONS", names)

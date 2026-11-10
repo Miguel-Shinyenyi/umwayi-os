@@ -202,6 +202,7 @@ class AuthWatchTests(TurnCase):
                 {"chunk": "turn over\n"}]
 
     def test_a_push_that_another_payer_pays_stops_the_chat_mid_turn_with_2(self):
+        self.roomy_budget()  # four chats of one agent: more than the placeholder per_agent_per_day allows
         for kind in ("api_key", "none", "gateway", "external"):
             with self.subTest(kind=kind):
                 self.fake_log.unlink(missing_ok=True)  # one chat per subtest: its own calls only

@@ -788,3 +788,14 @@ Read on Nov 9 2026, for the owner's request to include OpenCode as a platform, s
 - Which environment names each built-in provider reads.
 - Which OpenCode version the owner runs (V1 and V2 differ in key names).
 - How fast all of this changes.
+
+## Budget governor: Claude Code telemetry (B.10, the owner's capture)
+
+Built in PR 33. What the receiver expects, from design.md "Budget governor", Facts (read Nov 9 2026, [Claude Code, Monitoring](https://code.claude.com/docs/en/monitoring-usage)):
+
+- `POST /v1/logs` with `resourceLogs[].scopeLogs[].logRecords[]`; an `api_request` event is a record whose attribute `event.name` is `api_request` (or whose `body.stringValue` is `claude_code.api_request`), with the attributes `cost_usd_micros` (an `intValue`), `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens` (each an `intValue`) and `model` (a `stringValue`).
+- `POST /v1/metrics` with `resourceMetrics[].scopeMetrics[].metrics[]`; `claude_code.cost.usage` data points with `asDouble` (or `asInt`), and `claude_code.token.usage` data points with `asInt` and the attributes `type` (`input`, `output`, `cacheRead`, `cacheCreation`) and `model`.
+
+Not confirmed: the exact nesting and value shapes Claude Code emits, and whether a short run exports before it exits. The owner's capture (tasks.md B.10) records them.
+
+- Capture: not done yet. Date: (none). Field names: (none recorded).

@@ -412,10 +412,19 @@ def _modules():
     return sorted(PKG.rglob("*.py"))
 
 
+# The budget governor's telemetry receiver (B.R2.1, approved Nov 9) is a standard library http.server on 127.0.0.1
+# for one Claude Code run. It is the one allowed network import: only in umwayi/telemetry.py, only inside the function
+# that starts a receiver, so importing any umwayi module still loads no network library (checked below).
+ALLOWED_NETWORK = {("umwayi/telemetry.py", "http.server"), ("umwayi/telemetry.py", "http.server.BaseHTTPRequestHandler"),
+                   ("umwayi/telemetry.py", "http.server.ThreadingHTTPServer")}
+
+
 class CodeTests(SystemBase):
     def test_no_module_imports_a_network_library(self):
         for f in _modules():
-            for node in ast.walk(ast.parse(f.read_text(encoding="utf-8"))):
+            tree = ast.parse(f.read_text(encoding="utf-8"))
+            top = {id(n) for n in tree.body}
+            for node in ast.walk(tree):
                 names = []
                 if isinstance(node, ast.Import):
                     names = [a.name for a in node.names]
@@ -423,8 +432,15 @@ class CodeTests(SystemBase):
                     names = [node.module] + [f"{node.module}.{a.name}" for a in node.names]
                 for n in names:
                     with self.subTest(file=f.relative_to(REPO).as_posix(), imports=n):
+                        if (f.relative_to(REPO).as_posix(), n) in ALLOWED_NETWORK:
+                            self.assertNotIn(id(node), top, "the receiver's import must stay inside a function")
+                            continue
                         self.assertFalse(any(n == b or n.startswith(b + ".") for b in NETWORK))
                         self.assertNotIn("importlib", n)
+        src = (PKG / "telemetry.py").read_text(encoding="utf-8")
+        self.assertIn('LOOPBACK = "127.0.0.1"', src)
+        self.assertEqual(src.count("server_class((LOOPBACK, 0)"), 1)  # it binds loopback only, a free port
+        self.assertNotIn("0.0.0.0", src)
         # and nothing pulls one in at run time: import every module in a fresh process
         mods = [".".join(f.relative_to(REPO).with_suffix("").parts) for f in _modules()]
         mods = [m[: -len(".__init__")] if m.endswith(".__init__") else m for m in mods]

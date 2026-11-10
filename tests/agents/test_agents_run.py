@@ -16,6 +16,7 @@ import time
 import unittest
 
 from umwayi import agents, runlock, taskqueue
+from umwayi.telemetry import TELEMETRY_NAMES
 
 from tests.agents.support import REPO, SECRET, AgentCase, alive
 
@@ -105,7 +106,8 @@ class YesRunsTests(RunCase):
         names = set(start["env_keys"])
         self.assertEqual(names & set(agents.CLAUDE_CREDENTIAL_ENV), set(), "a credential name reached the agent")
         self.assertIn("UMWAYI_TEST_KEEP", names)  # only the credential names are removed (10.R12.6)
-        self.assertEqual(names, set(self.env(extra)) - set(agents.CLAUDE_CREDENTIAL_ENV))
+        # plus the telemetry names of this run's own receiver (budget governor, B.R2.2)
+        self.assertEqual(names, set(self.env(extra)) - set(agents.CLAUDE_CREDENTIAL_ENV) | set(TELEMETRY_NAMES))
         for c in self.calls():  # nor the version check or the login check
             if "env_keys" in c:
                 self.assertEqual(set(c["env_keys"]) & set(agents.CLAUDE_CREDENTIAL_ENV), set(), c.get("argv"))
@@ -118,10 +120,12 @@ class YesRunsTests(RunCase):
         [start] = self.started()
         self.assertEqual(start["cwd"], str(self.work))
         self.assertEqual(start["stdin"], "")
-        # the owner's environment, minus only the credential names of 10.R12.6 (claude_env): umwayi adds no
-        # variable and removes nothing else (10.R5.8)
+        # the owner's environment, minus only the credential names of 10.R12.6 (claude_env) and the owner's own
+        # telemetry names (none are set here); umwayi adds only the telemetry names of this run's own receiver
+        # (budget governor, B.R2.2) and removes nothing else (10.R5.8)
         self.assertEqual(set(start["env_keys"]),
-                         set(self.env(self.script(READ, LS, RM))) - set(agents.CLAUDE_CREDENTIAL_ENV))
+                         set(self.env(self.script(READ, LS, RM))) - set(agents.CLAUDE_CREDENTIAL_ENV)
+                         | set(TELEMETRY_NAMES))
         self.assertEqual(start["pgid"], start["pid"])  # its own process group
         self.assertEqual(start["sid"], start["pid"])  # and its own session
         argv = start["argv"]
@@ -169,6 +173,7 @@ class YesRunsTests(RunCase):
         self.assert_agent_gone()
 
     def test_the_agent_failing_is_exit_2_with_its_code_in_the_logbook(self):
+        self.roomy_budget()  # four runs of one agent: more than the placeholder per_agent_per_day allows
         for step, words in (({"do": "exit", "code": 1}, "with code 1"), ({"do": "exit", "code": 143}, "with code 143"),
                             ({"do": "crash"}, "with code 1"), ({"do": "exit", "code": 4}, "with code 4")):
             with self.subTest(step=step):
@@ -235,10 +240,16 @@ class StopsBeforeStartTests(RunCase):
         self.assert_nothing_ran()
 
     def test_a_start_entry_that_cannot_be_written_starts_nothing(self):
-        r = self.run_agent("reviewer", READ, extra={"UMWAYI_TEST_BREAK_LOGBOOK_AFTER_GATE": "1",
+        # Budget governor: a logbook broken right after the gate checks is now found by the budget steps first
+        # (check_writable before the reservation), so the hand edit comes after the reserve entry here.
+        r = self.run_agent("reviewer", READ, extra={"UMWAYI_TEST_BREAK_LOGBOOK_AFTER_RESERVE": "1",
                                                      "UMWAYI_TEST_ROOT": str(self.root)})
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("The logbook could not record the start, so nothing is started", r.stdout)
+        self.assertEqual(self.started(), [])
+        r = self.run_agent("reviewer", READ, extra={"UMWAYI_TEST_BREAK_LOGBOOK_AFTER_GATE": "1",
+                                                     "UMWAYI_TEST_ROOT": str(self.root)})
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertEqual(self.started(), [])
 
     def test_not_gated_is_refused_with_an_entry(self):

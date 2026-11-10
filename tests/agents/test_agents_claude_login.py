@@ -14,6 +14,7 @@ import sys
 import unittest
 
 from umwayi import agents
+from umwayi.telemetry import TELEMETRY_NAMES
 
 from tests.agents.support import REPO, SECRET, AgentCase
 from tests.agents.test_agents_claude_acp_gate import ClaudeAcpCase
@@ -253,7 +254,9 @@ class RunAndCliChatTests(AgentCase):
         for names in (set(probe["env_keys"]), set(agent["env_keys"])):
             self.assertFalse(names & set(agents.CLAUDE_CREDENTIAL_ENV), names & set(agents.CLAUDE_CREDENTIAL_ENV))
             self.assertIn("KEEP_ME", names)  # the deny list removes only the credential names
-        self.assertEqual(set(probe["env_keys"]), set(agent["env_keys"]))
+        # the agent also gets the telemetry names of its own receiver (budget governor, B.R2.2); the probe does not
+        self.assertEqual(set(probe["env_keys"]) | set(TELEMETRY_NAMES), set(agent["env_keys"]))
+        self.assertFalse(set(probe["env_keys"]) & set(TELEMETRY_NAMES))
         self.assertTrue(version)
         r = self.chat(extra)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
