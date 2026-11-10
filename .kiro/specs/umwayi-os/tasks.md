@@ -20,7 +20,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 11 Linux-like features | approved (11.0); scheduled runs through systemd user timers built (11.1 to 11.5); 11.6 waits for the owner's real check; file watching and tmux cut, SQLite and a sandbox deferred | spec PR 30; build PR 31 | 978 after PR 31, on Python 3.10 to 3.13 |
 | Logbook crash safety (Layer 5 addendum) | approved Nov 9 (L5.0); built Nov 10 (L5.1 to L5.5), before 7c-2 | spec PR 26; build PR 27 | 906 after PR 27, on Python 3.10 to 3.13 |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
-| Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | COUNT_TBD |
+| Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
 | Whole-system test and security scan | not started, planned Nov 23 to Nov 26, after the budget governor (C-Q4) | | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
