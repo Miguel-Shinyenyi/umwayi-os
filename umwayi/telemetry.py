@@ -26,6 +26,8 @@ import hmac
 import ipaddress
 import json
 import math
+import os
+import re
 import threading
 import time
 from collections import Counter
@@ -361,6 +363,8 @@ def _classes():
                 return self._answer(400)
             finally:
                 del raw
+            if self.server.capture is not None:
+                self.server.capture.write(self.path, body)
             try:
                 if self.path == "/v1/metrics":
                     totals.fold_metrics(body)
@@ -390,19 +394,82 @@ def _classes():
     return _CLASSES
 
 
+CAPTURE_ENV = "UMWAYI_TELEMETRY_CAPTURE"  # B.10: the owner's one capture of a real export, names and shapes only
+MAX_CAPTURE_LINES = 200
+_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9._]{0,63}$")
+_EVENT = re.compile(r"^claude_code\.[a-z_.]{1,60}$")
+_NAME_KEYS = ("key", "name")  # their values are field or metric names, kept when they look like names
+
+
+def shape(value, under: str | None = None):
+    """The shape of a report: every mapping key, every attribute key and every metric or event name that looks like a
+    name, and the type of every other value. Never a value: no number, no text, no model name, no prompt."""
+    if isinstance(value, dict):
+        return {k if _NAME.match(str(k)) else "<key>": shape(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        out = []
+        for v in value:
+            s = shape(v)
+            if s not in out:
+                out.append(s)
+        return out
+    if isinstance(value, bool):
+        return "<bool>"
+    if isinstance(value, int):
+        return "<int>"
+    if isinstance(value, float):
+        return "<float>"
+    if isinstance(value, str):
+        if under in _NAME_KEYS and _NAME.match(value):
+            return value
+        if under == "stringValue" and _EVENT.match(value):
+            return value
+        return "<string>"
+    return "<null>" if value is None else "<other>"
+
+
+class Capture:
+    """B.10: one JSON line per new shape to a new file (mode 0600, never overwritten). Names and types only."""
+
+    def __init__(self, path: str):
+        if not os.path.isabs(path):
+            raise OSError("the capture file must be an absolute path")
+        self.fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        self.seen: set = set()
+        self.lock = threading.Lock()
+
+    def write(self, path: str, body) -> None:
+        line = json.dumps({"path": path, "shape": shape(body)}, sort_keys=True)
+        with self.lock:
+            if line in self.seen or len(self.seen) >= MAX_CAPTURE_LINES:
+                return
+            self.seen.add(line)
+            os.write(self.fd, (line + "\n").encode("utf-8"))
+
+    def close(self) -> None:
+        try:
+            os.close(self.fd)
+        except OSError:
+            pass
+
+
 class Receiver:
     """The receiver of one run. start() returns the port; stop() after the agent is stopped, on every way out."""
 
-    def __init__(self, secret: str):
+    def __init__(self, secret: str, capture: str | None = None):
         self.secret = secret
         self.totals = Totals()
         self.server = None
         self.thread = None
+        self.capture_path = capture
+        self.capture = None
 
     def start(self) -> int:
         server_class, handler_class = _classes()
+        self.capture = Capture(self.capture_path) if self.capture_path else None
         self.server = server_class((LOOPBACK, 0), handler_class)
         self.server.totals = self.totals
+        self.server.capture = self.capture
         self.server.secret = self.secret.encode("ascii")
         self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.1},
                                        name="umwayi-telemetry", daemon=True)
@@ -419,6 +486,8 @@ class Receiver:
             time.sleep(0.05)
 
     def stop(self) -> None:
+        if self.capture is not None:
+            self.capture.close()
         if self.server is None:
             return
         try:

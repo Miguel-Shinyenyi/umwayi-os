@@ -1564,14 +1564,17 @@ class _Run:
         # 5. the receiver of a Claude Code start, then the reserve entry
         receiver = None
         if a.platform == "claude-code":
-            receiver = telemetry.Receiver(secrets.token_hex(telemetry.SECRET_BYTES))
+            receiver = telemetry.Receiver(secrets.token_hex(telemetry.SECRET_BYTES),
+                                          os.environ.get(telemetry.CAPTURE_ENV) or None)
             try:
                 receiver.start()
             except OSError:
-                why = self.log(f"Refused agent {a.name}: the telemetry receiver could not start", "the budget limits "
-                               "and budget_check passed, then 127.0.0.1 was asked for a free port", "Nothing was started.")
-                return self.result(2, [f"Refused: the telemetry receiver could not start, so agent {a.name} was not "
-                                       "started (exit 2)."], why)
+                receiver.stop()
+                what = ("the telemetry capture file could not be made (it must be a new file with an absolute path)"
+                        if os.environ.get(telemetry.CAPTURE_ENV) else "the telemetry receiver could not start")
+                why = self.log(f"Refused agent {a.name}: {what}", "the budget limits and budget_check passed, then "
+                               "127.0.0.1 was asked for a free port", "Nothing was started.")
+                return self.result(2, [f"Refused: {what}, so agent {a.name} was not started (exit 2)."], why)
         run = secrets.token_hex(8)
         why = self._budget_log(budget.reserve_text(run, a.name, a.platform, f.need),
                                f"the limits per_day, per_agent_per_day and per_platform_per_day fit; rule "
