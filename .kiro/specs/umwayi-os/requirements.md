@@ -2,7 +2,7 @@
 
 umwayi-os is an AI operating system for one person and their AI helpers. It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change.
 
-It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is built (PRs 11 and 12). A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) was approved on Nov 9 and is planned for Nov 10 to Nov 11. Layer 10 is built up to part 7c-1; parts 7c-2 and 7c-3 are planned for Nov 12 to Nov 13. Layer 11 (scheduled runs through systemd user timers; approved) is built now (PR 31), moved up from Nov 14 to Nov 15. Each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 16, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. The schedule to Dec 3 is in tasks.md.
+It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is built (PRs 11 and 12). A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) was approved on Nov 9 and is planned for Nov 10 to Nov 11. Layer 10 is built up to part 7c-1; parts 7c-2 and 7c-3 are planned for Nov 12 to Nov 13. Layer 11 (scheduled runs through systemd user timers; approved) is built now (PR 31), moved up from Nov 14 to Nov 15. Each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 16, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. Layer 12 (a web interface, the view: a calm 3D hillside with eleven stations that shows counts from a read only snapshot, and an owner checks panel) is in scope before Dec 3 since Nov 10; its spec is in the UI.0 pull request and waits for the owner's approval. The schedule to Dec 3 is in tasks.md.
 
 ## Glossary
 
@@ -722,9 +722,156 @@ Each from the end state of the day, in its own copy:
 5. What the real platforms do: the fakes follow the docs, and every place where the docs are silent (NOTES files) stays unproven until the owner's real runs.
 6. That the tests are complete: mutation checks show the tests catch the faults that were tried, not every fault.
 
+## Layer 12: Web interface (the view)
+
+Status: in scope before Dec 3 (the owner, Nov 10; it was a non goal until then). Requirements 12.R1 to 12.R11, design.md "Layer 12" and tasks.md UI.0 to UI.5 are written in the UI.0 pull request and wait for the owner's approval; nothing is built. The owner's answers UI-Q1 to UI-Q5 are recorded (design.md, "Open questions for the owner (layer 12)"); UI-Q6 to UI-Q11 are open, each with a proposed answer. The owner's design reference (a 3D shepherd hillside in three.js with eleven stations) is a starting point, not a copy. Facts with links, and the owner's interface check: `adapters/NOTES-layer12.md`.
+
+User story: as the owner, I want to see the state of umwayi-os as a calm place I can look at, with real counts from my own root, and one panel that lists the real tests only I can run, so that I can tell at a glance what is open, what is stopped and what I still have to check, without the page being able to change anything.
+
+The view only looks. It reads one file of counts, and it keeps notes the owner types into the page. It never writes to the repo, runs a command or calls a network (product.md rule 10).
+
+### 12.R1 Where it lives and how it is built (UI-Q1, UI-Q2)
+
+1. All of the interface is in a new top level folder `ui/`, outside the `umwayi` package. The one change to the core is the read only command `umwayi view snapshot` (12.R4). The core package stays standard library only (CC-7); no module of `umwayi/` imports anything from `ui/`, and `ui/` imports nothing from `umwayi/`.
+2. `ui/package.json` has two dependencies, both with an exact version and no `^`, `~` or range: `three` **0.187.0** and `esbuild` **0.28.2**. `ui/package-lock.json` is committed; every package in it has a `sha512` integrity hash and comes from registry.npmjs.org, as for `adapters/claude_acp/`. `node_modules/` is never committed.
+3. The owner installs with `npm ci --ignore-scripts` and builds with the command in `ui/README.md`. **umwayi never runs npm, node or a browser.** No test of the normal suite runs npm or needs it.
+4. The build writes one self contained page, `ui/dist/index.html` (script, styles and every texture inline), and `ui/dist/build.json` (the SHA-256 of every file in `ui/src/`, of `ui/package-lock.json` and of `index.html`). **The built page is committed.** The repo's `.gitignore` ignores `dist/` and `build/`, so it gets an exception for `ui/dist/`.
+5. The page needs no server: it works when opened from disk (`file://`).
+
+### 12.R2 The page makes no request, writes nothing and runs nothing (UI-Q2, UI-Q5)
+
+1. The built page makes **no network request** of any kind: no CDN, no web font, no analytics, no `fetch`, `XMLHttpRequest`, WebSocket, beacon, image, stylesheet or script loaded from anywhere but the page itself. All fonts are system fonts.
+2. The page writes nothing to the repo and nothing to any storage: no `localStorage`, `sessionStorage`, cookie or IndexedDB. Typed notes live in the page's memory only and are lost when the page closes (12.R7). The page cannot run a command or start a program.
+3. The one way data gets in is a file the owner picks (12.R4.9). The page validates it as untrusted input (12.R9).
+4. Nothing from a snapshot or from the owner's notes is put into the page as HTML. Text is set as text, never as markup.
+5. **A second lock on the same door.** The page carries a Content-Security-Policy `<meta>` tag that denies everything (`default-src 'none'`) except its own inline script and style, allowed by hash, and images from `data:`. Even if a request were written by mistake, the browser would refuse it. The page loads no texture, image or model file: textures are made in code or inlined as data, and none of three.js's file loaders (`FileLoader`, `ImageLoader`, `TextureLoader`) is bundled.
+
+### 12.R3 The eleven stations
+
+1. The hillside has eleven stations around a central lantern, which is umwayi. In this order on the ring (UI-Q8): Memory, Rules, Queue, Archive, Logbook, Automation, AI helpers, Workflows, Adapters, Kill switch, Budget. Each station is a small model that acts out one function of umwayi-os and is one module of `ui/src/stations/`.
+2. Words are the product's words: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first, kill switch. Short sentences, no em dashes.
+3. Each station has a name, a state (built or planned), two short lines, the command that belongs to it and, when a snapshot is loaded, the counts of 12.R4 that belong to it. Stations and layers: Memory 1, Rules 2, Queue 3, Archive 4, Logbook 5, Automation 6 and 11 (jobs and scheduled runs), AI helpers 7, Workflows 8, Adapters 9 and 10 (the hooks and the front door), Kill switch 8, Budget the budget governor.
+4. **A planned part is never shown as built.** The reference showed Budget as a dashed ghost labelled "planned". The budget governor is built (PR 33), so Budget is a built station now. What is not done is the owner's capture B.10, which the station panel says in words. The ghost style stays in the code for the state `planned`, which no station has today (12.R8).
+5. Red, mint and amber carry meaning only at Rules (the three answers), Kill switch (red when on) and Logbook (a broken chain, 12.R4.4). Everywhere else they are light, not signals.
+6. Without a loaded snapshot the page shows a sample scene and says "sample" in a small label in a corner. Sample and real counts are never mixed in one scene.
+7. Counts drive the scene as follows. Queue: sheep in the line for open rows, stones in a cairn for answered. Rules: lanterns by verdict. Logbook: beads for chain length, with the entry count in the panel. Kill switch: hurdle up for on and for unknown, down for off. Automation: marks for entries, installed and enabled. Budget: the water level for the last seven days. Memory, Archive, Workflows, AI helpers and Adapters show no count today, because the snapshot has none for them (changing that is a change to 12.R4 and needs the owner).
+
+### 12.R4 `umwayi view snapshot` (UI-Q3)
+
+User story: as the owner, I want one command that writes the counts the page needs and nothing else, so the page can show my real state without ever reading my files.
+
+```
+umwayi view snapshot [--out PATH] [--date D]    read the counts, write one JSON file and one logbook entry
+```
+
+1. **Read only.** It changes nothing in any layer: not the queue, the rules, the archive, a draft, a unit file, the kill switch or the budget. It writes exactly two things: the snapshot file and one logbook entry. It calls no program and makes no network call. `umwayi/view.py` imports only the standard library and none of `subprocess`, `socket`, `urllib`, `http`, `ctypes`.
+2. **Counts only.** The file holds integers, booleans, one of the fixed words below and dates made by umwayi. **No text from any file** (no title, answer, recommendation, rule id or text, schedule or job name, archive pointer, memory line, prompt or logbook line), **no path of any kind and no secret.** The file has these fields and no other:
+
+   ```
+   {
+     "schema": 1,
+     "date": "2026-11-10",
+     "queue":       {"open": 3, "answered": 12},
+     "rules":       {"yes": 7, "no": 6, "ask": 2},
+     "logbook":     {"entries": 312, "chain_length": 280},
+     "budget":      {"days": [{"date": "2026-11-04", "used_uu": 0}, {"date": "2026-11-05", "used_uu": 12}, ...]},
+     "kill_switch": "off",
+     "schedule":    {"entries": 3, "installed": 1, "enabled": 0}
+   }
+   ```
+
+   - `queue`: rows with status open and with status answered in `queue.md`.
+   - `rules`: rules in `rules.yaml` by verdict (`yes`, `no`, `ask`).
+   - `logbook`: entries in `LOGBOOK.md`, and how many of them are in the hash chain (`chain_length` is 0 before the chain starts).
+   - `budget.days`: always seven entries, oldest first, the last one is `date`; UU used on each of those logbook days, the same number `umwayi budget status` shows as used (settled plus reserved in full), as whole numbers.
+   - `kill_switch`: `on`, `off` or `unknown` (a state umwayi cannot tell is `unknown`, and the page treats it as on).
+   - `schedule`: entries in `schedule.yaml`, how many are installed exactly as umwayi would write them, and how many have their timer enabled (the same read as `umwayi schedule check`; nothing is run).
+3. A part that cannot be read (a missing or broken `rules.yaml`, a malformed `queue.md`, a `schedule.yaml` that fails validation) is `null`, never zero and never a guess. The page shows `null` as unknown. A `schedule.yaml` that does not exist is 0 entries, not `null`. Every integer is whole, from 0 to 1000000000.
+4. **The tamper check runs first.** The command checks the logbook as every writer does (the whole-file hash and the hash chain, `read_checked`). If the logbook is broken it exits **1**, prints which check failed (never a line's text), and **writes nothing**: no snapshot and no entry. Whether a broken logbook should instead produce a snapshot that says so is open (UI-Q6).
+5. **One logbook entry** through the checked append, after the file is written: the source `umwayi view snapshot`, the file's name inside the root, its SHA-256 and the date. Not its content. If the entry cannot be written, the file is put back as it was (or removed if it was new) and the exit is 2.
+6. **The file.** The default is `.umwayi/snapshot.json` in the root. `--out PATH` must stay inside the root, end in `.json`, be at most 1024 characters and have no `..` part. It is written through the shared atomic writer. It replaces only a regular file that was written by this command earlier (it parses and has exactly the fields above) or a path that does not exist. A link, a folder, a hard linked file or any other existing file is refused (64), so `--out rules.yaml` can never overwrite anything. The mode follows the owner's umask (it holds counts only). `.umwayi/snapshot.json` is added to `.gitignore`.
+7. Same input, same bytes: the file has fixed key order, two spaces of indent and a final newline. `--date D` sets `date` and the end of the seven days, as for every command.
+8. **Exit codes: 0 done, 1 the tamper check failed (nothing changed), 64 a usage or config error** (a bad `--out`, a bad `--date`, a file that is not ours). An unexpected error exits **2**, never 0, 1 or 3 (rule 8). It never exits 3: it asks the rules nothing and is not stopped by the kill switch, because it starts no run and the owner needs it most when the switch is on. Messages never print file contents.
+9. **How the page reads it.** The owner picks the file in the page with a file picker (or drops it). The page reads it in the browser with `FileReader`, so it makes no request (UI-Q7).
+10. The snapshot is only as fresh as the last command. The page shows the snapshot's `date` next to the scene, and says "sample" when there is none.
+
+### 12.R5 Calm by default (UI-Q4)
+
+1. **Nothing flashes or blinks.** No element changes brightness or colour in a repeating way, and nothing pulses, flickers or strobes, at any speed. The rule is stricter than the WCAG limit of three flashes a second.
+2. **No autoplay.** With no input the scene is a still picture: after the first frame is drawn, the page draws nothing more and uses no animation frame. (Wind in the grass, drifting mist, fireflies, a sky that moves and sheep that walk by themselves are all gone.)
+3. **Motion only after a click or a cursor move, and it eases to rest.** A selection (click, tap, key or label) flies the camera to the station and plays that station's short action once. A cursor move gives a small slow parallax. Every motion uses an ease out curve, ends in a finished state within 3 seconds of the last input (5 seconds in calm mode), and then the page draws nothing again. "Replay" in the panel plays the station's action once more.
+4. **`prefers-reduced-motion: reduce` switches off all movement and shows still frames.** No camera flight (the camera jumps), no parallax and no tween. Each station's action is a short list of still poses (for Rules: Yes, No, Ask me first), and the panel steps through them with Previous and Next buttons. The setting is read at start and when it changes while the page is open.
+5. **A visible calm mode toggle** (a real button, labelled "Calm mode", reachable by keyboard, in the top bar). Calm mode lowers contrast and brightness of the scene, glow and lines, slows the easing, and hides the sky arcs. Its start state and a floor for text contrast are open (UI-Q9).
+6. **Dark, low brightness colours and no large pure white area.** The palette is the nightwatch palette of design.md. In the overview, at 1440 by 900 and at 390 by 844, in normal and in calm mode: the mean luminance of the picture is at most 0.20; no connected area of more than 0.5 percent of the picture has all three channels at 240 or more; the page background is never white. Bloom is capped so a lantern does not wash out. These numbers are proposed; UI.1 may tighten them after the owner sees the screenshots, never loosen them.
+7. **Clean and less congested.** Closer to a recent game than to an old video game: smooth shapes (no pixelation, no retro dither, no scan lines), anti-aliasing on, soft light and fog, and few things on screen. The overview shows at most the eleven labels and one top bar; the 11 labels do not overlap each other or the bar at 1440 by 900 or at 390 by 844; sky arcs are drawn only for the selected station and the stations it depends on; there is no constellation, aurora, firefly, river light or circuit pulse. Anything the reference had that is not in this list stays cut unless the owner asks for it back.
+8. The same station logic serves all of this: a station is a set of poses and the short moves between them (12.R3.1), so a click plays the moves and reduced motion shows the poses.
+
+### 12.R6 Access
+
+1. Every station label is a real `<button>`. Arrow keys move between stations, Enter or Space selects, Esc returns to the overview, and the focus is always visible. The panel is a landmark with a heading; opening it moves focus into it and closing it returns focus to the label.
+2. **A list view** of the eleven stations (a plain `<ul>` with the same words, the same counts and the same state) is reachable from a link in the top bar, and is shown automatically when WebGL is missing or fails (UI-Q8). The page works completely, with the checks panel, without WebGL.
+3. Text contrast is at least 4.5 to 1 against what is behind it in normal mode (the glass panel and labels included) and not below the floor of UI-Q9 in calm mode.
+4. The phone layout at 390 pixels: the panel is a bottom sheet, the labels do not overlap, and the page holds at least 30 frames a second while moving on an integrated GPU at 1440 by 900 (it lowers the pixel ratio when it does not).
+5. The page has a `lang`, a title, and a text alternative that says in words what the scene shows and where the list view is.
+
+### 12.R7 The owner checks panel (UI-Q5)
+
+1. A panel in the page, opened from the top bar and from the list view, lists the physical tests only the owner can run, in this order: **10.21** (one real run of each platform), **10.31** (the first real Claude Code ACP chat and the real Kiro login), **11.6** (the real systemd check), **B.10** (the capture of one real Claude Code telemetry export), **10.37** (the real field names of `auth status --json`, steps B1 to B3 of the 10.31 run) and the **interface check** (the owner's check of this page, `adapters/NOTES-layer12.md`, tasks.md UI.5).
+2. Each check shows: its id and name, why it is open, its steps in order with the exact command in a code block, what to expect, and what to record. Each step has a checkbox and a text field for the result. The steps are the ones in the NOTES file named for the check (`adapters/NOTES-layer10.md`, `adapters/NOTES-layer11.md`, `adapters/NOTES-layer12.md`); every command in the page is found word for word in its NOTES file (a test checks this).
+3. **The page cannot tell whether a check passed.** A check is "not done" until the owner ticks every step, and then it says "ticked by you", never "passed" or "verified". Nothing here is ever shown as done by default.
+4. **Results stay in the page.** Ticks and typed results are kept in the page's memory only (12.R2.2), and the panel says so: "These notes are lost when you close this page. Export them first."
+5. **Export as text.** One button writes all checks, with their steps, ticks and results, as plain text into a text area (selected for copying), with a Copy button and a Download button (the browser saves a `.txt`; the owner chooses where). The text ends with the line "These are your notes. umwayi did not run or verify anything." The export is made in the browser; nothing is sent.
+6. The panel reminds the owner of the NOTES rule: record field names, exit codes and version strings, never a value. A result field that looks like a value (an email, a URL, a long token-like string) is marked with a warning; the export still works.
+7. **The interface never writes to the repo, runs a command or calls a network** while doing this. The commands in the panel are text for the owner to type.
+
+### 12.R8 A liberal society view, for later (design only; nothing of layer 13 is built)
+
+1. Layer 13 has no requirements yet. This requirement only makes sure the view can take it later without a rewrite, and builds none of it.
+2. The owner named three things the view should show once layer 13 exists: **review dates, reopened decisions and petitions**. Each would be a station, drawn only when layer 13 is built and a snapshot carries its counts. Until then no such station, ghost or label exists in the page or in the list view.
+3. The extension points built now, and only these: the stations are a list of modules registered in one file; the ring layout takes any number of stations (a test lays out 14 fake ones with no overlapping label); the snapshot is versioned (`schema`), and the page accepts only schema numbers it knows; and a station has a state, built or planned.
+4. The shape proposed for a later schema 2 is in design.md ("A liberal society view, for later"). It keeps the rules of 12.R4: counts and dates only, never a title, a name or the text of a petition.
+5. Whether and how these stations are drawn is decided when the layer 13 spec exists (UI-Q11).
+
+### 12.R9 Fail closed
+
+1. The page treats the snapshot as untrusted. The file must be at most 4 KB and parse as JSON; it must have exactly the fields of 12.R4 with the right types, no extra field, and every number whole and in range. Otherwise the page shows "This file is not a snapshot of this version" and loads nothing; it never shows a partly checked file.
+2. A `null`, an unknown `kill_switch` word or a missing part is drawn as unknown. Unknown is never drawn as zero or as fine.
+3. Any error in the page's own code shows a plain message and the list view. It never shows a blank page, and never invents a count.
+4. `umwayi view snapshot` follows 12.R4.8: any unexpected error exits 2 and leaves no half written file; the error text never holds file contents.
+
+### 12.R10 Tests
+
+As for every layer: tests first. The normal suite (`python -m unittest discover -s tests -t .`) stays standard library only and needs no network, npm, Node or browser.
+
+1. **Snapshot** (UI.2), real child processes (`python -m umwayi view snapshot`) with `HOME` and `XDG_CONFIG_HOME` in a temporary folder:
+   - a fixed root gives exact bytes, twice the same;
+   - the key set equals the list of 12.R4.2, and every leaf is a whole number, a boolean, one of the fixed words or a date: a structural test, not a search;
+   - sentinel words planted in every file the command reads (queue titles, answers and recommendations; rule ids, titles and text; logbook lines; schedule and job names; memory private path names; archive pointers; the root's own path) never appear in the file, the output or the logbook entry beyond what 12.R4.5 allows;
+   - each part unreadable alone gives `null` for that part and 0 elsewhere unchanged; no `schedule.yaml` gives 0 entries;
+   - a tampered logbook, three ways as in S.R3.1: exit 1, nothing written, snapshot and logbook unchanged byte for byte;
+   - `--out` cases: inside the root, outside, `..`, a link, a hard link, a folder, an existing foreign file such as `rules.yaml` (64, untouched), an earlier snapshot (replaced), a path with a newline, a path of 1025 characters, a name not ending in `.json`;
+   - the logbook entry exists once, with the file's SHA-256, and no content; a logbook that fails after the file is written puts the file back (exit 2); the kill switch on and unknown still gives 0;
+   - only exit codes 0, 1, 2 and 64; the command changes no other file (a snapshot of the whole root before and after, except the file and `LOGBOOK.md` with its record);
+   - code guards: `view.py` imports no `subprocess`, `socket`, `urllib`, `http` or `ctypes`.
+2. **The package** (UI.1), standard library: exact versions, no range, every lockfile entry has a sha512 and a registry.npmjs.org source, `node_modules` and the page are where the rules say, `.gitignore` has the exception, and `build.json` matches the sources and the page (the page was rebuilt after the last source change, and was not edited by hand).
+3. **The built page** (UI.1), standard library: no `<script src>`, `<link href>`, `<img src>`, `@import`, `url(` with a remote address, `fetch(`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, `import(`, `//cdn`, `localStorage`, `sessionStorage`, `indexedDB`, `document.cookie`, `FileLoader`, `ImageLoader` or `TextureLoader`; any `http://` or `https://` string must be one of a short list of XML namespace addresses (three.js carries `http://www.w3.org/1999/xhtml`, which is a name, not a request); the Content-Security-Policy tag of 12.R2.5 is present and denies by default; the 11 label buttons, the `<ul>` list view, the calm mode button, the reduced motion rule and the checks panel exist in the HTML.
+4. **Page logic**, Node's built in test runner with no package (`node --test`, UI.1 to UI.4): the snapshot validator (every bad shape of 12.R9.1), the mapping from counts to scene numbers, the easing and the pose player (it ends, it stops asking for frames), the checks panel's export text and warning, the ring layout with 14 fake stations.
+5. **In a browser** (UI.1 and UI.5), by hand with a headless browser kept outside the repo (like the scan tools of S.2: never a dependency, version recorded): no console error; all requests blocked and zero attempted; 11 labels and the panel opens for each; two screenshots 2 seconds apart at rest are identical; after one click the picture changes and then is identical again within 3 seconds (5 in calm mode); no animation frame is requested at rest; with reduced motion on, the camera jumps and the poses step; the luminance and white area limits of 12.R5.6; the labels do not overlap at 1440 by 900 and 390 by 844; the 30 frames a second check. Results go into `docs/interface.md` with the date, the browser and its version.
+6. **Planted faults and mutation checks**, each killed by a named test, with the counts in the pull request: a title written into the snapshot; a path written; a count that is the wrong one; the tamper check skipped; the entry skipped; `--out` allowed over `rules.yaml`; a `fetch` added to the page; a font loaded from a CDN; a `setInterval` that redraws at rest; an infinite animation loop; reduced motion ignored; a page written by hand without a rebuild; a "passed" shown for a ticked check; a value-looking result not warned.
+7. Docs: `tests/test_docs.py` passes with `docs/interface.md`.
+
+### 12.R11 Not in layer 12
+
+- **Anything that acts.** No button runs a command, answers the queue, changes a rule, turns the kill switch on or off, installs a schedule or starts an AI helper. The page is for looking.
+- **A server, a socket or live updates.** The page does not poll. It shows the last snapshot.
+- **Text from the owner's files.** No titles, names, paths or logbook lines, not even in a tooltip.
+- **Layer 13** (12.R8) and every station beyond the eleven.
+- **Saved notes.** The checks panel does not store results between visits.
+- **Analytics, accounts, sharing and telemetry** of any kind.
+- A mobile app, a desktop app and a hosted version.
+
 ## Non goals for Dec 3
 
 - Finance and marketing loops
-- Web interface
 - Shared rule packs (after Dec 3)
 - File watching, an SQLite index, tmux sessions and a sandbox for agents and helpers (layer 11 proposes to cut or defer them, 11.R8)

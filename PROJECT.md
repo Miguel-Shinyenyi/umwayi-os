@@ -22,6 +22,7 @@ umwayi-os/
   PROJECT.md                this file: what to read first
   umwayi/                   the core package, standard library only
   adapters/                 layer 9 hooks and the pinned Claude Code ACP adapter, outside the core
+  ui/                       layer 12, planned: the web interface build tools and the built page, outside the core
   tests/                    every test; python -m unittest discover -s tests -t .
   docs/
     DOCS_MAINTENANCE.md     how the docs are written and kept current
@@ -38,6 +39,7 @@ umwayi-os/
     agent-front-door.md     layer 10: umwayi agent
     scheduled-runs.md       layer 11: systemd user timers
     budget-governor.md      UU, the ledger, the telemetry receiver
+    interface.md            layer 12: the view, a web page that only looks (specified, not built)
     exit-codes.md           every exit code and which command gives it
     testing.md              how everything is tested
     security.md             what is protected and how it is checked
@@ -48,4 +50,4 @@ umwayi-os/
   .kiro/steering/           the product rules
 ```
 
-The facts each adapter relies on, with links, are in [adapters/NOTES.md](adapters/NOTES.md), [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md) and [adapters/NOTES-layer11.md](adapters/NOTES-layer11.md).
+The facts each adapter relies on, with links, are in [adapters/NOTES.md](adapters/NOTES.md), [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md) and [adapters/NOTES-layer11.md](adapters/NOTES-layer11.md) and [adapters/NOTES-layer12.md](adapters/NOTES-layer12.md).
