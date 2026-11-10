@@ -281,13 +281,33 @@ class RunTests(Base):
     def test_gap_rule(self):
         self.make_git()
         self.assertEqual(self.run_job("weekly-report", clock="2026-11-01")[0], 0)
-        for clock in ("2026-11-01", "2026-11-04", "2026-11-07"):
+        for clock, days in (("2026-11-01", 0), ("2026-11-04", 3), ("2026-11-07", 6)):
             with self.subTest(clock=clock):
-                out = self.assert_refused(["run", str(self.root / "jobs.yaml"), "--job", "weekly-report"], 1,
-                                          "the minimum gap is 7 day(s)", clock=clock)
-                self.assertIn("The job did not run", out)
-        self.assertEqual(self.run_job("weekly-report", clock="2026-11-08")[0], 0)  # exactly 7 days later
-        self.assertEqual(sorted(os.listdir(self.root / "drafts")), ["report-0001.md", "report-0002.md"])
+                before = {k: v for k, v in self.snap().items() if not k.endswith(("LOGBOOK.md", "logbook.sha256"))}
+                n = len(self.entries())
+                code, out, err = self.cli("run", str(self.root / "jobs.yaml"), "--job", "weekly-report", clock=clock)
+                self.assertEqual(code, 1, out + err)  # layer 6 keeps exit 1 for a refusal (L11-Q9)
+                self.assertIn("the minimum gap is 7 day(s)", out + err)
+                self.assertIn("The job did not run", out + err)
+                after = {k: v for k, v in self.snap().items() if not k.endswith(("LOGBOOK.md", "logbook.sha256"))}
+                self.assertEqual(after, before, "a refused job changed something other than the logbook")
+                # S.1 found that a refusal by the gap rule left no entry, so a scheduled run refused by it left no trace
+                # in the logbook (KNOWN-LIMITS 98 says the logbook says which). Now it writes one, like every other
+                # refusal of a run.
+                [e] = self.entries()[n:]
+                self.assertEqual((e.date, e.source), (clock, "umwayi run"))
+                self.assertEqual(e.added, f"Job weekly-report did not run: the gap rule (it ran {days} day(s) ago on "
+                                          "2026-11-01; the minimum gap is 7 day(s))")
+        self.assertEqual(self.run_job("weekly-report", clock="2026-11-08")[0], 0)  # exactly 7 days later: refusals
+        self.assertEqual(sorted(os.listdir(self.root / "drafts")), ["report-0001.md", "report-0002.md"])  # not runs
+
+    def test_a_gap_refusal_that_cannot_be_logged_still_refuses(self):
+        self.assertEqual(self.run_job("open-queue")[0], 0)
+        with open(self.log, "a", encoding="utf-8") as f:
+            f.write("edited by hand\n")
+        code, out, err = self.run_job("open-queue")
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("The job did not run", out + err)
 
     def test_gap_counts_from_the_latest_run(self):
         self.make_git()

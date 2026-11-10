@@ -15,7 +15,7 @@ umwayi run jobs.yaml --job weekly-report [--date 2026-11-07]
 `jobs.yaml` lists jobs. Each has a `name`, a `command` from a fixed list (`report`, `check`, `queue-list`) and `min_gap_days`. There is no way to put a shell command or another program in a job.
 
 - The rules are asked first (action type `run_job`). No stops the job (exit 2), Ask me first stops it (exit 3).
-- A job that ran fewer than `min_gap_days` days ago is refused (exit 1).
+- A job that ran fewer than `min_gap_days` days ago is refused (exit 1), with one logbook entry `Job NAME did not run: the gap rule (...)`, so a scheduled run refused by it shows in the logbook too. That entry never counts as a run.
 - Every run writes one logbook entry. If the logbook cannot be written, the job does not run.
 - `--job` is needed when the file has more than one job.
 
@@ -49,6 +49,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-10 | A gap rule refusal writes one logbook entry and keeps exit 1 | Found by the whole-system test (S.1, PR 36): a scheduled run refused by the gap rule left no trace in the logbook (KNOWN-LIMITS 98). |
 | 2026-11-08 | A job's `command` comes from a fixed list (`report`, `check`, `queue-list`); no shell (6.1) | Layer 6, PR 6: a job can never run another program. |
 | 2026-11-08 | `publish-draft` copies to `outbox/` only; the starter rule `publish-ask` makes it Ask me first, and `--approved-by` lets it go on (6.3) | Layer 6, PR 6: the owner publishes, never a helper. |
 | 2026-11-08 | The report reads git through one fixed `git log` command, with no author names or emails (6.2) | Layer 6, PR 6: no network and no personal data. |

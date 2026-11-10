@@ -2091,6 +2091,20 @@ docs/SECURITY-SCAN.md           S.R9: the recorded scan, its findings and decisi
 
 No new file in `umwayi/` unless a test of S.R5 to S.R8 shows a defect (S-Q6, S-Q7); then the fix goes into the module it belongs to, test first.
 
+### Added while building S.1 (PR 36)
+
+- **The snapshot is restored into the same folder.** The day writes absolute paths (the agents' workdir, the Kiro hook file's `--root`, the unit files and their ROOTID, logbook entries), so a copy of the root at another path would not be the day's end state. Each fault test restores the snapshot of the whole temporary folder into the same place first (S-Q2's "its own copy", kept by restoring it).
+- **The fault tests share the day.** One class runs `test_01` to `test_08` in order and saves the snapshot; each fault test (`test_20` and later) runs any day step not run yet, then restores the snapshot. A day step that failed skips the rest with its reason.
+- **The commands run from the temporary folder,** so a jobs file is given by its absolute path (`umwayi run` reads it from the current folder, as the README's cron line shows).
+- **The day's units.yaml has roomy day limits** (the day starts each agent more than three times) and declares Kiro at 40 UU a run, so its shares are measured and declared with nothing unknown.
+- **The first start of the day also writes the `units.yaml changed` entry** (B.R1.5), so its entries are checked with that one in place.
+- **The morning's anchor still verifies in the evening** (exit 0): a chain longer than its anchor, whose value at the anchor's count matches, is the same chain grown. A shorter chain (the truncated tail) and a different one (the consistent settle edit) give 1. tasks.md S.1.2 is corrected.
+- **`schedule remove` with a broken logbook** stops at the rules check, which cannot be logged, before it touches a file (exit 2, both unit files unchanged); 11.R4.2's "put back" is the path where the removal's own entry fails.
+- **The lock files are left out of "nothing written by a refusal":** a writer that takes `.umwayi/logbook.lock` or `run.lock` writes its pid there for messages (L-Q1); they hold no state.
+- **The kill switch and a scheduled job:** a job checks the kill switch at its start only (KNOWN-LIMITS 129), so the scheduled case is the switch on at the run's start (3, one entry), then off (0).
+- **The no-systemd pass** uses a `PATH` of the fakes only (this machine has `/usr/bin/systemctl`), and the second pass puts recording `systemctl`, `systemd-analyze`, `crontab` and `loginctl` first; none was ever called.
+- **The defect S.1 found** (S-Q15, fixed in PR 36, test first): a job refused by the gap rule wrote no logbook entry, so a scheduled run refused by it left no trace in the logbook, against KNOWN-LIMITS 98. It now writes one entry (`Job NAME did not run: the gap rule (...)`) and keeps exit 1 (L11-Q9); the entry never counts as a run.
+
 ### S.1, the owner's day
 
 - One test class builds the root once (`setUpClass`) and runs the steps of S.R2 in order as real child processes, asserting after each step the exit code, the new logbook entries by source and shape, and the state files. Ordered steps run in one test method each, named `test_01_...` to `test_08_...`, and a failed step skips the rest (they depend on it) with the reason.
@@ -2167,7 +2181,7 @@ All through `umwayi agent run` with the fake `claude`, whose `otlp` step gets a 
 | a planted secret is found | the test fails with the file and line; it is fixed before S.2 is ticked |
 | a receiver case shows a defect | the defect is fixed test first, or written into KNOWN-LIMITS if the owner decides so |
 
-### KNOWN-LIMITS (written with S.2.7, numbered from 129)
+### KNOWN-LIMITS (written with S.2.7, numbered from 130; S.1 wrote 129)
 
 At least: S.R10 items 1 to 6 in short; the advisory scan was true on its date only; `npm audit` tells the registry the package list; the receiver cases that stay limits after S-Q6 and S-Q7; every link or path race left open by S.R7.3.
 

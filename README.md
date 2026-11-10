@@ -11,12 +11,13 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | part | state | doc |
 | --- | --- | --- |
 | Layers 1 to 8 (memory, rules, queue, archive, logbook, automation, helpers, workflows) | built | [architecture](docs/architecture.md) |
-| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) | built; 9.10 and 9.11 open | [adapters](docs/adapters.md) |
+| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) | built; 9.10 open | [adapters](docs/adapters.md) |
 | Layer 10 front door for agents | built; the owner's real runs (10.21, 10.31) not done | [agent front door](docs/agent-front-door.md) |
 | Layer 11 scheduled runs | built; the owner's real check (11.6) not done | [scheduled runs](docs/scheduled-runs.md) |
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
-| Whole-system test and security scan | approved, not built yet | [testing](docs/testing.md), [security](docs/security.md) |
+| Whole-system test (S.1) | built | [testing](docs/testing.md) |
+| Security scan (S.2) | approved, not built yet | [security](docs/security.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 

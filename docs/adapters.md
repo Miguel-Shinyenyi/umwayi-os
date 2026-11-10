@@ -26,6 +26,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-10 | 9.11 done: the whole-system test calls the three hooks as each platform runs them, and sends every agent start's tool calls through them | S.1, PR 36. |
 | 2026-11-08 | Every adapter denies every tool call while the kill switch is on or unknown (9.12) | Layer 9, PR 12: the owner answered yes. |
 | 2026-11-08 | Where a platform has no ask, Ask me first is a deny plus one queue item (9.6) | Layer 9, PR 12: Kiro has no ask. |
 | 2026-11-08 | The Kiro adapter uses exit 0 or 2 only (9.4) | Layer 9, PR 12: the Kiro pages disagree about the other codes. |
@@ -34,4 +35,3 @@ Newest first. Each row names where it was decided.
 ## Open questions
 
 - 9.10: starter rules for adapter actions in the repo `rules.yaml` ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), layer 9).
-- 9.11: the whole-system test with the adapters, part of S.1 ([tasks.md](../.kiro/specs/umwayi-os/tasks.md)).
