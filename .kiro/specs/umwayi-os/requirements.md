@@ -2,7 +2,7 @@
 
 umwayi-os is an AI operating system for one person and their AI helpers. It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change.
 
-It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is built (PRs 11 and 12). A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) was approved on Nov 9 and is planned for Nov 10 to Nov 11. Layer 10 is built up to part 7c-1; parts 7c-2 and 7c-3 are planned for Nov 12 to Nov 13. Layer 11 (proposed scope: scheduled runs through systemd user timers; spec written Nov 10, waiting for owner approval) is planned for Nov 14 to Nov 15. Each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 16, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. The schedule to Dec 3 is in tasks.md.
+It is built in layers. Each layer works alone and is tested before the next starts. Layers 1 to 8 are built (PRs 1 to 8, then hardening in PR 9). Layer 9 is built (PRs 11 and 12). A Layer 5 addendum on logbook crash safety (found Nov 9 behind a flaky test, PR 25) was approved on Nov 9 and is planned for Nov 10 to Nov 11. Layer 10 is built up to part 7c-1; parts 7c-2 and 7c-3 are planned for Nov 12 to Nov 13. Layer 11 (scheduled runs through systemd user timers; approved) is built now (PR 31), moved up from Nov 14 to Nov 15. Each is built only after the owner approves its requirements, design and tasks. The logbook hash chain is planned for Nov 16, the budget governor for Nov 17 to Nov 22, and the whole-system test and security scan for Nov 23 to Nov 26, after the governor. The schedule to Dec 3 is in tasks.md.
 
 ## Glossary
 
@@ -472,7 +472,7 @@ Acceptance criteria:
 
 ## Layer 11: Linux-like features
 
-Status: spec written Nov 10, waiting for owner approval (tasks.md 11.0). Planned build Nov 14 to Nov 15, only after the owner approves it. Facts with links, and what the docs do not say: `adapters/NOTES-layer11.md`. The candidates and why most of them wait: design.md, "Layer 11", section "The candidates".
+Status: approved by the owner (tasks.md 11.0), with L11-Q1 to L11-Q13 answered as proposed and L11-Q14 changed: built now, not on Nov 14 to Nov 15. 11.R1 to 11.R7 are built in PR 31 (`umwayi/schedule.py`, `umwayi schedule`); 11.R7.8, the owner's real check (tasks.md 11.6), is not done. Facts with links, and what the docs do not say: `adapters/NOTES-layer11.md`. The candidates and why most of them wait: design.md, "Layer 11", section "The candidates".
 
 User story: as the owner, I want my jobs and workflows to run on a schedule while I am away, using the scheduler Linux already has, so that nothing new decides when umwayi runs and every run still goes through the kill switch, the run lock, the rules and the logbook.
 

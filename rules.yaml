@@ -66,6 +66,24 @@ rules:
     matchers:
       type: publish_draft
 
+  # Scheduled runs (layer 11). Installing a schedule makes a job or workflow run on its own; removing one is the
+  # safe direction. The runs themselves still ask the rules (run_job, workflow_step) every time.
+  - id: schedule-install-ask
+    title: Installing a schedule needs the owner
+    text: A schedule makes a job or a workflow run on its own. The owner approves it with --approved-by NAME.
+    cause: Nothing runs on its own unless the owner says so.
+    verdict: ask
+    matchers:
+      type: schedule_install
+
+  - id: schedule-remove-yes
+    title: Removing a schedule is fine
+    text: Removing a schedule only stops a job or a workflow from running on its own.
+    cause: Taking automation away is the safe direction.
+    verdict: yes
+    matchers:
+      type: schedule_remove
+
   # AI helpers (layer 7). Every helper action has a "helper" field.
   - id: helper-read
     title: AI helpers may read

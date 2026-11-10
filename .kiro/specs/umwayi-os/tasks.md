@@ -17,7 +17,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
 | 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
 | 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 and 10.30 done, 10.31 waits for the owner's first real run; part 7c approved (10.32), part 7c-1 built (10.33 to 10.35), part 7c-2 built (10.38, 10.39), part 7c-3 built (10.36), 10.37 open; OpenCode and Muse Spark Open specified (10.40, 10.41), build after Dec 3 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21; part 7c spec PR 22; part 7c-1 PR 23; part 7c-2 PR 28; part 7c-3 PR 29 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, 869 after PR 23, 929 after PR 28, 934 after PR 29, on Python 3.10 to 3.13 |
-| 11 Linux-like features | spec written Nov 10, waiting for owner approval (11.0); proposed scope: scheduled runs through systemd user timers (11.1 to 11.6), other candidates cut or deferred; build Nov 14 to Nov 15 | spec PR 30 | |
+| 11 Linux-like features | approved (11.0); scheduled runs through systemd user timers built (11.1 to 11.5); 11.6 waits for the owner's real check; file watching and tmux cut, SQLite and a sandbox deferred | spec PR 30; build PR 31 | 978 after PR 31, on Python 3.10 to 3.13 |
 | Logbook crash safety (Layer 5 addendum) | approved Nov 9 (L5.0); built Nov 10 (L5.1 to L5.5), before 7c-2 | spec PR 26; build PR 27 | 906 after PR 27, on Python 3.10 to 3.13 |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); build one day, Nov 16 (C.1 to C.4), after crash safety | spec PR 24 | |
 | Budget governor | approved Nov 9 (B.0); build Nov 17 to Nov 22 (B.1 to B.10) | spec PR 24 | |
@@ -33,7 +33,8 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | Nov 8 to Nov 9 | Layer 10 parts 1 to 7b and 7c-1 (7c-1 built Nov 9 in PR 23) |
 | Nov 10 to Nov 11 | Logbook crash safety (L5.1 to L5.5) (approved, L5.0), right after PR 26 merges |
 | Nov 12 to Nov 13 | Layer 10 part 7c-2 (10.38, 10.39) and 7c-3 (10.36, 10.29 to 10.31) |
-| Nov 14 to Nov 15 | Layer 11: scheduled runs (11.1 to 11.5), only after its spec is approved (11.0); after Dec 3 if approved later (L11-Q14) |
+| Nov 10 to Nov 11 | Layer 11: scheduled runs (11.1 to 11.5) (approved, 11.0), moved up from Nov 14 to Nov 15 by the owner (L11-Q14) |
+| Nov 14 to Nov 15 | Free (layer 11 moved up) |
 | Nov 16 | Logbook hash chain (C.1 to C.4), one day (approved, C.0) |
 | Nov 17 to Nov 22 | Budget governor (B.1 to B.10) (approved, B.0) |
 | Nov 23 to Nov 26 | Whole-system test again and security scan (S.1, S.2), after the governor: the adapters, layers 10 and 11, the chain and the governor, including the telemetry receiver (C-Q4) |
@@ -419,25 +420,39 @@ design.md "OpenCode as a platform" and "Muse Spark Open as a platform"; facts in
   - the "Built with Muse Spark Open" notice after the owner has read `LICENSE.md`;
   - whether Muse Code becomes its own platform (MS3).
 
-## Layer 11: Linux-like features (spec written Nov 10 2026, waiting for owner approval; build Nov 14 to Nov 15)
+## Layer 11: Linux-like features (approved; 11.1 to 11.5 built Nov 10 in PR 31, moved up from Nov 14 to Nov 15 by L11-Q14; 11.6 waits for the owner)
 
-Requirements 11.R1 to 11.R8, design.md "Layer 11" (the candidates, the templates, the open questions L11-Q1 to L11-Q14), facts in `adapters/NOTES-layer11.md`. Nothing below starts before the owner approves 11.0. Scope as proposed: scheduled runs through systemd user timers only; file watching and tmux cut, SQLite and bubblewrap deferred to after Dec 3 (11.R8). Effort about 11 hours plus 0.5 hour of the owner's. Every test runs `python -m umwayi schedule ...` as a real child process with `HOME` and `XDG_CONFIG_HOME` in a temporary folder; no systemd, cron, network or credential.
+Requirements 11.R1 to 11.R8, design.md "Layer 11" (the candidates, the templates, the open questions L11-Q1 to L11-Q14), facts in `adapters/NOTES-layer11.md`. Approved (11.0). Scope: scheduled runs through systemd user timers only; file watching and tmux cut, SQLite and bubblewrap deferred to after Dec 3 (11.R8). Effort about 11 hours plus 0.5 hour of the owner's. Every test runs `python -m umwayi schedule ...` as a real child process with `HOME` and `XDG_CONFIG_HOME` in a temporary folder; no systemd, cron, network or credential.
 
-- [ ] 11.0 Requirements 11.R1 to 11.R8, the design section, these tasks and `adapters/NOTES-layer11.md` written (Nov 10) in PR 30, **waiting for owner approval**, with the open questions L11-Q1 to L11-Q14 answered.
-- [ ] 11.1 `schedule.yaml` and validation (2 h): `umwayi/schedule.py` reads the file with `miniyaml`; the keys, names, `run`, `every`, `at`, `day`; the cross checks against the jobs file (`min_gap_days` against the period) and the workflow; the path rule; `umwayi schedule validate`.
+- [x] 11.0 Requirements 11.R1 to 11.R8, the design section, these tasks and `adapters/NOTES-layer11.md` written (Nov 10) in PR 30, approved by the owner (PR 30 merged). Answers:
+  1. L11-Q1: only scheduled runs for Dec 3.
+  2. L11-Q2: systemd user timers installed by `schedule install`; cron lines only printed by `show --cron`.
+  3. L11-Q3: umwayi writes the two unit files and prints the `systemctl --user` commands; it never runs `systemctl`, `crontab` or `loginctl`.
+  4. L11-Q4: starter rule `schedule-install-ask` (Ask me first, `--approved-by WHO` goes on) and `schedule-remove-yes` (Yes).
+  5. L11-Q5: only jobs and workflows can be scheduled; never `agent run`, `agent chat` or `agent login`.
+  6. L11-Q6: `Persistent=true`.
+  7. L11-Q7: `TimeoutStartSec=30min` for every scheduled run.
+  8. L11-Q8: umwayi never enables lingering; install says timers run only while the owner is logged in otherwise.
+  9. L11-Q9: `umwayi run` keeps layer 6's exit 1 for a refusal, shown as a failed unit; no `SuccessExitStatus`.
+  10. L11-Q10: file watching cut for Dec 3.
+  11. L11-Q11: SQLite deferred to after Dec 3.
+  12. L11-Q12: tmux cut from umwayi; the README shows the hand route.
+  13. L11-Q13: bubblewrap deferred to its own spec after Dec 3.
+  14. L11-Q14 (changed by the owner): build now, right after PR 30 merged, not on Nov 14 to Nov 15. Nov 14 to Nov 15 is free; the hash chain (Nov 16), the budget governor and the rest of the schedule do not move.
+- [x] 11.1 (PR 31) `schedule.yaml` and validation (2 h): `umwayi/schedule.py` reads the file with `miniyaml`; the keys, names, `run`, `every`, `at`, `day`; the cross checks against the jobs file (`min_gap_days` against the period) and the workflow; the path rule; `umwayi schedule validate`.
   - Acceptance tests: each bad shape of the design's validate table gives 64 with its line number and all problems at once; each path rule case (space, `%`, `$`, quotes, backslash, `;`, newline, non-ASCII, `..`) gives 64 with a message that holds no control character; a valid file gives 0; nothing is written in any case (folder snapshot equal); `schedule.example.yaml` validates.
-- [ ] 11.2 Rendering and `schedule show` (2 h): the two templates exactly as in the design; ROOTID; the calendar for daily, weekly and monthly; the cron line for `--cron`.
+- [x] 11.2 (PR 31) Rendering and `schedule show` (2 h): the two templates exactly as in the design; ROOTID; the calendar for daily, weekly and monthly; the cron line for `--cron`.
   - Acceptance tests: the exact bytes of the service and the timer for a job and a workflow on each `every`; the cron line for each; the same input gives the same bytes twice; two roots give two ROOTIDs; `show` writes nothing; the rendered text has no `%`, no `$` and no line holding text from outside the allowed sets.
-- [ ] 11.3 `schedule install` and `schedule remove` (3 h): the order of 11.R4 (validity, already installed, kill switch, rules with `schedule_install` and `schedule_remove`, `--approved-by`, the run lock for install, `O_CREAT | O_EXCL | O_NOFOLLOW`, folder `fsync`, one entry, undo on a logbook failure); the printed `systemctl --user` commands and the lingering line; the two starter rules in `rules.yaml`.
+- [x] 11.3 (PR 31) `schedule install` and `schedule remove` (3 h): the order of 11.R4 (validity, already installed, kill switch, rules with `schedule_install` and `schedule_remove`, `--approved-by`, the run lock for install, `O_CREAT | O_EXCL | O_NOFOLLOW`, folder `fsync`, one entry, undo on a logbook failure); the printed `systemctl --user` commands and the lingering line; the two starter rules in `rules.yaml`.
   - Acceptance tests: install with Yes (0, both files 0644, one entry with both hashes), No (2), Ask me first (3, one queue item, still one after a second call), `--approved-by` (0, WHO in the entry), kill switch on and unknown (3, one entry, no file), run lock held by another process (3), already installed (0, no entry), a different file present (2, untouched), the unit folder a link (2), a planted fault after the service is written (2, no file left), the logbook failing (2, no file left); remove when not installed (0), with the enable link (2 and the two commands), changed (2), a drop-in (2), No and Ask me first, the logbook failing (2, both files back byte for byte), success (0, one entry); remove works while the kill switch is on.
-- [ ] 11.4 `schedule check` (1.5 h): the states of 11.R3.3, drop-ins, the enable link, left over units of this root.
+- [x] 11.4 (PR 31) `schedule check` (1.5 h): the states of 11.R3.3, drop-ins, the enable link, left over units of this root.
   - Acceptance tests: each state alone and all together; exit 0 only when every entry is installed and identical with no drop-in and nothing left over, else 2; check writes nothing and takes no lock.
-- [ ] 11.5 The scheduled run end to end, planted faults, mutation checks and docs (2.5 h):
+- [x] 11.5 (PR 31) The scheduled run end to end, planted faults, mutation checks and docs (2.5 h):
   - The `ExecStart=` and `Environment=` of a rendered service run as a real child process in its `WorkingDirectory=`: a `queue-list` job (0, one entry), the kill switch on (3, one entry), the run lock held (3), a workflow stopping at its approve step (3, one queue item).
   - Code guards: `schedule.py` imports only the standard library and none of `subprocess`, `socket`, `urllib`, `http`, `ctypes`; no argument list in `umwayi/` names `systemctl`, `crontab` or `loginctl`; only exit codes 0, 2, 3 and 64.
   - Planted faults and mutation checks (the design's list), each killed by a named test, with the counts in the pull request; the full suite on Python 3.10 to 3.13.
   - KNOWN-LIMITS (the design's list, numbered from 93), README (the commands, the printed `systemctl` steps, lingering, and running a chat inside tmux by hand), `schedule.example.yaml`.
-- [ ] 11.6 The owner's real check (0.5 h, the owner's; not done until the owner runs it), on a machine with a systemd user manager:
+- [ ] 11.6 The owner's real check (0.5 h, the owner's; **not done**: the exact steps, the expected output and a results table are in `adapters/NOTES-layer11.md`, "The owner's real check (11.6)"), on a machine with a systemd user manager:
   - `umwayi schedule install NAME`, then `systemd-analyze --user verify` on both files: no warning;
   - `systemctl --user daemon-reload` and `systemctl --user enable --now UNIT.timer`; `systemctl --user list-timers` shows the next run;
   - `systemctl --user start UNIT.service` once: the logbook has the job's entry; `umwayi schedule check` says installed and enabled;

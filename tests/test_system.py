@@ -447,11 +447,13 @@ class CodeTests(SystemBase):
                         mods = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
                         if isinstance(node, ast.ImportFrom):
                             mods += [f"{node.module}.{a.name}" for a in node.names]
-                        self.assertFalse(any(m in ("umwayi.publish", "umwayi.cli") for m in mods), mods)
-        # only the command line passes approved_by, and only from the owner's --approved-by
+                        self.assertFalse(any(m in ("umwayi.publish", "umwayi.cli", "umwayi.schedule") for m in mods), mods)
+        # only the command line passes approved_by, and only from the owner's --approved-by: to publish-draft, and
+        # since layer 11 (L11-Q4) to schedule install. Nothing that runs on its own imports schedule (above).
         cli = (PKG / "cli.py").read_text(encoding="utf-8")
-        self.assertEqual(cli.count("approved_by"), 1)
+        self.assertEqual(cli.count("approved_by"), 2)
         self.assertIn("publish.publish(Path(args.root), args.draft, args.date or _today(), args.approved_by)", cli)
+        self.assertIn("schedule.install(root, args.name, args.date or _today(), args.approved_by, args.file)", cli)
         # 2. at run time: every helper, job and workflow, with rules that say Yes to everything, never calls publish
         (self.root / "rules.yaml").write_text("rules:\n  - id: all\n    title: t\n    text: t\n    verdict: yes\n"
                                               "    matchers:\n      type__exists: true\n")

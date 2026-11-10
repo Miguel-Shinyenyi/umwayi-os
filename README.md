@@ -4,7 +4,7 @@ An AI operating system for one person and their AI helpers.
 
 It keeps memory, enforces rules before an AI helper acts, tracks a queue of tasks and decisions, archives moved text with a fingerprint, and writes a logbook of every change. It is built in layers, and each layer works alone and is tested before the next starts.
 
-Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Layer 10 (one front door for agents) is in progress: agents.yaml, the gate checks, `umwayi agent run` and `umwayi agent chat` (on your terminal, or over ACP for Kiro) for Claude Code and Kiro are built; for Claude Code over ACP (part 7, approved) the pinned adapter package, its gate checks (part 7a) and the chat (part 7b) are built, see [Layer 10](#layer-10-front-door-for-agents-in-progress). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](#layer-9-adapters). Layer 10 (one front door for agents) is in progress: agents.yaml, the gate checks, `umwayi agent run` and `umwayi agent chat` (on your terminal, or over ACP for Kiro) for Claude Code and Kiro are built; for Claude Code over ACP (part 7, approved) the pinned adapter package, its gate checks (part 7a) and the chat (part 7b) are built, see [Layer 10](#layer-10-front-door-for-agents-in-progress). Layer 11 (scheduled runs through systemd user timers) is built, see [Layer 11](#layer-11-scheduled-runs). Known limits are listed in [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 ## Install and test
 
@@ -331,3 +331,44 @@ While it runs, umwayi checks the kill switch and the logbook every second and wa
 - What the Claude Code, Kiro and ACP docs say about starting agents, and what they do not say: [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md). Limits: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md) items 29 to 72. No real Claude Code or kiro-cli has been run by the tests; they use fakes that run the real hooks.
 - Kiro: a headless run can only use the tools in `trust_tools`, and only when the rules also say Yes (Kiro denies untrusted tools, the hook denies the rest). `--trust-all-tools` is never used. The hook file you added is checked before every start; without it, or if it does not match exactly, the run is refused (exit 2).
 - To keep a prompt out of every process list, give it with `--prompt-file` or `-`: `--prompt TEXT` puts it in umwayi's own arguments, and Claude Code gets it as an argument anyway (KNOWN-LIMITS 35 and 44).
+
+
+## Layer 11: scheduled runs
+
+Your jobs (`jobs.yaml`) and workflows (`workflows/`) can run on a schedule through systemd user timers, the scheduler Linux already has. umwayi writes the two unit files and prints the `systemctl --user` commands; it never runs `systemctl`, `crontab` or `loginctl` itself, and it builds no scheduler of its own. Only jobs and workflows can be scheduled, never an agent.
+
+```
+umwayi schedule validate [--file PATH]          check schedule.yaml, every problem with a line number
+umwayi schedule show [NAME] [--cron]            the two unit files install would write (or the crontab lines)
+umwayi schedule check [NAME]                    are the installed files exactly what umwayi would write?
+umwayi schedule install NAME [--approved-by YOU]  write the two unit files (asks the rules); starts nothing
+umwayi schedule remove NAME                     remove the two unit files umwayi wrote (asks the rules)
+```
+
+Copy [schedule.example.yaml](schedule.example.yaml) to `schedule.yaml` in your root:
+
+```yaml
+schedules:
+  - name: weekly-report
+    run: job
+    job: weekly-report
+    every: weekly        # daily, weekly (day: mon to sun) or monthly (day: 1 to 28)
+    day: mon
+    at: "07:30"          # local time
+```
+
+- The files go to `~/.config/systemd/user` (or `$XDG_CONFIG_HOME/systemd/user`) as `umwayi-ID-NAME.service` and `.timer`, where ID comes from your root's path. The service is a oneshot that runs `python -m umwayi --root ROOT run JOBS --job JOB` (or `workflow run NAME`) with no shell, stops after 30 minutes, and stops everything it started. The timer has `Persistent=true`, so a run missed while the machine was off happens at the next start.
+- Every path in them must use only letters, digits and `/ . _ + -`; otherwise `validate` refuses it and says which path. Then nothing needs quoting.
+- `install` stops at the kill switch, asks the rules (`schedule_install`; the starter rule is Ask me first, so pass `--approved-by YOUR_NAME`), takes the run lock, writes each file only if it is new, and writes one logbook entry; if that entry fails, the files are removed. Then run what it prints:
+
+  ```
+  systemctl --user daemon-reload
+  systemctl --user enable --now umwayi-ID-NAME.timer
+  ```
+
+  Timers run only while you are logged in unless you enable lingering yourself (`loginctl enable-linger`).
+- `remove` refuses while the timer is enabled (it prints `systemctl --user disable --now` and `clean --what=state` to run first), and refuses a file changed by hand or a drop-in next to it. It works while the kill switch is on.
+- A scheduled run is the same command you would type, so it goes through the kill switch, the run lock, the rules and the logbook every time (layers 6 and 8). Its output goes to the user journal (`journalctl --user -u umwayi-ID-NAME`).
+- Exit codes of `schedule` commands: 0, 2 (No, a refusal, any error), 3 (Ask me first, the kill switch, the run lock), 64 (usage or a bad schedule file). Never 1.
+- A long chat that should survive a closed terminal: umwayi does not start tmux, but you can: `tmux new -s chat`, then `umwayi agent chat NAME` inside it. While the chat runs it holds the run lock, so scheduled runs answer Ask me first.
+- File watching, an SQLite index and a sandbox are not built (layer 11 spec, 11.R8). Facts and links: [adapters/NOTES-layer11.md](adapters/NOTES-layer11.md). Limits: KNOWN-LIMITS 93 to 103.

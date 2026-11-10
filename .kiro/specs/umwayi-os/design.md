@@ -1669,7 +1669,7 @@ The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, releas
 | the licence file was read only through summaries | a duty is missed | the owner reads `LICENSE.md` (MS4) |
 
 
-## Layer 11: Linux-like features (spec written Nov 10, waiting for owner approval; planned Nov 14 to Nov 15)
+## Layer 11: Linux-like features (approved, tasks.md 11.0; built now, L11-Q14)
 
 Requirements 11.R1 to 11.R8. Tasks 11.0 to 11.6. Facts with links: `adapters/NOTES-layer11.md`. Built only after the owner approves this section (11.0). Layer 6 says "Nothing in umwayi installs a schedule"; if this is approved, that stays true except for `umwayi schedule install`, which the rules ask about and the logbook records, and which writes two unit files and starts nothing.
 
@@ -1862,7 +1862,7 @@ About 11 hours (tasks.md 11.1 to 11.5) plus 0.5 hour of the owner's (11.6): it f
 | the owner never enables the timer | nothing runs | install prints the exact commands; `check` shows `not enabled` |
 | systemd changes its unit syntax | a unit fails to load | only long-standing settings are used (for example `OnCalendar=` since systemd 197, `Persistent=` since 212, `KillMode=` since 187); `systemd-analyze --user verify` in 11.6 |
 
-### Open questions for the owner (layer 11)
+### Open questions for the owner (layer 11, answered)
 
 1. **L11-Q1. Scope for Dec 3.** Only scheduled runs (proposed). Or add one of the deferred candidates now, in place of time elsewhere?
 2. **L11-Q2. Which scheduler.** systemd user timers installed by `schedule install`, and cron lines only printed by `show --cron` (proposed). Or install a crontab line too (umwayi would have to rewrite the whole table), or support cron only?
@@ -1878,6 +1878,8 @@ About 11 hours (tasks.md 11.1 to 11.5) plus 0.5 hour of the owner's (11.6): it f
 12. **L11-Q12. tmux.** Cut from umwayi; the README shows the owner how to run `umwayi agent chat` inside tmux by hand (proposed). Or a `umwayi agent chat NAME --tmux` later?
 13. **L11-Q13. Sandboxing.** Defer bubblewrap to its own spec after Dec 3, whose first question is how the check runs outside the agent's sandbox (proposed). Or an opt-in `sandbox: bwrap` for `agent run` now, with the logbook writable inside it?
 14. **L11-Q14. When.** Build Nov 14 to Nov 15 if approved by Nov 13; otherwise after Dec 3, never pushing the hash chain (Nov 16) or the budget governor (proposed).
+
+Answers (owner): L11-Q1 to L11-Q13 as proposed. L11-Q14 changed by the owner: build now, right after PR 30 merged, not on Nov 14 to Nov 15; the hash chain, the budget governor and the rest of the schedule do not move.
 
 ## Budget governor (approved by the owner on Nov 9, tasks.md B.0; build Nov 17 to Nov 22; tested in the whole-system test Nov 23 to Nov 26)
 
