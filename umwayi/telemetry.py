@@ -91,9 +91,13 @@ def _number(value) -> int:
 
 
 def _usd_to_micros(value) -> int:
+    """US dollars (a JSON whole number or a finite double, never below 0) to micros, rounded up. A negative number
+    is invalid on every path, so no report can subtract from a run."""
     if isinstance(value, bool):
         raise Invalid("a cost was not a number")
     if isinstance(value, int):
+        if value < 0:
+            raise Invalid("a cost was not a non-negative finite number")
         micros = value * 1_000_000
     elif isinstance(value, float) and math.isfinite(value) and value >= 0:
         micros = math.ceil(round(value * 1_000_000, 6))
