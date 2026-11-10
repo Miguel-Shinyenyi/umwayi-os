@@ -187,9 +187,9 @@ class IntentTests(CrashBase):
             events.append(("fsync folder", Path(path).name if Path(path) != self.root else "root"))
             return real_dir(path)
 
-        def atomic_write(path, data):
+        def atomic_write(path, data, **kw):  # kw: the intent's mode (S.2)
             events.append(("atomic write", Path(path).name))
-            return real_atomic(path, data)
+            return real_atomic(path, data, **kw)
 
         def unlink(path, *a, **k):
             if Path(path).parent.name == ".umwayi":

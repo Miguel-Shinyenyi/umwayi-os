@@ -20,13 +20,12 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
-import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 from umwayi import logbook
+from umwayi.fsutil import atomic_write
 from umwayi.errors import UmwayiError, UsageError
 
 QUEUE_NAME = "queue.md"
@@ -248,21 +247,8 @@ def _read(path: Path) -> str:
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
-    fd, tmp = tempfile.mkstemp(prefix=".queue-", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        if path.exists():
-            shutil.copymode(path, tmp)
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    """The shared atomic writer: an existing queue.md keeps its mode, a new one gets the umask's (S-Q9)."""
+    atomic_write(path, data)
 
 
 def _commit(root: Path, path: Path, old_text: str | None, new_text: str, entry: logbook.Entry) -> None:

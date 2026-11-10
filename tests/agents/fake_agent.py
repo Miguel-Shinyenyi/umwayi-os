@@ -141,7 +141,8 @@ def otlp(step: dict) -> None:
       extra_headers  more raw header lines (Transfer-Encoding, Content-Encoding, a second Content-Length)
       trailing     bytes sent after the body (a body longer than its Content-Length)
       short_by     send that many bytes less than the Content-Length says
-      slow         seconds between bytes of the headers and the body (a slow client); gives up after slow_for
+      slow         seconds between bytes of the headers and the body (a slow client); gives up after slow_for;
+                   with slow_body_only, the headers go at once and only the body trickles
       hold         {"n": N, "for": S}: open N connections that send nothing, keep them S seconds, record how many the
                    receiver closed and umwayi's thread count, then go on with the report
       retry        send again, up to that many times, half a second apart, while there is no answer or it is 503
@@ -249,7 +250,11 @@ def otlp(step: dict) -> None:
             else:
                 try:
                     if "slow" in step:
-                        why = send_slow(s, head)
+                        if step.get("slow_body_only"):
+                            s.sendall(head)
+                            why = "sent"
+                        else:
+                            why = send_slow(s, head)
                         if why == "sent":
                             why = send_slow(s, body)
                     else:

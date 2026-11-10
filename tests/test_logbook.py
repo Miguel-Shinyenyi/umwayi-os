@@ -400,10 +400,10 @@ class AppendTests(LogbookBase):
         append(self.root, entry(date="2026-01-01"))
         real = logbook.atomic_write
 
-        def record_fails(path, data):
+        def record_fails(path, data, **kw):  # kw: the intent's mode (S.2)
             if Path(path) == self.rec:
                 raise OSError("disk full")
-            return real(path, data)
+            return real(path, data, **kw)
         with mock.patch("umwayi.logbook.atomic_write", side_effect=record_fails):
             with self.assertRaises(UmwayiError) as cm:
                 append(self.root, entry(date="2026-01-02", added="the second"))

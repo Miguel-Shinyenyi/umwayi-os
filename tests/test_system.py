@@ -416,7 +416,8 @@ def _modules():
 # for one Claude Code run. It is the one allowed network import: only in umwayi/telemetry.py, only inside the function
 # that starts a receiver, so importing any umwayi module still loads no network library (checked below).
 ALLOWED_NETWORK = {("umwayi/telemetry.py", "http.server"), ("umwayi/telemetry.py", "http.server.BaseHTTPRequestHandler"),
-                   ("umwayi/telemetry.py", "http.server.ThreadingHTTPServer")}
+                   ("umwayi/telemetry.py", "http.server.ThreadingHTTPServer"),
+                   ("umwayi/telemetry.py", "socket")}  # S.2: the receiver's request deadline, in the same function
 
 
 class CodeTests(SystemBase):

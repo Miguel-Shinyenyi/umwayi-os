@@ -236,10 +236,12 @@ class SlowAndManyTests(ReceiverScan):
         self.assertLess(took, 45)
 
     def test_a_slow_body_after_the_run_header_makes_the_run_invalid(self):
-        r, st = self.run1(good(slow=1, slow_for=40, run_headers=["x-umwayi-run: {secret}"]), WAIT)
-        [c] = self.otlp_calls()
-        self.assertLess(c["seconds"], 15, c)
+        t = time.monotonic()
+        r, st = self.run1(good(slow=1, slow_for=40, slow_body_only=True), WAIT)
+        # the deadline cuts the body, the run is invalid, and the watcher stops the agent in the middle of its send
+        self.assertLess(time.monotonic() - t, 30)
         self.assertEqual(r.returncode, 2, r.stdout)
+        self.assertIn("its telemetry report was not valid (a report", r.stdout)
         self.assertIn(": unknown 1000000 micros", st.added)
 
     def test_200_connections_at_once(self):
