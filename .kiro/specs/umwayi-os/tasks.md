@@ -21,7 +21,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Logbook crash safety (Layer 5 addendum) | approved Nov 9 (L5.0); built Nov 10 (L5.1 to L5.5), before 7c-2 | spec PR 26; build PR 27 | 906 after PR 27, on Python 3.10 to 3.13 |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
 | Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
-| Whole-system test and security scan | not started, planned Nov 23 to Nov 26, after the budget governor (C-Q4) | | |
+| Whole-system test and security scan | spec written (S.0), waiting for the owner's answers to S-Q1 to S-Q16; planned Nov 23 to Nov 26 (C-Q4) | spec PR 34 | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
@@ -492,10 +492,32 @@ Requirements: Layer 5, "Logbook crash safety". Design: Layer 5, "Crash safety", 
 - [x] L5.4 Signals (1 h): the four signals blocked and their handlers deferred around steps 3 to 6 and around a recovery, delivered once afterwards; a write outside the main thread refused (L-Q2). Tests: SIGTERM, SIGHUP, SIGINT and SIGQUIT during a held write leave a whole write, no intent and no recovery entry; agent run with the planted pause and Ctrl-C, SIGHUP and SIGTERM writes its stop entry and the logbook verifies (the PR 25 defect, end to end).
 - [x] L5.5 Docs, planted faults and mutation checks (2.5 h): KNOWN-LIMITS (the list in the design) and item 39 updated (no stale lock any more), the Layer 5 "Still open" note above closed, README; the chain cases go to C.2 (Nov 16); mutation checks (recovery accepting any mismatch, the record written without the hash comparison, the intent not fsynced, the folder fsync dropped, the handler swap dropped, the recovery entry not written, the intent removed before the record, the torn tail cut accepting any tail); the full suite on Python 3.10 to 3.13 and the stop tests 20 times under load; counts in the pull request.
 
-## Whole-system test and security scan (not started, planned Nov 23 to Nov 26, after the budget governor is complete)
+## Whole-system test and security scan (spec PR 34, not approved; planned Nov 23 to Nov 26, after the budget governor is complete)
 
-- [ ] S.1 Whole-system test again, with the adapters, layers 10 and 11, the logbook hash chain and the budget governor including the telemetry receiver (includes 9.11 and 10.21)
-- [ ] S.2 Security scan of the code and the dependencies of any adapter package, and of the telemetry receiver (loopback binding only, the run header, the size caps)
+Requirements S.R1 to S.R10, design.md "Whole-system test and security scan" (facts with links, the tools and what each cannot see, open questions S-Q1 to S-Q16). Not built until the owner answers the questions (S.0). About 25 hours (design, "Hours and schedule effect"). Every test runs `python -m umwayi ...` as a real child process with `HOME`, `XDG_CONFIG_HOME` and `TMPDIR` in a temporary folder and the fake agents on `PATH`; no real agent, systemd, network or account. The scan tools run outside the repo and are never a dependency.
+
+- [ ] S.0 Requirements S.R1 to S.R10, the design section and these tasks written (Nov 10) in PR 34; **waiting for the owner's answers to S-Q1 to S-Q16**.
+- [ ] S.1 Whole-system test (includes 9.11 and the test part of 10.21):
+  - [ ] S.1.1 Support (2 h): `tests/whole_system_support.py`: the root builder from the example files, the fakes on `PATH`, the copy of the day's end state per scenario, the end checks of S.R1.5 (verify, budget status, nothing alive, allowed exit codes).
+    - Acceptance tests: a fresh root validates (`agent validate`, `budget validate`, `schedule validate`, `workflow validate` all 0); a copy is byte for byte the original, links kept; the end checks fail on a planted leftover process and on a planted exit code 1 from `agent`.
+  - [ ] S.1.2 The owner's day (3 h): the eight steps of S.R2 in order, each with its exit code, the logbook entries it adds (by source and shape) and the state files after it.
+    - Acceptance tests: each step's entries and nothing else; the chain started in step 3 covers every later entry; the shares in `budget status` match the day (one measured, one declared or unknown); `verify --anchor` with step 3's anchor gives 1 "shorter" and with a new anchor 0.
+  - [ ] S.1.3 Faults: a tampered logbook, a lost reservation, crashes (2.5 h): S.R3.1, S.R3.2 and S.R3.6, each from a copy of the day.
+    - Acceptance tests: the four tampering cases of the design's table with their exact answers, and nothing written by a refusal (snapshot equal); the lost reservation through `status`, a refused start (3), `settle-lost` refused while a run holds the lock (3) then 0, the next start 0; each planted crash recovered or refused, `verify` 0 at the end.
+  - [ ] S.1.4 Faults: the kill switch mid run, no systemd, a limit mid chat (2.5 h): S.R3.3 for each of the six kinds of start, S.R3.4 with and without a recording fake `systemctl`, S.R3.5.
+    - Acceptance tests: each kind stopped with exit 3, nothing alive, one settle, the next start 0 after `kill off`; no call to `systemctl` recorded, the files 0644, `ExecStart=` by hand gives the job's entry; the chat stopped with 3 and settled measured. The suite time on 3.13 before and after S.1 is in the pull request (S-Q1).
+- [ ] S.2 Security scan:
+  - [ ] S.2.1 The receiver (2.5 h): `tests/test_scan_receiver.py`, every case of S.R5 through `agent run` with the fake sender's raw socket mode.
+    - Acceptance tests: no connect on any non-loopback address or `::1`; only the exact header gives 200, in all seven cases; 1 MB is 200 and 1 MB plus 1 is 413 with the body not read; the 16 MB total; a short body, a long body, chunked (411), gzip (415); the slow client and the 200 connections as S-Q6 and S-Q7 decide; the port closed after a normal end, the kill switch, SIGTERM and a crash.
+  - [ ] S.2.2 Receiver fixes, only if S-Q6 and S-Q7 are answered as proposed (2 h): a whole-request deadline and a cap on handlers in `umwayi/telemetry.py`, each test first.
+    - Acceptance tests: the S.2.1 cases for the slow client and many connections, which fail before the fix; the full budget suite unchanged; a planted fault for each (the deadline removed, the cap removed) killed.
+  - [ ] S.2.3 Modes, links and paths (3 h): `tests/test_scan_files.py`, the mode table under umask 022 and 077 (S-Q9), the link table, the path cases, the races of S.R7.3.
+    - Acceptance tests: every row of the three tables with its expected answer; no write outside the root in any row; every row with no expectation yet is listed as a finding in SECURITY-SCAN.md.
+  - [ ] S.2.4 Secrets (2 h): `tests/test_scan_secrets.py`, the planted secrets of S.R8.1 through the owner's day and every fault scenario, and the sweep of S.R8.2.
+    - Acceptance tests: no planted word, run header secret or canary token in any byte swept, except the listed allowed places; a planted leak (a test-only fault that prints the prompt) is found with its file and line.
+  - [ ] S.2.5 The static and dependency scans, run and recorded (2.5 h): Bandit on umwayi's Python; the code guards listed; OSV-Scanner offline and, if S-Q4 says so, `npm audit --package-lock-only` on `adapters/claude_acp/package-lock.json`; `npm ci --ignore-scripts` in a throwaway copy and `npm audit signatures`. Each tool's version, source and checksum, the exact command and its result go into SECURITY-SCAN.md; a tool that cannot run is "not run" with the reason.
+  - [ ] S.2.6 Interpreters and licences (1 h): each Python version against python.org's security releases (S-Q5); every licence of the npm tree listed, the SDK's pointed out (S-Q11).
+  - [ ] S.2.7 Results and docs (2 h): `docs/SECURITY-SCAN.md` (S.R9.1 and S.R10); a decision for every finding (S-Q8); KNOWN-LIMITS from 129; README (what was scanned and where the results are); planted faults and mutation checks for the new tests; the full suite on Python 3.10 to 3.13 with the counts in the pull request.
 
 ## Budget governor (approved by the owner on Nov 9 2026; build Nov 17 to Nov 22)
 

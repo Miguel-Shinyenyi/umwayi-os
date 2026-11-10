@@ -630,6 +630,98 @@ User story: as the owner, I want one unit for what every agent run costs, measur
    - no prompt or response text in any output.
 3. **B.10:** capture one real Claude Code export by the owner and record its field names only (never values) in NOTES; the receiver's parser is checked against it.
 
+## Whole-system test and security scan (S.1 and S.2)
+
+Status: spec only, written Nov 10 in PR 34; **not approved**. Nothing here is built until the owner answers S-Q1 to S-Q16 (design.md, "Whole-system test and security scan", "Open questions"). Planned Nov 23 to Nov 26 (C-Q4); proposed: build right after approval (S-Q16). Facts with links: design.md, same section, "Facts".
+
+User story: as the owner, I want one test that drives umwayi the way I use it, through every layer at once, and one recorded scan of umwayi's code, its adapter dependencies and its one network listener, so I know before Dec 3 what holds together, what a scan found and what nothing here can prove.
+
+The two parts follow the rules of every layer: fail closed (a check that cannot run is "not done", never "passed"), every result written down, no secret in any output.
+
+### S.R1 The whole-system test: what it is (S.1)
+
+1. **Real commands, end to end.** Every step runs `python -m umwayi ...` (and the layer 9 hook scripts) as a real child process, in a fresh root, with `HOME`, `XDG_CONFIG_HOME` and `TMPDIR` in a temporary folder. Nothing is imported and called directly, except to read files back.
+2. **Fakes only, no network, no account.** The agents are the existing fakes: the fake `claude` (also the fake telemetry sender), the fake `kiro-cli`, the fake `node` with the scripted ACP agent. No real Claude Code, Kiro, Node adapter, systemd, cron or network is used or needed.
+3. **Across every layer at once,** in one root: memory, rules, queue, archive, the logbook with its hash chain, jobs and workflows, the AI helpers, the layer 9 hooks of Claude Code, Kiro and stdio, `umwayi agent` (check, run, and chat over cli and ACP), `umwayi schedule`, and `umwayi budget` with the telemetry receiver.
+4. **One ordered day, then faults.** A scripted "owner's day" runs the layers in the order the owner uses them and checks the state after each step (S.R2). Each fault scenario of S.R3 starts from the end state of that day, in its own copy of the root, so one fault cannot hide another (proposed, S-Q2).
+5. **After every scenario:** `umwayi logbook verify` exits 0 (or, for a tampered logbook, exactly 1 with the expected problem); `umwayi budget status` exits 0 or 2 as the scenario expects; no process the scenario started is still alive; only the exit codes each command may give were seen (0, 1, 2, 3, 64 per its layer; `agent`, `schedule` and `budget` never 1).
+6. It includes the open whole-system items of earlier layers: 9.11 (the adapters) and the test part of 10.21 (the front door). The owner's real runs (10.21's real run of each platform, 10.31, 11.6, B.10) stay the owner's and are not part of S.1 (S-Q14).
+
+### S.R2 The owner's day (S.1)
+
+In this order, each step with the entries it must add to the logbook and nothing else:
+
+1. A fresh root: `rules.yaml`, `agents.yaml`, `units.yaml`, `jobs.yaml`, `schedule.yaml` and one workflow, from the example files with the fake paths filled in.
+2. Memory bundle, queue add and answer, one archive move and `archive verify`.
+3. `umwayi check` for a few actions (Yes, No, Ask me first); `logbook seal --chain --by Owner`; `logbook anchor`.
+4. One job run and one workflow run up to its approve step.
+5. The layer 9 hooks: one Claude Code, one Kiro and one stdio hook call through the fake agents, each logged through the checked append.
+6. `agent check` and `agent run` for Claude Code with a measured telemetry report; `agent run` for Kiro (declared or unknown); a cli chat and an ACP chat for Claude Code and an ACP chat for Kiro, each with one tool call through the hook and one ACP permission request.
+7. `schedule validate`, `show`, `install --approved-by Owner`, `check` (installed, not enabled), the rendered `ExecStart=` run once as written, `remove`.
+8. `budget status` (the measured, declared and unknown shares match the day), `budget calibrate` (not enough data), `logbook verify --anchor` with the anchor of step 3 shorter than now, and a new anchor that matches.
+
+### S.R3 The fault scenarios (S.1)
+
+Each from the end state of the day, in its own copy:
+
+1. **A tampered logbook,** three ways: a hand edit of an old chained entry with the hash record rewritten (only the chain finds it); a budget settle edited so it no longer matches its shape (released not the reservation minus the reading), re-chained with the record rewritten (only the ledger shape check finds it); the same settle edited consistently (micros, UU and released together), re-chained (nothing but the anchor finds it, KNOWN-LIMITS 115); a truncated tail with the record rewritten (only the anchor finds it). For each: `verify` (1 with the expected problem, or 0 for the re-chained edit), every agent start, `check`, job, workflow, `schedule install` and `budget status` refused as their layer says; `kill on` still turning the switch on (exit 0, with the line that its entry could not be written); `schedule remove` refused with both unit files put back byte for byte, because its entry cannot be written (11.R4.2); and nothing written by any refusal.
+2. **A lost reservation:** `umwayi agent run` SIGKILLed while the agent runs; the agent's process group stopped by the test; `budget status` shows the reservation counted in full; a start that no longer fits is refused (3); `settle-lost --by Owner` refuses while another run holds the run lock (3), then settles (0); the next start fits; `verify` 0.
+3. **The kill switch in the middle of a run,** for each kind of start: `agent run` (Claude Code and Kiro), the cli chat and the ACP chat (Claude Code and Kiro), and a scheduled job started from its rendered `ExecStart=`. Each is stopped with exit 3 within the watcher's second plus the stop grace, nothing it started is left, the run is settled (measured, or unknown at the worst case), and `kill off` lets the next start go on.
+4. **A schedule install with no systemd:** no `systemctl`, `systemd-analyze` or `crontab` on `PATH`, plus a fake `systemctl` first on `PATH` in a second pass that records any call. `install` writes the two files (0644) and prints the commands; `check` says not enabled; the fake `systemctl` was never called; the rendered service run by hand gives the job's entry; `remove` takes the files away.
+5. **A limit in the middle of a chat** (B-Q6): an ACP chat passes `per_run` in its second turn; it is stopped with exit 3 and settled as measured.
+6. **A crash in umwayi** during each of: an append (crash safety), a reservation, a settle and a schedule install, each through the planted fault hook; the next command recovers or refuses as its layer says, and `verify` ends at 0.
+
+### S.R4 The security scan: what is scanned (S.2)
+
+1. **umwayi's own code** (`umwayi/`, `adapters/*.py`, `adapters/*/hook.py`, `adapters/claude_acp/canary.py`): a static scan with a named tool (S-Q3), and umwayi's own code guards (no shell, no network import except the receiver's, program runners only in `agents.py` and `report.py`), checked again and listed.
+2. **Every dependency of any adapter package.** Today that is one: `adapters/claude_acp/package-lock.json` (lockfile version 3, 115 packages, the adapter 0.101.0 and everything below it, including the Claude Agent SDK and its optional platform packages). Each is checked against public advisory databases with named tools (S-Q4), its registry signature is checked where the registry offers one, and every licence is listed (S-Q11). The core package has no dependency (`pyproject.toml`: `dependencies = []`); the scan says so and checks it.
+3. **The Python interpreters** umwayi is tested on (3.10 to 3.13): each version is compared with the security releases the Python project lists (S-Q5).
+4. **The telemetry receiver** (S.R5), **file modes** (S.R6), **links and paths** (S.R7) and **secrets in outputs** (S.R8), each with tests that run umwayi as a real child process.
+
+### S.R5 The telemetry receiver (S.2)
+
+1. **Loopback only:** it binds 127.0.0.1 and nothing else (the socket's own address read back, and a connect to every other address of the machine refused); a peer that is not loopback is refused even if it could reach it.
+2. **The run header:** missing, wrong, a prefix of the secret, the secret plus one character, another run's secret, the header given twice, and a header name in another case; only the exact secret is accepted. The secret never appears in any output, entry or capture file.
+3. **The size caps:** a body of exactly 1 MB is read, 1 MB plus one byte is 413 and not read; the 16 MB run total; a `Content-Length` larger than the body sent; a body larger than its `Content-Length`; chunked transfer; a compressed body.
+4. **A slow client:** headers sent one byte at a time with pauses shorter than the 5 s socket timeout, and a body sent the same way. Required: no single connection holds the receiver past a fixed whole-request deadline, and the agent's run, its stop and its settle are not delayed by it (S-Q6).
+5. **Many connections:** at least 200 connections opened at once and held open, from the agent's side. Required: the receiver does not start an unbounded number of threads, the run's own reports still count, and umwayi's memory and thread count stay bounded (S-Q7).
+6. **After the run:** the port is closed when umwayi exits, on every way out (a normal end, the kill switch, SIGTERM, a crash).
+7. Each case is a test. A case that shows a defect is fixed in S.2 with its test first (S-Q6, S-Q7), or, if the owner decides so, written into KNOWN-LIMITS.
+
+### S.R6 File modes (S.2)
+
+1. Every file and folder umwayi creates is listed with its mode under a umask of 022 and of 077: `LOGBOOK.md`, `.umwayi/` and everything in it (the hash record, the lock, the intent, `KILL`, the run lock), `queue.md`, the archive, drafts and the outbox, the systemd unit files, the canary folder, the telemetry capture file.
+2. Proposed rule (S-Q9): a file or folder that can hold a secret or an approval-like token (the canary folder, the capture file, the intent while it holds an entry) is 0600 or 0700 whatever the umask; the unit files are exactly 0644; everything else follows the owner's umask. A test checks each.
+3. umwayi never runs `chmod` on a file it did not create, and never widens a mode.
+
+### S.R7 Links and paths (S.2)
+
+1. For every file umwayi reads or writes, a test plants a symbolic link (to a file outside the root, to `/dev/zero`, to a folder) and a hard link where it matters, and a folder where a file is expected. Each is refused or handled as its layer says, never followed to write outside the root.
+2. Every path umwayi takes from a user file or argument (`--root`, `--agents`, `--file`, `--prompt-file`, jobs files, workflow names, archive targets, `workdir`, `UMWAYI_TELEMETRY_CAPTURE`) gets `..`, an absolute path where a relative one is expected and the reverse, a name with a newline, a very long path, and a non-UTF-8 name.
+3. A race (the file replaced by a link between the check and the open) is tested where umwayi opens with `O_NOFOLLOW` or `O_EXCL`, and listed as a known limit where it does not.
+
+### S.R8 Secrets in any output or logbook entry (S.2)
+
+1. Planted secrets in every place one can enter: the prompt (`--prompt`, `--prompt-file`, stdin), every environment variable a credential could be in (10.R12.6, `KIRO_API_KEY`, the owner's `OTEL_EXPORTER_OTLP_HEADERS`), file contents (memory, rules, the queue, an article, a jobs file, a unit file), tool inputs through the hooks, ACP messages, telemetry bodies (prompt and response attributes), the fakes' own output (`auth status` with an email), and error text from a planted crash.
+2. After the day and every fault scenario, the scan searches every byte umwayi wrote or printed: stdout and stderr of every command, the logbook, the queue, drafts, the outbox, the archive index, `.umwayi/`, the unit files and the capture file. No planted secret, run header secret or canary token may appear, except where a layer says so on purpose (the prompt in a draft the owner asked for, if any; listed).
+3. What umwayi cannot keep secret is listed, not hidden: the prompt in the process list for `--prompt` and for Claude Code (KNOWN-LIMITS 35, 44), the run secret in the agent's environment (KNOWN-LIMITS 110), the journal of a scheduled run.
+
+### S.R9 Results and fail closed
+
+1. The results are one file, `docs/SECURITY-SCAN.md` (proposed, S-Q12): the date, each tool with its version, where it came from and how it was checked, the exact command, what it scanned, its result (or "not run" and why), each finding with its decision (fixed in PR N, accepted as KNOWN-LIMITS N, or false positive with the reason), and what the scan cannot prove (S.R10).
+2. **Fail closed:** a scan that could not run (no network for an advisory database, a tool that would not install) is recorded as not run, never as a pass. A finding nobody decided on blocks the freeze (proposed, S-Q8).
+3. **No new runtime dependency.** The scan tools are never a dependency of `umwayi` or of an adapter, are never committed, and run from a throwaway environment outside the repo (S-Q3, S-Q4). The CI workflow is not changed for Dec 3 (proposed, S-Q13).
+4. S.1 and S.2 add tests to the normal suite (`python -m unittest discover -s tests -t .`), which still needs no network and no third party package. The scan commands themselves are not tests.
+
+### S.R10 What the scan cannot prove (written into SECURITY-SCAN.md and KNOWN-LIMITS)
+
+1. That there is no vulnerability: a static scan finds known patterns, an advisory scan finds known advisories for the exact versions in the lockfile, and both say nothing about defects nobody has reported.
+2. Anything about code it cannot see: the prebuilt programs inside the Claude Agent SDK's platform packages, the real Claude Code and Kiro programs, the owner's Node and Python builds, and the operating system.
+3. That a pinned version is honest: lockfile integrity hashes and registry signatures prove the files are the ones published, not that what was published is safe.
+4. Anything against a process of the same user. umwayi, its agents and the owner's other programs run as one user; such a process can read the agent's environment (the run secret), write the logbook and its record, change unit files, or send telemetry. The chain, the anchor and the kill switch make some of this visible; none of it is prevented (the boundary of every layer, S-Q10).
+5. What the real platforms do: the fakes follow the docs, and every place where the docs are silent (NOTES files) stays unproven until the owner's real runs.
+6. That the tests are complete: mutation checks show the tests catch the faults that were tried, not every fault.
+
 ## Non goals for Dec 3
 
 - Finance and marketing loops
