@@ -111,9 +111,11 @@ class EndToEndTests(BudgetCase):
         r = self.run_agent("reviewer", send_logs(user_prompt_event(), api_request(cost_micros=9)), END,
                            prompt=f"{PROMPT_TEXT} {SECRET}")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("settled, measured 1 UU (9 micros).", r.stdout)  # the report was read, its text was not
         outputs = [r.stdout, r.stderr]
         for args in (("status",), ("calibrate",), ("validate",)):
             b = self.budget(*args)
+            self.assertEqual(b.returncode, 0, b.stdout + b.stderr)
             outputs += [b.stdout, b.stderr]
         self.assert_no_planted_text(*outputs)
 
