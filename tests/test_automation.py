@@ -811,6 +811,8 @@ class CodeGuardTests(unittest.TestCase):
                     mods = [node.module]
                 for m in mods:
                     with self.subTest(module=name, imports=m):
+                        if name == "telemetry.py" and m == "http.server":
+                            continue  # the budget governor's one-run receiver on 127.0.0.1 (B.R2.1); see test_system
                         self.assertNotIn(m.split(".")[0], banned)
 
     def test_subprocess_only_in_report_and_agents(self):

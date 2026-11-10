@@ -11,8 +11,12 @@
 `agent run` takes these steps in order and the first that fails ends it: read
 agents.yaml and the prompt (64), the kill switch (3), the rules, action agent_run
 (No 2, Ask me first 3 with one queue item), the run lock (3), every gate check
-(2), the start entry, the start. While the agent runs, the kill switch and the
-logbook are checked every second and the timeout is watched. The agent is
+(2), the budget governor (units.yaml 64, its change entry 2, the limits 3, the
+rules for budget_check, the telemetry receiver of a Claude Code start, the
+reserve entry), the start entry, the start. While the agent runs, the kill
+switch, the logbook and the per-run cap are checked every second and the
+timeout is watched. After the agent is stopped, on every way out, the run is
+settled with one `umwayi budget` entry (umwayi/budget.py, umwayi/telemetry.py). The agent is
 stopped (SIGTERM to its process group, SIGKILL after 10 seconds) on every exit
 path. Every start, end, stop and refusal is one logbook entry through the
 checked append; the prompt and the conversation never are.
@@ -56,7 +60,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, kill, logbook, miniyaml, rules, runlock, taskqueue
+from umwayi import __version__, acp, budget, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -580,8 +584,13 @@ def can_login(agent: Agent) -> bool:
 
 
 def claude_env(environ) -> dict:
-    """umwayi's environment minus the credential names of 10.R12.6, for `agent run` and the cli chat of Claude Code."""
-    return {k: v for k, v in environ.items() if k not in CLAUDE_CREDENTIAL_ENV}
+    """umwayi's environment minus the credential names of 10.R12.6, for `agent run` and the cli chat of Claude Code.
+
+    Every OTEL_* name, BETA_TRACING_ENDPOINT, CLAUDE_CODE_ENHANCED_TELEMETRY_BETA and CLAUDE_CODE_ENABLE_TELEMETRY
+    are removed too (B.R2.2), so no export goes elsewhere; a start then adds telemetry.telemetry_env() for its own
+    receiver.
+    """
+    return {k: v for k, v in environ.items() if k not in CLAUDE_CREDENTIAL_ENV and not telemetry.removed(k)}
 
 
 def login_check(code, out: bytes) -> tuple:
@@ -1147,10 +1156,13 @@ SOURCE = "umwayi agent run"
 SECONDS_PER_MINUTE = 60
 WATCH_INTERVAL = 1.0  # seconds between kill switch, logbook and timeout checks while an agent runs
 STOP_GRACE = 10.0  # seconds between SIGTERM and SIGKILL
+TELEMETRY_GRACE = 6.0  # seconds, at most, for a report still being received after the agent was stopped (B.R2)
 ASK_RECOMMENDATION = ("Keep it stopped unless you trust this agent for this kind of task. To allow it, add a Yes "
                       "rule for action type agent_run with this agent in rules.yaml. Answering this item does not "
                       "start the agent.")
 NOT_LOGGED = "The prompt and the conversation are not written to the logbook."
+BUDGET_ASK_RECOMMENDATION = ("Keep it stopped unless this spend is fine. To allow it, add a Yes rule for budget_check "
+                             "to rules.yaml; answering this item does not start the agent.")
 LOGIN_NOT_LOGGED = "What the login printed was not read and is not written to the logbook."
 
 
@@ -1298,6 +1310,7 @@ class _Run:
         self.canary = None  # Claude Code ACP chat: (private folder, token) of this start
         self.meta = None  # Claude Code ACP chat: the _meta of session/new
         self.gate = None  # login: the gate of the checks before the sign-in (the program found, for the check after)
+        self.budget = None  # budget governor: the reservation of this start (run id, micros, units, receiver)
 
     # ------------------------------------------------------------ logbook
 
@@ -1360,18 +1373,23 @@ class _Run:
         try:
             with ExitStack() as stack:
                 try:
-                    return self._steps(stack)
-                except _Signalled as s:
-                    return self._stopped_by(f"umwayi got {signal.Signals(s.signum).name}")
-                except KeyboardInterrupt:
-                    return self._stopped_by("umwayi was interrupted (Ctrl-C)")
-                except BaseException as e:
-                    self.stop_agent()
-                    self.log(f"Agent {self.agent.name} stopped: umwayi hit an unexpected error ({type(e).__name__})",
-                             "the agent was stopped before umwayi exited", NOT_LOGGED)
-                    raise
-                finally:
-                    self.stop_agent()  # on every path, and anything it left in its process group; before the lock is released
+                    try:
+                        result = self._steps(stack)
+                    except _Signalled as s:
+                        result = self._stopped_by(f"umwayi got {signal.Signals(s.signum).name}")
+                    except KeyboardInterrupt:
+                        result = self._stopped_by("umwayi was interrupted (Ctrl-C)")
+                    except BaseException as e:
+                        self.stop_agent()
+                        self.log(f"Agent {self.agent.name} stopped: umwayi hit an unexpected error "
+                                 f"({type(e).__name__})", "the agent was stopped before umwayi exited", NOT_LOGGED)
+                        self._settle(None)  # a crash settles too, after the stop and before the lock is released
+                        raise
+                    finally:
+                        self.stop_agent()  # on every path, and anything it left in its process group; before the lock is released
+                except _Signalled as s:  # a signal while stopping or logging: the agent is stopped by now
+                    result = self._stopped_by(f"umwayi got {signal.Signals(s.signum).name}")
+                return self._settle(result)  # every way out settles the reservation, after the agent is stopped
         finally:
             for sig, handler in previous.items():
                 signal.signal(sig, handler)
@@ -1458,6 +1476,12 @@ class _Run:
                                "Nothing was started.")
                 return self.result(2, [f"Refused: {problem}, so agent {a.name} was not started (exit 2)."], why)
 
+        # 5c. the budget governor (B.R3.1): the logbook, units.yaml and its change entry, the limits, budget_check,
+        # the telemetry receiver of a Claude Code start, then the reserve entry. The start entry comes after it.
+        refused = self._reserve()
+        if refused is not None:
+            return refused
+
         # 6. the argument list, from the platform table only
         argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt)
 
@@ -1480,6 +1504,148 @@ class _Run:
 
         # 8. watch, 9. the end
         return self._watch()
+
+    # ------------------------------------------------------------ the budget governor (B.R1, B.R2, B.R3)
+
+    def _budget_log(self, added: str, checked: str, not_done: str) -> str | None:
+        """One `umwayi budget` entry through the checked append. None, or why it could not be written."""
+        try:
+            logbook.append(self.root, budget.entry(self.clock(), added, checked, not_done))
+        except UmwayiError as e:
+            return str(e).rstrip(". ")
+        return None
+
+    def _reserve(self) -> Result | None:
+        """The budget steps before the start entry. None when the run may start (self.budget is set), else the
+        refusal. Nothing is reserved until the reserve entry is written, so a refusal here has nothing to settle."""
+        a, root = self.agent, self.root
+        not_started = f"Agent {a.name} was not started."
+        # 1. the logbook is intact and writable (2): the ledger is read with read_checked (the whole-file hash and the
+        # chain), and every entry below goes through the checked append, which refuses a logbook it cannot write.
+        # 2. units.yaml (64) and the ledger (2); a change is logged before it is first used (2 if it cannot be)
+        try:
+            u = units.load(root, self.clock())
+        except ConfigError as e:
+            why = self.log(f"Refused agent {a.name}: units.yaml is not valid", "the gate checks passed, then units.yaml "
+                           "was validated", "Nothing was started.")
+            return self.result(64, [str(e)], why)
+        try:
+            led = budget.read_ledger(root)
+        except UmwayiError as e:
+            return Result(2, [f"{str(e).rstrip('. ')}. {not_started} (exit 2)"])
+        change = budget.pending_change(u, led)
+        if change is not None:
+            why = self._log_change(change)
+            if why is not None:
+                return Result(2, [f"units.yaml changed, but the change could not be logged ({why}), so the new values "
+                                  f"are not used. {not_started} (exit 2)"])
+        # 3. the reservation against per_day, per_agent_per_day and per_platform_per_day (3)
+        day = self.clock()
+        f = budget.fit(led, u, a.name, a.platform, day)
+        if not f.ok:
+            text = budget.refused_text(a.name, f)
+            why = self.log(text, "the kill switch, the rules (Yes), the run lock, the gate checks, then the budget "
+                           "limits", "Nothing was started.")
+            return self.result(3, [f"{text}. {not_started} (exit 3) See umwayi budget status."], why)
+        # 4. budget_check in the rules (Yes on; No 2; Ask me first 3 with one queue item, once)
+        need_uu = units.uu(f.need)
+        action = {"type": "budget_check", "agent": a.name, "platform": a.platform, "reserve_uu": need_uu,
+                  "left_today_uu": f.left_today_uu()}
+        decision, logged = rules.check_and_log(json.dumps(action), root / "rules.yaml", root, self.clock(),
+                                               kill_state=kill.state(root))
+        verdict = [decision.answer, f"Rule: {decision.rule_id or '(none)'}", f"Reason: {decision.reason}"]
+        if not logged:
+            return Result(2, verdict + [f"{not_started} The logbook could not record the budget check, so nothing "
+                                        "is started (exit 2)."])
+        if decision.answer == rules.NO:
+            return Result(2, verdict + [not_started])
+        if decision.answer != rules.YES:
+            return Result(3, verdict + [not_started, self._ask_budget(need_uu)])
+        # 5. the receiver of a Claude Code start, then the reserve entry
+        receiver = None
+        if a.platform == "claude-code":
+            receiver = telemetry.Receiver(secrets.token_hex(telemetry.SECRET_BYTES))
+            try:
+                receiver.start()
+            except OSError:
+                why = self.log(f"Refused agent {a.name}: the telemetry receiver could not start", "the budget limits "
+                               "and budget_check passed, then 127.0.0.1 was asked for a free port", "Nothing was started.")
+                return self.result(2, [f"Refused: the telemetry receiver could not start, so agent {a.name} was not "
+                                       "started (exit 2)."], why)
+        run = secrets.token_hex(8)
+        why = self._budget_log(budget.reserve_text(run, a.name, a.platform, f.need),
+                               f"the limits per_day, per_agent_per_day and per_platform_per_day fit; rule "
+                               f"{decision.rule_id or '(none)'} gave Yes for budget_check",
+                               "Nothing is spent until the agent runs; the rest is released when the run is settled.")
+        if why is not None:
+            if receiver is not None:
+                receiver.stop()
+            return self.result(2, [f"{not_started} The reservation could not be logged, so nothing is started "
+                                   "(exit 2)."], why)
+        self.budget = {"run": run, "micros": f.need, "units": u, "receiver": receiver}
+        return None
+
+    def _log_change(self, change: str) -> str | None:
+        e = budget.change_entry(self.clock(), change)
+        return self._budget_log(e.added, e.checked, e.not_done)
+
+    def _ask_budget(self, need_uu: int) -> str:
+        title = f"Spend up to {need_uu} UU on agent {self.agent.name}?"
+        try:
+            row, added = taskqueue.add_once(self.root, "decision", title, BUDGET_ASK_RECOMMENDATION, self.clock())
+        except UmwayiError as e:
+            return f"The queue item could not be added ({str(e).rstrip('. ')})."
+        if not added:
+            return f"Queue item {row.id} already asks the owner about this. Nothing was added."
+        return (f"Added queue item {row.id} (decision) for the owner. Answering it does not start the agent; add a "
+                "Yes rule for budget_check to allow it.")
+
+    def _budget_report(self) -> dict | None:
+        b = self.budget
+        return b["receiver"].totals.report() if b and b["receiver"] is not None else None
+
+    def _budget_tick(self):
+        """While the agent runs: None, ("telemetry", why) for an invalid report (2), or ("budget",) above the cap (3)."""
+        report = self._budget_report()
+        if report is None:
+            return None
+        if report["invalid"]:
+            return ("telemetry", report["invalid"])
+        if units.current_micros(self.budget["units"], self.agent.platform, report) > self.budget["micros"]:
+            return ("budget",)
+        return None
+
+    def _settle(self, result: Result | None) -> Result | None:
+        """After the agent was stopped, on every way out: the last reports, then one settle entry (B.R1.6, B.R2.5)."""
+        b = self.budget
+        if b is None or b.get("settled"):
+            return result
+        b["settled"] = True
+        self.signalled = True  # a signal now must not interrupt the settle; umwayi exits right after it
+        a = self.agent
+        report = None
+        if b["receiver"] is not None:
+            b["receiver"].drain(TELEMETRY_GRACE)  # the agent is stopped: only a report still in flight can arrive
+            b["receiver"].stop()
+            report = b["receiver"].totals.report()
+        u = b["units"]
+        reading = units.reading(u, a.platform, report, self.proc is not None, b["micros"])
+        why = self._budget_log(budget.settle_text(b["run"], a.name, a.platform, b["micros"], reading, report),
+                               budget.settle_checked(u, reading, report), budget.SETTLE_NOT_DONE)
+        if result is None:
+            return None
+        lines, code = list(result.lines), result.code
+        if why is not None:
+            return Result(code or 2, lines + [
+                f"The settle of run {b['run']} could not be logged ({why}); its reservation counts in full until "
+                "umwayi budget settle-lost --by NAME" + ("." if code else " (exit 2).")])
+        lines.append(f"Budget: run {b['run']} settled, {reading.tag} {units.uu(reading.micros)} UU "
+                     f"({reading.micros} micros).")
+        if report is not None and report["invalid"] and code == 0:
+            lines.append(f"The telemetry of agent {a.name} was not valid ({report['invalid']}), so its run is settled "
+                         "at the full reservation (exit 2).")
+            code = 2
+        return Result(code, lines)
 
     def _claude_acp(self) -> bool:
         """A Claude Code ACP chat (the canary, the inline settings, the ACP client). Never the sign-in."""
@@ -1592,6 +1758,9 @@ class _Run:
             env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
         else:
             env = kiro_env(os.environ)  # umwayi's environment minus KIRO_API_KEY (10.R12.13)
+        receiver = self.budget["receiver"] if self.budget else None
+        if receiver is not None:  # B.R2.2: this run's own receiver; claude_env and child_env carry no other OTEL_*
+            env.update(telemetry.telemetry_env(receiver.server.server_address[1], receiver.secret))
         self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin,
                                      stdout=stdout, env=env)
         self.started = time.monotonic()
@@ -1742,6 +1911,9 @@ class _Run:
             logbook.check_writable(self.root, self.clock())
         except UmwayiError as e:
             return ("logbook", e)
+        token = self._budget_tick()
+        if token is not None:
+            return token
         limit = LOGIN_TIMEOUT if self.mode == LOGIN else self.agent.timeout_minutes * SECONDS_PER_MINUTE
         if time.monotonic() >= self.started + limit:
             return ("timeout",)
@@ -1761,6 +1933,17 @@ class _Run:
         if token[0] == "logbook":
             return Result(2, [f"The logbook can no longer be written ({str(token[1]).rstrip('. ')}), so {whom} "
                               "was stopped: its checks could not be recorded (exit 2). Nothing was logged."])
+        if token[0] == "budget":  # B.R1.9: the measured cost passed the per-run cap; stopped like the timeout
+            cap = units.uu(self.budget["micros"])
+            why = self.log(f"Agent {a.name} was stopped: it passed its budget of {cap} UU for one run",
+                           "the agent's own report was checked every second against limits.per_run", NOT_LOGGED)
+            return self.result(3, [f"Agent {a.name} was stopped: it passed its budget of {cap} UU for one run "
+                                   "(exit 3)."], why)
+        if token[0] == "telemetry":  # B.R2: a report umwayi will not count; the run is settled at the full reservation
+            why = self.log(f"Agent {a.name} was stopped: its telemetry report was not valid ({token[1]})",
+                           "the receiver refused to count a report of the agent's own", NOT_LOGGED)
+            return self.result(2, [f"Agent {a.name} was stopped: its telemetry report was not valid ({token[1]}), so "
+                                   "its run is settled at the full reservation (exit 2)."], why)
         if token[0] == "billing":  # 10.R12.8: the adapter said a subscription no longer pays
             why = self.log(f"Agent {a.name} was stopped: the Claude Code login changed and a subscription no longer "
                            "pays", "the adapter's _auth/status_update named another payer; the adapter and every "
