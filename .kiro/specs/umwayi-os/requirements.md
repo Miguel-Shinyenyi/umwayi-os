@@ -107,7 +107,7 @@ Acceptance criteria:
 8. `umwayi check` appends one entry per check with the rule id and answer. It never writes the action JSON, only its type if that is a short plain string. If the entry cannot be written, a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. `--no-log` skips the entry for a dry run and says nothing was logged.
 9. A lock file stops two appends from interleaving. A held lock gives a clear message.
 
-### Logbook hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0; build Nov 16, after crash safety, tasks C.1 to C.4)
+### Logbook hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0; planned Nov 16, built early on Nov 7 in PR 32, tasks C.1 to C.4)
 
 User story: as the owner, I want each logbook entry tied to the one before it, so an edit anywhere in the record is found and named, and so I can prove later what the logbook held on a given day.
 

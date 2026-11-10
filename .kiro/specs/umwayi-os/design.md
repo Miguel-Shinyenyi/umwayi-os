@@ -354,9 +354,20 @@ Every `umwayi check` appends one entry:
 
 The queue and the archive call the same checked append. If it refuses, the queue change or the move is undone as before, and the error now includes the logbook's reason.
 
-### Hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0)
+### Hash chain (addendum, approved by the owner on Nov 9, tasks.md C.0; built in PR 32)
 
-Requirements: Layer 5, "Logbook hash chain". Tasks C.1 to C.4, one day on Nov 16, after crash safety (L-Q6). Only `umwayi/logbook.py` and `umwayi/cli.py` change; nothing else writes the logbook directly.
+Requirements: Layer 5, "Logbook hash chain". Tasks C.1 to C.4, one day on Nov 16, after crash safety (L-Q6); built early, in PR 32. Only `umwayi/logbook.py` and `umwayi/cli.py` change; nothing else writes the logbook directly.
+
+#### Added while building (PR 32)
+
+- The chained text is the entry's lines from its `## DATE` heading through `- Not done:`, each with its newline (the blank line after the heading included). The value is `sha256(prev + "\n" + text)`.
+- The first chained entry must be a seal entry (source `umwayi logbook seal`). Any other entry with a Chain line before the start is a problem: "an entry before the start of the chain has a Chain line".
+- A plain `umwayi logbook seal` of a logbook with no chain always starts it. `seal --chain` is needed only for a logbook that is already sealed and intact, and is refused once a chain exists (C-Q1).
+- `seal` refuses a broken chain: "restore LOGBOOK.md from a copy you trust (for example git)". Sealing over it or starting a new chain was rejected, because it would hide the edit.
+- `read_checked` (jobs, workflows and helpers) also refuses a broken chain (fail closed).
+- The chain information in `verify` (started or not, its length) goes in a new `Report.chain_note`, not in `notes`, so the crash safety reports keep `notes` for interrupted writes only.
+- Places: a value that does not match is reported at the entry's Chain line; a missing Chain line at the entry's heading.
+- `umwayi logbook anchor` exits 2 when the logbook does not verify or has no chain; a malformed `--anchor` is 64. The chain alone does not find a truncated tail; the whole-file hash record or `verify --anchor` ("shorter") does.
 
 #### Format
 
@@ -414,7 +425,7 @@ The cost is linear in the file size; the logbook is small (C-Q2 for a cached new
 
 `logbook.check_writable` is already called before every agent start and every second while an agent runs (10.R3, 10.R4), so a broken chain stops a start with exit 2 and stops a running agent with exit 2 through the existing watcher, with no new code in agents.py.
 
-#### KNOWN-LIMITS (written with C.4)
+#### KNOWN-LIMITS (written with C.4: docs/KNOWN-LIMITS.md items 3 and 104 to 109)
 
 "Without an outside anchor, anyone who can write LOGBOOK.md and .umwayi/logbook.sha256 can rewrite the whole chain consistently, and verify cannot tell. Anchor weekly and before each submission: copy `umwayi logbook anchor` into the hub repository's sync log and onto the Kiro Notion page, then check with `umwayi logbook verify --anchor COUNT:HEX`. umwayi never writes to either place."
 

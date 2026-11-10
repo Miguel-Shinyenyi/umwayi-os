@@ -88,6 +88,9 @@ MAX_INTENT_ENTRY = 1 << 20  # an entry is a few hundred bytes; anything this big
 _HELD_SIGNALS = tuple(getattr(signal, n) for n in ("SIGTERM", "SIGHUP", "SIGINT", "SIGQUIT") if hasattr(signal, n))
 _BUSY = {errno.EWOULDBLOCK, errno.EAGAIN, errno.EACCES}
 RECOVER_SOURCE = "umwayi logbook recover"
+SEAL_SOURCE = "umwayi logbook seal"
+CHAIN_PREFIX = "- Chain: "
+_ANCHOR = re.compile(r"([1-9][0-9]{0,9}):([0-9a-f]{64})")
 
 
 @dataclass(frozen=True)
@@ -103,6 +106,16 @@ class Entry:
 class ParsedEntry:
     line: int  # 1-based line of the "## date" heading
     entry: Entry
+    chain: str | None = None  # the value of its "- Chain:" line (hash chain addendum), or None
+    text: str = ""  # the lines from "## DATE" through "- Not done:", each with its newline: what the chain hashes
+
+
+@dataclass(frozen=True)
+class ChainState:
+    """The hash chain of a parsed logbook (Layer 5 addendum, "Logbook hash chain")."""
+    started: bool
+    values: tuple  # the Chain value of every chained entry that checked out, oldest first
+    broken: "Problem | None" = None  # the first broken entry; never its text or its Chain value
 
 
 @dataclass(frozen=True)
@@ -119,6 +132,7 @@ class Report:
     entries: int
     problems: list
     notes: list = field(default_factory=list)  # information, not problems (an interrupted write that can be recovered)
+    chain_note: str = ""  # information about the hash chain when it is not broken (started or not, and its length)
 
 
 @dataclass(frozen=True)
@@ -144,8 +158,14 @@ def sha256_hex(data: bytes) -> str:
 # ------------------------------------------------------------------ render
 
 
-def render(entry: Entry) -> str:
-    """The text of one entry, starting with a blank line."""
+def chain_value(prev: str, text: str) -> str:
+    """The Chain value of an entry: SHA-256 of the previous value, one newline, and the entry text."""
+    return hashlib.sha256((prev + "\n" + text).encode("utf-8")).hexdigest()
+
+
+def render(entry: Entry, prev: str | None = None) -> str:
+    """The text of one entry, starting with a blank line. With prev (the newest Chain value, or for the first
+    chained entry the SHA-256 of the file before it) the entry ends with its Chain line."""
     if not real_date(entry.date):
         raise UmwayiError("logbook: date must be a real date YYYY-MM-DD")
     for _label, name in FIELDS:
@@ -157,7 +177,12 @@ def render(entry: Entry) -> str:
     lines = [f"\n## {entry.date}\n", "\n"]
     for label, name in FIELDS:
         lines.append(f"- {label}: {getattr(entry, name)}\n")
-    return "".join(lines)
+    block = "".join(lines)
+    if prev is not None:
+        if not (isinstance(prev, str) and _HEX.fullmatch(prev)):
+            raise UmwayiError("logbook: the previous Chain value must be 64 lowercase hex characters")
+        block += f"{CHAIN_PREFIX}{chain_value(prev, block[1:])}\n"
+    return block
 
 
 # ------------------------------------------------------------------- parse
@@ -215,6 +240,7 @@ def parse(text: str) -> tuple[list, list]:
             previous = when if previous is None else max(previous, when)
 
         values: dict[str, str] = {}
+        chain = None
         if not body:
             problems.append(Problem(f"line {h + 1}", "the entry is cut off after its heading"))
         else:
@@ -237,12 +263,71 @@ def parse(text: str) -> tuple[list, list]:
                     problems.append(Problem(f"line {line_no}", f"the {label} field is empty or not plain text"))
                     continue
                 values[name] = value
-            if len(bullets) > len(FIELDS):
-                problems.append(Problem(f"line {first_bullet + len(FIELDS) + 1}", "unexpected text after the entry"))
+            rest, rest_line = bullets[len(FIELDS):], first_bullet + len(FIELDS) + 1
+            if rest and rest[0].startswith(CHAIN_PREFIX):
+                value = rest[0][len(CHAIN_PREFIX):]
+                if _HEX.fullmatch(value):
+                    chain = value
+                else:
+                    problems.append(Problem(f"line {rest_line}", "the Chain field is not 64 lowercase hex characters"))
+                rest, rest_line = rest[1:], rest_line + 1
+            if rest:
+                problems.append(Problem(f"line {rest_line}", "unexpected text after the entry"))
 
         if len(problems) == found and when is not None and len(values) == len(FIELDS):
-            entries.append(ParsedEntry(h + 1, Entry(when, **values)))
+            text_lines = "".join(x + "\n" for x in lines[h:first_bullet + len(FIELDS)])
+            entries.append(ParsedEntry(h + 1, Entry(when, **values), chain, text_lines))
     return entries, problems
+
+
+# ------------------------------------------------------------- the hash chain
+
+
+def chain_state(text: str, entries: list) -> ChainState:
+    """Walk the chain from its start (the first entry with a Chain line, which must be a seal entry).
+
+    The previous value of the first chained entry is the SHA-256 of the file before it: every line before the
+    blank line that starts its block. Every later entry must have a Chain line that matches. The walk stops at
+    the first broken entry, because every later value follows from it.
+    """
+    start = next((i for i, p in enumerate(entries) if p.chain is not None), None)
+    if start is None:
+        return ChainState(False, ())
+    first = entries[start]
+    if first.entry.source != SEAL_SOURCE:
+        return ChainState(True, (), Problem(f"entry {start + 1} (line {first.line})",
+                                            "an entry before the start of the chain has a Chain line"))
+    lines = text.split("\n")
+    prev = sha256_hex("".join(x + "\n" for x in lines[:first.line - 2]).encode("utf-8"))
+    values: list = []
+    for i in range(start, len(entries)):
+        p = entries[i]
+        if p.chain is None:
+            return ChainState(True, tuple(values), Problem(
+                f"entry {i + 1} (line {p.line})", "the entry has no Chain line but comes after the start of the chain"))
+        if p.chain != chain_value(prev, p.text):
+            return ChainState(True, tuple(values), Problem(f"entry {i + 1} (line {p.line + 6})",
+                                                           "the Chain value does not match"))
+        values.append(p.chain)
+        prev = p.chain
+    return ChainState(True, tuple(values))
+
+
+def _newest(cs: ChainState) -> str | None:
+    """The previous value for the next entry: the newest Chain value, or None while the chain is not started."""
+    if cs.broken is not None:
+        raise UmwayiError(f"logbook: LOGBOOK.md: the hash chain is broken at {cs.broken.where}. "
+                          "Check it with 'umwayi logbook verify'. Nothing was written.")
+    return cs.values[-1] if cs.started else None
+
+
+def parse_anchor(value: str) -> tuple:
+    """(count, value) from COUNT:HEX, or a usage error (exit 64)."""
+    m = _ANCHOR.fullmatch(value) if isinstance(value, str) else None
+    if not m:
+        raise UsageError("logbook: an anchor is COUNT:HEX, the number of chained entries (from 1) and 64 lowercase "
+                         "hex characters, as 'umwayi logbook anchor' prints it")
+    return int(m.group(1)), m.group(2)
 
 
 # -------------------------------------------------------- reading and state
@@ -747,36 +832,43 @@ def _recover(root: Path, when: str) -> str | None:
                 _record_hash(root, intent.after)
             _drop_intent(root)
         return state
+    prev = None
     if data:
-        entries, problems = parse(_decode(data))
+        text = _decode(data)
+        entries, problems = parse(text)
         if problems:
             raise UmwayiError(
                 f"logbook: an interrupted write was found, but LOGBOOK.md has {len(problems)} format problem(s). "
                 "See 'umwayi logbook verify'. Nothing was written."
             )
         _check_not_backwards(entries, when)
-    _write(root, data, render(_recovery_entry(when, state, intent)), "recover", record)
+        prev = _newest(chain_state(text, entries))  # a completed write is finished only on an intact chain
+    _write(root, data, render(_recovery_entry(when, state, intent), prev), "recover", record)
     return state
 
 
 # ------------------------------------------------------------------ append
 
 
-def _check_before_write(root: Path, when: str) -> bytes | None:
-    """The shared checks for append and seal-less writes. Returns the current bytes."""
+def _check_before_write(root: Path, when: str) -> tuple:
+    """The shared checks for append and check_writable: the hash record, the format, the date, then the hash
+    chain. Returns (the current bytes, the previous Chain value for the next entry or None)."""
     data = _read_logbook(root)
     state = _record_state(root, data)
     if state not in ("ok", "none"):
         raise UmwayiError("logbook: " + _STATE_MESSAGES[state])
+    prev = None
     if data:
-        entries, problems = parse(_decode(data))
+        text = _decode(data)
+        entries, problems = parse(text)
         if problems:
             raise UmwayiError(
                 f"logbook: LOGBOOK.md has {len(problems)} format problem(s). "
                 "See 'umwayi logbook verify'. Nothing was written."
             )
         _check_not_backwards(entries, when)
-    return data
+        prev = _newest(chain_state(text, entries))
+    return data, prev
 
 
 def _check_not_backwards(entries: list, when: str) -> None:
@@ -806,7 +898,9 @@ def append(root: Path, entry: Entry) -> None:
     block = render(entry)
     with _lock(root):
         _recover(root, entry.date)
-        data = _check_before_write(root, entry.date)
+        data, prev = _check_before_write(root, entry.date)
+        if prev is not None:
+            block = render(entry, prev)  # chained: under the same lock and the same intent as every write
         _write(root, data, block, "write", _record_value(root))
 
 
@@ -822,11 +916,13 @@ def _validate_by(when: str, by: str) -> str:
     return by
 
 
-def seal(root: Path, when: str, by: str) -> SealResult:
+def seal(root: Path, when: str, by: str, start_chain: bool = False) -> SealResult:
     """Record the hash of the logbook as it is now and log that it was sealed.
 
     Only runs when asked. Refuses a logbook with format problems, and a
-    logbook that is already sealed and intact. An interrupted write that can be
+    logbook that is already sealed and intact, except with start_chain (`seal --chain`, allowed once): then
+    the seal entry starts the hash chain. A seal of a logbook whose chain is not started always starts it; a
+    broken chain is refused, because the chain is what proves the earlier entries. An interrupted write that can be
     recovered is recovered first; the intent of one that cannot is dropped by the
     seal, because the owner accepts the file as it is.
     """
@@ -845,15 +941,26 @@ def seal(root: Path, when: str, by: str) -> SealResult:
         data = _read_logbook(root)
         if not data:
             raise UmwayiError("logbook: there is no logbook to seal. Nothing was written.")
-        entries, problems = parse(_decode(data))
+        text = _decode(data)
+        entries, problems = parse(text)
         if problems:
             raise UmwayiError(
                 f"logbook: LOGBOOK.md has {len(problems)} format problem(s) and cannot be sealed. "
                 "See 'umwayi logbook verify', fix the file by hand, then seal. Nothing was written."
             )
+        cs = chain_state(text, entries)
+        if cs.broken is not None:
+            raise UmwayiError(f"logbook: LOGBOOK.md: the hash chain is broken at {cs.broken.where}, and a seal cannot "
+                              "accept a broken chain: the chain is what proves the earlier entries. Restore LOGBOOK.md "
+                              "from a copy you trust (for example git). Nothing was written.")
         state = _record_state(root, data)
-        if state == "ok" and not dropped:
-            raise UmwayiError("logbook: LOGBOOK.md is already sealed and intact, nothing to do.")
+        if start_chain and cs.started:
+            raise UmwayiError("logbook: the hash chain is already started; seal --chain is allowed once. "
+                              "Nothing was written.")
+        if state == "ok" and not dropped and not start_chain:
+            raise UmwayiError("logbook: LOGBOOK.md is already sealed and intact, nothing to do."
+                              + ("" if cs.started else " To start the hash chain, run umwayi logbook seal --chain "
+                                                       "--by NAME."))
         _check_not_backwards(entries, when)
         before = {
             "ok": "matched the file",
@@ -864,23 +971,27 @@ def seal(root: Path, when: str, by: str) -> SealResult:
         if dropped:
             before += "; the intent of an interrupted write (.umwayi/logbook.pending) did not match the file and was dropped"
         old_hash = sha256_hex(data)
+        starts = not cs.started  # the genesis: the previous value of the first chained entry is the file's hash
+        what = "the hash chain was started" if state == "ok" and not dropped else "the logbook was sealed"
         entry = Entry(
             date=when,
-            source="umwayi logbook seal",
+            source=SEAL_SOURCE,
             added=(
-                f"Seal by {by}: the logbook was sealed with {len(entries)} earlier entries; "
+                f"Seal by {by}: {what} with {len(entries)} earlier entries; "
                 f"its SHA-256 before this entry was {old_hash}"
             ),
             checked=(
                 "the format of every earlier entry is valid and no date goes backwards; "
                 f"the earlier hash record {before}"
+                + ("; this entry starts the hash chain" if starts else "; the hash chain is intact")
             ),
             not_done=(
                 "The earlier entries were not rewritten or judged. Sealing records what the file holds now, "
                 "it does not prove the file was never edited before."
             ),
         )
-        digest = _write(root, data, render(entry), "seal", _record_value(root))
+        digest = _write(root, data, render(entry, old_hash if starts else cs.values[-1]), "seal",
+                        _record_value(root))
     return SealResult(len(entries), digest)
 
 
@@ -946,13 +1057,16 @@ def recover_torn_tail(root: Path, when: str, by: str) -> TornResult:
                 _drop_intent(root)
                 return TornResult(cut, False)
             data = _read_logbook(root)
+            prev = None
             if data:
-                entries, problems = parse(_decode(data))
+                text = _decode(data)
+                entries, problems = parse(text)
                 if problems:
                     raise UmwayiError(f"logbook: after the cut, LOGBOOK.md has {len(problems)} format problem(s). "
                                       "See 'umwayi logbook verify'.")
                 _check_not_backwards(entries, when)
-            _write(root, data, render(entry), "recover", record)
+                prev = _newest(chain_state(text, entries))
+            _write(root, data, render(entry, prev), "recover", record)
     return TornResult(cut, True)
 
 
@@ -1004,22 +1118,45 @@ def _judge(root, present, intent, data, record) -> tuple[str | None, str | None]
 # ------------------------------------------------------------------ verify
 
 
-def verify(root: Path) -> Report:
-    """Check the format, the hash record and any interrupted write. Reads only, changes nothing."""
+def verify(root: Path, anchor: tuple | None = None) -> Report:
+    """Check the format, the hash record, the hash chain, any interrupted write, and an anchor (COUNT, HEX) if
+    given. Reads only, changes nothing."""
+    return _verify(root, anchor)[0]
+
+
+def _verify(root: Path, anchor: tuple | None = None) -> tuple:
     try:
         data, problem, info = _view(root)
     except UmwayiError as e:
-        return Report(0, [Problem("file", str(e).removeprefix("logbook: "))])
+        return Report(0, [Problem("file", str(e).removeprefix("logbook: "))]), ChainState(False, ())
     entries: list = []
     problems: list[Problem] = []
+    notes = [info] if info else []
+    chain_note = ""
+    cs = ChainState(False, ())
     if data is None:
         problems.append(Problem("file", "LOGBOOK.md was not found"))
     else:
         try:
-            entries, found = parse(_decode(data))
+            text = _decode(data)
+            entries, found = parse(text)
             problems.extend(found)
+            cs = chain_state(text, entries)
         except UmwayiError as e:
             problems.append(Problem("file", str(e).removeprefix("logbook: ")))
+    if cs.broken is not None:
+        problems.append(cs.broken)
+    elif cs.started:
+        chain_note = f"the hash chain is intact: {len(cs.values)} chained entries"
+    elif data is not None:
+        chain_note = "the hash chain is not started (umwayi logbook seal --chain --by NAME starts it)"
+    if anchor is not None:
+        count, value = anchor
+        if len(cs.values) < count:
+            problems.append(Problem("anchor", f"the chain is shorter than the anchor ({len(cs.values)} of {count} "
+                                              "chained entries)"))
+        elif cs.values[count - 1] != value:
+            problems.append(Problem("anchor", f"the chain differs from the anchor at chained entry {count}"))
     record_problems = {
         "unsealed": "there is no hash record, run 'umwayi logbook seal --by NAME' after checking the file",
         "mismatch": "the file does not match its recorded hash, it was changed since the last umwayi write",
@@ -1033,7 +1170,19 @@ def verify(root: Path) -> Report:
                                         "stopped; 'umwayi logbook recover --torn-tail --by NAME' cuts it back"))
     elif problem in record_problems:
         problems.append(Problem("record", record_problems[problem]))
-    return Report(len(entries), problems, [info] if info else [])
+    return Report(len(entries), problems, notes, chain_note), cs
+
+
+def anchor(root: Path) -> tuple:
+    """`umwayi logbook anchor`: (count, newest Chain value) of a logbook that verifies. Writes nothing."""
+    report, cs = _verify(root)
+    if report.problems:
+        raise UmwayiError(f"logbook: LOGBOOK.md does not verify ({len(report.problems)} problem(s)), so it is never "
+                          "anchored. Check it with 'umwayi logbook verify'. No anchor was printed.")
+    if not cs.started:
+        raise UmwayiError("logbook: the hash chain is not started, so there is nothing to anchor. Start it with "
+                          "'umwayi logbook seal --chain --by NAME'. No anchor was printed.")
+    return len(cs.values), cs.values[-1]
 
 
 # ------------------------------------------------------------ checked read
@@ -1052,11 +1201,16 @@ def read_checked(root: Path) -> list:
         raise UmwayiError("logbook: " + (_STATE_MESSAGES.get(problem) or _INTENT_MESSAGES[problem]))
     if not data:
         return []
-    entries, problems = parse(_decode(data))
+    text = _decode(data)
+    entries, problems = parse(text)
     if problems:
         raise UmwayiError(
             f"logbook: LOGBOOK.md has {len(problems)} format problem(s). See 'umwayi logbook verify'."
         )
+    cs = chain_state(text, entries)
+    if cs.broken is not None:
+        raise UmwayiError(f"logbook: LOGBOOK.md: the hash chain is broken at {cs.broken.where}. "
+                          "See 'umwayi logbook verify'.")
     return [p.entry for p in entries]
 
 
