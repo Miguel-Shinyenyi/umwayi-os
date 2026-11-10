@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>umwayi-os</title>
+<!--@csp-->
+<style><!--@style--></style>
+</head>
+<body>
+<header class="bar">
+  <h1 class="mark">umwayi-os</h1>
+  <p class="tag">An AI operating system for one person</p>
+  <div class="actions">
+    <button type="button" class="btn" id="list-toggle" aria-pressed="false" aria-controls="list-view">List view</button>
+    <button type="button" class="btn" id="calm-toggle" aria-pressed="false">Calm mode</button>
+  </div>
+</header>
+<main id="stage">
+  <canvas id="scene" role="img" aria-label="A hillside at dusk. Eleven stations stand in a ring around a lantern: Memory, Rules, Queue, Archive, Logbook, Automation, AI helpers, Workflows, Adapters, Kill switch and Budget. The list view has the same stations as text."></canvas>
+  <nav id="labels" aria-label="Stations">
+<!--@labels-->
+  </nav>
+  <p id="hint">Drag to look around. Select a station.</p>
+  <p id="sample-tag">sample</p>
+  <aside id="panel" tabindex="-1" aria-labelledby="panel-title">
+    <p class="state" id="panel-state"></p>
+    <h2 id="panel-title"></h2>
+    <p id="panel-line1"></p>
+    <p id="panel-line2"></p>
+    <p class="cmd"><code id="panel-cmd"></code></p>
+    <p class="note" id="panel-note"></p>
+    <p class="counts" id="panel-counts"></p>
+    <p class="caption" id="pose-caption" role="status" aria-live="polite"></p>
+    <div class="row">
+      <button type="button" class="btn small" id="replay">Replay</button>
+      <button type="button" class="btn small" id="pose-prev">Previous pose</button>
+      <button type="button" class="btn small" id="pose-next">Next pose</button>
+    </div>
+    <div class="row">
+      <button type="button" class="btn small" id="station-prev">Previous station</button>
+      <button type="button" class="btn small" id="station-next">Next station</button>
+      <button type="button" class="btn small" id="back">Overview</button>
+    </div>
+  </aside>
+</main>
+<section id="list-view" hidden aria-labelledby="list-title">
+  <h2 id="list-title">The eleven stations</h2>
+  <p class="intro">The same stations as the picture, as text.</p>
+  <ul id="station-list">
+<!--@list-->
+  </ul>
+</section>
+<p id="notice" role="status" hidden></p>
+<script><!--@script--></script>
+</body>
+</html>

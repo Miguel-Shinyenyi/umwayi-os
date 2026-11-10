@@ -71,7 +71,7 @@ Not started, each only after the owner approves its requirements, design and tas
 
 11. Linux-like features: approved (PR 30), built now (PR 31). Scope for Dec 3: scheduled runs through systemd user timers that call the existing front doors; file watching and tmux cut, SQLite and a sandbox deferred to after Dec 3. No new scheduler, file system or shell.
 - The logbook hash chain (approved) and the budget governor (approved).
-12. Web interface, the view (layer 12): in scope before Dec 3 (it was a non goal until Nov 10). A 3D shepherd hillside with eleven stations that shows counts from a read only snapshot (`umwayi view snapshot`), and an owner checks panel. Calm by default. Spec in the UI.0 pull request; it is built (phases UI.1 to UI.5) only after the owner approves that spec. Nothing of layer 13 is built or planned here; the view is designed so that layer 13 can add stations later.
+12. Web interface, the view (layer 12): in scope before Dec 3 (it was a non goal until Nov 10). A 3D shepherd hillside with eleven stations that shows counts from a read only snapshot (`umwayi view snapshot`), and an owner checks panel. Calm by default. Spec approved (UI.0, PR 38). Phases UI.1 to UI.5 are built one pull request each; UI.1, the static world, is built. Nothing of layer 13 is built or planned here; the view is designed so that layer 13 can add stations later.
 
 ## Schedule to Dec 3
 
