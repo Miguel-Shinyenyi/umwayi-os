@@ -181,7 +181,7 @@ class WholeSystemTests(unittest.TestCase):
         self.assertEqual((r.returncode, json.loads(r.stdout)["decision"]), (0, "allow"), r.stdout + r.stderr)
         r = w.hook("claude_code", {"hook_event_name": "PreToolUse", "tool_name": "Bash",
                                    "tool_input": {"command": "rm -rf / " + SECRET}})
-        self.assertNotEqual(json.loads(r.stdout)["hookSpecificOutput"]["permissionDecision"], "allow")
+        self.assertEqual(json.loads(r.stdout)["hookSpecificOutput"]["permissionDecision"], "deny", r.stdout)
         got = self.new(n)
         self.assertEqual(sources(got), ["umwayi check"] * 4)
         self.assertNotIn(SECRET, w.log_text())
@@ -199,6 +199,8 @@ class WholeSystemTests(unittest.TestCase):
         got = [e for e in got if e not in changes]
         src = sources(got)
         self.assertEqual(src[:4], ["umwayi check", "umwayi check", "umwayi budget", "umwayi agent run"], src)
+        self.assertTrue(got[0].added.endswith("; action type: agent_run"), got[0].added)
+        self.assertTrue(got[1].added.endswith("; action type: budget_check"), got[1].added)
         self.assertTrue(got[2].added.startswith(f"Reserved run "), got[2].added)
         self.assertTrue(got[3].added.startswith(f"Started agent {agent} "), got[3].added)
         self.assertEqual(src[-1], "umwayi budget")

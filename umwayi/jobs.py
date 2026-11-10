@@ -9,7 +9,8 @@ Order of work for one run:
   0. The kill switch. If it is on, or its state cannot be read, the run stops
      before anything else with exit 3 and one logbook entry.
   1. Read the jobs file strictly. Pick the job.            (error: exit 64)
-  2. Read the logbook (tamper checked). Apply the gap rule. (refusal: exit 1)
+  2. Read the logbook (tamper checked). Apply the gap rule. (refusal: exit 1,
+     with one logbook entry that says the gap rule stopped it)
   3. Ask the rules: action {"type": "run_job", "job": NAME, "command": WORD}.
      No stops the job (exit 2), Ask me first stops it (exit 3). Either way one
      logbook entry says the job was stopped.
@@ -217,10 +218,20 @@ def _run_locked(root: Path, jobfile: Path, name: str | None, today: str) -> Resu
         if gap < 0:
             raise UmwayiError(f"cannot run job '{job.name}': its last run ({last}) is after today. The job did not run.")
         if gap < job.min_gap_days:
-            raise UmwayiError(
-                f"job '{job.name}' ran {gap} day(s) ago on {last}; the minimum gap is {job.min_gap_days} day(s). "
-                "The job did not run."
-            )
+            # One entry, like every other refusal of a run, so a scheduled run refused here leaves a trace in the
+            # logbook and not only in the journal (S.1). "did not run" never matches _RAN, so it is not a run.
+            message = (f"job '{job.name}' ran {gap} day(s) ago on {last}; the minimum gap is {job.min_gap_days} "
+                       "day(s). The job did not run.")
+            try:
+                logbook.append(root, logbook.Entry(
+                    today, "umwayi run",
+                    f"Job {job.name} did not run: the gap rule (it ran {gap} day(s) ago on {last}; the minimum gap is "
+                    f"{job.min_gap_days} day(s))",
+                    "the jobs file was parsed and the tamper checked logbook was read for the gap rule",
+                    "The job did not run. Nothing was written, published or pushed."))
+            except UmwayiError as e:
+                message += f" The logbook could not be written ({str(e).rstrip('. ')}). Nothing was logged."
+            raise UmwayiError(message)
     gap_note = f"last run {last}, minimum gap {job.min_gap_days} day(s) kept" if last else "no earlier run"
 
     # --- 3. the rules

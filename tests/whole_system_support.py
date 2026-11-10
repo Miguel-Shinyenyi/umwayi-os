@@ -81,6 +81,13 @@ EXTRA_RULES = """
     verdict: yes
     matchers:
       type: [tool_read, tool_read_file, tool_lookup]
+  - id: s1-no-rm
+    title: never delete trees
+    text: Never.
+    verdict: no
+    matchers:
+      type: tool_bash
+      command__contains: ["rm -rf"]
   - id: s1-permission-read
     title: an ACP read permission is fine
     text: Allowed once.
