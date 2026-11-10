@@ -22,7 +22,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
 | Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
 | Documentation layout (D.1) | added Nov 10 (PR 34); built Nov 10, before S.1 | spec PR 34; build PR 35 | 1104 after PR 35, on Python 3.10 to 3.13 |
-| Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); S.1 built Nov 10; S.2 next, Nov 11 to Nov 12 | spec PR 34; S.1 PR 36 | COUNT_TBD |
+| Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); S.1 built Nov 10; S.2 next, Nov 11 to Nov 12 | spec PR 34; S.1 PR 36 | 1135 after PR 36, on Python 3.10 to 3.13 |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
