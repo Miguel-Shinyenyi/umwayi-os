@@ -22,7 +22,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
 | Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
 | Documentation layout (D.1) | added Nov 10 (PR 34); built Nov 10, before S.1 | spec PR 34; build PR 35 | 1104 after PR 35, on Python 3.10 to 3.13 |
-| Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); build Nov 10 to Nov 12 (S.1, then S.2), moved up from Nov 23 to Nov 26 | spec PR 34 | |
+| Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); S.1 built Nov 10; S.2 next, Nov 11 to Nov 12 | spec PR 34; S.1 PR 36 | COUNT_TBD |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
@@ -195,7 +195,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
   - [x] Claude Code: `tests/adapters/test_claude_code.py` (No blocks, Ask me first asks, Yes allows, a broken rules file does not allow, a crash in the adapter or in umwayi check blocks, bad or empty stdin blocks, a timeout blocks, one logbook entry per check and logbook verify ok). Three planted faults make them fail.
   - [x] Kiro and generic: `tests/adapters/test_kiro.py` and `tests/adapters/test_stdio.py`, plus `tests/adapters/test_core_for_adapters.py` for `--kill-switch` and `--if-not-open`, and kill switch tests for Claude Code. Planted faults and 28 mutations, all caught, are listed in PR 12.
 - [ ] 9.10 Starter rules for adapter actions in the repo rules.yaml. Done so far: example rules in `adapters/claude_code/rules.example.yaml`, `adapters/kiro/rules.example.yaml` and `adapters/stdio/rules.example.yaml`; the repo rules.yaml is unchanged.
-- [ ] 9.11 Whole-system test again with the adapters (Nov 23 to Nov 26, with the security scan, S.1)
+- [x] 9.11 (PR 36) Whole-system test again with the adapters (S.1): the Claude Code, Kiro and stdio hooks called as each platform runs them, and every agent start's tool calls through them
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
 ## Layer 10: Own command line and chat (all six parts built; 10.20 and 10.21 open; part 7 approved, parts 7a and 7b built; part 7c approved, 7c-1 built)
@@ -276,7 +276,7 @@ The build is split into six parts, one pull request each, each small enough to r
 ### After the parts
 
 - [ ] 10.20 (Done so far: KNOWN-LIMITS 29 to 34 for parts 1 and 2, 35 to 40 for part 3, 41 to 45 for part 4, 46 to 51 for part 5, 52 to 58 for part 6, and the README section. Left: what the first real runs show, 10.21.) `docs/KNOWN-LIMITS.md` items for layer 10 (at least: a managed Claude Code policy can block our hook unseen; Kiro hooks in ACP sessions not confirmed; version output format; the Claude Code prompt in the process list; PATH can point to another program; the agent can edit its own guard files), README section, tasks and design ticked. Added in the part that makes each limit real.
-- [ ] 10.21 Whole-system test with the front door (part of S.1, Nov 23 to Nov 26), and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
+- [ ] 10.21 (The test part is done in PR 36, S.1: check, run, the cli chat and the ACP chat for Claude Code and Kiro. Left: the owner's real run.) Whole-system test with the front door, and one real run of each platform by the owner, recorded in NOTES-layer10.md (what the docs did not confirm).
 
 ### Part 7: Claude Code over ACP (approved Nov 8 2026; part 7a built in PR 20, part 7b in PR 21; 10.29 and 10.30 in PR 29; 10.31 waits for the owner's first real run)
 
@@ -535,14 +535,14 @@ Requirements S.R1 to S.R10, design.md "Whole-system test and security scan" (fac
   14. S-Q14: the owner's real runs (10.21's real run of each platform, 10.31, 11.6, B.10) are not part of S.1 and are listed as not done.
   15. S-Q15: a defect S.1 finds in any layer is fixed in the S.1 pull request, test first, and named in it.
   16. S-Q16: built right after approval (now Nov 10 to Nov 12, moved up by the owner from Nov 23 to Nov 26), one pull request for S.1 and one for S.2.
-- [ ] S.1 Whole-system test (includes 9.11 and the test part of 10.21):
-  - [ ] S.1.1 Support (2 h): `tests/whole_system_support.py`: the root builder from the example files, the fakes on `PATH`, the copy of the day's end state per scenario, the end checks of S.R1.5 (verify, budget status, nothing alive, allowed exit codes).
+- [x] S.1 (PR 36) Whole-system test (includes 9.11 and the test part of 10.21):
+  - [x] S.1.1 (PR 36) Support (2 h): `tests/whole_system_support.py`: the root builder from the example files, the fakes on `PATH`, the copy of the day's end state per scenario, the end checks of S.R1.5 (verify, budget status, nothing alive, allowed exit codes).
     - Acceptance tests: a fresh root validates (`agent validate`, `budget validate`, `schedule validate`, `workflow validate` all 0); a copy is byte for byte the original, links kept; the end checks fail on a planted leftover process and on a planted exit code 1 from `agent`.
-  - [ ] S.1.2 The owner's day (3 h): the eight steps of S.R2 in order, each with its exit code, the logbook entries it adds (by source and shape) and the state files after it.
-    - Acceptance tests: each step's entries and nothing else; the chain started in step 3 covers every later entry; the shares in `budget status` match the day (one measured, one declared or unknown); `verify --anchor` with step 3's anchor gives 1 "shorter" and with a new anchor 0.
-  - [ ] S.1.3 Faults: a tampered logbook, a lost reservation, crashes (2.5 h): S.R3.1, S.R3.2 and S.R3.6, each from a copy of the day.
+  - [x] S.1.2 (PR 36) The owner's day (3 h): the eight steps of S.R2 in order, each with its exit code, the logbook entries it adds (by source and shape) and the state files after it.
+    - Acceptance tests: each step's entries and nothing else; the chain started in step 3 covers every later entry; the shares in `budget status` match the day (one measured, one declared or unknown); `verify --anchor` with step 3's anchor gives 0 (it is a prefix of the longer chain; corrected in PR 36, this line said 1 "shorter", which is the answer for a chain shorter than its anchor, tested in S.1.3) and with a new anchor 0.
+  - [x] S.1.3 (PR 36) Faults: a tampered logbook, a lost reservation, crashes (2.5 h): S.R3.1, S.R3.2 and S.R3.6, each from a copy of the day.
     - Acceptance tests: the four tampering cases of the design's table with their exact answers, and nothing written by a refusal (snapshot equal); the lost reservation through `status`, a refused start (3), `settle-lost` refused while a run holds the lock (3) then 0, the next start 0; each planted crash recovered or refused, `verify` 0 at the end.
-  - [ ] S.1.4 Faults: the kill switch mid run, no systemd, a limit mid chat (2.5 h): S.R3.3 for each of the six kinds of start, S.R3.4 with and without a recording fake `systemctl`, S.R3.5.
+  - [x] S.1.4 (PR 36) Faults: the kill switch mid run, no systemd, a limit mid chat (2.5 h): S.R3.3 for each of the six kinds of start, S.R3.4 with and without a recording fake `systemctl`, S.R3.5.
     - Acceptance tests: each kind stopped with exit 3, nothing alive, one settle, the next start 0 after `kill off`; no call to `systemctl` recorded, the files 0644, `ExecStart=` by hand gives the job's entry; the chat stopped with 3 and settled measured. The suite time on 3.13 before and after S.1 is in the pull request (S-Q1).
 - [ ] S.2 Security scan:
   - [ ] S.2.1 The receiver (2.5 h): `tests/test_scan_receiver.py`, every case of S.R5 through `agent run` with the fake sender's raw socket mode.

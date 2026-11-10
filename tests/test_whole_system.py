@@ -617,5 +617,53 @@ class WholeSystemTests(unittest.TestCase):
         self.end_checks()
 
 
+class SupportTests(unittest.TestCase):
+    """S.1.1: the world itself. The snapshot restores byte for byte, links kept; the end checks see a leftover
+    process and an exit code a command may not give."""
+
+    def setUp(self):
+        self.w = World()
+        self.addCleanup(self.w.cleanup)
+        self.w.build()
+
+    def test_the_snapshot_restores_byte_for_byte_with_links_kept(self):
+        w = self.w
+        (w.root / "a-link").symlink_to(w.root / "notes.md")
+        before = {**w.tree(), **{str(p): p.read_bytes() for p in w.bin.iterdir()}}
+        w.save()
+        (w.root / "notes.md").write_text("changed\n", encoding="utf-8")
+        (w.root / "new.txt").write_text("new\n", encoding="utf-8")
+        (w.root / "a-link").unlink()
+        w.restore()
+        self.assertTrue((w.root / "a-link").is_symlink())
+        self.assertEqual({**w.tree(), **{str(p): p.read_bytes() for p in w.bin.iterdir()}}, before)
+
+    def test_the_end_checks_see_a_bad_exit_code(self):
+        w = self.w
+        w.record(("agent", "run", "x"), 1)
+        w.record(("budget", "status"), 1)
+        w.record(("run", "jobs.yaml"), 1)  # layer 6 may give 1
+        w.record(("check", "{}"), 5)
+        self.assertEqual(w.bad_codes(), [("agent run x", 1), ("budget status", 1), ("check {}", 5)])
+
+    def test_the_end_checks_see_a_leftover_process(self):
+        w = self.w
+        p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+        self.addCleanup(lambda: (p.kill(), p.wait(timeout=30)))
+        with open(w.fake_log, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"started": True, "pid": p.pid, "t": time.time()}) + "\n")
+        self.assertEqual(w.agent_pids_alive(), [p.pid])
+        w.stop_all()
+        p.wait(timeout=30)
+        self.assertEqual(w.agent_pids_alive(), [])
+
+    def test_a_wait_ignores_calls_made_before_it(self):
+        w = self.w
+        with open(w.fake_log, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"event": "tool", "t": time.time() - 60}) + "\n")
+        with self.assertRaises(AssertionError):
+            w.wait_for(lambda c: c.get("event") == "tool", "a new tool call", timeout=0.5, since=time.time())
+
+
 if __name__ == "__main__":
     unittest.main()

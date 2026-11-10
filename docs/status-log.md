@@ -16,6 +16,7 @@ The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-o
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
+| 2026-11-10 | 36 | S.1: the whole-system test; a gap rule refusal now writes its entry | COUNT_TBD |
 | 2026-11-10 | 35 | D.1: the short README, PROJECT.md and one doc per component under docs/ | 1104 |
 | 2026-11-10 | 34 | spec: whole-system test and security scan, and D.1 | |
 | 2026-11-10 | 33 | budget governor | 1091 |

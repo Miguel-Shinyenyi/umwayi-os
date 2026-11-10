@@ -70,7 +70,7 @@ Newest first. Each row names where it was decided.
 ## Open questions
 
 - 10.20: the layer 10 KNOWN-LIMITS items that the first real runs show ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), layer 10).
-- 10.21: one real run of each platform by the owner, recorded in `adapters/NOTES-layer10.md`; its test part is in S.1.
+- 10.21: one real run of each platform by the owner, recorded in `adapters/NOTES-layer10.md`. Its test part is done: the whole-system test (S.1, PR 36) checks, runs and chats with Claude Code and Kiro over cli and ACP, with fakes.
 - 10.31: the owner's first real run of the Claude Code ACP chat (`adapters/NOTES-layer10.md`).
 - 10.37: planted faults, mutation checks and docs of part 7c, 0.5 hour of them the owner's.
 - 10.40 and 10.41: the specs of Muse Spark Open and the OpenCode adapter, after Dec 3.
