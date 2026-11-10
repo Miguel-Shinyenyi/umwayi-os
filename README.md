@@ -147,6 +147,21 @@ umwayi logbook recover --torn-tail --by "Your name" [--date 2026-11-07]
 - A write that is stopped half way cannot break the logbook. Before appending, umwayi records its intent in `.umwayi/logbook.pending` (the hashes and lengths before and after, and the exact bytes). SIGTERM, SIGHUP, Ctrl-C and SIGQUIT wait until the write is done. After a SIGKILL or a crash, the next write finishes or drops the interrupted one, only when the files are exactly in one of the two states the intent names, and adds one entry with source `umwayi logbook recover`. Anything else is refused like a hand edit. `verify` says when a write is in progress or was interrupted, and readers see the file it left.
 - A power cut during the append can leave the start of an entry at the end of the file (a torn tail). It is refused, never repaired automatically. `umwayi logbook recover --torn-tail --by NAME` cuts it back, only when the extra bytes are exactly the start of the entry that was being written, and logs the cut.
 
+### Hash chain
+
+```
+umwayi logbook seal --chain --by "Your name" [--date 2026-11-07]
+umwayi logbook anchor
+umwayi logbook verify --anchor COUNT:HEX
+```
+
+- Every entry after the start of the chain has a fifth line, `- Chain: HEX`. HEX is the SHA-256 of the value before it, a newline, and the entry's lines from its `## DATE` heading through `- Not done:` (each with its newline, the blank line after the heading included). The value before the first chained entry is the SHA-256 of everything above it.
+- The chain starts at a seal entry. Sealing a logbook that has no chain yet always starts it. `seal --chain` starts it on a logbook that is already sealed and intact, once; it is refused when a chain exists.
+- `verify` also checks the chain and names the first broken entry by number and line (an edit, a deleted entry, a reordered pair, a missing or malformed Chain line). It still exits 0 or 1.
+- A broken chain refuses every umwayi write and every job, workflow and helper start, and it cannot be sealed: restore `LOGBOOK.md` from a copy you trust (for example git).
+- `anchor` prints `COUNT:HEX` (the number of chained entries and the newest value) and changes nothing. Keep it outside this machine, weekly and before each submission: in the hub repository's sync log and on the Kiro Notion page (umwayi never writes there). `verify --anchor COUNT:HEX` then also finds a rewritten chain or a cut tail. `anchor` exits 2 when the logbook does not verify or has no chain; a malformed anchor exits 64.
+- Limits: [KNOWN-LIMITS](docs/KNOWN-LIMITS.md) items 3 and 104 to 109.
+
 ## Layer 6: automation
 
 ### Jobs

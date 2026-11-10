@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it.
 
 ## Approval and the owner
 
@@ -25,7 +25,8 @@ These are real limits of umwayi-os today. They are written down on purpose and a
 
 The tamper check compares `LOGBOOK.md` with the SHA-256 in `.umwayi/logbook.sha256`. If someone edits the logbook and then writes the new SHA-256 into the record, `umwayi logbook verify` says ok. The record sits right next to the file it protects.
 
-- A later fix: keep the hash outside the repo, chain each entry to the one before it, or sign the record.
+- Changed with the hash chain (PR 32): every entry after the chain starts carries a `- Chain:` line, so an edit, a deleted entry or a reordered pair in a chained entry is now found even when the record was rewritten too. A writer who rewrites the whole chain and the record together is still not found, unless the owner compares with an anchor kept elsewhere (`umwayi logbook verify --anchor`, item 104). Entries before the start of the chain are covered only as a whole (item 107).
+- A later fix: sign the record or the chain.
 
 ### 4. Large logbooks are re-read on every append
 
@@ -499,3 +500,44 @@ The unit file holds the absolute path of the Python that ran `schedule install`.
 ### 103. `--approved-by` is self-declared
 
 As for `publish-draft` (item 1): any name is accepted when the rules say Ask me first. Nothing proves the person typing it is the owner. An AI helper that can run shell commands as the owner can pass it; the layer 9 hook sees that command first (`tool_bash`).
+
+## Layer 5 addendum: logbook hash chain (found while building, not fixed)
+
+Written Nov 7 2026 (PR 32), built early; the plan said Nov 16. No real Claude Code or Kiro ran in the tests; the agent tests used fakes.
+
+### 104. Without an outside anchor the whole chain can be rewritten
+
+The chain is kept in `LOGBOOK.md` itself. Someone who can write the file can compute a new chain for every entry and write the new whole-file hash into the record; `umwayi logbook verify` then says ok. Only a copy of the anchor kept somewhere else finds it.
+
+- What the owner does: run `umwayi logbook anchor` weekly and before each submission, and paste the `COUNT:HEX` line into the hub repository's sync log and on the Kiro Notion page. umwayi never writes there. Then `umwayi logbook verify --anchor COUNT:HEX` compares.
+- A later fix: sign the anchor, or publish it automatically to a place the writer cannot change.
+
+### 105. A broken chain cannot be sealed by umwayi
+
+`umwayi logbook seal` refuses a logbook whose chain is broken, and `seal --chain` refuses once a chain exists. This is on purpose: sealing over a broken chain or starting a new one would hide the edit. The only way back is to restore `LOGBOOK.md` from a copy you trust (for example git). Until then every umwayi write, every job, workflow and helper start is refused (fail closed).
+
+- A later fix: a recorded, owner-approved restart of the chain that keeps the old values in the logbook.
+
+### 106. The chain alone does not find a truncated tail
+
+Cutting the newest entries off the end leaves a chain that is still valid up to the new end. The whole-file hash record finds it, and `verify --anchor` finds it ("shorter" than the anchor). If the record was rewritten too and no anchor is compared, it is not found.
+
+- A later fix: as for item 104, an anchor kept elsewhere and compared on a schedule.
+
+### 107. An edit before the start shows only at the genesis
+
+The first chained entry (the seal entry) takes as its previous value the SHA-256 of everything before it. An edit in any older entry breaks that first link, and `verify` names the seal entry, not the old entry that was edited.
+
+- A later fix: none planned; compare with git to find the line.
+
+### 108. Nothing starts the chain on its own, and the start must be a seal
+
+A logbook that was never sealed after this change has no chain until the owner runs `umwayi logbook seal` (an unchained logbook, sealed, always starts the chain) or `umwayi logbook seal --chain --by NAME` (a logbook that is already sealed and intact). The first entry with a `- Chain:` line must be a seal entry (source `umwayi logbook seal`); any other start is reported as "an entry before the start of the chain has a Chain line".
+
+- A later fix: none planned (C-Q1: the owner starts it once).
+
+### 109. Every append walks the whole chain
+
+As asked (C-Q2), every append, recovery and torn-tail cut recomputes the chain from its start, under the lock. This adds to item 4: the cost grows with the logbook and was not measured.
+
+- A later fix: keep the newest value with the hash record and check only the new end.
