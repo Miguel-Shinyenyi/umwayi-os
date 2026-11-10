@@ -2210,232 +2210,54 @@ At least: S.R10 items 1 to 6 in short; the advisory scan was true on its date on
 
 ### Hours and schedule effect
 
-| task | hours |
-| --- | --- |
-| S.1.1 support: root builder, copies, sweeps | 2 |
-| S.1.2 the owner's day | 3 |
-| S.1.3 fault scenarios: tampered logbook, lost reservation, crashes | 2.5 |
-| S.1.4 fault scenarios: kill switch mid run (six kinds), no systemd, limit mid chat | 2.5 |
-| S.2.1 receiver tests | 2.5 |
-| S.2.2 receiver fixes, if S-Q6 and S-Q7 say so | 2 |
-| S.2.3 modes, links, paths | 3 |
-| S.2.4 secrets sweep | 2 |
-| S.2.5 static and dependency scans, run and recorded | 2.5 |
-| S.2.6 interpreters and licences | 1 |
-| S.2.7 SECURITY-SCAN.md and security.md under docs/, KNOWN-LIMITS, the README link, mutation checks, the full suite | 2 |
-| **total** | **25** |
+Re-estimated on Nov 11 for the highlands rework, honestly. The first scene took about 16 hours of work for what it was; the new brief is a different order of work: real relief, a valley, Mount Kenya, plants, rock, water and light made from code, eleven stations that are each a natural feature, a layout and a position function, trails, a detail mode, and a home page.
 
-That is about three working days: Nov 10 to Nov 12 (S-Q16, moved up by the owner from Nov 23 to Nov 26). The web interface follows it with its own spec; README, demo and Devpost, the freeze Nov 29 to Dec 2 and the submission on Dec 3 do not move.
-
-### Risks
-
-| risk | what happens | what we do |
+| task | hours | was |
 | --- | --- | --- |
-| the whole-system test is slow | the suite takes much longer than about 14 min per Python | one day of state copied for the faults instead of rebuilt; the mid-run cases share one wait; measure and report the time (S-Q1) |
-| the test is flaky under load | a timing case fails now and then | every wait is for an event with a generous timeout, never a short sleep, as in the layer 10 tests |
-| the scan needs the network and the sandbox has none | S.2.5 cannot finish | recorded as not run; the owner runs the listed commands (S-Q4) |
-| an advisory hits the pinned adapter | the ACP chat for Claude Code is affected | a new pin is a layer 10 change with the owner's approval, or the chat is turned off until then |
-| a fix to the receiver changes its behaviour | the governor tests change | the fix comes with its tests first and the full suite on 3.10 to 3.13 |
-| the scan is taken as proof | the owner trusts more than was shown | S.R10 in SECURITY-SCAN.md, KNOWN-LIMITS and the PR |
+| UI.0 spec | 5 | 5 (done) |
+| UI.0b the Nov 11 spec change | 3 | |
+| UI.1 the static world, as the highlands scene | 56 | 16 |
+| UI.2 `umwayi view snapshot` | 9 | 9 |
+| UI.3 the page reads the snapshot and feeds the position function | 8 | 6 |
+| UI.4 the owner checks panel | 6 | 6 |
+| UI.5 polish, docs, the scan of `ui/`, the owner's interface check | 10 (and 1 of the owner's) | 8 |
 
-### Open questions for the owner (S.1 and S.2, answered Nov 10: all as proposed)
+UI.1 in parts: the engine, calm, reduced motion, build and tests are kept (0 extra); the ground, relief, river, rock, light and haze 12; the sky, cloud and Mount Kenya 4; plants (grass, acacia, cedar) 5; the lantern, staff, shepherd and dog 3; the eleven natural feature stations 18 (about 1.5 each); the layout, position function, placement and their tests 6; trails and hover/focus 3; the detail mode 3; the home page content 6; the browser pass, screenshots, the page size, docs 5. Total about 65, less 9 for what the first build already gives (engine, build, panel, list view) gives 56.
 
-1. **S-Q1. Where S.1 runs.** In the normal suite, so CI runs it on every pull request (proposed; about 5 to 8 more minutes per Python, measured in S.1.4). Or a separate command that only runs before a release?
-2. **S-Q2. One root or many.** One ordered owner's day, then each fault in its own copy of the day's end state (proposed). Or every scenario from an empty root (slower, but no step depends on another)?
-3. **S-Q3. The static scan of umwayi's code.** Bandit with all plugins, from a throwaway virtual environment, plus the existing code guards (proposed). Or also Semgrep (more rules, but its rule registry needs the network and an account for some rules)?
-4. **S-Q4. The dependency scan.** OSV-Scanner offline (one database download) as the main tool, and `npm audit --package-lock-only` as a second source, accepting that it sends the package list to the registry (proposed). Or OSV-Scanner only, so nothing about the tree leaves the machine?
-5. **S-Q5. The interpreters.** Compare each Python version by hand with python.org's security releases and record it (proposed). Or leave the interpreter to the owner's operating system and only record the versions?
-6. **S-Q6. A slow client.** Add a whole-request deadline of 10 s to the receiver and close a request that passes it, without making the run invalid unless the run header had matched (proposed; a change to `telemetry.py` with its tests). Or record it as a known limit?
-7. **S-Q7. Many connections.** Cap the receiver at 16 handlers at once and close the rest at once (proposed). Or record it as a known limit next to item 122?
-8. **S-Q8. What blocks the freeze.** High or Critical, Medium and reachable, and every defect a test shows, must be fixed or accepted by the owner in KNOWN-LIMITS before Nov 29 (proposed). Or only High and Critical?
-9. **S-Q9. File modes.** The canary folder 0700, the capture file 0600, the intent 0600 while it holds an entry, the unit files 0644, everything else the owner's umask (proposed). Or 0600 and 0700 for everything under `.umwayi/`?
-10. **S-Q10. The same-user boundary.** State it plainly and test nothing against it (proposed: every layer runs as the owner, and only a sandbox, deferred by L11-Q13, could change that). Or add tests that show which same-user attacks the chain and the anchor make visible?
-11. **S-Q11. Licences.** List every licence and point out the SDK's "SEE LICENSE IN README.md" for the owner to read, with no decision by umwayi (proposed). Or treat any package without an open licence as a finding that blocks?
-12. **S-Q12. Where the results go.** `docs/SECURITY-SCAN.md` in the repo, dated, without anything secret (proposed). Or only in the pull request body?
-13. **S-Q13. CI.** Leave the CI workflow as it is for Dec 3; the scan is run by hand and recorded (proposed: CI would need third party actions and the network). Or add a scan job now?
-14. **S-Q14. The owner's real runs.** Not part of S.1; 10.21 (a real run of each platform), 10.31, 11.6 and B.10 stay open as the owner's checks, and SECURITY-SCAN.md lists them as not done (proposed). Or make one of them a condition for ticking S.1?
-15. **S-Q15. Fixes found by S.1.** A defect S.1 finds in any layer is fixed in the S.1 pull request, test first, and named in it (proposed). Or a separate fix pull request per defect?
-16. **S-Q16. When.** Build right after approval, one pull request for S.1 and one for S.2 (proposed, about 25 hours). Or keep Nov 23 to Nov 26, or one pull request for both?
+**About 92 hours still to do (97 with UI.0), plus 1 of the owner's.** The window is Nov 11 to Nov 22, about 12 days; at 5 to 6 hours a day that is 60 to 72 hours. **It does not fit.** README, demo and Devpost stay Nov 23 to Nov 28, the freeze Nov 29 to Dec 2 and submit Dec 3.
 
-Answers (owner, Nov 10): S-Q1 to S-Q16 as proposed. S.1 and S.2 are built right after PR 34 merges, Nov 10 to Nov 12, in two pull requests (S.1 first); the web interface follows the scan, with its own spec first; README, demo and Devpost stay Nov 23 to Nov 28.
-
-## Layer 12: Web interface, the view (spec in the UI.0 pull request, tasks.md UI.0; built only after the owner approves it)
-
-Requirements 12.R1 to 12.R11. Tasks UI.0 to UI.5. Facts with links, and the owner's interface check: `adapters/NOTES-layer12.md`. It was a non goal until Nov 10; the owner moved it into scope before Dec 3. Layer 12 changes the core in one place only: the read only command `umwayi view snapshot` (`umwayi/view.py`). Everything else is in `ui/`, outside the package. If the owner approves, the order is UI.1 (the static world), UI.2 (the snapshot command), UI.3 (the page reads it), UI.4 (the owner checks panel), UI.5 (polish, docs, the owner's check).
-
-### The owner's reference, and what this design keeps and changes
-
-The owner supplied a screenshot and a design document of a 3D shepherd hillside (three.js, eleven stations around a lantern). `main.js` and `package.json` of the reference were not available; the design document describes them. The reference and its prompt are not in the repo; this section carries what the build needs. It is a starting point, not a copy.
-
-| in the reference | in layer 12 | why |
-| --- | --- | --- |
-| eleven stations around a lantern, a station is a small model that acts out one function | kept; each station is a module made of still poses and the short moves between them | the poses give reduced motion its still frames (UI-Q4) |
-| Budget drawn as a dashed ghost labelled "planned" | Budget is a built station | the budget governor was built in PR 33; showing it as planned would be wrong. B.10 (the owner's capture) is said in words |
-| sample motion plays on its own, a "Play motion" button | no autoplay, motion after a click or cursor move, "Replay" in the panel | UI-Q4 |
-| about 50,000 swaying grass blades, drifting mist, fireflies, aurora, constellation with packets, river light, circuit pulses | cut; sparse still grass, one fixed layer of fog, a still moon | calm and less congested (UI-Q4); every one of them moves or glows by itself |
-| arcs between all stations at once | arcs only for the selected station and the stations it depends on; hidden in calm mode | less congestion |
-| labels that look like game tags with a dot | eleven labels that are real buttons, quiet at rest | access (12.R6) |
-| the state comes from `snapshot.js` loaded with a script tag | the owner picks `snapshot.json` in the page | UI-Q3 says one JSON file; a `fetch` of a file is a network call and a script tag would execute the file (UI-Q7) |
-| pointer parallax, drag to orbit, slow sway | parallax and orbit only while the cursor or finger moves, easing to rest; no sway | UI-Q4 |
-| the Fraunces and Karla fonts, Georgia and system fallbacks | system fonts only (a serif stack for titles, a sans stack for text) | no font file is loaded, so there is nothing to fetch |
-| a no-WebGL page that says so and stops | the list view, with everything but the 3D scene | 12.R6.2 |
-
-### Layout
-
-```
-umwayi/view.py              umwayi view snapshot: gather the counts, render, write, one logbook entry
-umwayi/cli.py               the view subcommand
-tests/test_view.py          the snapshot, real child processes
-tests/test_ui_package.py    package.json, lockfile, .gitignore, build.json, the built page (standard library)
-ui/
-  package.json              three 0.187.0 and esbuild 0.28.2, exact versions
-  package-lock.json         committed; sha512 for every package
-  README.md                 the pinned versions, npm ci --ignore-scripts, the build command
-  .gitignore                node_modules/
-  build.mjs                 bundles src/ with esbuild into one page, writes dist/build.json
-  src/
-    index.html style.css main.js
-    engine/                 on demand renderer, tween with ease out, pose player, reduced motion, calm mode
-    world/                  sky, mountains, land, sparse grass, trees, lantern
-    stations/               one module per station (memory.js ... budget.js) and index.js, the one list of stations
-    data/                   snapshot.js (validate, map to scene numbers), sample.js, checks.js (the owner checks)
-    ui/                     labels, panel, list view, checks panel, top bar
-  test/                     node --test, no package
-  dist/index.html           the built page, committed
-  dist/build.json           SHA-256 of every src file, of package-lock.json and of index.html
-```
-
-`ui/` imports nothing from `umwayi/` and `umwayi/` nothing from `ui/`. The repo's `.gitignore` ignores `dist/` and `build/`; it gets an exception for `ui/dist/` so the page and `build.json` are committed, and a line for `.umwayi/snapshot.json` so the owner's counts are not.
-
-### The stations: poses, moves and counts
-
-A station is an ordered list of poses (a full arrangement of its parts) and moves (short ease out tweens between two poses). A click plays the moves of the selected station once and stops on the last pose. Reduced motion shows the poses only, one at a time. The count drives the numbers of the first pose (how many sheep, stones, beads).
-
-| station | what you see | poses (still frames) | count from the snapshot |
-| --- | --- | --- | --- |
-| Memory | a fenced pasture, and a walled plot with a lid | grazing; the lid closed over a few pebbles (private paths are left out) | none |
-| Rules | a gate with a lantern and a sheep at it | Yes (mint lantern, gate open, sheep through), No (red lantern, gate shut, sheep turned back), Ask me first (amber lantern, gate half open, sheep waits) | `rules`: lanterns of each colour by verdict |
-| Queue | sheep in single file to a hut, a signpost | line; front sheep at the door; door closed behind it | `queue.open`: sheep; `queue.answered`: stones in a cairn by the hut |
-| Archive | a tablet beside a stone slab, a cairn | tablet at the slab; tablet lifted; stone added with a seal, flag left at the slab | none |
-| Logbook | a stump with growth rings and a helix of linked beads | chain intact; one bead added; one bead altered and the rest dark, the seal sweeps up the chain | `logbook.chain_length`: beads, `entries` in the panel |
-| Automation | a sundial under an arc | morning; noon; evening, shadow turning | `schedule`: marks for entries, installed and enabled |
-| AI helpers | a sheepdog, a white line, a stool with a lantern | scroll at the dog; scroll at the line, dog stopped; scroll on the stool (you publish) | none |
-| Workflows | stepping stones to an arch with a lantern | first stone lit; middle stone lit; token left at the arch (approve adds a queue item) | none |
-| Adapters | three kinds of fence (rail, dry stone, wire) on one latch post | each fence pulses into the latch in turn | none |
-| Kill switch | a lane with a wattle hurdle between two posts | hurdle down, a sheep passes; hurdle up, posts glow red, the sheep halts | `kill_switch`: down for off, up for on or unknown |
-| Budget | a trough inside a scaffold | level low; level at today's mark; level over the line | `budget.days`: seven marks, the water at the last |
-
-Red, mint and amber mean something only at Rules, Kill switch and Logbook. Everywhere else the same colours are light and carry no signal. Counts the snapshot does not hold (Memory, Archive, Workflows, AI helpers, Adapters) are not shown; the sheep and stones there are decoration, and the panel says no count is shown. The reference's amber collar for decisions is dropped, because the snapshot has no decision count.
-
-The panel shows, for the selected station: the name, built or planned, two short lines, the command, and the counts with the snapshot's date. At Budget it also says that B.10, the capture of one real export, is not done. At Rules it says that unknown is drawn as Ask me first.
-
-### The scene and the motion engine
-
-- **Layers kept:** a dusk sky (gradient, glow behind the mountains, a still moon), mountains, one land mesh with soft contour lines, sparse still grass, about 30 trees with smooth shapes, a lantern. **Cut:** wind, mist planes, fireflies, aurora, constellation, river, circuit pulses (12.R5.7).
-- **Rendering style:** MSAA on, ACES filmic tone mapping, one soft directional light with soft shadows, a hemisphere light, distance fog, pixel ratio up to 2. Bloom only on the lantern and on lit station parts, capped. No pixelation, dither or scan lines.
-- **No file loaders.** Textures are made in code or inlined as data. None of three.js's file loaders is imported, so the bundle holds no `fetch`. (Checked on Nov 10 in a bundle of the renderer, the composer and the bloom pass: no `fetch(`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, `localStorage`, `sessionStorage`, `indexedDB` or `document.cookie`, and one `http://` string, the XML namespace `http://www.w3.org/1999/xhtml`.)
-- **On demand drawing.** There is no free running `requestAnimationFrame`. `invalidate()` asks for a frame; the loop draws while a tween is running and stops when none is. At rest the page draws nothing and the GPU is idle. A hover or a resize invalidates once.
-- **Ease out.** Every tween is `1 - (1 - t)^3`. A camera flight lasts 1.4 s (2.2 s in calm mode), a station move 0.8 s to 1.6 s, the parallax settles in 0.6 s after the cursor stops. The whole chain ends in at most 3 s after the last input (5 s in calm mode). Nothing repeats.
-- **Reduced motion.** `matchMedia("(prefers-reduced-motion: reduce)")` is read at start and on `change`. When on, `tween()` jumps to its end value, parallax is off, and the panel has Previous and Next for the poses. When it changes while a move runs, the move completes at once.
-- **Calm mode.** A toggle in the top bar. It scales the scene's light, bloom and line brightness down, lowers contrast, slows the tweens, and hides the arcs. Panel and label text keep at least the floor of UI-Q9. It starts off, and starts on when the system asks for less contrast (`prefers-contrast: less`), proposed in UI-Q9.
-- **Camera.** Overview at a low angle that shows the horizon. Select (click, tap, key, label): fly to a front view with the station in the left third and the panel on the right (a bottom sheet on a phone). Arrow keys move between stations, Esc returns. Drag orbits within limits.
-- **Frame rate.** The page holds 30 frames a second while moving on an integrated GPU at 1440 by 900; after sustained slow frames it lowers the pixel ratio to 1. Phone: a wider field of view and the camera pulled back.
-- **Palette** (the nightwatch tokens of the reference). base `#0E1310`, ink `#EEE8DB` (text only, never a large area), amber `#E0A965`, mint `#9CC39A`, red `#E07A6F`, glass `rgba(20,26,23,.62)` with a 14 to 22 px blur. Calm mode: the same hues at lower lightness; its values are fixed in UI.1 from the screenshots and checked against the 4.5 to 1 floor for text.
-
-### `umwayi view snapshot`
-
-- **Where each count comes from.** The snapshot reuses each layer's own reader and parses none of those files itself: `logbook.read_checked` for the tamper check and the entries, the chain state for `chain_length`, the queue reader of layer 3, the rules reader of layer 2, `budget.read_ledger` and `budget.day_totals` for each day, `kill.state`, and the same read as `schedule.check`. A reader that raises gives `null` for its part (an unexpected error in the command itself still exits 2).
-- **Order.** Arguments (64), the tamper check (1), gather, render, write the file, the logbook entry (undo the file and exit 2 if it fails). No run lock: the command starts no run. No rules question and no kill switch check: it is not an action of an AI helper, and the owner needs it while the switch is on. A helper that runs it through a tool still passes the layer 9 `tool_bash` check.
-- **The entry** (shape like the other layers): `Source: umwayi view snapshot`, `Added: Wrote a snapshot of counts to FILE (SHA-256 HEX)`, `Checked: the logbook chain was intact before the write`, `Not done: no text, path or secret of any file is in the snapshot; the page was not opened`. FILE is the name inside the root.
-- **Types.** The structural test accepts these leaf types only: whole numbers from 0 to 1000000000, booleans, `null`, the words `on`, `off`, `unknown`, and dates `YYYY-MM-DD`. A string of any other shape fails the test, which is stronger than searching for known sentinel words.
-- **Size.** About 600 bytes. The page rejects a file over 4 KB.
-- **The page's reader.** `FileReader.readAsText` on the picked file, `JSON.parse`, then the strict validator of 12.R9.1 (exact key set per `schema`, types, ranges). Only `schema: 1` is known. A file that fails shows one message and changes nothing.
-
-### The owner checks panel
-
-- The data is `ui/src/data/checks.js`: for each check an id, a title, the reason it is open, the NOTES file and heading it comes from, and its steps (text, an optional command, what to record). The six checks and their sources:
-
-  | id | check | source |
-  | --- | --- | --- |
-  | 10.21 | one real run of each platform | `adapters/NOTES-layer10.md`: A3 to A5 for Claude Code, C4 for Kiro |
-  | 10.31 | the first real Claude Code ACP chat, the real Kiro login | `adapters/NOTES-layer10.md`: 0, A and C of "The owner's first real run (10.31)" |
-  | 11.6 | the real systemd check | `adapters/NOTES-layer11.md`: "The owner's real check (11.6)" |
-  | B.10 | the capture of one real telemetry export | `adapters/NOTES-layer10.md`: "Budget governor: Claude Code telemetry (B.10, the owner's capture)" and tasks.md B.10 |
-  | 10.37 | the real `auth status --json` field names | `adapters/NOTES-layer10.md`: B1 to B3 |
-  | UI | the interface check | `adapters/NOTES-layer12.md`: "The owner's interface check (UI.5)" |
-
-  tasks.md folds 10.37 into the 10.31 run (they share section B of the NOTES). The panel lists 10.37 as its own check so its result is recorded once, and 10.31 points to it for section B.
-- A test (Python, standard library) reads `ui/src/data/checks.js` as text, takes every command of a step and finds it word for word in the NOTES file named for that check. A command changed in NOTES and not in the page, or the reverse, fails the suite. Prose is not compared.
-- **State.** A plain object in memory: `{checkId: {stepIndex: {ticked, result}}}`. Nothing is written to any storage (12.R2.2, and the static test of 12.R10.3).
-- **Export.** One function builds the text from the state: for each check its id and name, then each step as `[x]` or `[ ]`, its text and the typed result, and the last line "These are your notes. umwayi did not run or verify anything." A check with every step ticked is listed as "ticked by you", otherwise "not done". The text goes into a read only `<textarea>`. Copy uses `navigator.clipboard` when it exists and otherwise selects the text. Download makes a Blob and clicks an `<a download>` after the owner's click; UI.4 checks that it works under the page's Content-Security-Policy, and if it does not, Copy is the way.
-- **The value warning.** A result is marked when it contains `@`, `://`, a run of 24 or more letters and digits, or a long hex string. It is a hint, never a block.
-
-### A liberal society view, for later (nothing of layer 13 is built)
-
-Layer 13 has no requirements, design or tasks in this repo. What follows is from the three things the owner named (review dates, reopened decisions, petitions) and must be checked again against the layer 13 spec when it exists (UI-Q11).
-
-- **Stations, when layer 13 exists.** They would stand as a second small group on the lower slope, by the path from the Queue station, because they are about decisions the queue holds:
-  - *Review*: a boundary stone with date notches; how many reviews are due, how many are late, and the days until the next. Light only, amber for due, never red.
-  - *Reopened*: a gate that was shut and stands open again beside its shut twin; how many decisions were reopened.
-  - *Petitions*: a notice board at the edge of the pasture with letters pinned; how many are open and how many answered.
-- **Snapshot schema 2** would add one section per station, counts and day numbers only: `review: {"due": N, "late": N, "next_in_days": N or null}`, `reopened: {"count": N}`, `petitions: {"open": N, "answered": N}`. Never a title, a name, the text of a petition or a reason. A schema 1 page refuses schema 2, and a schema 2 page accepts schema 1 and shows no layer 13 station.
-- **Not drawn until built.** Before layer 13 is built there is no ghost, no label and no list entry for them, so nothing planned is shown as built. A station has the state `planned` in the code (the dashed style and "planned" in the label), used only if the owner later asks for a planned station to be drawn.
-- **Built now for this, and nothing more:** the station list in one file, the ring layout for any number of stations (tested with 14 fake ones), the schema number in the snapshot and a validator keyed by schema, and the station state field.
-- **The same rules hold:** calm, no autoplay, a click plays the moves, reduced motion shows poses, counts only.
-- **Risks to settle with the owner then:** a petition is something a person wrote, so even the number of open petitions can say something; whether a due review should ever turn red is a question for the layer 13 spec.
-
-### Tests (12.R10)
-
-- **Snapshot:** `tests/test_view.py`, listed in 12.R10.1. All of it real child processes, with the planted sentinel words and the structural leaf test.
-- **Package and page:** `tests/test_ui_package.py`, 12.R10.2 and 12.R10.3. The allowed `http://` strings are a short named list (the XML namespace addresses three.js carries; today `http://www.w3.org/1999/xhtml`); anything else fails. This is a static check, so UI.5's browser pass also blocks every request and counts the attempts, which must be zero.
-- **`build.json`:** the test recomputes the SHA-256 of every file under `ui/src/`, of `ui/package-lock.json` and of `ui/dist/index.html` and compares. A changed source with no rebuild, or an edited page, fails, with no npm in the test.
-- **Node:** `ui/test/*.test.mjs` with `node --test`; run by the owner and recorded in the pull request, not by the Python suite.
-- **Browser:** by hand, in a headless browser outside the repo (12.R10.5).
-- **CI:** the CI workflow runs only the Python suite today. A Node job is open (UI-Q10).
-- **Planted faults and mutation checks:** the list in 12.R10.6, counts in the pull requests.
-
-### KNOWN-LIMITS (written with UI.5, numbered from 138)
-
-- The page cannot run a command, answer the queue or change anything. That is the design, not a defect.
-- The snapshot is only as fresh as the last `umwayi view snapshot`. The page shows its date and does not poll.
-- A broken logbook gives no snapshot (exit 1), so the page cannot draw a broken chain (UI-Q6).
-- A snapshot file can be forged or edited by anyone who can write the file. The page validates its shape, not its truth. The logbook chain and `umwayi logbook verify` are the check.
-- The page is checked in one or two browsers by hand. The Python suite cannot run it.
-- The built page is about 0.5 to 1 MB and is a generated file in the repo, kept honest by `build.json` and not by a rebuild in CI (until UI-Q10).
-- The owner's notes in the checks panel are lost when the page closes.
-- The npm tree (three, esbuild and its platform binary) is outside the S.2 scan until the scan is run again on `ui/package-lock.json` (UI.5).
-- A browser that ignores `prefers-reduced-motion` shows the click motion.
-
-### Hours and schedule effect
-
-| task | hours |
-| --- | --- |
-| UI.0 spec | 5 |
-| UI.1 the static world | 16 |
-| UI.2 `umwayi view snapshot` | 9 |
-| UI.3 the page reads the snapshot | 6 |
-| UI.4 the owner checks panel | 6 |
-| UI.5 polish, docs, the scan of `ui/`, the owner's interface check | 8 (and 1 of the owner's) |
-
-About 50 hours, plus 1 hour of the owner's. The plan is Nov 13 to Nov 22: UI.1 Nov 13 to Nov 14, UI.2 Nov 15 to Nov 16, UI.3 Nov 17, UI.4 Nov 18 to Nov 19, UI.5 Nov 20 to Nov 22, in separate pull requests, UI.1 first, with its screenshots shown to the owner at the end of UI.1 (UI.2 is Python only and does not wait for them). Nothing else on the schedule moves: README, demo and Devpost Nov 23 to Nov 28, the freeze Nov 29 to Dec 2, submit Dec 3. If the spec is approved after Nov 13 the dates move by the days lost, and anything not done by Nov 22 is cut by the owner's choice, never by moving the freeze. UI.2 does not depend on UI.1, so the two can run in either order.
+What I propose to cut, in this order, until it fits (each is the owner's decision; nothing is cut without it):
+1. **A second realism pass** (about 6 h of UI.1): soft cloud shapes, the snow detail on the mountain, rock strata detail, a third kind of plant. The first pass has the relief, light, haze, river, acacia, cedar, grass and rock.
+2. **Station detail** (about 6 h): the Adapters bridge keeps the ford and one crossing, not three; the Workflows pools are three, not four; the Automation wheel has no sluice.
+3. **The low detail mode's last step** (2 h): two steps (pixel ratio, then bloom and multisampling off) instead of three.
+4. **UI.5 extras** (3 h): the contrast check of the glass panel over every part of the sky, and the second device pass.
+That is about 17 hours and brings the total to about 75, which is still more than 72. The decision after that is the owner's: **UI.4, the owner checks panel, moves to after Dec 3** (6 h), or **UI.3's drift (the position wiring) ships with the numbers fixed at the defaults** (the function is built in UI.1 anyway). I would cut UI.4 last, because UI-Q5 asked for it.
 
 ### Risks (layer 12)
 
 | risk | what happens | what we do |
 | --- | --- | --- |
 | a count leaks text | a title or path appears in the page or the file | the structural leaf test, sentinel words, and a view module that reads through the layers' readers only |
-| the page makes a request | the no network rule is broken | the static test, the zero attempt browser pass, no `fetch` in the source, no file loader bundled, and a Content-Security-Policy tag with `default-src 'none'` |
+| the page makes a request | the no network rule is broken | the static test, the zero attempt browser pass, no `fetch` in the source, no file loader bundled, and a Content-Security-Policy tag with `default-src 'none'`; links are anchors and nothing is prefetched |
+| the real life look is heavy | a weak machine stutters or fails | the detail mode (start low from what it can tell, step down on slow frames), draw only on demand, a pixel ratio cap, the list view |
+| the real life look is bright or busy | it stops being calm | luminance and white area limits kept, nothing moves by itself, trails only for the station in focus, no labels at rest |
+| realism from code is not a photograph | the owner expects more than it can give | said plainly in the PR with screenshots; the first pass is judged by the owner before the second |
+| the page is large | over 2 MB | a size test; all realism is generated, nothing embedded |
+| stations overlap or hide when they move | a feature is lost | the position function pushes apart, tested for thousands of random needs and the extremes |
+| a station on the river cannot move like the others | it jumps or leaves the bank | river stations slide along the river; tested to stay on the bank |
+| names only on hover | a visitor cannot find the features | a short hint, real buttons for the keyboard and screen readers, the list view, and the panel on a click |
+| a Copy button reads or writes without a click | a surprise | it writes only in its click handler; a test fails a clipboard call anywhere else |
+| a placeholder link looks real | a visitor clicks nothing | placeholders are text marked "link to come" and are not anchors |
 | the built page differs from its source | the reviewed code is not the shipped code | `build.json` checked in the suite; the owner rebuilds with a pinned lockfile |
 | an npm package is hijacked or runs a script | the owner's machine runs foreign code | exact versions, a lockfile with sha512, `npm ci --ignore-scripts`, esbuild's binary from its platform package, the S.2 scan repeated on `ui/` |
-| the page looks busy or flashes | the owner is uncomfortable | no loop at rest, one ease out per input, the luminance and overlap tests, the owner's screenshots at the end of UI.1 |
 | a planned thing looks built | the owner is misled | a station has a state; Budget is built and B.10 is said in words; nothing of layer 13 is drawn |
 | a checks panel result reads as proof | the owner trusts the page for a test it cannot run | "not done" until every step is ticked, "ticked by you" and never "passed", and the closing line of the export |
-| WebGL missing or slow | a blank page | the list view and the checks panel work without it; the pixel ratio drops |
-| the snapshot is stale | the page shows yesterday | the date next to the scene; KNOWN-LIMITS |
+| WebGL missing or slow | a blank page | the list view and the home content work without it; the detail mode steps down |
+| the snapshot is stale | the page shows yesterday | the date next to the scene and the status strip; KNOWN-LIMITS |
 
 ### Open questions for the owner (layer 12)
 
-UI-Q1 to UI-Q5 are answered. UI-Q6 to UI-Q11 are open, each with the answer proposed.
+UI-Q1 to UI-Q16 are answered (UI-Q6 to UI-Q11 accepted as proposed on Nov 10; UI-Q12 to UI-Q16 on Nov 11).
 
 1. **UI-Q1. Where the code lives.** `ui/` at the repo root, outside the `umwayi` package; the core stays standard library only (answered).
 2. **UI-Q2. The toolchain.** three.js 0.187.0 and esbuild 0.28.2 pinned with a lockfile; the owner runs `npm ci --ignore-scripts`; umwayi never runs npm; the built page is committed and makes no network request (answered).
@@ -2449,7 +2271,16 @@ UI-Q1 to UI-Q5 are answered. UI-Q6 to UI-Q11 are open, each with the answer prop
 10. **UI-Q10. How the page is checked.** The Python suite checks the package, the lockfile and the built page; `node --test` and the headless browser pass are run by hand and recorded (proposed, like the scan of S.2). Or add a CI job that runs `npm ci --ignore-scripts`, builds, and fails if `ui/dist` differs, which needs `actions/setup-node` and the registry.
 11. **UI-Q11. The liberal society view.** The design above is only a sketch (proposed: nothing is built, only the extension points of 12.R8.3, and the sketch is checked again when the layer 13 spec exists). Or the owner describes layer 13 first and this section is rewritten before UI.1.
 
-Answers (owner, Nov 10): UI-Q1 to UI-Q5 as recorded above. UI-Q6 to UI-Q11 are open.
+12. **UI-Q12. The look** (answered Nov 11). Imagery that resembles real life, more detail, not less; photoreal leaning; one self contained page under about 2 MB; no network request; no downloaded images; realism from generated terrain, lighting and textures; an automatic lower detail mode for weak machines.
+13. **UI-Q13. The place and the features** (answered Nov 11). The Kenyan highlands at dusk: rolling hills with real height, a river valley, acacia and cedar, grass and rock, Mount Kenya on the horizon, low warm light. A hanging lantern on a shepherd's staff at the centre, with a plain silhouette shepherd and a dog; the brightest point. No podiums, no paths, no label boards: stations are natural features named only on hover or focus (and in the list view). Memory a spring pool; Rules a drystone wall with gates; Queue a sheepfold; Archive a cave in a rock face; Logbook a standing stone with growth rings; Automation a river with a water wheel; AI helpers a sheepdog and herd; Workflows a stream through connected pools; Adapters a ford or bridge over the river; Kill switch a lone gate and latch with a red lamp; Budget a rain water tank with a level.
+14. **UI-Q14. The layout and the connections** (answered Nov 11). Not a circle, no even angles: the eleven scattered on different ground (hillsides, the valley, the river bank), some close to the lantern and some far, by how closely each works with the shepherd; default distances fixed in the design with a seeded layout; no overlap; each reachable by keyboard. Streams and trails of light link stations that work together; no drawn paths.
+15. **UI-Q15. Distance follows need** (answered Nov 11). With a snapshot (UI.3) a station moves closer to the lantern when it needs the owner now (open queue items, an Ask me first, a budget warning) and drifts out when quiet; slow, eased, ends within 3 seconds, off under reduced motion; the position function is designed now so UI.3 only feeds it numbers.
+16. **UI-Q16. The home page** (answered Nov 11). The scene is the hero of the umwayi-os home page. One page, two modes: visitors see the sample world plus home content; loading a snapshot makes it the owner's live view. Home content: title and one line promise; a status strip (kill switch, budget used, queue open, logbook chain, shown as sample until a snapshot is loaded); install and first commands with copy buttons (clipboard write only on a click, no network); links (repo, docs, Devpost, demo video; placeholders marked until the owner supplies the URLs). Links are plain anchors the owner clicks; the page itself still makes no request.
+
+All the rules stay: calm by default, nothing flashes, motion only after a click or cursor move, reduced motion with still poses, Calm mode, 4.5 to 1 text contrast, no large white areas, the WebGL fallback list view.
+
+Answers (owner): UI-Q1 to UI-Q5 on Nov 10 as recorded above; UI-Q6 to UI-Q11 accepted as proposed on Nov 10; UI-Q12 to UI-Q16 on Nov 11. PR 39 stays open and is reworked on its branch; it is not merged.
+
 
 ## Testing
 

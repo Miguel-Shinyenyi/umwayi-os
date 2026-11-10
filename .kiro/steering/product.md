@@ -35,7 +35,7 @@ Do not use em dashes in docs or user text. Use commas, colons or periods.
 7. Every helper action passes `umwayi check` first.
 8. A crash blocks. Every unexpected error exits 2, never 0, 1 or 3. An adapter (layer 9) catches every error and blocks, because on Claude Code exit 1 blocks nothing.
 9. The core `umwayi` package stays standard library only. Only adapter packages (layer 9, and layer 10 adapter packages) may use third party packages, pinned and listed in their own README. The one other place is the `ui/` folder of layer 12, outside the package, under rule 10.
-10. The web interface (layer 12) only looks. It never writes to the repo, never runs a command and never calls a network. It gets state only from a snapshot of counts: no text from any file, no paths, no secrets. Its third party packages (three.js and esbuild, pinned, with a lockfile) are build tools in `ui/`, installed by the owner with `npm ci --ignore-scripts`; umwayi never runs npm. The built page is committed and makes no network request.
+10. The web interface (layer 12) only looks. It never writes to the repo, never runs a command and never calls a network. It gets state only from a snapshot of counts: no text from any file, no paths, no secrets. Its third party packages (three.js and esbuild, pinned, with a lockfile) are build tools in `ui/`, installed by the owner with `npm ci --ignore-scripts`; umwayi never runs npm. The built page is committed, stays under about 2 MB and makes no network request. Its home links are plain anchors the owner clicks.
 
 ## Exit codes (every command)
 
@@ -71,7 +71,7 @@ Not started, each only after the owner approves its requirements, design and tas
 
 11. Linux-like features: approved (PR 30), built now (PR 31). Scope for Dec 3: scheduled runs through systemd user timers that call the existing front doors; file watching and tmux cut, SQLite and a sandbox deferred to after Dec 3. No new scheduler, file system or shell.
 - The logbook hash chain (approved) and the budget governor (approved).
-12. Web interface, the view (layer 12): in scope before Dec 3 (it was a non goal until Nov 10). A 3D shepherd hillside with eleven stations that shows counts from a read only snapshot (`umwayi view snapshot`), and an owner checks panel. Calm by default. Spec approved (UI.0, PR 38). Phases UI.1 to UI.5 are built one pull request each; UI.1, the static world, is built. Nothing of layer 13 is built or planned here; the view is designed so that layer 13 can add stations later.
+12. Web interface, the view (layer 12): in scope before Dec 3 (it was a non goal until Nov 10). A realistic 3D scene of the Kenyan highlands at dusk (decided by the owner on Nov 11), generated in code with no downloaded image, with eleven natural features as the stations and a lantern on a shepherd's staff at the centre. It is also the hero of the umwayi-os home page. It shows counts from a read only snapshot (`umwayi view snapshot`), moves a station nearer when it needs the owner, and has an owner checks panel. Calm by default. Spec approved (UI.0, PR 38) and changed on Nov 11 (UI-Q12 to UI-Q16). Phases UI.1 to UI.5 are built one pull request each; the first UI.1 look (PR 39) was not accepted and is being reworked.
 
 ## Schedule to Dec 3
 
@@ -81,7 +81,7 @@ The schedule in `.kiro/specs/umwayi-os/tasks.md` ("Schedule to Dec 3") is the on
 - Nov 16: logbook hash chain
 - Nov 17 to Nov 22: budget governor
 - Nov 23 to Nov 26: whole-system test again and a security scan (moved up to Nov 10 to Nov 12)
-- Nov 13 to Nov 22: web interface, layer 12, phases UI.1 to UI.5, after the owner approves the UI.0 spec
+- Nov 11 to Nov 22: web interface, layer 12, phases UI.1 to UI.5 (re-estimated on Nov 11 at about 92 hours; the owner decides what to cut)
 - Nov 23 to Nov 28: README, demo, Devpost text
 - Nov 29 to Dec 2: freeze, only fixes for defects that tests find
 - Dec 3: submit

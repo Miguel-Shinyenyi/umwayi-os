@@ -724,7 +724,7 @@ Each from the end state of the day, in its own copy:
 
 ## Layer 12: Web interface (the view)
 
-Status: in scope before Dec 3 (the owner, Nov 10; it was a non goal until then). Requirements 12.R1 to 12.R11, design.md "Layer 12" and tasks.md UI.0 to UI.5 are written in the UI.0 pull request and wait for the owner's approval; nothing is built. The owner's answers UI-Q1 to UI-Q5 are recorded (design.md, "Open questions for the owner (layer 12)"); UI-Q6 to UI-Q11 are open, each with a proposed answer. The owner's design reference (a 3D shepherd hillside in three.js with eleven stations) is a starting point, not a copy. Facts with links, and the owner's interface check: `adapters/NOTES-layer12.md`.
+Status: in scope before Dec 3 (the owner, Nov 10; it was a non goal until then). **Changed by the owner on Nov 11 (UI-Q12 to UI-Q16):** the scene is the Kenyan highlands at dusk, drawn to look like real life; the eleven stations are natural features scattered by how closely each works with the shepherd; the scene is also the hero of the umwayi-os home page (12.R12 to 12.R15). PR 39 is reworked on that brief. Requirements 12.R1 to 12.R11, design.md "Layer 12" and tasks.md UI.0 to UI.5 are written in the UI.0 pull request and wait for the owner's approval; nothing is built. The owner's answers UI-Q1 to UI-Q5 are recorded (design.md, "Open questions for the owner (layer 12)"); UI-Q6 to UI-Q11 are open, each with a proposed answer. The owner's first design reference (a 3D shepherd hillside in three.js with eleven stations) was a starting point; the Nov 11 brief replaces its look. Facts with links, and the owner's interface check: `adapters/NOTES-layer12.md`.
 
 User story: as the owner, I want to see the state of umwayi-os as a calm place I can look at, with real counts from my own root, and one panel that lists the real tests only I can run, so that I can tell at a glance what is open, what is stopped and what I still have to check, without the page being able to change anything.
 
@@ -737,24 +737,43 @@ The view only looks. It reads one file of counts, and it keeps notes the owner t
 3. The owner installs with `npm ci --ignore-scripts` and builds with the command in `ui/README.md`. **umwayi never runs npm, node or a browser.** No test of the normal suite runs npm or needs it.
 4. The build writes one self contained page, `ui/dist/index.html` (script, styles and every texture inline), and `ui/dist/build.json` (the SHA-256 of every file in `ui/src/`, of `ui/package-lock.json` and of `index.html`). **The built page is committed.** The repo's `.gitignore` ignores `dist/` and `build/`, so it gets an exception for `ui/dist/`.
 5. The page needs no server: it works when opened from disk (`file://`).
+6. **The page stays under about 2 MB** (script, styles and everything else inline). No photograph, texture file or model is embedded or downloaded: all realism is generated in code (12.R12).
 
 ### 12.R2 The page makes no request, writes nothing and runs nothing (UI-Q2, UI-Q5)
 
 1. The built page makes **no network request** of any kind: no CDN, no web font, no analytics, no `fetch`, `XMLHttpRequest`, WebSocket, beacon, image, stylesheet or script loaded from anywhere but the page itself. All fonts are system fonts.
 2. The page writes nothing to the repo and nothing to any storage: no `localStorage`, `sessionStorage`, cookie or IndexedDB. Typed notes live in the page's memory only and are lost when the page closes (12.R7). The page cannot run a command or start a program.
 3. The one way data gets in is a file the owner picks (12.R4.9). The page validates it as untrusted input (12.R9).
+   The home page (12.R15) has plain links. A link is an anchor the owner clicks; the page itself makes no request, and nothing is prefetched. The only web addresses in the page are the XML namespace name three.js carries and the exact addresses of those links and of the install command (the repo and its docs folder); a test lists them.
 4. Nothing from a snapshot or from the owner's notes is put into the page as HTML. Text is set as text, never as markup.
 5. **A second lock on the same door.** The page carries a Content-Security-Policy `<meta>` tag that denies everything (`default-src 'none'`) except its own inline script and style, allowed by hash, and images from `data:`. Even if a request were written by mistake, the browser would refuse it. The page loads no texture, image or model file: textures are made in code or inlined as data, and none of three.js's file loaders (`FileLoader`, `ImageLoader`, `TextureLoader`) is bundled.
 
-### 12.R3 The eleven stations
+### 12.R3 The eleven stations: natural features, not buildings
 
-1. The hillside has eleven stations around a central lantern, which is umwayi. In this order on the ring (UI-Q8): Memory, Rules, Queue, Archive, Logbook, Automation, AI helpers, Workflows, Adapters, Kill switch, Budget. Each station is a small model that acts out one function of umwayi-os and is one module of `ui/src/stations/`.
-2. Words are the product's words: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first, kill switch. Short sentences, no em dashes.
-3. Each station has a name, a state (built or planned), two short lines, the command that belongs to it and, when a snapshot is loaded, the counts of 12.R4 that belong to it. Stations and layers: Memory 1, Rules 2, Queue 3, Archive 4, Logbook 5, Automation 6 and 11 (jobs and scheduled runs), AI helpers 7, Workflows 8, Adapters 9 and 10 (the hooks and the front door), Kill switch 8, Budget the budget governor.
-4. **A planned part is never shown as built.** The reference showed Budget as a dashed ghost labelled "planned". The budget governor is built (PR 33), so Budget is a built station now. What is not done is the owner's capture B.10, which the station panel says in words. The ghost style stays in the code for the state `planned`, which no station has today (12.R8).
-5. Red, mint and amber carry meaning only at Rules (the three answers), Kill switch (red when on) and Logbook (a broken chain, 12.R4.4). Everywhere else they are light, not signals.
-6. Without a loaded snapshot the page shows a sample scene and says "sample" in a small label in a corner. Sample and real counts are never mixed in one scene.
-7. Counts drive the scene as follows. Queue: sheep in the line for open rows, stones in a cairn for answered. Rules: lanterns by verdict. Logbook: beads for chain length, with the entry count in the panel. Kill switch: hurdle up for on and for unknown, down for off. Automation: marks for entries, installed and enabled. Budget: the water level for the last seven days. Memory, Archive, Workflows, AI helpers and Adapters show no count today, because the snapshot has none for them (changing that is a change to 12.R4 and needs the owner).
+1. The scene has a lantern at the centre (12.R13.3) and eleven stations around it. A station is a **natural feature of the land**, not a podium, and not a building with a sign or a board. **There are no podiums, no paths and no label boards.** Each station acts out one function of umwayi-os as a set of still poses and the short moves between them (12.R5.8), and is one module of `ui/src/stations/`.
+2. The mapping (UI-Q13):
+
+   | station | feature |
+   | --- | --- |
+   | Memory | a spring pool |
+   | Rules | a drystone wall with gates |
+   | Queue | a sheepfold |
+   | Archive | a cave in a rock face |
+   | Logbook | a standing stone with growth rings |
+   | Automation | a river with a water wheel |
+   | AI helpers | a sheepdog and a herd |
+   | Workflows | a stream through connected pools |
+   | Adapters | a ford or a bridge over the river |
+   | Kill switch | a lone gate and latch with a red lamp |
+   | Budget | a rain water tank with a level |
+
+3. **Names appear only on hover or keyboard focus** (and in the list view and the panel). At rest nothing in the picture is written. Each feature still has a real `<button>` over it, so a screen reader and the keyboard reach all eleven (12.R6.1). A hover or focus brings the name up with a short ease and lifts a little warm light on the feature; both ease away.
+4. Words are the product's words: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first, kill switch. Short sentences, no em dashes.
+5. Each station has a name, a state (built or planned), two short lines, the command that belongs to it and, when a snapshot is loaded, the counts of 12.R4 that belong to it. Stations and layers: Memory 1, Rules 2, Queue 3, Archive 4, Logbook 5, Automation 6 and 11 (jobs and scheduled runs), AI helpers 7, Workflows 8, Adapters 9 and 10 (the hooks and the front door), Kill switch 8, Budget the budget governor.
+6. **A planned part is never shown as built.** Budget is built (PR 33); the panel says that B.10, the owner's capture, is not done. The `planned` state stays in the code (a dim, unlit version of the feature) and no station has it today (12.R8).
+7. Red, mint and amber carry meaning only at Rules (the three answers), Kill switch (a red lamp when on) and Logbook (a broken chain, 12.R4.4). Everywhere else warm light is light, not a signal. The lantern's warm light is the brightest point of the picture.
+8. Without a loaded snapshot the page shows a sample world and says "sample" in a small label. Sample and real counts are never mixed in one scene.
+9. Counts drive the scene as follows. Queue: sheep waiting at the fold for open rows, stones in a cairn for answered. Rules: small lamps on the wall by verdict. Logbook: beads round the stone for chain length. Kill switch: the gate shut and the lamp lit for on and for unknown. Automation: lit spokes of the wheel for the schedules. Budget: the water level for today against the last seven days. Memory, Archive, Workflows, AI helpers and Adapters show no count today, because the snapshot has none for them.
 
 ### 12.R4 `umwayi view snapshot` (UI-Q3)
 
@@ -803,13 +822,13 @@ umwayi view snapshot [--out PATH] [--date D]    read the counts, write one JSON 
 4. **`prefers-reduced-motion: reduce` switches off all movement and shows still frames.** No camera flight (the camera jumps), no parallax and no tween. Each station's action is a short list of still poses (for Rules: Yes, No, Ask me first), and the panel steps through them with Previous and Next buttons. The setting is read at start and when it changes while the page is open.
 5. **A visible calm mode toggle** (a real button, labelled "Calm mode", reachable by keyboard, in the top bar). Calm mode lowers contrast and brightness of the scene, glow and lines, slows the easing, and hides the sky arcs. Its start state and a floor for text contrast are open (UI-Q9).
 6. **Dark, low brightness colours and no large pure white area.** The palette is the nightwatch palette of design.md. In the overview, at 1440 by 900 and at 390 by 844, in normal and in calm mode: the mean luminance of the picture is at most 0.20; no connected area of more than 0.5 percent of the picture has all three channels at 240 or more; the page background is never white. Bloom is capped so a lantern does not wash out. These numbers are proposed; UI.1 may tighten them after the owner sees the screenshots, never loosen them.
-7. **Clean and less congested.** Closer to a recent game than to an old video game: smooth shapes (no pixelation, no retro dither, no scan lines), anti-aliasing on, soft light and fog, and few things on screen. The overview shows at most the eleven labels and one top bar; the 11 labels do not overlap each other or the bar at 1440 by 900 or at 390 by 844; sky arcs are drawn only for the selected station and the stations it depends on; there is no constellation, aurora, firefly, river light or circuit pulse. Anything the reference had that is not in this list stays cut unless the owner asks for it back.
+7. **Clean and less congested.** Smooth, soft lit, anti-aliased, no pixelation, dither or scan lines, and few things on screen. At rest the overview shows **no label at all**, only the picture and the top bar; a name shows for the hovered or focused feature only (12.R3.3). Trails of light (12.R13.5) are drawn only for the selected, hovered or focused station and the stations it works with. There is no constellation, aurora, firefly or circuit pulse, and nothing in the scene moves by itself: no wind, no swaying grass, no flowing water, no drifting cloud.
 8. The same station logic serves all of this: a station is a set of poses and the short moves between them (12.R3.1), so a click plays the moves and reduced motion shows the poses.
 
 ### 12.R6 Access
 
-1. Every station label is a real `<button>`. Arrow keys move between stations, Enter or Space selects, Esc returns to the overview, and the focus is always visible. The panel is a landmark with a heading; opening it moves focus into it and closing it returns focus to the label.
-2. **A list view** of the eleven stations (a plain `<ul>` with the same words, the same counts and the same state) is reachable from a link in the top bar, and is shown automatically when WebGL is missing or fails (UI-Q8). The page works completely, with the checks panel, without WebGL.
+1. Every station has a real `<button>` placed over its feature, with the station's name. Tab reaches all eleven in the order of the list view; arrow keys move between stations, Enter or Space selects, Esc returns to the overview, and the focus is always visible (the name appears on focus). The panel is a landmark with a heading; opening it moves focus into it and closing it returns focus to the button.
+2. **A list view** of the eleven stations (a plain `<ul>` with the same words, the same counts and the same state) is reachable from a link in the top bar, and is shown automatically when WebGL is missing or fails (UI-Q8). The page works completely, with the home content and the checks panel, without WebGL.
 3. Text contrast is at least 4.5 to 1 against what is behind it in normal mode (the glass panel and labels included) and not below the floor of UI-Q9 in calm mode.
 4. The phone layout at 390 pixels: the panel is a bottom sheet, the labels do not overlap, and the page holds at least 30 frames a second while moving on an integrated GPU at 1440 by 900 (it lowers the pixel ratio when it does not).
 5. The page has a `lang`, a title, and a text alternative that says in words what the scene shows and where the list view is.
@@ -839,6 +858,41 @@ umwayi view snapshot [--out PATH] [--date D]    read the counts, write one JSON 
 3. Any error in the page's own code shows a plain message and the list view. It never shows a blank page, and never invents a count.
 4. `umwayi view snapshot` follows 12.R4.8: any unexpected error exits 2 and leaves no half written file; the error text never holds file contents.
 
+### 12.R12 The look: real life, generated, light enough (UI-Q12)
+
+1. **Imagery resembles real life, with more detail, not less**: leaning photoreal. Everything is generated in code: terrain from noise, light from physical lights and a sky made for the scene, surfaces from procedural noise (bump, colour variation, strata), plants from instanced shapes. **No photograph, no texture file, no model file, no downloaded image, no font.** The page stays under about 2 MB (12.R1.6).
+2. The picture has relief (rolling hills with real height, a river valley), a sky with soft cloud and a low warm glow, long shadows, aerial haze that softens the distance, water that reflects the sky, and surfaces with grain: grass, rock, soil, wood, wool, iron. Filmic tone mapping and a capped bloom (the lantern only) finish the picture.
+3. **An automatic lower detail mode for weak machines.** The page starts in high or low detail from what it can tell (software rendering, few processor cores, little memory) and steps down at run time after sustained slow frames: first a lower pixel ratio, then no bloom and no multisampling, then no shadows and fewer plants. The low mode keeps the same scene, the same stations and the same rules of 12.R5. The address `#detail=high` or `#detail=low` forces a mode (for tests and for the owner).
+4. Calm mode, reduced motion, text contrast of 4.5 to 1, no large white area and the dark, low brightness picture of 12.R5 all hold in the real life look. Realism never means bright: dusk, low light, the lantern as the one bright point.
+
+### 12.R13 The place and the layout (UI-Q13, UI-Q14)
+
+1. **The place is the Kenyan highlands at dusk**: rolling hills with real height, a river valley, umbrella thorn acacia and African pencil cedar, grass and rock, **Mount Kenya on the horizon** (two jagged peaks, Batian and Nelion, with snow holding the last light), low warm light.
+2. The land is one function of position, `heightAt(x, z)`, shared by the ground, the plants and the stations, so everything stands on the same ground.
+3. **The centre** is a **hanging lantern on a shepherd's staff**, held by a plain silhouette shepherd figure with a dog beside. It is the brightest point of the picture and the origin of the layout.
+4. **Not a circle, no even angles.** The eleven stations are scattered on different ground (hillsides, the valley floor, the river bank), some close to the lantern and some far, **by how closely each works with the shepherd**. The default distances and bearings are fixed in the design (a seeded layout) and in `ui/src/world/layout.js`. No two stations overlap at any distance they can reach (12.R14), and all eleven are reachable by keyboard.
+5. **Connections**: streams and trails of light link the stations that work together. There are no drawn paths. A trail is a row of small soft lights that follows the ground between two stations. Trails are shown for the selected, hovered or focused station only, ease in and out, and are hidden in Calm mode.
+6. The camera shows the whole scene in the overview, low enough to show the horizon with Mount Kenya. Selecting a station flies to a view from the lantern side, with the station in the left third (the top third on a phone).
+
+### 12.R14 Distance follows need (UI-Q15)
+
+1. **When a snapshot is loaded (UI.3), a station moves closer to the lantern when it needs the owner now and drifts out when it is quiet.** Needs are numbers from 0 (quiet) to 1 (needs the owner now); examples: open queue items, an Ask me first, a budget warning, the kill switch on.
+2. **The position function is built in UI.1 and takes only numbers**: `stationPositions(needs)` gives every station's ground position. UI.3 only feeds it the numbers made from the snapshot. A station without a need is at its default distance.
+3. The distance is `d0 * (1.2 - 0.5 * need)`, so a need of 0.4 gives the default `d0`, a need of 1 gives 0.7 of it and a need of 0 gives 1.2. A station on the river moves along the river towards the point nearest the lantern instead. No two stations overlap: the function pushes them apart, the same way every time, and never closer to the lantern than the shepherd's own space.
+4. The move is slow and eased: the stations ease from where they are to where they should be, ending within **3 seconds** (5 seconds in Calm mode), and a new set of needs in the middle of a move starts from where the stations are. **With reduced motion the stations jump** to their places. At rest nothing moves.
+5. A need that is missing, not a number or outside 0 to 1 is taken as the default need (0.4), never as 0 or 1, so a bad file cannot make the picture jump about.
+
+### 12.R15 The home page: one page, two modes (UI-Q16)
+
+1. **This scene is the hero of the umwayi-os home page.** One page, two modes: a visitor sees the **sample world** with the home content; loading a snapshot (UI.3) makes the same page **the owner's live view**.
+2. **Home content**, over and below the scene, in the product's words and short sentences:
+   - the **title** and a **one line promise**;
+   - a **status strip**: kill switch, budget used, queue open, logbook chain. Each shows the sample value with the word "sample" until a snapshot is loaded, then the real value with its date;
+   - **install and first commands** with a **Copy** button for each: the clone and install lines and a few first commands (`umwayi memory bundle`, `umwayi queue add`, `umwayi check`, `umwayi logbook verify`). A copy writes to the clipboard **only on the click**; there is no network;
+   - **links**: the repo, the docs, the Devpost page and the demo video. The Devpost and demo video addresses are **placeholders marked "link to come"** until the owner supplies them. A link is a plain anchor the owner clicks; the page itself makes no request.
+3. The content has the same dark palette, the same 4.5 to 1 text contrast in normal and Calm mode, works without WebGL, and does not need the scene to read.
+4. The home content never shows a planned part as built and never shows a sample value without the word "sample".
+
 ### 12.R10 Tests
 
 As for every layer: tests first. The normal suite (`python -m unittest discover -s tests -t .`) stays standard library only and needs no network, npm, Node or browser.
@@ -854,9 +908,9 @@ As for every layer: tests first. The normal suite (`python -m unittest discover 
    - only exit codes 0, 1, 2 and 64; the command changes no other file (a snapshot of the whole root before and after, except the file and `LOGBOOK.md` with its record);
    - code guards: `view.py` imports no `subprocess`, `socket`, `urllib`, `http` or `ctypes`.
 2. **The package** (UI.1), standard library: exact versions, no range, every lockfile entry has a sha512 and a registry.npmjs.org source, `node_modules` and the page are where the rules say, `.gitignore` has the exception, and `build.json` matches the sources and the page (the page was rebuilt after the last source change, and was not edited by hand).
-3. **The built page** (UI.1), standard library: no `<script src>`, `<link href>`, `<img src>`, `@import`, `url(` with a remote address, `fetch(`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, `import(`, `//cdn`, `localStorage`, `sessionStorage`, `indexedDB`, `document.cookie`, `FileLoader`, `ImageLoader` or `TextureLoader`; any `http://` or `https://` string must be one of a short list of XML namespace addresses (three.js carries `http://www.w3.org/1999/xhtml`, which is a name, not a request); the Content-Security-Policy tag of 12.R2.5 is present and denies by default; the 11 label buttons, the `<ul>` list view, the calm mode button, the reduced motion rule and the checks panel exist in the HTML.
-4. **Page logic**, Node's built in test runner with no package (`node --test`, UI.1 to UI.4): the snapshot validator (every bad shape of 12.R9.1), the mapping from counts to scene numbers, the easing and the pose player (it ends, it stops asking for frames), the checks panel's export text and warning, the ring layout with 14 fake stations.
-5. **In a browser** (UI.1 and UI.5), by hand with a headless browser kept outside the repo (like the scan tools of S.2: never a dependency, version recorded): no console error; all requests blocked and zero attempted; 11 labels and the panel opens for each; two screenshots 2 seconds apart at rest are identical; after one click the picture changes and then is identical again within 3 seconds (5 in calm mode); no animation frame is requested at rest; with reduced motion on, the camera jumps and the poses step; the luminance and white area limits of 12.R5.6; the labels do not overlap at 1440 by 900 and 390 by 844; the 30 frames a second check. Results go into `docs/interface.md` with the date, the browser and its version.
+3. **The built page** (UI.1), standard library (an address in an `<a href>` or in the install command must be one of the listed home addresses; every other address still fails): no `<script src>`, `<link href>`, `<img src>`, `@import`, `url(` with a remote address, `fetch(`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, `import(`, `//cdn`, `localStorage`, `sessionStorage`, `indexedDB`, `document.cookie`, `FileLoader`, `ImageLoader` or `TextureLoader`; any `http://` or `https://` string must be one of a short list of XML namespace addresses (three.js carries `http://www.w3.org/1999/xhtml`, which is a name, not a request); the Content-Security-Policy tag of 12.R2.5 is present and denies by default; the 11 label buttons, the `<ul>` list view, the calm mode button, the reduced motion rule and the checks panel exist in the HTML.
+4. **Page logic**, Node's built in test runner with no package (`node --test`, UI.1 to UI.4): the snapshot validator (every bad shape of 12.R9.1), the mapping from counts to scene numbers, the easing and the pose player (it ends, it stops asking for frames), the checks panel's export text and warning. **The layout and the position function (tests first):** the default positions equal the fixed table; no two stations overlap at the defaults and, for thousands of seeded random needs and the extremes (all quiet, all needing), at any reachable position; a higher need never puts a station further from the lantern; the same needs give the same positions; a move ends in 3 s (5 s in Calm) and jumps with reduced motion; every station stands on land and the river ones on the river bank; and the keyboard order is the order of the list view. **The home content:** the status strip text for a sample and for a snapshot, the copy lines equal the install and command text exactly, placeholders are marked, and no sample value appears without the word sample. **The detail mode:** the choice from a set of environments, and the step down.
+5. **In a browser** (UI.1 and UI.5), by hand with a headless browser kept outside the repo (like the scan tools of S.2: never a dependency, version recorded): no console error; all requests blocked and zero attempted; 11 buttons that show their name on focus and on hover, in the overview no name visible at rest, the panel opens for each, and high and low detail both draw; two screenshots 2 seconds apart at rest are identical; after one click the picture changes and then is identical again within 3 seconds (5 in calm mode); no animation frame is requested at rest; with reduced motion on, the camera jumps and the poses step; the luminance and white area limits of 12.R5.6; the home content is readable at 1440 by 900 and 390 by 844 and the Copy buttons write only on a click; the 30 frames a second check. Results go into `docs/interface.md` with the date, the browser and its version.
 6. **Planted faults and mutation checks**, each killed by a named test, with the counts in the pull request: a title written into the snapshot; a path written; a count that is the wrong one; the tamper check skipped; the entry skipped; `--out` allowed over `rules.yaml`; a `fetch` added to the page; a font loaded from a CDN; a `setInterval` that redraws at rest; an infinite animation loop; reduced motion ignored; a page written by hand without a rebuild; a "passed" shown for a ticked check; a value-looking result not warned.
 7. Docs: `tests/test_docs.py` passes with `docs/interface.md`.
 
@@ -869,6 +923,9 @@ As for every layer: tests first. The normal suite (`python -m unittest discover 
 - **Saved notes.** The checks panel does not store results between visits.
 - **Analytics, accounts, sharing and telemetry** of any kind.
 - A mobile app, a desktop app and a hosted version.
+- **Photographs, scanned textures, downloaded images or models, and web fonts** (12.R12.1).
+- **Anything that moves by itself**: flowing water, swaying grass, drifting cloud, birds, smoke (12.R5.2).
+- **A drawn path, a signpost or a label board** in the scene (12.R3.1).
 
 ## Non goals for Dec 3
 

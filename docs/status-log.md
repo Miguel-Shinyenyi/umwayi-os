@@ -16,7 +16,7 @@ The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-o
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
-| 2026-11-10 | 39 | UI.1: the static world of layer 12 (`ui/`, eleven stations, calm and reduced motion); the Python suite not re-run in CI yet | 1180 (one interpreter) |
+| 2026-11-11 | 39 | UI.1 (open, not merged): first build was a stylised meadow; the owner asked for a different look on Nov 11 and it is being reworked as the highlands scene | 1180 (first build, one interpreter) |
 | 2026-11-10 | 38 | spec: layer 12, the web interface (UI.0); docs only, waits for the owner's approval | |
 | 2026-11-10 | 37 | S.2: the security scan; 10 defects it found fixed | 1155 |
 | 2026-11-10 | 36 | S.1: the whole-system test; a gap rule refusal now writes its entry | 1135 |
