@@ -337,11 +337,11 @@ The watch during a Claude Code ACP chat (part 7c-3). The adapter tells umwayi wh
 | every gate check, again | one logbook entry "Refused agent NAME: not gated (...)" | 2 |
 | the start entry, then in `workdir`: Claude Code `claude -p --permission-mode default --settings HOOK ... PROMPT`; Kiro `kiro-cli chat --v3 --no-interactive [--agent A] [--trust-tools=...]` with the prompt on stdin | | |
 
-While it runs, umwayi checks the kill switch and the logbook every second and watches `timeout_minutes`. The kill switch stops the agent with exit 3; a logbook that can no longer be written, or the timeout, with exit 2. Stopping means SIGTERM to the agent's whole process group, then SIGKILL after 10 seconds, and it happens on every way out, including when umwayi itself gets SIGTERM, SIGHUP or Ctrl-C (exit 2). The run exits 0 only when the agent exited 0; an agent that fails is exit 2. Every start, end, stop and refusal is one logbook entry; the prompt and the conversation never are. Answering the queue item does not start the agent: add a Yes rule for `agent_run` instead.
+Every start also reserves a budget first and is settled when it ends (see [Budget governor](#budget-governor)). While it runs, umwayi checks the kill switch, the logbook and the per-run budget every second and watches `timeout_minutes`. The kill switch stops the agent with exit 3; a logbook that can no longer be written, or the timeout, with exit 2. Stopping means SIGTERM to the agent's whole process group, then SIGKILL after 10 seconds, and it happens on every way out, including when umwayi itself gets SIGTERM, SIGHUP or Ctrl-C (exit 2). The run exits 0 only when the agent exited 0; an agent that fails is exit 2. Every start, end, stop and refusal is one logbook entry; the prompt and the conversation never are. Answering the queue item does not start the agent: add a Yes rule for `agent_run` instead.
 
 - `agents.yaml` lives in the root. Start from [agents.example.yaml](agents.example.yaml). Each agent has a fixed set of keys: `name`, `platform` (`claude-code` or `kiro`), `command` (only `claude` or `kiro-cli`, found on PATH), `transport`, `workdir` (outside the root), and a few limits. There is no key for extra arguments and no shell string.
 - `check` runs, in order: the command is on PATH; its version is new enough (Claude Code 2.1.295, Kiro CLI 2.27.1); the layer 9 hook script is there; the hook starts and blocks a self-test event; for Kiro, your hook file in `WORKDIR/.kiro/hooks/` or `~/.kiro/hooks/` runs exactly the layer 9 command. It prints each result and the command lines a start would use, and writes nothing.
-- Exit codes: 0 (valid, gated, or the agent finished), 2 (No, not gated, the agent failed, a logbook or timeout stop, an unexpected error), 3 (Ask me first, the kill switch, the run lock), 64 (usage or a bad agents.yaml). Never 1.
+- Exit codes: 0 (valid, gated, or the agent finished), 2 (No, not gated, the agent failed, a logbook or timeout stop, an invalid telemetry report, an unexpected error), 3 (Ask me first, the kill switch, the run lock, a budget limit), 64 (usage, a bad agents.yaml or a bad units.yaml). Never 1.
 - For Claude Code, umwayi will add the hook itself for one session (`--settings`); for Kiro you add the hook file from [adapters/kiro/README.md](adapters/kiro/README.md). umwayi never writes a `.claude` or `.kiro` file.
 - What the Claude Code, Kiro and ACP docs say about starting agents, and what they do not say: [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md). Limits: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md) items 29 to 72. No real Claude Code or kiro-cli has been run by the tests; they use fakes that run the real hooks.
 - Kiro: a headless run can only use the tools in `trust_tools`, and only when the rules also say Yes (Kiro denies untrusted tools, the hook denies the rest). `--trust-all-tools` is never used. The hook file you added is checked before every start; without it, or if it does not match exactly, the run is refused (exit 2).
@@ -387,3 +387,61 @@ schedules:
 - Exit codes of `schedule` commands: 0, 2 (No, a refusal, any error), 3 (Ask me first, the kill switch, the run lock), 64 (usage or a bad schedule file). Never 1.
 - A long chat that should survive a closed terminal: umwayi does not start tmux, but you can: `tmux new -s chat`, then `umwayi agent chat NAME` inside it. While the chat runs it holds the run lock, so scheduled runs answer Ask me first.
 - File watching, an SQLite index and a sandbox are not built (layer 11 spec, 11.R8). Facts and links: [adapters/NOTES-layer11.md](adapters/NOTES-layer11.md). Limits: KNOWN-LIMITS 93 to 103.
+
+## Budget governor
+
+Every agent start reserves a budget first, and every run is settled in the logbook when it ends. The unit is UU: one US cent of estimated list price. On a subscription nothing is billed per token; UU then says what the same use would cost at list price, so a limit means the same on every platform. It is an estimate, not a bill.
+
+```
+umwayi budget validate                    check units.yaml, every problem with a line number (writes nothing)
+umwayi budget status [--date D]           used, reserved and left per limit, and how much was measured (writes nothing)
+umwayi budget calibrate                   propose per_run and per_day from your measured runs (changes nothing)
+umwayi budget settle-lost --by YOU        settle the reservations a killed umwayi left behind
+```
+
+- **Limits** (in UU, placeholders until you calibrate): `per_run` 100, `per_day` 500, `per_agent_per_day` 300, `per_platform_per_day` 400, and `unknown_worst_case` 100. A day is the logbook date.
+- **Before a start**, after the gate checks: `units.yaml` is validated (64), any change to it is logged first (2 if it cannot be), the reservation of `per_run` must fit the three day limits (otherwise exit 3, one entry, nothing started), then the rules are asked for `budget_check`. Yes goes on, No is exit 2, and Ask me first is exit 3 with one queue item "Spend up to N UU on agent NAME?". The kill switch and a broken logbook are checked first and still win. A start then writes one reserve entry before its start entry.
+- **The rules.** No rule for `budget_check` means Ask me first, so add one next to your `agent_run` rule, for example:
+
+  ```yaml
+  - id: reviewer-may-spend
+    title: The reviewer may spend within the limits
+    text: The limits in units.yaml decide; this rule only says the reviewer may use them.
+    verdict: yes
+    matchers:
+      type: budget_check
+      agent: reviewer
+  ```
+
+  The action is `{"type": "budget_check", "agent": NAME, "platform": P, "reserve_uu": N, "left_today_uu": M}`.
+- **While Claude Code runs** (`agent run`, the cli chat and the ACP chat), umwayi runs a receiver for that run only, on 127.0.0.1 and a free port, and points Claude Code's own telemetry at it with a fresh secret header. Every `OTEL_*` variable you set, `BETA_TRACING_ENDPOINT` and `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA` are removed first, so no export goes elsewhere, and prompts, responses and tool details stay off. The receiver keeps counts only (cost, tokens by type, requests, model names) and drops every body. Above `per_run`, the agent is stopped like a timeout, with exit 3. A report umwayi cannot count (a number below 0 or above 10^12, a float or a string where a count belongs, a body over 1 MB, more than 16 MB in all) stops the run with exit 2 and settles the full reservation.
+- **The reading** is tagged `measured` (Claude Code's own report), `declared` (rates in `units.yaml`) or `unknown`. Unknown counts at `unknown_worst_case`, never zero. Kiro sends umwayi nothing, so a Kiro run is whatever `units.yaml` declares (`runs`, or `credits` times your own credits per run), otherwise unknown.
+- **The ledger is the logbook** (no second file): reserve, settle and change entries with source `umwayi budget`, in fixed shapes, chained once you started the hash chain (`umwayi logbook seal --chain`). A budget entry that is not one of those shapes stops every start (exit 2), like a broken chain. If umwayi is killed (SIGKILL) during a run, its reservation counts in full until you run `umwayi budget settle-lost --by YOU`, which settles it as unknown.
+- **Calibrate** only after at least 20 measured runs over at least 7 days: it proposes `per_run` = 1.5 times the 95th percentile of one run and `per_day` = 2 times the median day, with the data. It changes nothing; you edit `units.yaml`, and that change is logged before it is used.
+- **units.yaml** in the root (optional; without it every reading is unknown under the placeholders). Whole numbers only. Every rate has a value, a date (not in the future) and a source (`owner` or an https URL):
+
+  ```yaml
+  version: 1
+  platforms:
+    claude-code:
+      reading: usd_micros       # measured from Claude Code's own report
+      fallback: tokens          # only token counts arrived: use the rates below
+    kiro:
+      reading: runs
+      run_micros:               # micros of a dollar per run (400000 is 40 UU)
+        value: 400000
+        date: 2026-11-09
+        source: owner
+  models:                       # micros per million tokens
+    claude-sonnet-5:
+      input:
+        value: 3000000
+        date: 2026-11-09
+        source: https://example.com/pricing
+  limits:
+    per_run: 100
+    per_day: 500
+  ```
+
+- Exit codes of `budget` commands and of a start: 0, 2 (No, a logbook or ledger problem, a change that cannot be logged, an invalid report), 3 (a limit, before or during a run; Ask me first; the kill switch; the run lock), 64 (usage or a bad `units.yaml`). Never 1.
+- Not checked against a real Claude Code export yet: the exact JSON shape comes from the docs. Run the owner's capture first (`UMWAYI_TELEMETRY_CAPTURE`, tasks.md B.10). Limits: KNOWN-LIMITS 110 to 128.

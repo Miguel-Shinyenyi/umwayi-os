@@ -1892,9 +1892,28 @@ About 11 hours (tasks.md 11.1 to 11.5) plus 0.5 hour of the owner's (11.6): it f
 
 Answers (owner): L11-Q1 to L11-Q13 as proposed. L11-Q14 changed by the owner: build now, right after PR 30 merged, not on Nov 14 to Nov 15; the hash chain, the budget governor and the rest of the schedule do not move.
 
-## Budget governor (approved by the owner on Nov 9, tasks.md B.0; build Nov 17 to Nov 22; tested in the whole-system test Nov 23 to Nov 26)
+## Budget governor (approved by the owner on Nov 9, tasks.md B.0; build Nov 17 to Nov 22, built early in PR 33; tested in the whole-system test Nov 23 to Nov 26)
 
 Requirements B.R1 to B.R3. Tasks B.0 to B.10. It fails closed and logs every change like the other layers. The core stays standard library only.
+
+### Added while building (PR 33)
+
+- **units.yaml uses block mappings.** The YAML reader of umwayi (miniyaml) refuses flow mappings, so a rate is written as `value:`, `date:` and `source:` on their own lines, not `{value: ..., date: ..., source: ...}`. A source is `owner` or an https URL without spaces, commas, semicolons or brackets, so the change entry can be read back.
+- **Limits are plain numbers in UU** with no date or source, as in the units.yaml above; rates carry both. A change to a limit is dated by its change entry (KNOWN-LIMITS 123).
+- **The `credits` reading** needs `credits_per_run` (a count the owner declares) next to `credit_micros`, because umwayi reads no credit count from Kiro. `umwayi budget validate` was added to list every units.yaml problem with its line.
+- **Start step 1** (the logbook is writable and its chain intact) is the ledger read with `read_checked` (the whole-file hash and the chain) and the checked append of every entry after it, not a separate `check_writable` call. A separate call would have hit the five layer 10 tests that plant a crash in `check_writable` to reach the watcher before the start. The order of the other steps is as above; the canary of a Claude Code ACP chat is prepared after the gate checks and before the budget steps.
+- **left_today_uu** is the smallest of what is left under per_day, per_agent_per_day and per_platform_per_day, before this reservation.
+- **A run counts on the day of its reservation**, also when it is settled after midnight.
+- **The receiver** also answers 400 (not JSON, or not the OTLP shape) and 415 (not `application/json`, or compressed). Any refusal after the run header matched (400, 411, 413, 415) marks the run invalid, because part of its cost would be missing; a refusal before it (401, 404) is only counted. An invalid report stops the run within a second (exit 2) and settles the full reservation; one found only after the agent ended turns an exit 0 into 2.
+- **cost_usd** (a double) is read when an `api_request` event has no `cost_usd_micros`; an event with neither is invalid.
+- **The grace** after the agent is stopped lasts while a report is still being received, at most 6 s (TELEMETRY_GRACE). Once the agent's processes are gone no new export can start, so it does not wait the full 6 s (KNOWN-LIMITS 118).
+- **The telemetry names are not in CHILD_ENV_SET.** That set goes to every Claude Code ACP program, so the gate checks would also have exported telemetry; the names are added to the agent's own start only, and the allow-list tests now expect them there (KNOWN-LIMITS 126). `claude_env()` removes every `OTEL_*`, `BETA_TRACING_ENDPOINT`, `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA` and `CLAUDE_CODE_ENABLE_TELEMETRY` for every Claude Code program, the gate checks included.
+- **The one network import.** `umwayi/telemetry.py` imports `http.server` inside the function that starts a receiver; the network guards of tests/test_system.py and tests/test_automation.py allow exactly that import (KNOWN-LIMITS 125).
+- **settle-lost** takes the run lock (3 while a run holds it) and settles each lost reservation as unknown at `unknown_worst_case` (KNOWN-LIMITS 121).
+- **Budget entries are chained once the chain is started.** umwayi does not refuse a start on an unchained logbook (KNOWN-LIMITS 114).
+- **A start prints one more line**, `Budget: run R settled, TAG U UU (M micros).`, or that the settle could not be logged (then the reservation counts in full until settle-lost, and an exit 0 becomes 2).
+- **B.10, umwayi's part:** `UMWAYI_TELEMETRY_CAPTURE=/absolute/new/file` makes the receiver also write the shape of every accepted report (names and value types, never a value) to a new file with mode 0600. An existing or relative path starts nothing (exit 2).
+- **The layer 10 tests** get a `budget_check` Yes rule from `write_rules` (tests/agents/support.py) and, in four tests that start one agent more than three times, roomy limits in units.yaml.
 
 ### Facts (read Nov 9 2026)
 

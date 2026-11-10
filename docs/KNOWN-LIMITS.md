@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10).
 
 ## Approval and the owner
 
@@ -541,3 +541,90 @@ A logbook that was never sealed after this change has no chain until the owner r
 As asked (C-Q2), every append, recovery and torn-tail cut recomputes the chain from its start, under the lock. This adds to item 4: the cost grows with the logbook and was not measured.
 
 - A later fix: keep the newest value with the hash record and check only the new end.
+
+## Budget governor (found while building, not fixed)
+
+Written Nov 2026 (PR 33). No real Claude Code, Kiro or paid account ran in the tests: the fake `claude` is the fake telemetry sender. The owner's capture of one real export (B.10) is not done.
+
+### 110. A forged report is accepted (B-Q5)
+
+The run secret is in the agent's environment, so any program the agent starts can send its own report to the receiver. A report only adds to the total, but a small forged report can turn a run that would be unknown (100 UU) into a cheap measured one. A large forged report stops the run (it passes the cap).
+
+- A later fix: accept only reports whose resource says `service.name` is Claude Code, or compare the reported model and requests with what the adapter saw.
+
+### 111. UU is an estimate, not a bill
+
+The measured reading is Claude Code's own `cost_usd_micros`, which its docs call an estimate. On a subscription nothing is billed per token at all. UU says what the same use would cost at list price; it is not what the owner pays, and extra usage beyond a plan is not seen (item 72).
+
+### 112. The parser follows the docs, not a real export
+
+The OTLP JSON nesting (`resourceLogs`, `logRecords`, attribute value shapes such as `intValue`) comes from the OpenTelemetry and Claude Code docs. If a real Claude Code export differs, for example a count sent as a string or a token count as a double, every report is invalid and every Claude Code run is stopped with exit 2. Run the owner's capture (tasks.md B.10) before relying on the governor.
+
+- A later fix: adjust the parser to the captured shape, with a test of that shape.
+
+### 113. Managed settings can send telemetry elsewhere
+
+A managed settings file can pin the OTLP destination and remove the variables umwayi sets. Then no report reaches umwayi and every run is unknown at the worst case. `budget status` shows the unknown share.
+
+### 114. Budget entries are chained only once the chain is started
+
+The ledger entries are chained like every other entry, but only after the owner started the hash chain (`umwayi logbook seal --chain`, item 108). Before that, only the whole-file hash protects them. umwayi does not refuse an agent start on an unchained logbook.
+
+- A later fix: refuse agent starts until the chain is started.
+
+### 115. `logbook verify` does not check the budget shapes
+
+A `umwayi budget` entry that is not one of the fixed shapes is found by the governor (every start and `budget status` exit 2), not by `umwayi logbook verify`, which still says ok when the chain and the hash match. A consistent edit of a settle (micros, UU and released changed together) is found only by the chain and an outside anchor (items 3 and 104).
+
+### 116. The cap is checked on reports, once a second
+
+Claude Code exports every 5 seconds, and umwayi checks the total once a second. A run can pass the cap by what it spends in those seconds before it is stopped. The overrun is settled as measured.
+
+### 117. Kiro has no mid-run cap
+
+Kiro sends umwayi nothing. A Kiro run reserves and settles what `units.yaml` declares, but nothing stops it in the middle for its cost; only its timeout does.
+
+### 118. The last report has to arrive before the agent is gone
+
+After the agent is stopped, the receiver waits up to 6 seconds, but only while a report is still being received. An export Claude Code did not send before it exited cannot arrive later. A report sent by an orphaned process after the stop is lost. A short run whose only export came too late is unknown, never zero.
+
+### 119. A day is the logbook date of the reservation
+
+A run that passes midnight counts on the day it was reserved. There is no week or month limit.
+
+### 120. `status` cannot tell a lost reservation from a running one
+
+Both have no settle yet, so `status` names them the same way. `settle-lost` refuses while any umwayi run holds the run lock, so it never settles a run that is still going.
+
+### 121. `settle-lost` settles at the worst case
+
+A reservation lost to a SIGKILL is settled as unknown at `unknown_worst_case`, never at what the run really spent: the reports of that run were in the killed process.
+
+### 122. The receiver does not limit how often it is asked
+
+A local program can send many requests without the run header. Each is answered 401 and counted, and never read, but nothing slows it down.
+
+### 123. Limits carry no date or source
+
+Rates in `units.yaml` have a value, a date and a source; limits are plain numbers in UU (design.md). A change to a limit is dated by its change entry in the logbook.
+
+### 124. Every start reads the whole logbook for the ledger
+
+The ledger is read from the logbook on every start (B-Q1), and three more entries are written per run. This adds to items 4 and 109; it was not measured.
+
+### 125. One module has network code
+
+`umwayi/telemetry.py` imports `http.server`, only inside the function that starts a receiver, and binds 127.0.0.1 only. The network guards in `tests/test_system.py` and `tests/test_automation.py` allow exactly that import; every other module still has none.
+
+### 126. The telemetry names are added at the start, not in the ACP allow list
+
+The names of B.R2.2 are added to the environment of the agent itself (run, cli chat, ACP chat), not to `CHILD_ENV_SET`, so the gate check programs (`node --version`, the login check) run with no telemetry at all.
+
+### 127. The placeholders are a guess
+
+Until calibrated, the limits are the placeholders of B.R1.7. Without `units.yaml`, every run is unknown at 100 UU, so one agent can start three times a day (`per_agent_per_day` 300) and all agents five times (`per_day` 500).
+
+### 128. Kiro credits are the owner's own count
+
+The `credits` reading multiplies `credits_per_run`, a number the owner declares, by the credit rate. umwayi reads no credit count from Kiro.
+

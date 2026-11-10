@@ -577,7 +577,7 @@ As for every layer: real child processes (`python -m umwayi schedule ...`), with
 
 ## Budget governor
 
-Status: approved by the owner on Nov 9 (tasks.md B.0), with open questions B-Q1 to B-Q6 answered as proposed. Planned build Nov 17 to Nov 22, after the logbook hash chain (Nov 16). The whole-system test and security scan on Nov 23 to Nov 26 cover it, including the telemetry receiver. It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used. Doc facts with links: design.md "Budget governor", section "Facts".
+Status: approved by the owner on Nov 9 (tasks.md B.0), with open questions B-Q1 to B-Q6 answered as proposed. Planned build Nov 17 to Nov 22, after the logbook hash chain (Nov 16); built early in PR 33 (B.1 to B.9 and umwayi's part of B.10; the owner's capture of one real export, B.10, is not done). The whole-system test and security scan on Nov 23 to Nov 26 cover it, including the telemetry receiver. It follows the same rules as every layer: fail closed, every change in the logbook, tests before it is used. Doc facts with links: design.md "Budget governor", section "Facts".
 
 User story: as the owner, I want one unit for what every agent run costs, measured where it can be and declared or assumed at the worst case where it cannot, with limits per run and per day that stop a run before it starts or while it runs, so a runaway agent cannot spend without my knowing.
 
