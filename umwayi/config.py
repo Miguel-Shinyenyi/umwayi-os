@@ -11,9 +11,12 @@ import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from umwayi.fsutil import NotRegular, TooBig, read_regular
+
 from umwayi.errors import ConfigError
 
 CONFIG_NAME = "umwayi.json"
+MAX_CONFIG_BYTES = 64 * 1024  # an umwayi.json larger than this is refused unread (S.2)
 _REQUIRED = {"memory_dir", "private_paths"}
 _OPTIONAL = {"social_channels"}  # layer 7: channel names for the social helper
 _CHANNEL = re.compile(r"^[a-z][a-z0-9-]{0,19}$")
@@ -48,7 +51,11 @@ def load_config(root: Path) -> Config:
     root = Path(root)
     path = root / CONFIG_NAME
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = read_regular(path, MAX_CONFIG_BYTES).decode("utf-8")
+    except TooBig:
+        raise ConfigError(f"config: {CONFIG_NAME} is larger than {MAX_CONFIG_BYTES} bytes") from None
+    except NotRegular:
+        raise ConfigError(f"config: {CONFIG_NAME} must be a regular file") from None
     except OSError:
         raise ConfigError(f"config: cannot read {CONFIG_NAME} in the root") from None
     except UnicodeDecodeError:

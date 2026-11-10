@@ -17,7 +17,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
 | Whole-system test (S.1) | built | [testing](docs/testing.md) |
-| Security scan (S.2) | approved, not built yet | [security](docs/security.md) |
+| Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 
@@ -61,7 +61,7 @@ How they fit together: [docs/architecture.md](docs/architecture.md). Requirement
 
 ## Security and known limits
 
-- What umwayi protects, what it only makes visible, and how it is checked: [docs/security.md](docs/security.md).
+- What umwayi protects, what it only makes visible, and how it is checked: [docs/security.md](docs/security.md). The dated scan, its tools and findings: [docs/SECURITY-SCAN.md](docs/SECURITY-SCAN.md).
 - Every limit that is known and not fixed, numbered: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
 
 ## Contributing

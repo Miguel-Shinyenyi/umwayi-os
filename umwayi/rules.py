@@ -14,6 +14,7 @@ from typing import Any
 
 from umwayi import logbook, miniyaml
 from umwayi.errors import UmwayiError
+from umwayi.fsutil import NotRegular, TooBig, read_regular
 
 YES = "Yes"
 NO = "No"
@@ -23,6 +24,7 @@ _VERDICTS = {"yes": YES, "no": NO, "ask": ASK}
 _STRENGTH = {NO: 2, ASK: 1, YES: 0}
 
 MAX_ACTION_BYTES = 64 * 1024
+MAX_RULES_BYTES = 1 << 20  # a rules file larger than 1 MB is refused unread
 _ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _RULE_KEYS = {"id", "title", "text", "cause", "verdict", "matchers"}
 
@@ -178,8 +180,14 @@ def parse_rules(text: str) -> list[Rule]:
 
 
 def load_rules(path: Path) -> list[Rule]:
+    """The rules of a regular file of at most MAX_RULES_BYTES (a link to one is followed). Anything else, /dev/zero
+    or a FIFO among them, is a broken rules file: Ask me first, never a hang (S.2)."""
     try:
-        text = Path(path).read_bytes().decode("utf-8")
+        text = read_regular(Path(path), MAX_RULES_BYTES).decode("utf-8")
+    except TooBig:
+        raise UmwayiError(f"rules.yaml: the file is larger than {MAX_RULES_BYTES} bytes") from None
+    except NotRegular:
+        raise UmwayiError("rules.yaml: not a regular file") from None
     except OSError:
         raise UmwayiError("rules.yaml: cannot read the file") from None
     except UnicodeDecodeError:

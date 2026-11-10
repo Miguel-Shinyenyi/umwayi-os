@@ -49,6 +49,7 @@ import hashlib
 import os
 import re
 import signal
+import stat
 import threading
 import time
 from contextlib import contextmanager
@@ -333,13 +334,30 @@ def parse_anchor(value: str) -> tuple:
 # -------------------------------------------------------- reading and state
 
 
+def _no_follow(path, flags):
+    """The opener of the append: the flags of mode "ab", never following a link (S.2)."""
+    return os.open(path, flags | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), 0o666)
+
+
+_ONE_NAME = ("logbook: LOGBOOK.md must be a regular file with one name: not a folder or a device, and not a hard "
+             "link, which would let a write reach another file. Nothing was written.")
+
+
 def _read_logbook(root: Path) -> bytes | None:
     """The bytes of LOGBOOK.md, or None if there is none. Unreadable is an error."""
     path = Path(root) / LOGBOOK_NAME
     if path.is_symlink():
         raise UmwayiError("logbook: LOGBOOK.md must not be a symbolic link")
-    if not path.exists():
+    try:
+        st = os.lstat(path)
+    except FileNotFoundError:
         return None
+    except OSError:
+        raise UmwayiError("logbook: LOGBOOK.md cannot be read") from None
+    if stat.S_ISDIR(st.st_mode):
+        raise UmwayiError("logbook: LOGBOOK.md cannot be read")
+    if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+        raise UmwayiError(_ONE_NAME)
     try:
         return path.read_bytes()
     except OSError:
@@ -623,15 +641,22 @@ def _held_off():
 # Steps 3 to 6 of the design, each its own function so a test can hold a writer between any two of them.
 
 
+INTENT_MODE = 0o600  # the intent holds the exact bytes of an entry until it is written (S-Q9)
+
+
 def _write_intent(root: Path, raw: bytes) -> None:
-    atomic_write(pending_path(root), raw)
+    atomic_write(pending_path(root), raw, mode=INTENT_MODE)
     fsync_dir(Path(root) / STATE_DIR)
 
 
 def _append_bytes(root: Path, payload: bytes, created: bool) -> None:
     path = Path(root) / LOGBOOK_NAME
-    # append mode: every write goes to the end of the file, earlier bytes are never touched
-    with open(path, "ab") as f:
+    # append mode: every write goes to the end of the file, earlier bytes are never touched. O_NOFOLLOW and the
+    # check of the open file: a link swapped in after the checks before the write is never written through (S.2).
+    with open(path, "ab", opener=_no_follow) as f:
+        st = os.fstat(f.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+            raise UmwayiError(_ONE_NAME)
         f.write(payload)
         f.flush()
         os.fsync(f.fileno())
@@ -773,6 +798,11 @@ def _lock(root: Path):
             same = (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino)
         except OSError:
             same = False
+        if same and (not stat.S_ISREG(a.st_mode) or a.st_nlink != 1):
+            # the holder's pid is written into this file: never through a second name to another file (S.2)
+            os.close(fd)
+            raise UmwayiError("logbook: the lock file .umwayi/logbook.lock must be a regular file with one name, "
+                              "not a hard link. Nothing was written.")
         if not same:  # the file was replaced after we opened it: our lock guards nothing, try again
             os.close(fd)
             if time.monotonic() >= deadline:

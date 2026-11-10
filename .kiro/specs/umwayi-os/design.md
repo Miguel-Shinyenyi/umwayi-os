@@ -2126,6 +2126,29 @@ No new file in `umwayi/` unless a test of S.R5 to S.R8 shows a defect (S-Q6, S-Q
 | limit mid chat | ACP chat with `per_run: 1`, the second turn reports 20000 micros | exit 3, "it passed its budget", settled measured |
 | crash in umwayi | the planted fault hook (`UMWAYI_FAULT`) in `logbook.append`, `agents._Run._reserve`, the settle, and `schedule.install` after the service file | the next command recovers or refuses as its layer says; no unit file left half; `verify` 0 at the end |
 
+### Added while building S.2 (PR 37)
+
+- **The scan found 10 defects, all fixed test first (S-Q8):**
+  1. `rules.yaml` as `/dev/zero` hung `umwayi check`;
+  2. `umwayi.json` as `/dev/zero` got umwayi killed;
+  3. a hard link at the logbook lock let the holder's pid write reach an outside file;
+  4. a link swapped in before the append, or a hard link at `LOGBOOK.md`, was written through;
+  5. the intent was not 0600;
+  6. a new `queue.md` was 0600;
+  7. a too long path was an unexpected error;
+  8. the receiver had no whole-request deadline;
+  9. the receiver had no cap on threads;
+  10. the receiver read only the first of a header given twice and ignored a Transfer-Encoding.
+
+  `docs/SECURITY-SCAN.md` section 5 lists each with its fix.
+- **Two readers follow a link on purpose.** `rules.yaml` and `umwayi.json` may be links to a regular file (a dotfiles setup) but must be regular files of at most 1 MB and 64 KB, read with one shared reader (`fsutil.read_regular`: `O_NONBLOCK`, a check of the open file, a bounded read). Every other config file was already refused when it is a link.
+- **The append keeps `open(path, "ab")`** with an `opener` that adds `O_NOFOLLOW`, so the crash safety tests that intercept `open` see the same call. A folder in place of `LOGBOOK.md` keeps its old message ("cannot be read").
+- **The receiver's 503** is sent from the accepting thread, before any handler thread starts, and counted with the other refusals. A request cut at the deadline before its run header matched is not the agent's report and does not make the run invalid; one cut after it does (S-Q6). The `socket` module is imported in the same function as `http.server`, so importing umwayi still loads no network module.
+- **The many-connections test trickles.** 200 idle connections were mostly reset by the kernel (a listen backlog of 5) before the receiver saw them, which hid the missing cap; each held connection now sends a byte a second, so each holds a handler.
+- **`npm audit` counts 102 of the 115 as peer packages,** which its docs say it does not check; OSV-Scanner, offline, read all 112, so the result rests on it (KNOWN-LIMITS 131).
+- **Python 3.10 is end of life (2026-10-01).** The scan does not change the supported versions; the owner decides (KNOWN-LIMITS 133).
+- **The planted faults:** 15, each caught by its scan test (the PR lists them).
+
 ### S.2, the tools (proposed, S-Q3, S-Q4, S-Q5)
 
 | target | tool | what it needs | what it cannot see |
@@ -2181,7 +2204,7 @@ All through `umwayi agent run` with the fake `claude`, whose `otlp` step gets a 
 | a planted secret is found | the test fails with the file and line; it is fixed before S.2 is ticked |
 | a receiver case shows a defect | the defect is fixed test first, or written into KNOWN-LIMITS if the owner decides so |
 
-### KNOWN-LIMITS (written with S.2.7, numbered from 130; S.1 wrote 129)
+### KNOWN-LIMITS (written with S.2.7: items 130 to 137; S.1 wrote 129)
 
 At least: S.R10 items 1 to 6 in short; the advisory scan was true on its date only; `npm audit` tells the registry the package list; the receiver cases that stay limits after S-Q6 and S-Q7; every link or path race left open by S.R7.3.
 

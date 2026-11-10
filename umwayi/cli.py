@@ -11,6 +11,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import re
 import sys
@@ -531,18 +532,29 @@ def main(argv: list[str] | None = None, out=None) -> int:
     except UmwayiError as e:
         sys.stderr.write(f"umwayi: {e}\n")
         return EXIT_ERROR
+    except OSError as e:
+        if e.errno != errno.ENAMETOOLONG:
+            return _crashed(e)
+        # S.2: a path argument longer than the system allows is a usage error, not a crash; the path is not printed
+        sys.stderr.write("umwayi: error: a path is longer than this system allows. Nothing was changed.\n")
+        return EXIT_USAGE
     except (Exception, KeyboardInterrupt) as e:
-        # Never print the message: it may hold file content or a secret. The type name is enough to start.
-        try:
-            sys.stderr.write(
-                f"umwayi: stopped by an unexpected error ({type(e).__name__}). Exit {EXIT_CRASH}. "
-                "Check 'umwayi logbook verify' and the files this command works on.\n"
-            )
-        except Exception:
-            pass
-        return EXIT_CRASH
+        return _crashed(e)
     parser.print_usage(sys.stderr)
     return EXIT_USAGE
+
+
+def _crashed(e: BaseException) -> int:
+    """An unexpected error: exit 2, like No. Never print the message: it may hold file content or a secret. The type
+    name is enough to start."""
+    try:
+        sys.stderr.write(
+            f"umwayi: stopped by an unexpected error ({type(e).__name__}). Exit {EXIT_CRASH}. "
+            "Check 'umwayi logbook verify' and the files this command works on.\n"
+        )
+    except Exception:
+        pass
+    return EXIT_CRASH
 
 
 if __name__ == "__main__":

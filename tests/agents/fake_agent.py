@@ -124,8 +124,29 @@ rec(argv=ARGS, cwd=os.getcwd(), started=True, pid=os.getpid(), pgid=os.getpgid(0
     otel={k: v for k, v in os.environ.items() if k.startswith("OTEL_") or k in TELEMETRY_EXACT}, **tty)
 
 
+def _threads(pid: int):
+    try:
+        with open(f"/proc/{pid}/status", encoding="ascii") as f:
+            return next(int(x.split()[1]) for x in f if x.startswith("Threads:"))
+    except (OSError, StopIteration, ValueError):
+        return None
+
+
 def otlp(step: dict) -> None:
-    """One or more reports to umwayi's receiver, over a plain socket so a test can plant any header or length."""
+    """One or more reports to umwayi's receiver, over a plain socket so a test can plant any header or length.
+
+    Security scan (S.2) options, each recorded with the answer's status and the seconds it took:
+      run_headers  raw run header lines instead of the right one; {secret}, {prefix} (the secret less its last
+                   character), {plus} (the secret and one more character) and {upper} are filled in
+      extra_headers  more raw header lines (Transfer-Encoding, Content-Encoding, a second Content-Length)
+      trailing     bytes sent after the body (a body longer than its Content-Length)
+      short_by     send that many bytes less than the Content-Length says
+      slow         seconds between bytes of the headers and the body (a slow client); gives up after slow_for;
+                   with slow_body_only, the headers go at once and only the body trickles
+      hold         {"n": N, "for": S}: open N connections that send nothing, keep them S seconds, record how many the
+                   receiver closed and umwayi's thread count, then go on with the report
+      retry        send again, up to that many times, half a second apart, while there is no answer or it is 503
+    """
     import socket
     endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
     if not endpoint:
@@ -136,15 +157,21 @@ def otlp(step: dict) -> None:
     path = step.get("path", "/v1/logs")
     if "big" in step:
         data = json.dumps({"resourceLogs": [], "pad": "x" * step["big"]}).encode("utf-8")
+    elif "exact" in step:  # a JSON body of exactly this many bytes
+        empty = len(json.dumps({"resourceLogs": [], "pad": ""}).encode("utf-8"))
+        data = json.dumps({"resourceLogs": [], "pad": "x" * (step["exact"] - empty)}).encode("utf-8")
     elif "raw" in step:
         data = step["raw"].encode("utf-8")
     else:
         data = json.dumps(step.get("body", {})).encode("utf-8")
+    name, secret = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "=").split("=", 1)
     headers = []
     header = step.get("header", "auto")
-    if header == "auto":
-        name, value = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "=").split("=", 1)
-        headers.append(f"{name}: {value}")
+    if "run_headers" in step:
+        fill = {"secret": secret, "prefix": secret[:-1], "plus": secret + "0", "upper": secret.upper()}
+        headers += [h.format(**fill) for h in step["run_headers"]]
+    elif header == "auto":
+        headers.append(f"{name}: {secret}")
     elif header is not None:
         headers.append(f"x-umwayi-run: {header}")
     if step.get("content_type", "application/json"):
@@ -154,35 +181,107 @@ def otlp(step: dict) -> None:
         headers.append(f"Content-Length: {len(data)}")
     elif length is not None:
         headers.append(f"Content-Length: {length}")
+    headers += step.get("extra_headers", [])
     head = (f"{step.get('method', 'POST')} {path} HTTP/1.1\r\nHost: {host}\r\n" + "".join(h + "\r\n" for h in headers)
             + "Connection: close\r\n\r\n").encode("ascii")
-    for _ in range(step.get("repeat", 1)):
-        resp = b""
-        try:
-            s = socket.create_connection((host, int(port)), timeout=10)
-        except OSError as e:
-            rec(event="otlp", path=path, status=None, why=type(e).__name__)
-            continue
-        try:
-            s.sendall(head)
-            s.settimeout(0.3)  # a refusal comes right after the headers, before any body is read
+    body = data[:len(data) - step.get("short_by", 0)] + step.get("trailing", "").encode("utf-8")
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+
+    if "hold" in step:
+        # One at a time (the listen backlog is small), each sending the first byte of a request and then one more
+        # every second, so a handler thread stays busy with each one: the slow, many-connection client of S.R5.5.
+        trickle = b"POST /v1/logs HTTP/1.1\r\nHost: x\r\n"
+        held, sent = [], []
+        for _ in range(step["hold"]["n"]):
             try:
-                resp = s.recv(65536)
-            except socket.timeout:
+                h = socket.create_connection((host, int(port)), timeout=5)
+                h.sendall(trickle[:1])
+                h.setblocking(False)
+                held.append(h)
+                sent.append(1)
+            except OSError:
+                break
+            time.sleep(0.005)
+        peak = 0
+        end = time.time() + step["hold"]["for"]
+        next_byte = time.time() + 1
+        while time.time() < end:
+            peak = max(peak, _threads(os.getppid()) or 0)
+            if time.time() >= next_byte:
+                next_byte += 1
+                for i, h in enumerate(held):
+                    try:
+                        h.send(trickle[sent[i]:sent[i] + 1])
+                        sent[i] += 1
+                    except OSError:
+                        pass
+            time.sleep(0.05)
+        closed = 0
+        for h in held:
+            try:
+                got = h.recv(4096)
+                closed += 1 if got == b"" or got.startswith(b"HTTP/") else 0
+            except BlockingIOError:
+                pass
+            except OSError:
+                closed += 1
+            h.close()
+        rec(event="otlp_hold", opened=len(held), closed=closed, peak_threads=peak)
+
+    def send_slow(s, payload):
+        give_up = time.time() + step.get("slow_for", 30)
+        for i in range(len(payload)):
+            if time.time() > give_up:
+                return "gave up"
+            s.sendall(payload[i:i + 1])
+            time.sleep(step["slow"])
+        return "sent"
+
+    for _ in range(step.get("repeat", 1)):
+        status, why, t0 = None, None, time.time()
+        for attempt in range(step.get("retry", 0) + 1):
+            resp = b""
+            try:
+                s = socket.socket(family, socket.SOCK_STREAM)
                 s.settimeout(10)
-                s.sendall(data)
-            s.settimeout(10)
-            while True:
-                chunk = s.recv(65536)
-                if not chunk:
-                    break
-                resp += chunk
-        except OSError:
-            pass
-        finally:
-            s.close()
-        status = int(resp.split(b" ")[1]) if resp.startswith(b"HTTP/") else None
-        rec(event="otlp", path=path, status=status)
+                s.connect((host, int(port)))
+            except OSError as e:
+                status, why = None, type(e).__name__
+            else:
+                try:
+                    if "slow" in step:
+                        if step.get("slow_body_only"):
+                            s.sendall(head)
+                            why = "sent"
+                        else:
+                            why = send_slow(s, head)
+                        if why == "sent":
+                            why = send_slow(s, body)
+                    else:
+                        s.sendall(head)
+                        s.settimeout(0.3)  # a refusal comes right after the headers, before any body is read
+                        try:
+                            resp = s.recv(65536)
+                            why = "answered before the body"
+                        except socket.timeout:
+                            s.settimeout(10)
+                            s.sendall(body)
+                    s.settimeout(10)
+                    while True:
+                        chunk = s.recv(65536)
+                        if not chunk:
+                            break
+                        resp += chunk
+                except OSError as e:
+                    why = why or type(e).__name__
+                finally:
+                    s.close()
+                status = int(resp.split(b" ")[1]) if resp.startswith(b"HTTP/") else None
+            if status not in (None, 503):
+                break
+            time.sleep(0.5)
+        rec(event="otlp", path=path, status=status, why=why, seconds=round(time.time() - t0, 2),
+            port=int(port), attempts=attempt + 1)
 trusted = set()
 for a in ARGS:
     if a.startswith("--trust-tools="):
