@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry).
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry). Items 130 to 137 come from the security scan (S.2, [SECURITY-SCAN.md](SECURITY-SCAN.md)); item 122 changed with it.
 
 ## Approval and the owner
 
@@ -637,4 +637,42 @@ Written Nov 10 2026 (PR 36). The test uses fakes only; the owner's real runs (10
 `umwayi run` (and so a scheduled run of a job) checks the kill switch before it reads the jobs file, and not again. A job that has started finishes even if the kill switch is turned on meanwhile; agents are checked every second (layer 10), jobs are not. A job takes a moment (`queue-list`, `check`, `report`), so the whole-system test checks the switch at a scheduled job's start, not in its middle.
 
 - A later fix: none planned while jobs stay this short.
+
+## Security scan (found while building S.2, not fixed)
+
+Written Nov 10 2026 (PR 37). The results, the tools and what the scan cannot prove: [SECURITY-SCAN.md](SECURITY-SCAN.md). Item 122 changed with it: the receiver now handles at most 16 requests at once and cuts each at 10 s, though it still does not slow down a client that keeps trying.
+
+### 130. The advisory scan is true on its date only
+
+OSV-Scanner and `npm audit` found no known vulnerability in the adapter's 112 packages on 2026-11-10. A new advisory can appear for any of them on any day, and nothing in umwayi checks again on its own.
+
+- A later fix: run the commands in SECURITY-SCAN.md before each submission, or add a scan job to CI after Dec 3 (S-Q13).
+
+### 131. `npm audit` tells the registry the package list, and may skip peer packages
+
+`npm audit --package-lock-only` sends the list of the adapter's packages to the npm registry (accepted in S-Q4). It counts 102 of the 115 as peer dependencies, and its documentation says it does not check peer dependencies. OSV-Scanner, offline, read all 112, so the result rests on it.
+
+### 132. The Claude Agent SDK is not open source and not scanned inside
+
+Its 9 packages are under Anthropic's terms ("all rights reserved"), which the owner reads (S-Q11). Their prebuilt platform programs are not scanned by anything here; only their published files' signatures are checked.
+
+### 133. Python 3.10 is end of life
+
+Python 3.10 gets no security fixes since 2026-10-01, but `pyproject.toml` still says `requires-python = ">=3.10"` and CI tests it. Nothing was changed by the scan: keeping or dropping 3.10 is the owner's decision (open in SECURITY-SCAN.md).
+
+### 134. A local flood of the receiver can make the agent's reports wait or be lost
+
+At most 16 requests are handled at once; one more is answered 503 at once, and every request is cut at 10 s (S-Q6, S-Q7). A process of the same user that keeps 16 slow connections open can make the agent's own reports wait, and a report refused that way is not counted. The OTLP exporters retry a 503, but if the agent's last report is lost the run reads lower, or unknown at the worst case. It is the same-user boundary (item 135).
+
+### 135. Nothing here protects against a process of the same user
+
+umwayi, its agents and the owner's other programs run as one user. Such a process can read the agent's environment (the run secret), write the logbook and its record, change unit files, plant links in the root, or flood the receiver. The hash chain, the anchor, the kill switch and the checks in this list make some of it visible or harder; none of it is prevented (S-Q10). A sandbox could change that and is deferred (L11-Q13).
+
+### 136. Hard links are refused only where umwayi writes in place
+
+umwayi writes in place only to `LOGBOOK.md` (an append) and the logbook lock (its holder's pid); both now refuse a second name. Every other file it writes is replaced through a new file (`queue.md`, the hash record, the intent, the archive) or created new with `O_EXCL` (drafts, the outbox, `KILL`, unit files, the capture file), so a hard link there is replaced, never written through.
+
+### 137. Some reads follow a link, and a check before a read can race
+
+`rules.yaml` (and `--rules PATH`) and `umwayi.json` may be links to a regular file elsewhere, for a dotfiles setup; they must be regular files of at most 1 MB and 64 KB. Other files umwayi reads are refused when they are links, but the check comes before the open, so a link swapped in between can make umwayi read another file's text. Nothing is written that way; the writes are atomic or `O_NOFOLLOW` (item 136).
 

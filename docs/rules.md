@@ -26,7 +26,7 @@ Reason: AI helpers never move money or use bank or card credentials. Cause: Safe
 | No | 2 |
 | Ask me first | 3 |
 
-Fail closed: no matching rule, a broken or missing `rules.yaml`, or bad action JSON all give Ask me first. If several rules match, No beats Ask me first, and Ask me first beats Yes. Usage errors exit with 64.
+Fail closed: no matching rule, a broken or missing `rules.yaml`, or bad action JSON all give Ask me first. If several rules match, No beats Ask me first, and Ask me first beats Yes. Usage errors exit with 64. The rules file (`rules.yaml` or `--rules PATH`, or a link to one) is read only when it is a regular file of at most 1 MB; anything else, `/dev/zero` or a FIFO among them, is a broken rules file and gives Ask me first.
 
 Matchers (all must match):
 
@@ -45,6 +45,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-10 | The rules file is read only as a regular file of at most 1 MB | The security scan (S.2, PR 37): a rules file that was a link to /dev/zero made `umwayi check` read forever. |
 | 2026-11-08 | `umwayi check --kill-switch` answers No while the kill switch is on or unknown (9.12) | Layer 9, PR 12: the owner answered that adapters deny everything while the kill switch is on. |
 | 2026-11-08 | `umwayi check --json` gives `answer`, `rule_id`, `rules_ok`, `action_ok` and `logged` (9.2) | Layer 9, PR 11: an adapter never reads the reason text. |
 | 2026-11-08 | When the logbook cannot be written, a No stays No (exit 2) (6.5) | Layer 6, PR 6: a refusal is never weakened by a logbook failure. |

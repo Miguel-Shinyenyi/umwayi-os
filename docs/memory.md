@@ -17,7 +17,7 @@ memory/journal/*.md             journal
 umwayi memory bundle [--format text|json]
 ```
 
-Prints one context bundle for an AI helper. Anything under a path listed in `private_paths` (a file, a folder or a glob) is left out, and its name is never printed. Only a count is shown.
+Prints one context bundle for an AI helper. Anything under a path listed in `private_paths` (a file, a folder or a glob) is left out, and its name is never printed. Only a count is shown. `umwayi.json` (or a link to one) is read only when it is a regular file of at most 64 KB; anything else is a config error (64).
 
 ## Decisions log
 
@@ -25,6 +25,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-10 | `umwayi.json` is read only as a regular file of at most 64 KB | The security scan (S.2, PR 37): a `umwayi.json` that was a link to /dev/zero was read until the system killed umwayi. |
 | 2026-11-08 | A `memory` folder that is a link loop is a config error (64), not a crash (H.6) | Hardening, PR 9: every bad configuration gives a usage error, never a traceback. |
 | 2026-11-07 | Private paths (a file, a folder or a glob) are left out and their names are never printed; only a count is shown (1.2, 1.5) | Layer 1, PR 1: a private file must not reach a helper, not even by name. |
 | 2026-11-07 | Memory is plain files the owner writes; there is no `umwayi memory add` | Layer 1, PR 1; [KNOWN-LIMITS](KNOWN-LIMITS.md) item 10. |

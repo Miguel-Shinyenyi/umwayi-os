@@ -30,6 +30,7 @@ umwayi logbook recover --torn-tail --by "Your name" [--date 2026-11-07]
 - `verify` prints `ok` or each problem with a line number (never the line text) and exits 0 only when the format is valid and the hash matches. It never changes a file.
 - Entry dates must be real and never go backwards.
 - `.umwayi/logbook.lock` stops two commands from writing at once. It is a kernel lock (`flock`): a command that is killed lets go of it, so nothing is ever left behind. The file stays; never delete it while a command runs.
+- `LOGBOOK.md` and `.umwayi/logbook.lock` must be regular files with one name (not a hard link): they are the two files umwayi writes in place. The append opens `LOGBOOK.md` with `O_NOFOLLOW` and checks the open file, so a link swapped in after the checks is never written through. The intent (`.umwayi/logbook.pending`) is 0600 while it holds an entry; the other files follow the owner's umask.
 - A write that is stopped half way cannot break the logbook. Before appending, umwayi records its intent in `.umwayi/logbook.pending` (the hashes and lengths before and after, and the exact bytes). SIGTERM, SIGHUP, Ctrl-C and SIGQUIT wait until the write is done. After a SIGKILL or a crash, the next write finishes or drops the interrupted one, only when the files are exactly in one of the two states the intent names, and adds one entry with source `umwayi logbook recover`. Anything else is refused like a hand edit. `verify` says when a write is in progress or was interrupted, and readers see the file it left.
 - A power cut during the append can leave the start of an entry at the end of the file (a torn tail). It is refused, never repaired automatically. `umwayi logbook recover --torn-tail --by NAME` cuts it back, only when the extra bytes are exactly the start of the entry that was being written, and logs the cut.
 
@@ -54,6 +55,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-10 | `LOGBOOK.md` and its lock refuse a second name; the append never follows a link; the intent is 0600 | The security scan (S.2, PR 37): a hard link at the lock let its pid write reach an outside file, and a link swapped in before the append was written through (S-Q9 for the mode). |
 | 2026-11-10 | The hash chain (C.1 to C.4, PR 32): a seal entry starts it; `seal --chain` once (C-Q1); recompute the chain on every append (C-Q2); `verify` keeps exit codes 0 and 1 (C-Q3) | Approved Nov 9 in PR 24; built in PR 32. |
 | 2026-11-10 | A broken chain cannot be sealed; restore from a copy you trust | PR 32: sealing over it would hide the edit ([KNOWN-LIMITS](KNOWN-LIMITS.md) item 105). |
 | 2026-11-09 | Crash safety: `flock` on `.umwayi/logbook.lock` (L-Q1); the four signals held during a write (L-Q2); a torn tail refused and cut only by `recover --torn-tail` (L-Q3); readers see the two exact states as consistent (L-Q4); bytes appended by something else are a hand edit (L-Q5) | Approved Nov 9 in PR 26; built in PR 27. |
