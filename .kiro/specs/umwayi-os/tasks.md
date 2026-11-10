@@ -21,7 +21,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Logbook crash safety (Layer 5 addendum) | approved Nov 9 (L5.0); built Nov 10 (L5.1 to L5.5), before 7c-2 | spec PR 26; build PR 27 | 906 after PR 27, on Python 3.10 to 3.13 |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
 | Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
-| Documentation layout (D.1) | added Nov 10 (PR 34); built first, before S.1, as its own pull request | spec PR 34 | |
+| Documentation layout (D.1) | added Nov 10 (PR 34); built Nov 10, before S.1 | spec PR 34; build PR 35 | 1104 after PR 35, on Python 3.10 to 3.13 |
 | Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); build Nov 10 to Nov 12 (S.1, then S.2), moved up from Nov 23 to Nov 26 | spec PR 34 | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
@@ -499,7 +499,7 @@ Requirements: Layer 5, "Logbook crash safety". Design: Layer 5, "Crash safety", 
 
 The README is 447 lines with every layer in one file. D.1 follows the documentation pattern of the owner's other projects (`routine-machine`, `Invoice-Financing`): a root `PROJECT.md` that says what to read first, a short README, and one file per component under `docs/`, each with the same four parts, kept current in the same turn as the behaviour it describes. Built as its own pull request right after PR 34 merges, before S.1. Docs only: no change to `umwayi/`, `adapters/` or any test except the new docs test. About 6 hours.
 
-- [ ] D.1 The short README and `docs/` (6 h):
+- [x] D.1 (PR 35) The short README and `docs/` (6 h):
   - **README.md, at most 120 lines:** what it is; a status table (one row per layer and addendum, its state and its pull requests, from the status table above); install and test; exit codes in five lines (the full table in `docs/exit-codes.md`); a table of the layers where each row links to its doc; security and known limits (links to `docs/security.md` and `docs/KNOWN-LIMITS.md`); contributing (branches, pull requests, tests first, `docs/DOCS_MAINTENANCE.md`).
   - **`PROJECT.md` in the root:** what umwayi-os is, what to read first (this file, then `docs/DOCS_MAINTENANCE.md`, then the doc of the part being worked on, then its section of the `.kiro` specs), and the project structure with one line per file.
   - **One file per layer under `docs/`:** `memory.md`, `rules.md`, `queue.md`, `archive.md`, `logbook.md` (with the crash safety and the hash chain), `automation.md`, `helpers.md`, `workflows.md`, `adapters.md`, `agent-front-door.md`, `scheduled-runs.md`, `budget-governor.md`; plus `exit-codes.md`, `architecture.md`, `testing.md`, `security.md`, `status-log.md` (the status table and the counts after each pull request) and `schedule.md` (the schedule to Dec 3).
