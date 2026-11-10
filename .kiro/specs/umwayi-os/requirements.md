@@ -632,7 +632,7 @@ User story: as the owner, I want one unit for what every agent run costs, measur
 
 ## Whole-system test and security scan (S.1 and S.2)
 
-Status: spec only, written Nov 10 in PR 34; **not approved**. Nothing here is built until the owner answers S-Q1 to S-Q16 (design.md, "Whole-system test and security scan", "Open questions"). Planned Nov 23 to Nov 26 (C-Q4); proposed: build right after approval (S-Q16). Facts with links: design.md, same section, "Facts".
+Status: approved by the owner on Nov 10 (tasks.md S.0), with S-Q1 to S-Q16 answered as proposed (design.md, "Whole-system test and security scan", "Open questions"). Built Nov 10 to Nov 12, moved up from Nov 23 to Nov 26 (S-Q16): S.1 in one pull request, then S.2 in another. Facts with links: design.md, same section, "Facts".
 
 User story: as the owner, I want one test that drives umwayi the way I use it, through every layer at once, and one recorded scan of umwayi's code, its adapter dependencies and its one network listener, so I know before Dec 3 what holds together, what a scan found and what nothing here can prove.
 

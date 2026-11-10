@@ -21,7 +21,7 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | Logbook crash safety (Layer 5 addendum) | approved Nov 9 (L5.0); built Nov 10 (L5.1 to L5.5), before 7c-2 | spec PR 26; build PR 27 | 906 after PR 27, on Python 3.10 to 3.13 |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
 | Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
-| Whole-system test and security scan | spec written (S.0), waiting for the owner's answers to S-Q1 to S-Q16; planned Nov 23 to Nov 26 (C-Q4) | spec PR 34 | |
+| Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); build Nov 10 to Nov 12 (S.1, then S.2), moved up from Nov 23 to Nov 26 | spec PR 34 | |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
@@ -37,8 +37,9 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | Nov 14 to Nov 15 | Free (layer 11 moved up) |
 | Nov 16 | Logbook hash chain (C.1 to C.4), one day (approved, C.0); built early, PR 32 |
 | Nov 17 to Nov 22 | Budget governor (B.1 to B.10) (approved, B.0); built early, PR 33; B.10 waits for the owner |
-| Nov 23 to Nov 26 | Whole-system test again and security scan (S.1, S.2), after the governor: the adapters, layers 10 and 11, the chain and the governor, including the telemetry receiver (C-Q4) |
-| Nov 23 to Nov 28 | README, demo, Devpost text, alongside the scan |
+| Nov 10 to Nov 12 | Whole-system test and security scan (S.1, then S.2; approved, S.0), moved up by the owner from Nov 23 to Nov 26: the adapters, layers 10 and 11, the chain and the governor, including the telemetry receiver |
+| Nov 13 onward | Web interface, after the scan (the owner's order, Nov 10). Its own spec first, approved before it is built; requirements.md still lists a web interface under "Non goals for Dec 3", which that spec has to change with the owner's approval |
+| Nov 23 to Nov 28 | README, demo, Devpost text (the scan moved up to Nov 10 to Nov 12) |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
 
@@ -492,11 +493,27 @@ Requirements: Layer 5, "Logbook crash safety". Design: Layer 5, "Crash safety", 
 - [x] L5.4 Signals (1 h): the four signals blocked and their handlers deferred around steps 3 to 6 and around a recovery, delivered once afterwards; a write outside the main thread refused (L-Q2). Tests: SIGTERM, SIGHUP, SIGINT and SIGQUIT during a held write leave a whole write, no intent and no recovery entry; agent run with the planted pause and Ctrl-C, SIGHUP and SIGTERM writes its stop entry and the logbook verifies (the PR 25 defect, end to end).
 - [x] L5.5 Docs, planted faults and mutation checks (2.5 h): KNOWN-LIMITS (the list in the design) and item 39 updated (no stale lock any more), the Layer 5 "Still open" note above closed, README; the chain cases go to C.2 (Nov 16); mutation checks (recovery accepting any mismatch, the record written without the hash comparison, the intent not fsynced, the folder fsync dropped, the handler swap dropped, the recovery entry not written, the intent removed before the record, the torn tail cut accepting any tail); the full suite on Python 3.10 to 3.13 and the stop tests 20 times under load; counts in the pull request.
 
-## Whole-system test and security scan (spec PR 34, not approved; planned Nov 23 to Nov 26, after the budget governor is complete)
+## Whole-system test and security scan (spec PR 34, approved Nov 10 (S.0); built Nov 10 to Nov 12, moved up by the owner from Nov 23 to Nov 26)
 
-Requirements S.R1 to S.R10, design.md "Whole-system test and security scan" (facts with links, the tools and what each cannot see, open questions S-Q1 to S-Q16). Not built until the owner answers the questions (S.0). About 25 hours (design, "Hours and schedule effect"). Every test runs `python -m umwayi ...` as a real child process with `HOME`, `XDG_CONFIG_HOME` and `TMPDIR` in a temporary folder and the fake agents on `PATH`; no real agent, systemd, network or account. The scan tools run outside the repo and are never a dependency.
+Requirements S.R1 to S.R10, design.md "Whole-system test and security scan" (facts with links, the tools and what each cannot see, open questions S-Q1 to S-Q16). Approved with S-Q1 to S-Q16 as proposed (S.0). About 25 hours (design, "Hours and schedule effect"). Every test runs `python -m umwayi ...` as a real child process with `HOME`, `XDG_CONFIG_HOME` and `TMPDIR` in a temporary folder and the fake agents on `PATH`; no real agent, systemd, network or account. The scan tools run outside the repo and are never a dependency.
 
-- [ ] S.0 Requirements S.R1 to S.R10, the design section and these tasks written (Nov 10) in PR 34; **waiting for the owner's answers to S-Q1 to S-Q16**.
+- [x] S.0 Requirements S.R1 to S.R10, the design section and these tasks written (Nov 10) in PR 34, approved by the owner on Nov 10 with S-Q1 to S-Q16 all as proposed:
+  1. S-Q1: S.1 runs in the normal suite, so CI runs it on every pull request; the added time is measured in S.1.4.
+  2. S-Q2: one ordered owner's day, then each fault scenario in its own copy of the day's end state.
+  3. S-Q3: Bandit with all plugins from a throwaway virtual environment, plus the existing code guards; no Semgrep.
+  4. S-Q4: OSV-Scanner offline (one database download) as the main tool, and `npm audit --package-lock-only` as a second source, accepting that it sends the package list to the registry.
+  5. S-Q5: each Python version compared by hand with python.org's security releases, and recorded.
+  6. S-Q6: a whole-request deadline of 10 s in the receiver; a request past it is closed, and the run is made invalid only if the run header had matched.
+  7. S-Q7: the receiver handles at most 16 requests at once and closes the rest at once.
+  8. S-Q8: High or Critical, Medium and reachable, and every defect a test shows must be fixed or accepted by the owner in KNOWN-LIMITS before the freeze (Nov 29).
+  9. S-Q9: the canary folder 0700, the capture file 0600, the intent 0600 while it holds an entry, the unit files 0644, everything else the owner's umask.
+  10. S-Q10: the same-user boundary is stated plainly and not tested against.
+  11. S-Q11: every licence is listed and the SDK's "SEE LICENSE IN README.md" is pointed out for the owner to read; umwayi decides nothing.
+  12. S-Q12: the results go to `docs/SECURITY-SCAN.md`, dated, with nothing secret.
+  13. S-Q13: the CI workflow is not changed for Dec 3; the scan is run by hand and recorded.
+  14. S-Q14: the owner's real runs (10.21's real run of each platform, 10.31, 11.6, B.10) are not part of S.1 and are listed as not done.
+  15. S-Q15: a defect S.1 finds in any layer is fixed in the S.1 pull request, test first, and named in it.
+  16. S-Q16: built right after approval (now Nov 10 to Nov 12, moved up by the owner from Nov 23 to Nov 26), one pull request for S.1 and one for S.2.
 - [ ] S.1 Whole-system test (includes 9.11 and the test part of 10.21):
   - [ ] S.1.1 Support (2 h): `tests/whole_system_support.py`: the root builder from the example files, the fakes on `PATH`, the copy of the day's end state per scenario, the end checks of S.R1.5 (verify, budget status, nothing alive, allowed exit codes).
     - Acceptance tests: a fresh root validates (`agent validate`, `budget validate`, `schedule validate`, `workflow validate` all 0); a copy is byte for byte the original, links kept; the end checks fail on a planted leftover process and on a planted exit code 1 from `agent`.

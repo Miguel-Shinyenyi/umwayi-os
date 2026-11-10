@@ -2063,9 +2063,9 @@ Kill switch (3), rules `agent_run`, run lock (3), gate checks (2), then the new 
 | the agent forges a report | an unknown run looks measured | B-Q5; KNOWN-LIMITS |
 | the logbook grows with three entries per run | slower appends | linear and small; C-Q2 |
 
-## Whole-system test and security scan (spec only, PR 34; not approved; S-Q1 to S-Q16 open)
+## Whole-system test and security scan (approved Nov 10, tasks.md S.0; built Nov 10 to Nov 12)
 
-Requirements S.R1 to S.R10. Tasks S.0 to S.2.7. Nothing here is built until the owner answers the open questions below. No code, no test and no scan was run for this spec.
+Requirements S.R1 to S.R10. Tasks S.0 to S.2.7. Approved by the owner on Nov 10 with S-Q1 to S-Q16 all as proposed (answers below the questions). No code, no test and no scan was run for this spec.
 
 ### Facts (read Nov 10 2026)
 
@@ -2188,7 +2188,7 @@ At least: S.R10 items 1 to 6 in short; the advisory scan was true on its date on
 | S.2.7 SECURITY-SCAN.md, KNOWN-LIMITS, README, mutation checks, the full suite | 2 |
 | **total** | **25** |
 
-That is about three working days. It fits Nov 23 to Nov 26 as planned, or can start right after approval (S-Q16). Nothing else moves: README, demo and Devpost alongside, the freeze Nov 29 to Dec 2, submit Dec 3.
+That is about three working days: Nov 10 to Nov 12 (S-Q16, moved up by the owner from Nov 23 to Nov 26). The web interface follows it with its own spec; README, demo and Devpost, the freeze Nov 29 to Dec 2 and the submission on Dec 3 do not move.
 
 ### Risks
 
@@ -2201,7 +2201,7 @@ That is about three working days. It fits Nov 23 to Nov 26 as planned, or can st
 | a fix to the receiver changes its behaviour | the governor tests change | the fix comes with its tests first and the full suite on 3.10 to 3.13 |
 | the scan is taken as proof | the owner trusts more than was shown | S.R10 in SECURITY-SCAN.md, KNOWN-LIMITS and the PR |
 
-### Open questions for the owner (S.1 and S.2, not answered)
+### Open questions for the owner (S.1 and S.2, answered Nov 10: all as proposed)
 
 1. **S-Q1. Where S.1 runs.** In the normal suite, so CI runs it on every pull request (proposed; about 5 to 8 more minutes per Python, measured in S.1.4). Or a separate command that only runs before a release?
 2. **S-Q2. One root or many.** One ordered owner's day, then each fault in its own copy of the day's end state (proposed). Or every scenario from an empty root (slower, but no step depends on another)?
@@ -2219,6 +2219,8 @@ That is about three working days. It fits Nov 23 to Nov 26 as planned, or can st
 14. **S-Q14. The owner's real runs.** Not part of S.1; 10.21 (a real run of each platform), 10.31, 11.6 and B.10 stay open as the owner's checks, and SECURITY-SCAN.md lists them as not done (proposed). Or make one of them a condition for ticking S.1?
 15. **S-Q15. Fixes found by S.1.** A defect S.1 finds in any layer is fixed in the S.1 pull request, test first, and named in it (proposed). Or a separate fix pull request per defect?
 16. **S-Q16. When.** Build right after approval, one pull request for S.1 and one for S.2 (proposed, about 25 hours). Or keep Nov 23 to Nov 26, or one pull request for both?
+
+Answers (owner, Nov 10): S-Q1 to S-Q16 as proposed. S.1 and S.2 are built right after PR 34 merges, Nov 10 to Nov 12, in two pull requests (S.1 first); the web interface follows the scan, with its own spec first; README, demo and Devpost stay Nov 23 to Nov 28.
 
 ## Testing
 
