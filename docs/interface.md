@@ -6,7 +6,7 @@ The view is a calm 3D hillside in a web page. Eleven stations stand around a lan
 
 ## Current state
 
-**UI.1, the static world, is built (PR PRNUM).** The page, `ui/dist/index.html`, shows the eleven stations with **sample counts** and says "sample". `umwayi view snapshot` (UI.2), reading a snapshot (UI.3), the owner checks panel (UI.4) and the polish and scan (UI.5) are not built. Requirements: [12.R1 to 12.R11](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 12](../.kiro/specs/umwayi-os/design.md), tasks: [UI.0 to UI.5](../.kiro/specs/umwayi-os/tasks.md), dated facts and the owner's interface check: [adapters/NOTES-layer12.md](../adapters/NOTES-layer12.md), how to build it: [ui/README.md](../ui/README.md).
+**UI.1, the static world, is built (PR 39).** The page, `ui/dist/index.html`, shows the eleven stations with **sample counts** and says "sample". `umwayi view snapshot` (UI.2), reading a snapshot (UI.3), the owner checks panel (UI.4) and the polish and scan (UI.5) are not built. Requirements: [12.R1 to 12.R11](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 12](../.kiro/specs/umwayi-os/design.md), tasks: [UI.0 to UI.5](../.kiro/specs/umwayi-os/tasks.md), dated facts and the owner's interface check: [adapters/NOTES-layer12.md](../adapters/NOTES-layer12.md), how to build it: [ui/README.md](../ui/README.md).
 
 What the page does now:
 
@@ -50,7 +50,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-10 | UI-Q6 to UI-Q11 accepted as proposed by the owner (PR PRNUM follows them): a broken logbook gives no snapshot, a file picker for the snapshot, the list view and the ring order, Calm mode starts off (on for less contrast) with text at 4.5 to 1, the Python suite plus `node --test` plus a hand browser pass, and the layer 13 view stays a sketch | The owner, Nov 10. |
+| 2026-11-10 | UI-Q6 to UI-Q11 accepted as proposed by the owner (PR 39 follows them): a broken logbook gives no snapshot, a file picker for the snapshot, the list view and the ring order, Calm mode starts off (on for less contrast) with text at 4.5 to 1, the Python suite plus `node --test` plus a hand browser pass, and the layer 13 view stays a sketch | The owner, Nov 10. |
 | 2026-11-10 | UI-Q5: an owner checks panel with the physical tests, steps and a place to tick and type; results stay in the page and export as text; the page never writes to the repo, runs a command or calls a network | The owner's answer. The tests only the owner can run need one place. |
 | 2026-11-10 | UI-Q4: calm by default, no flashing, no autoplay, motion only after input and eased to rest, reduced motion shows still frames, a Calm mode toggle, dark colours, no large white area, less congestion | The owner's answer. |
 | 2026-11-10 | UI-Q3: `umwayi view snapshot` is read only, writes one JSON file of counts only, runs the tamper check, writes one logbook entry, exits 0, 1 or 64 | The owner's answer. Counts cannot leak text. |
@@ -62,5 +62,5 @@ Newest first. Each row names where it was decided.
 ## Open questions
 
 - UI.2 to UI.5 are not built: the snapshot command, reading it in the page, the owner checks panel, and the polish, the frame rate on a real GPU, the scan of `ui/package-lock.json` and the owner's interface check.
-- The look has one reviewer so far (the screenshots in PR PRNUM). Anything the owner finds too bright, too busy or too plain is changed in UI.5 or sooner.
+- The look has one reviewer so far (the screenshots in PR 39). Anything the owner finds too bright, too busy or too plain is changed in UI.5 or sooner.
 - The owner's checks 10.21, 10.31, 11.6, B.10, 10.37 and the interface check are not done.
