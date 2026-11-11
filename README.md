@@ -19,7 +19,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | Whole-system test (S.1) | built | [testing](docs/testing.md) |
 | Layer 12 web interface (the view) | specified, not built; waits for the owner's approval | [interface](docs/interface.md) |
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
-| Layer 13 correction and graded autonomy | specified, not built; waits for the owner's approval | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
+| Layer 13 correction and graded autonomy | slice 1 (elections: `review_by` and `umwayi rules due`) built; the other slices specified, not built | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 

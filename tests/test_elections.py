@@ -235,6 +235,14 @@ class LapseTests(Base):
         self.assertEqual(r.returncode, 2)
         self.assertIn("Election fallbacks: lapsed-yes (review_by 2026-11-01)\n", r.stdout)
 
+    def test_the_kill_switch_stops_before_any_fallback_is_named(self):
+        self.write_rules(rule("lapsed-yes", review_by="2026-11-01"))
+        self.assertEqual(self.u("kill", "on", "--reason", "test").returncode, 0)
+        code, data = self.check_json("--kill-switch")
+        self.assertEqual((code, data["answer"], data["matched"]), (2, "No", []))
+        self.assertNotIn("election_fallbacks", data)
+        self.assertNotIn("election fallbacks", self.logbook_text())
+
     def test_the_reason_of_a_lapsed_rule_is_fixed_text_not_the_rule_text(self):
         self.write_rules(rule("lapsed-yes", review_by="2026-11-01", text="SENTINEL-TEXT-QQ", cause="SENTINEL-CAUSE-QQ"))
         r = self.check("--no-log")

@@ -676,3 +676,10 @@ umwayi writes in place only to `LOGBOOK.md` (an append) and the logbook lock (it
 
 `rules.yaml` (and `--rules PATH`) and `umwayi.json` may be links to a regular file elsewhere, for a dotfiles setup; they must be regular files of at most 1 MB and 64 KB. Other files umwayi reads are refused when they are links, but the check comes before the open, so a link swapped in between can make umwayi read another file's text. Nothing is written that way; the writes are atomic or `O_NOFOLLOW` (item 136).
 
+### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses
+
+A Yes rule runs out only if it has a `review_by` date. A rule with no date, or a date the owner moves forward without looking, stays in force. `umwayi rules due` lists what needs a look, but nothing makes the owner run it, and a date more than 366 days ahead is only flagged as `far`, not refused (L13-Q10). The owner may put `review_by` in `rules.yaml` only after the version with elections is installed: older code calls it an unknown field and every check gives Ask me first.
+
+### 161. A clock set far ahead lapses every dated rule, and the election clock never goes back
+
+The date of a check is the latest of the system date, `--date` and the newest logbook date. A system clock set far ahead, or one entry with a far date, makes every dated Yes rule give Ask me first until the owner edits the dates; that is a safe error, not a Yes. A clock set back changes nothing, because the newest logbook date still counts. If the logbook cannot be read, only the system date and `--date` are used, and the entry of that check cannot be written either, so no Yes comes out.
