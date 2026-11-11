@@ -427,11 +427,13 @@ class ArgumentListTests(unittest.TestCase):
         self.assertEqual(agents._assert_allowed(["/bin/claude", "--bare"], skip=1), ["/bin/claude", "--bare"])
 
     def test_the_platform_table_is_fixed(self):
-        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro"])
+        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro", "opencode"])  # opencode: part 8 (10.43)
         self.assertEqual(agents.PLATFORMS["claude-code"].commands, ("claude",))
         self.assertEqual(agents.PLATFORMS["kiro"].commands, ("kiro-cli",))
+        self.assertEqual(agents.PLATFORMS["opencode"].commands, ("opencode",))
         self.assertEqual(agents.PLATFORMS["claude-code"].transports, ("cli", "acp"))
         self.assertEqual(agents.PLATFORMS["kiro"].transports, ("cli", "acp"))
+        self.assertEqual(agents.PLATFORMS["opencode"].transports, ("acp",))
         self.assertEqual(agents.CLAUDE_ACP_PACKAGE, "@agentclientprotocol/claude-agent-acp")
         self.assertEqual(agents.CLAUDE_ACP_VERSION, "0.101.0")
         self.assertEqual(agents.NODE_MIN, (22, 0, 0))
@@ -441,6 +443,7 @@ class ArgumentListTests(unittest.TestCase):
         self.assertTrue((REPO / agents.CLAUDE_ACP_CANARY).is_file())
         self.assertEqual(agents.PLATFORMS["claude-code"].min_version, (2, 1, 295))
         self.assertEqual(agents.PLATFORMS["kiro"].min_version, (2, 27, 1))
+        self.assertEqual(agents.PLATFORMS["opencode"].min_version, (2, 2, 3))
         for p in agents.PLATFORMS.values():
             self.assertTrue((REPO / p.hook).is_file())
 

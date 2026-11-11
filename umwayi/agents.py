@@ -97,6 +97,10 @@ PLATFORMS = {
                             (2, 1, 295), "-v", "onFailure: block needs Claude Code 2.1.295 or later"),
     "kiro": Platform("kiro", ("kiro-cli",), ("cli", "acp"), "adapters/kiro/hook.py",
                      (2, 27, 1), "--version", "V3 headless runs load hooks from Kiro CLI 2.27.1"),
+    # Part 8 (10.R13): OpenCode over ACP only. The "hook" is the layer 9 generic adapter, which the umwayi plugin
+    # runs for every tool call (design.md part 8). 2.2.3 is the first release that honours every policy used.
+    "opencode": Platform("opencode", ("opencode",), ("acp",), "adapters/stdio/hook.py",
+                         (2, 2, 3), "--version", "integration.use, mcp.use and plugin.use need OpenCode 2.2.3 or later"),
 }
 
 # Part 7: Claude Code over ACP (10.R11). The adapter is a pinned npm package in adapters/claude_acp/,
@@ -191,8 +195,48 @@ FORBIDDEN_FLAGS = ("--bare", "--dangerously-skip-permissions", "--allow-dangerou
                    "--setting-sources", "--trust-all-tools", "--cloud", "--bg")
 FORBIDDEN_TEXT = ("bypassPermissions",)
 
+# Part 8: OpenCode over ACP (10.R13, tasks 10.43 and 10.44; design.md part 8, facts in NOTES-layer10.md, 10.42).
+# umwayi never installs OpenCode and never runs npm or Bun. Everything below is a pure function of its arguments.
+OPENCODE_PLUGIN_DIR = "adapters/opencode/plugin"  # the umwayi plugin, written in 10.45
+OPENCODE_CONFIG_VAR = "OPENCODE_CONFIG_CONTENT"  # the one OPENCODE_ name the child gets, set by umwayi
+# The child environment of every OpenCode program (10.R13.4): the names of 10.R11.9 without the two Claude Code
+# ones (CLAUDE_CONFIG_DIR, CLAUDE_AGENT_ACP_PROTOCOL), each only if set. Nothing else is passed: no provider key,
+# no cloud variable, no OPENCODE_ name (among them OPENCODE_API_KEY, OPENCODE_CONFIG, OPENCODE_CONFIG_DIR,
+# OPENCODE_DB, OPENCODE_PASSWORD and OPENCODE_DISABLE_PROJECT_CONFIG), no NODE_OPTIONS, NODE_PATH or BUN_ name.
+OPENCODE_ENV_NAMES = ("HOME", "USER", "LOGNAME", "PATH", "SHELL", "LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE",
+                      "LC_MESSAGES", "TZ", "TMPDIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+                      "XDG_STATE_HOME", "XDG_RUNTIME_DIR",
+                      "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy",
+                      "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR")
+# The routes (10.R13.6): provider -> (the integration.use resource that is allowed, the default base URL of a local
+# server or None). The signed-out free tier is the bare `opencode`, so a signed-in Console account (opencode#ACCOUNT)
+# is not used; a subscription sign-in is the connected-account form `NAME#*`, never the bare name, which is an
+# environment key. A local provider gets settings.baseURL and nothing else: a `models` entry under a built-in
+# local provider breaks the route (10.42, provider.no-route).
+OPENCODE_ROUTES = {
+    "opencode": ("opencode", None),
+    "ollama": ("ollama", "http://127.0.0.1:11434/v1"),
+    "lmstudio": ("lmstudio", "http://127.0.0.1:1234/v1"),
+    "vllm": ("vllm", "http://127.0.0.1:8000/v1"),
+    "openai": ("openai#*", None),
+    "github-copilot": ("github-copilot#*", None),
+}
+OPENCODE_GO = "opencode-go"  # refused (OC13): its billing could not be told apart from Console credits (10.42)
+OPENCODE_GO_TEXT = ("agent: provider opencode-go (OpenCode Go) is not offered yet: 10.42 could not tell its billing "
+                    "apart from Console credits (design.md, OC13). Nothing was started.")
+OPENCODE_PAYG_TEXT = ("the free tier (opencode), a local server (ollama, lmstudio, vllm) and a subscription sign-in "
+                      "(openai, github-copilot) are offered; pay as you go is not offered, it waits for the budget "
+                      "governor. Nothing was started.")
+OPENCODE_CHECKS_NOT_BUILT = ("the OpenCode gate checks are not built yet (task 10.46), so this agent cannot be "
+                             "gated and nothing is started")
+_OPENCODE_PROVIDER = re.compile(r"^[a-z0-9][a-z0-9._-]{0,39}$")
+_OPENCODE_MODEL = re.compile(r"^[a-z0-9][a-z0-9._-]{0,39}/[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$")
+_OPENCODE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+# OpenCode replaces {env:NAME} and {file:PATH} in the inline config before it reads it (NOTES, Nov 11).
+_OPENCODE_SUBSTITUTION = re.compile(r"\{(?:env|file):", re.IGNORECASE)
+
 KEYS = ("name", "platform", "command", "transport", "workdir", "kiro_agent", "trust_tools",
-        "max_turns", "timeout_minutes")
+        "max_turns", "timeout_minutes", "provider", "model")
 REQUIRED = ("name", "platform", "command", "workdir")
 RUN, CHAT, LOGIN = "run", "chat", "login"  # LOGIN: `umwayi agent login NAME` (10.R12.9, part 7c-2)
 CLI, ACP = "cli", "acp"
@@ -216,6 +260,8 @@ class Agent:
     max_turns: int | None = None
     timeout_minutes: int = DEFAULT_TIMEOUT_MINUTES
     line: int = 0
+    provider: str | None = None  # platform opencode only (10.R13.2)
+    model: str | None = None  # platform opencode only: provider/model-id
 
 
 @dataclass(frozen=True)
@@ -415,7 +461,8 @@ def check_text(text: str, root: Path) -> tuple:
         if "command" in item and plat is not None and not (isinstance(cmd, str) and cmd in plat.commands):
             problem(f"{label}: command must be one word from the allow list for {plat.name}: "
                     f"{', '.join(plat.commands)} (no path, no arguments)", "agents", i, "command")
-        transport = item.get("transport", CLI)
+        # a platform with one possible transport (OpenCode: acp) does not need it written (OC17)
+        transport = item.get("transport", plat.transports[0] if plat is not None and len(plat.transports) == 1 else CLI)
         if "transport" in item and transport not in (CLI, ACP):
             problem(f"{label}: transport must be cli or acp", "agents", i, "transport")
         elif plat is not None and transport not in plat.transports:
@@ -455,9 +502,29 @@ def check_text(text: str, root: Path) -> tuple:
         timeout = item.get("timeout_minutes", DEFAULT_TIMEOUT_MINUTES)
         if "timeout_minutes" in item and not _whole(timeout, 1, 720):
             problem(f"{label}: timeout_minutes must be a whole number from 1 to 720", "agents", i, "timeout_minutes")
+        provider, model = item.get("provider"), item.get("model")
+        for key in ("provider", "model"):
+            if pname == "opencode" and key not in item:
+                problem(f"{label} needs {key}", "agents", i)
+            elif pname != "opencode" and key in item:
+                problem(f"{label}: {key} is only for platform opencode", "agents", i, key)
+        if pname == "opencode":
+            # the shape only (OC16): whether a route is offered is decided at the start, with exit 2
+            provider_ok = isinstance(provider, str) and _OPENCODE_PROVIDER.fullmatch(provider) is not None
+            if "provider" in item and not provider_ok:
+                problem(f"{label}: provider must be 1 to 40 lowercase letters, digits, '.', '_' or '-', "
+                        "starting with a letter or a digit", "agents", i, "provider")
+            if "model" in item:
+                if not (isinstance(model, str) and _OPENCODE_MODEL.fullmatch(model)):
+                    problem(f"{label}: model must be provider/model-id, for example ollama/qwen3-coder "
+                            "(the provider part in lowercase)", "agents", i, "model")
+                elif provider_ok and model.split("/", 1)[0] != provider:
+                    problem(f"{label}: model must start with the same provider as provider, followed by '/'",
+                            "agents", i, "model")
         if len(problems) == before:
             parsed.append(Agent(name, pname, cmd, transport, item["workdir"], kiro_agent,
-                                tuple(tools) if isinstance(tools, list) else (), max_turns, timeout, line("agents", i)))
+                                tuple(tools) if isinstance(tools, list) else (), max_turns, timeout, line("agents", i),
+                                provider if pname == "opencode" else None, model if pname == "opencode" else None))
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
     return parsed, []
@@ -591,6 +658,97 @@ def claude_env(environ) -> dict:
     receiver.
     """
     return {k: v for k, v in environ.items() if k not in CLAUDE_CREDENTIAL_ENV and not telemetry.removed(k)}
+
+
+class OpenCodeRefused(RuntimeError):
+    """An OpenCode environment or config cannot be made safely (10.R13.5, 10.R13.6). The text is fixed words plus,
+    at most, a provider name that matched the plain pattern; it never holds a path, a token or file content. A
+    start turns it into a refusal (exit 2) with nothing started; an unexpected error exits 2 as well."""
+
+
+def _refuse(why: str):
+    raise OpenCodeRefused(f"agent: {why} Nothing was started.")
+
+
+def opencode_route(provider) -> tuple:
+    """(the integration.use resource that is allowed, the default base URL or None) for an offered provider (10.R13.6).
+
+    Pure. Console credits, provider API keys and every other provider are refused: pay as you go is not offered,
+    and OpenCode Go waits for a sign-in that shows its billing (OC13).
+    """
+    if isinstance(provider, str) and provider in OPENCODE_ROUTES:
+        return OPENCODE_ROUTES[provider]
+    if provider == OPENCODE_GO:
+        raise OpenCodeRefused(OPENCODE_GO_TEXT)
+    shown = provider if isinstance(provider, str) and _OPENCODE_PROVIDER.fullmatch(provider) else "that provider"
+    raise OpenCodeRefused(f"agent: provider {shown} is not offered: " + OPENCODE_PAYG_TEXT)
+
+
+def opencode_env(environ, content) -> dict:
+    """The allow-listed environment of every OpenCode program (10.R13.4), with the inline config as the one
+    OPENCODE_ variable. `environ` is not changed. A planted OPENCODE_CONFIG_CONTENT is replaced, never passed on."""
+    if not isinstance(content, str) or "\x00" in content:
+        _refuse("the OpenCode inline config must be text without a NUL character.")
+    env = {k: environ[k] for k in OPENCODE_ENV_NAMES if isinstance(environ.get(k), str)}
+    env[OPENCODE_CONFIG_VAR] = content
+    return env
+
+
+def _opencode_path(label: str, value) -> str:
+    text = os.fspath(value) if isinstance(value, (str, os.PathLike)) else None
+    if not isinstance(text, str) or "\x00" in text or not os.path.isabs(text):
+        _refuse(f"the {label} path for the OpenCode config must be an absolute path (not empty, no NUL character).")
+    return text
+
+
+def opencode_inline_config(agent: Agent, root, token, folder, python, src=None) -> str:
+    """The one JSON document umwayi passes in OPENCODE_CONFIG_CONTENT (10.R13.5, design.md "The inline config").
+
+    Pure: the same agent, token and paths give the same bytes (sorted keys, compact, ASCII only), and nothing is
+    read, checked or written. It holds `permissions` (ask for everything), `policies` (every provider and
+    integration denied, then the agent's route allowed), `model`, `plugins` (the umwayi plugin with its three
+    options) and, for a local route, `providers` with settings.baseURL only. Refuses (OpenCodeRefused) an agent that
+    is not an OpenCode agent, a route that is not offered, a path that is not absolute, a token that is not plain,
+    and any value that would hold {env: or {file:, because OpenCode would replace it.
+    """
+    if getattr(agent, "platform", None) != "opencode":
+        _refuse("the OpenCode config is made only for an agent with platform opencode.")
+    provider, model = agent.provider, agent.model
+    if not (isinstance(provider, str) and _OPENCODE_PROVIDER.fullmatch(provider)):
+        _refuse("the OpenCode agent has no valid provider.")
+    if not (isinstance(model, str) and _OPENCODE_MODEL.fullmatch(model)) or model.split("/", 1)[0] != provider:
+        _refuse("the OpenCode agent's model is missing, malformed or of another provider.")
+    integration, url = opencode_route(provider)
+    if not (isinstance(token, str) and _OPENCODE_TOKEN.fullmatch(token)):
+        _refuse("the canary token must be 16 to 128 letters, digits, '_' or '-'.")
+    root_text = _opencode_path("root", root)
+    folder_text = _opencode_path("canary folder", folder)
+    python_text = _opencode_path("Python", python)
+    src_text = _opencode_path("umwayi source", src if src is not None else umwayi_src())
+    hook = str(hook_path("opencode", Path(src_text)))
+    plugin = str(Path(src_text) / OPENCODE_PLUGIN_DIR)
+    config = {
+        "permissions": [{"action": "*", "resource": "*", "effect": "ask"}],
+        "policies": [
+            {"action": "provider.use", "resource": "*", "effect": "deny"},
+            {"action": "provider.use", "resource": provider, "effect": "allow"},
+            {"action": "integration.use", "resource": "*", "effect": "deny"},
+            {"action": "integration.use", "resource": integration, "effect": "allow"},
+        ],
+        "model": model,
+        "plugins": [{"package": plugin, "options": {
+            "hook": [python_text, hook, "--root", root_text, "--platform", "opencode"],
+            "canary": os.path.join(folder_text, "canary"),
+            "token": token,
+        }}],
+    }
+    if url is not None:
+        config["providers"] = {provider: {"settings": {"baseURL": url}}}
+    text = json.dumps(config, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    if _OPENCODE_SUBSTITUTION.search(text):
+        _refuse("the OpenCode config would hold '{env:' or '{file:' text, which OpenCode replaces with a variable or a "
+                "file; use a path without it for umwayi, its root and the temporary folder.")
+    return text
 
 
 def login_check(code, out: bytes) -> tuple:
@@ -1050,6 +1208,9 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     gate = Gate()
     if mode == LOGIN and not can_login(agent):
         raise UsageError(LOGIN_ONLY)
+    if agent.platform == "opencode":  # the checks of 10.R13.8 are task 10.46; until then it fails closed
+        _recorder(gate, ["gate checks"])("gate checks", False, OPENCODE_CHECKS_NOT_BUILT)
+        return gate
     if is_claude_acp(agent, mode):
         return _claude_acp_checks(agent, root, src, gate, login_only=mode == LOGIN)
     claude = agent.platform == "claude-code"
@@ -2154,6 +2315,13 @@ def _owner_input():
     return sys.stdin.fileno()
 
 
+def _opencode_chat_only(agent: Agent, command: str) -> None:
+    """`agent run` and `agent login` are never offered for OpenCode (10.R13.1): a usage error (64), before the
+    kill switch, the rules or the logbook, so nothing is written and nothing is started."""
+    if agent.platform == "opencode":
+        raise UsageError(f"{command}: only 'umwayi agent chat' is offered for OpenCode agents. Nothing was started.")
+
+
 def chat_agent(root, name: str, clock, given: str | None = None, out=None) -> Result:
     """`umwayi agent chat NAME`: the same steps as run, then the owner's terminal (transport cli, part 5)
     or umwayi's own ACP client (transport acp: part 6 for Kiro, part 7 for Claude Code through the pinned
@@ -2172,6 +2340,7 @@ def login_agent(root, name: str, clock, given: str | None = None) -> Result:
     `kiro-cli login` for a Kiro agent, on the owner's terminal; then the login check. 0, 2, 3 or 64."""
     root = _root(root)
     agent = find(load(root, given), name)
+    _opencode_chat_only(agent, "agent login")
     if not can_login(agent):
         raise UsageError(LOGIN_ONLY)
     return _Run(root, agent, None, clock, mode=LOGIN).go()
@@ -2181,6 +2350,7 @@ def run_agent(root, name: str, prompt: str, clock, given: str | None = None) -> 
     """`umwayi agent run NAME`, for Claude Code (part 3) and Kiro (part 4). The same steps for both."""
     root = _root(root)
     agent = find(load(root, given), name)
+    _opencode_chat_only(agent, "agent run")
     if agent.platform not in PLATFORMS:
         raise UsageError("agent: unknown platform. Nothing was started.")
     prompt = check_prompt(prompt, agent.platform)
