@@ -26,6 +26,15 @@ Facts read or tried on Nov 10 and Nov 11 2026, for the spec in PR 38 and the rew
 - **Grass.** Red oat grass (Themeda triandra) is a common grass of the open plains ([Amboseli](https://amboselikenya.com/plants-flora/)), and in the highlands at 2,100 to 2,700 m the land is patches of evergreen forest separated by wide expanses of short grass ([Britannica](https://www.britannica.com/place/Kenya/Plant-and-animal-life)). The scene's grass is dry gold with green, in short blades.
 - All of this was used to choose shapes and colours. It is not a survey; the scene is an image of the place, not a map of it.
 
+## Round 2 (read Nov 11 2026, for UI-Q17 to UI-Q22)
+
+- **Next.js** 16.4.6 is the latest version on the npm registry on Nov 11 2026 (`npm view next version`); the 16 line is the current one and Next.js 15 left maintenance on Oct 21 2026 ([endoflife.date](https://endoflife.date/nextjs), [nextjs.org support policy](https://nextjs.org/support-policy)). UI.6 pins the exact version it is built with.
+- **The Network Information API** (`navigator.connection`, with `effectiveType`, `downlink` and `saveData`) is experimental and mainly in Chromium browsers; Safari and Firefox do not offer it ([caniuse](https://caniuse.com/mdn-api_navigator_connection)). So the tier choice treats a missing API as unknown and never picks High from it. `navigator.deviceMemory` is also Chromium only.
+- **The shuka** is the cloth wrapped round the body that the Maasai of Kenya and Tanzania wear every day; red is the most common colour, and blue, striped and checked cloths are also worn; beaded necklaces are part of the dress ([G Adventures](https://www.gadventures.com/blog/story-behind-maasais-shuka-cloth/), [Masai Mara National Reserve](https://masaimara.ke/the-maasai-shuka-a-guide-to-the-iconic-cloth/)). The figure uses only these shapes: a cloth over one shoulder, a staff, a collar as a shape; no face detail.
+- **Sheep in Kenya**: the Red Maasai is the native breed of the Maasai and other peoples, and the Dorper (from South Africa, a white body and a black head) has been widely crossed with it since the 1970s ([Wikipedia](https://en.wikipedia.org/wiki/Red_Maasai_sheep), [MDPI, Animals 2023](https://www.mdpi.com/article/10.3390/ani13020300)). Goats such as the Galla are kept beside them ([MDPI, Sustainability 2021](https://www.mdpi.com/2071-1050/13/17/9629/htm)). The flock mixes these coats.
+
+Content was rephrased for compliance with licensing restrictions.
+
 ## How the look is made (decisions of Nov 11, not facts from outside)
 
 - No photograph, texture file, model or font is used. Terrain is a height function from noise; the ground, rock, wood, wool, iron and water are shaders and vertex colours; plants are instanced shapes; clouds are made once from noise; the mountain is a displaced mesh. This keeps the page under about 2 MB with three.js bundled (the bundle was 554 KB for the renderer, the composer and the bloom pass on Nov 10).

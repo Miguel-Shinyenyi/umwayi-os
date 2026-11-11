@@ -24,6 +24,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | Layer 12, round 2 (UI-Q17 to UI-Q22): three tiers, a public site in `site/` beside the static live view, one shared scene module, tier 2 fixes and scene additions; order UI.1b (PR 39), UI.6, UI.7 | The owner, Nov 11. The owner keeps the timeline; no scope is cut. |
 | 2026-11-11 | The look of layer 12 changed (UI-Q12 to UI-Q16: the Kenyan highlands, natural features, a scattered layout, the home page); UI.1 (PR 39) is reworked, not merged; hours re-estimated | The owner, Nov 11. |
 | 2026-11-10 | The web interface is layer 12 and in scope before Dec 3, planned Nov 13 to Nov 22 (UI-Q1 to UI-Q5 answered) | The owner, Nov 10. The freeze and the submission do not move. |
 | 2026-11-10 | S-Q16: the scan is built right after approval, Nov 10 to Nov 12; the web interface follows it | The owner's order. |

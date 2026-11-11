@@ -6,6 +6,8 @@ The view is a calm 3D hillside in a web page. Eleven stations stand around a lan
 
 ## Current state
 
+**Round 2 (Nov 11, UI-Q17 to UI-Q22), being built.** The owner decided three tiers chosen in the browser (List, Standard, High) with a visible switch; a public site in `site/` (Next.js on the Vercel free tier, server rendered home text, no analytics, no tracking, device hints never sent) beside the owner's live view, which stays the static one file page of `ui/` with no network request; one scene module shared by both; fixes to the Standard scene (the rest of the page shows at the bottom of the first screen, stations further out, the river and trails visible, no name over the hero text, less low poly rocks and walls); and a dense forest across the river, flowing water over rocks, a Maasai silhouette shepherd, a mixed flock of sheep and goats and a herding dog. The order is UI.1b in PR 39, then UI.6 (the site, List and Standard), then UI.7 (High). The owner keeps the timeline and no scope is cut. The text below describes UI.1 before round 2 until UI.1b is done.
+
 **UI.1 is built, as the Kenyan highlands scene (PR 39, reworked on Nov 11, not merged).** The first build was a stylised meadow with podiums; the owner reviewed it on Nov 11 and asked for a different look. The engine, Calm mode, reduced motion, the build, the page rules and their tests were kept; the scene, the stations, the layout and the labels were rebuilt, and the home content was added. `umwayi view snapshot` (UI.2), reading a snapshot and feeding the position function real numbers (UI.3), the owner checks panel (UI.4) and the polish and scan (UI.5) are not built. Requirements: [12.R1 to 12.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 12](../.kiro/specs/umwayi-os/design.md), tasks: [UI.0 to UI.5](../.kiro/specs/umwayi-os/tasks.md), dated facts and the owner's interface check: [adapters/NOTES-layer12.md](../adapters/NOTES-layer12.md), how to build it: [ui/README.md](../ui/README.md).
 
 What the page does now, on made up counts that it marks "sample":
@@ -66,6 +68,12 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | UI-Q22: the owner keeps the timeline, no scope is cut, no question about hours; one pull request per step: UI.1b (PR 39), UI.6 (the site, List and Standard), UI.7 (High) | owner, round 2 |
+| 2026-11-11 | UI-Q21: a dense forest across the river; rapids, foam and moving highlights, still with reduced motion (and, my calmer choice, in Calm mode); a Maasai silhouette shepherd with beads only as shape; a mixed flock of sheep and goats and a herding dog; wildlife at the edge in High only | owner, round 2 |
+| 2026-11-11 | UI-Q20: the top of the status strip shows at the bottom of the first screen; the list is tier 1; at least three stations at 30 m or more; every trail faint at rest and the river visible; no name over the hero text; rocks, walls and ground less low poly | owner, round 2 |
+| 2026-11-11 | UI-Q19: the owner's live view stays the static one file page (no request, CSP `default-src 'none'`, from disk, Standard, the file picker); one scene module used by the live view and the site | owner, round 2 |
+| 2026-11-11 | UI-Q18: a public site in `site/`, Next.js pinned with a lockfile, Vercel free tier, no analytics or tracking, hints read in the browser only; the server renders the home text and the list; it may fetch only its own files from its own host | owner, round 2 |
+| 2026-11-11 | UI-Q17: three tiers (List, Standard, High) chosen by `chooseTier` from the device hints, with a visible switch kept in the address fragment only; High by itself only on a known fast network | owner, round 2; the High rule is my calmer choice |
 | 2026-11-11 | The hours: all four proposed cuts accepted (second realism pass, station detail, the last step of the low detail mode, UI.5 extras); UI.4 stays; UI.3's drift stays; no further cut unless the owner agrees. About 75 hours remain | The owner, Nov 11. |
 | 2026-11-11 | UI-Q16: the scene is the hero of the home page; one page, two modes (sample world with home content, or the owner's live view); title and promise, a status strip (sample until a snapshot), install and first commands with Copy (clipboard only on a click), links (Devpost and demo video placeholders) | The owner, Nov 11. |
 | 2026-11-11 | UI-Q15: a station moves closer to the lantern when it needs the owner now and drifts out when quiet; slow, eased, within 3 seconds, off under reduced motion; the position function takes numbers only | The owner, Nov 11. |
@@ -83,8 +91,9 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
-- UI.1 is being reworked on PR 39 and is not merged. UI.2 to UI.5 are not built.
-- After the owner's four cuts about 75 hours remain against a window of 60 to 72 (3 to 15 hours over). Nothing more is cut unless the owner agrees; if the gap shows by Nov 17 the owner is asked.
+- UI.1 is being reworked on PR 39 and is not merged; UI.1b (round 2) is being built there. UI.2 to UI.7 are not built.
+- The owner keeps the timeline (UI-Q22); no scope is cut.
+- The public site's host sees which files a browser asks for, so its logs can tell which tier was loaded. Nothing else about the device is sent.
 - Realism made from code is not a photograph. The first pass is judged by the owner on the screenshots before a second pass.
 - The frame rate on a real integrated GPU, Firefox, Safari, a real touch screen and a screen reader are not verified.
 - The Devpost and demo video addresses are placeholders until the owner supplies them.
