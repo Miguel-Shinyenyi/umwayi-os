@@ -6,7 +6,7 @@ The front door starts every AI agent (Claude Code, Kiro) through its own command
 
 ## Current state
 
-One front door starts every AI agent (Claude Code, Kiro) through its own command line, with the layer 9 hook in front of every tool call, and refuses an agent it cannot gate. Built: the agents file, the gate checks, `umwayi agent run` and `umwayi agent chat` for Claude Code and Kiro, with transport cli (your terminal) or, for Kiro, transport acp (umwayi's own ACP client). For Claude Code with transport acp (parts 7a and 7b), `umwayi agent chat` runs the pinned adapter `claude-agent-acp` with umwayi's own ACP client, and goes on only after the layer 9 hook is confirmed in the session.
+One front door starts every AI agent (Claude Code, Kiro; OpenCode is specified, not built) through its own command line, with the layer 9 hook in front of every tool call, and refuses an agent it cannot gate. Built: the agents file, the gate checks, `umwayi agent run` and `umwayi agent chat` for Claude Code and Kiro, with transport cli (your terminal) or, for Kiro, transport acp (umwayi's own ACP client). For Claude Code with transport acp (parts 7a and 7b), `umwayi agent chat` runs the pinned adapter `claude-agent-acp` with umwayi's own ACP client, and goes on only after the layer 9 hook is confirmed in the session.
 
 ```
 umwayi agent validate [--agents PATH]      check agents.yaml, every problem with a line number
@@ -63,6 +63,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | OpenCode and Muse Spark Open (PR 44): OC1 to OC5 and MS1 to MS4 as proposed; OpenCode built before Dec 3 (OC6 changed); Muse Spark Open spec only, after OpenCode (MS5) | The owner, Nov 11. |
 | 2026-11-09 | Part 7c (10.32, PR 22), all twelve answers as proposed: read only five fields of `auth status --json`; refuse `CLAUDE_CODE_OAUTH_TOKEN`; a deny list of credential names for `agent run` and the cli chat; `forceLoginMethod: "claudeai"`; show the plan word; watch `_auth/status_update` in an ACP chat; no way to allow API billing now; the login check after the version check; build 7c-1, 7c-2, 7c-3 in that order; Kiro without `KIRO_API_KEY`, with a `whoami` check and `agent login`; `agent login` skips a sign-in that is not needed; the login environment as proposed | Subscription first: only the owner's subscription pays. |
 | 2026-11-08 | Part 7 (10.22, PR 19), all ten answers as proposed: refuse the chat when the canary is not seen; `session/set_mode default` after the canary; only the owner's existing Claude Code login; the owner installs with `npm ci --ignore-scripts`; pin 0.101.0; use the Claude CLI bundled with the SDK; keep `settingSources`; keep `command: claude`; a 30 second canary wait; the schedule (superseded) | The hook must be confirmed in the session before anything is sent. |
 | 2026-11-08 | Layer 10 (10.0, PR 13), all ten answers as proposed: `agent run` and `agent chat` take the run lock; Ask me first adds one queue item; Kiro uses `trust_tools` only; a managed policy that blocks the hook is a known limit; `workdir` outside the root; Ask me first in an ACP chat asks on the terminal; no `kiro_agent` with ACP; an agent's failure is exit 2; Claude Code over ACP decided later; spend limits left to the budget governor | One front door that fails closed. |
@@ -73,4 +74,5 @@ Newest first. Each row names where it was decided.
 - 10.21: one real run of each platform by the owner, recorded in `adapters/NOTES-layer10.md`. Its test part is done: the whole-system test (S.1, PR 36) checks, runs and chats with Claude Code and Kiro over cli and ACP, with fakes.
 - 10.31: the owner's first real run of the Claude Code ACP chat (`adapters/NOTES-layer10.md`).
 - 10.37: planted faults, mutation checks and docs of part 7c, 0.5 hour of them the owner's.
-- 10.40 and 10.41: the specs of Muse Spark Open and the OpenCode adapter, after Dec 3.
+- Part 8, OpenCode over ACP (10.41, PR 44): the spec waits for the owner's approval, then the build (10.42 to 10.51) before Dec 3, as the owner asked on Nov 11. Its open questions OC7 to OC14 are in [design.md](../.kiro/specs/umwayi-os/design.md); known limits in [docs/KNOWN-LIMITS.md](KNOWN-LIMITS.md) items 180 to 187.
+- Muse Spark Open as an OpenCode model (10.40, PR 44): spec only, built after OpenCode (10.52 to 10.55); open questions MS6 to MS8; known limits 188 and 189.

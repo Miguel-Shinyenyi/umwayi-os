@@ -44,6 +44,7 @@ COMMANDS = [
     (["kill", "on"], "umwayi.cli.kill.turn_on"),
     (["kill", "off"], "umwayi.cli.kill.turn_off"),
     (["kill", "status"], "umwayi.cli.kill.state"),
+    (["view", "snapshot"], "umwayi.cli.view.snapshot"),
 ]
 
 

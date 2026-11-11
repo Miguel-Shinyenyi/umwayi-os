@@ -39,10 +39,12 @@ umwayi-os/
     agent-front-door.md     layer 10: umwayi agent
     scheduled-runs.md       layer 11: systemd user timers
     budget-governor.md      UU, the ledger, the telemetry receiver
-    interface.md            layer 12: the view, a web page that only looks (the highlands scene and home page are built)
+    interface.md            layer 12: the view, a web page that only looks (the snapshot command, the highlands scene and home page are built)
     exit-codes.md           every exit code and which command gives it
     testing.md              how everything is tested
     security.md             what is protected and how it is checked
+    corrections.md          layer 13: elections, reversal, courts, the stop criteria (specified, not built)
+    autonomy.md             layer 13: graded autonomy, the score and its gates (specified, not built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
     KNOWN-LIMITS.md         every known limit, numbered

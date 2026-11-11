@@ -18,6 +18,20 @@ The plan of work up to the submission on Dec 3. It exists so the order of the re
 
 The full schedule, with the history of each move, is in [tasks.md](../.kiro/specs/umwayi-os/tasks.md), section "Schedule to Dec 3".
 
+### Layer 13 (added 2026-11-11, in its own table to ease merging with layer 12)
+
+| dates | work |
+| --- | --- |
+| Nov 11 | L13.0, the layer 13 spec (docs and specs only) |
+| Nov 12 to Nov 13 | L13.1 Elections (14 h), after the owner approves the spec |
+| Nov 14 to Nov 16 | L13.2 Reversal (20 h) |
+| Nov 17 to Nov 19 | L13.3 Courts and the rules change log (16 h) |
+| Nov 20 | L13.4 Honest tension (5 h) |
+| Nov 21 to Nov 26 | L13.5 Graded autonomy (32 h) |
+| Nov 27 to Nov 28 | L13.6 whole-system and security update (6 h); Nov 28 is the last day any slice is merged |
+
+The owner stops the build where Dec 3 finds us; a slice is merged whole or not at all, and the cut is from the end. The freeze (Nov 29 to Dec 2) and the submission (Dec 3) do not move. The hours and the reasons are in [corrections.md](corrections.md) and in the design, "Hours and schedule effect".
+
 ## Decisions log
 
 Newest first. Each row names where it was decided.

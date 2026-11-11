@@ -27,7 +27,7 @@ NOT_COMPONENT = {"KNOWN-LIMITS.md", "DOCS_MAINTENANCE.md", "SECURITY-SCAN.md"}
 REQUIRED = ("memory.md", "rules.md", "queue.md", "archive.md", "logbook.md", "automation.md", "helpers.md",
             "workflows.md", "adapters.md", "agent-front-door.md", "scheduled-runs.md", "budget-governor.md",
             "exit-codes.md", "architecture.md", "testing.md", "security.md", "status-log.md", "schedule.md",
-            "DOCS_MAINTENANCE.md", "KNOWN-LIMITS.md")
+            "interface.md", "DOCS_MAINTENANCE.md", "KNOWN-LIMITS.md")
 
 _FENCE = re.compile(r"^\s{0,3}(```|~~~)")
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
@@ -157,6 +157,17 @@ def check(root: Path) -> list:
 class RepoDocsTests(unittest.TestCase):
     def test_the_documentation_has_no_problem(self):
         self.assertEqual(check(REPO), [])
+
+    def test_the_snapshot_command_is_in_the_interface_and_exit_code_docs(self):
+        interface = (REPO / "docs" / "interface.md").read_text(encoding="utf-8")
+        codes = (REPO / "docs" / "exit-codes.md").read_text(encoding="utf-8")
+        self.assertIn("`umwayi view snapshot [--out PATH] [--date D]`", interface)
+        self.assertNotIn("Specified, not built", interface)
+        self.assertRegex(codes, r"`umwayi view snapshot` \| 0 done, 1 .*, 2 .*, 64 .*never 3")
+
+    def test_the_snapshot_file_is_ignored_by_git(self):
+        lines = (REPO / ".gitignore").read_text(encoding="utf-8").split("\n")
+        self.assertIn(".umwayi/snapshot.json", lines)
 
     def test_the_readme_example_entry_is_not_a_heading(self):
         for p in doc_files(REPO):

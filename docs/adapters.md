@@ -18,6 +18,7 @@ An adapter lets an AI platform ask umwayi before it acts. Each one sends every t
 - The umwayi root is given with `--root`, never taken from the platform's input.
 - This repo never creates or changes a `.claude` settings file or a `.kiro/hooks` file. Each README shows the snippet you add yourself.
 - The adapters need no third party package.
+- The repo `rules.yaml` has starter rules for what the three adapters send: reading is Yes, writing and shell commands are Ask me first, and wiping, pushing to main, the guard files and secret paths are No. See [rules](rules.md).
 - What the Claude Code and Kiro docs say about hooks, with links, and what they do not say: [adapters/NOTES.md](../adapters/NOTES.md). Some Kiro details are not confirmed by its docs; they are listed in the Kiro README and in [docs/KNOWN-LIMITS.md](KNOWN-LIMITS.md).
 
 ## Decisions log
@@ -26,6 +27,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | 9.10 done: the repo `rules.yaml` holds the starter rules for the three adapters, taken from their example files (see [rules](rules.md)) | PR 43. |
 | 2026-11-10 | 9.11 done: the whole-system test calls the three hooks as each platform runs them, and sends every agent start's tool calls through them | S.1, PR 36. |
 | 2026-11-08 | Every adapter denies every tool call while the kill switch is on or unknown (9.12) | Layer 9, PR 12: the owner answered yes. |
 | 2026-11-08 | Where a platform has no ask, Ask me first is a deny plus one queue item (9.6) | Layer 9, PR 12: Kiro has no ask. |
@@ -34,4 +36,4 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
-- 9.10: starter rules for adapter actions in the repo `rules.yaml` ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), layer 9).
+None.

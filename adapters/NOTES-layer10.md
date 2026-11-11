@@ -789,6 +789,80 @@ Read on Nov 9 2026, for the owner's request to include OpenCode as a platform, s
 - Which OpenCode version the owner runs (V1 and V2 differ in key names).
 - How fast all of this changes.
 
+The first two were checked on Nov 11; see the next section.
+
+## OpenCode V2: the facts checked for the adapter spec (task 10.41, read Nov 11 2026)
+
+Read on Nov 11 2026 for task 10.41, the five facts tasks.md asked for first. Nothing was installed or run: these come from the official V2 docs on opencode.ai, the npm registry, and the V2 source on the `dev` branch of [anomalyco/opencode](https://github.com/anomalyco/opencode). Where only the source says something, the note says "source only". A source fact can change in any release and is weaker than a documented one.
+
+### 1. `OPENCODE_CONFIG_CONTENT` in V2
+
+- **Documented: no.** The V2 [Config](https://opencode.ai/docs/config/) page lists managed, global and project files and names no `OPENCODE_CONFIG_CONTENT`, `OPENCODE_CONFIG` or `OPENCODE_CONFIG_DIR`. The only V2 page with an inline variable is the terminal settings page, and that variable, `OPENCODE_CLI_CONFIG_CONTENT`, is for `cli.json` (the TUI), not for the server config ([Settings, Inline config](https://opencode.ai/docs/cli/config/)). The V1 docs list `OPENCODE_CONFIG_CONTENT` as "runtime overrides", above project config and below managed files ([V1 Config](https://docs.dev.opencode.ai/docs/config)).
+- **Source only: yes, it is read.** `packages/cli/src/server-process.ts` passes `content: process.env.OPENCODE_CONFIG_CONTENT` into the config options, next to `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR` and `OPENCODE_DISABLE_PROJECT_CONFIG` ([server-process.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/server-process.ts)). `packages/core/src/config.ts` parses it as one document named `OPENCODE_CONFIG_CONTENT`, after `{env:...}` and `{file:...}` substitution, and a parse error ends the load (`Effect.orDie`) rather than skipping it ([config.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/config.ts), last changed Nov 9 2026, commit 550bf20cb8).
+- **Where it ranks for settings (source only):** the load order is managed policies, integration (Console) documents, well-known documents, the global directory, `OPENCODE_CONFIG`, direct project files, project `.opencode` directories, then the inline content, then managed settings. For ordinary settings the later one wins, so the inline content beats every user and project file and loses only to managed settings.
+- **Where it ranks for policies (source only, and it matters):** policy statements are read "earliest-loaded first so it wins" (`ManagedPolicy.statements` reverses the documents; `decision` takes the last match) ([managed-policy.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/managed-policy.ts), [config/plugin/policy.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/config/plugin/policy.ts)). So **the inline content is the weakest place for a policy**: a `provider.use` or `integration.use` statement with `allow` in the global file, a project file, a connected Console workspace or a managed file outranks a `deny` that umwayi puts inline. This matches the documented order on [Policies, Precedence](https://opencode.ai/docs/policies/), which ranks managed preferences, the system file, the Console workspace, the global file and then project files, and does not list the inline content at all.
+- **A broken config file is skipped:** an open issue on 2.2.5 reports that a `opencode.jsonc` with a missing comma was ignored with no warning and OpenCode ran on its permissive defaults ([#61447](https://github.com/anomalyco/opencode/issues/61447)). Statements that fail validation are dropped with a log warning ([Policies, Statements](https://opencode.ai/docs/policies/)).
+- **Not confirmed:** that the inline content reaches the private server `opencode acp` starts (the ACP page says the private server is not the shared service, so the environment of the `opencode acp` process should apply, but no page says so); that a V2 release keeps reading it.
+
+### 2. Loading a plugin from an absolute path
+
+- **Documented: yes, for a directory.** V2 config takes a `plugins` array whose entries may be `"/absolute/path/plugin"` or `"file:///home/me/plugins/local"`, or an object `{"package": "...", "options": {...}}`. "Configured local paths must be directories. A path to a single file is skipped." Plugin arrays from every config file are applied from lowest to highest precedence, they do not replace one another ([Plugins, Configure](https://opencode.ai/docs/plugins/)). A V1 entry that names a file is skipped with a warning in the log ([Migrate plugins from V1](https://opencode.ai/docs/build/plugins/migrate-v1)).
+- **The layout of a local plugin directory:** with no `package.json`, OpenCode uses the file names at its root, `server` (else `index`) with a `.ts`, `.tsx` or `.js` extension ([Build plugins, Load](https://opencode.ai/docs/build/plugins)).
+- **The V2 hook API is not the V1 one.** V1 `tool.execute.before` becomes `ctx.tool.hook("execute.before", ...)`, registered in `setup(ctx)`. "V1 plugin implementations do not run in V2." The documented V2 example throws inside `execute.before` to stop a `read` of `.env` ([Migrate plugins from V1, Register hooks](https://opencode.ai/docs/build/plugins/migrate-v1)). `ctx.permission.hook("evaluate", ...)` runs for `allow` and `ask` decisions, never for a configured `deny`, and may change `effect` to `allow`, `ask` or `deny`; several plugins run in plugin order, and later hooks see earlier changes ([Server plugins, Hooks](https://opencode.ai/docs/build/plugins/server)). `ctx.options` holds the `options` of the config entry, and `setup` may return a cleanup function (same page).
+- **No npm package is needed (source only).** The docs import `Plugin` from `@opencode/plugin`, but `Plugin.define` only returns its argument ([promise/plugin.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/plugin/src/promise/plugin.ts)), and the loader accepts any default export with a string `id` and a `setup` (or `effect`) function, otherwise "Plugin must export a default definition with an id and an effect or setup function." ([plugin/module.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/plugin/module.ts)). So a plain `index.js` with `export default { id, setup }` and only `node:` imports should load.
+- **Policy control:** `plugin.use` denies a plugin "by unversioned package name or absolute path", and needs 2.2.3 or newer ([Policies](https://opencode.ai/docs/policies/)).
+- **Not confirmed:** that a plugin path given only in the inline content loads (both facts above are true, but no page puts them together); which runtime runs it inside the `opencode` binary, and so whether `node:child_process` `spawnSync` works there; that the `session.created` event reaches a plugin before the client sends its first prompt.
+
+### 3. The `toolCall` fields of a permission request
+
+- **Documented:** the three options `once` (`allow_once`), `always` (`allow_always`) and `reject` (`reject_once`); a `diff` content when a file changes; `toolCall._meta["opencode/child-session"]` with `id`, `parentID`, `depth` and `title` on requests from a child session ([V2 ACP reference, Permissions and Child sessions](https://dev.opencode.ai/v2/docs/cli/acp/)). ACP itself says `toolCall` is a `ToolCallUpdate` and only `toolCallId` is required ([ACP, Requesting permission](https://agentclientprotocol.com/protocol/tool-calls)).
+- **Source only, the exact fields** ([acp/permission.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/acp/permission.ts), last changed Oct 6 2026, and [acp/tool.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/acp/tool.ts)):
+  - `toolCallId` (with the child session prefix `<childSessionId>:` for a child);
+  - `name`: the tool's name, or absent when OpenCode has no tool for the request;
+  - `title`, written from the tool name and input (agent-shaped text);
+  - `kind`, mapped from the tool name;
+  - `status`: `"pending"`;
+  - `locations`: absolute paths from the input, or from the permission's resources for path actions;
+  - `rawInput`: the tool's input, with `cwd` added for `shell`; **absent** when OpenCode has no tool for the request;
+  - `content`: the diff previews, only when there are any;
+  - `_meta`: only for a child session.
+- **What is not in it:** the permission `action` and `resources` that the rules matched (they are on the server's `permission.asked` event, not in the ACP request). An older client report says the request can arrive before `rawInput` is filled ([xenodium/agent-shell #614](https://github.com/xenodium/agent-shell/issues/614)); in the V2 source above, `rawInput` is set on the request itself when the tool is known.
+- **V1 tool names are aliased** in the ACP code: `bash` to `shell`, `task` to `subagent`, `apply_patch` to `patch` (acp/tool.ts above).
+
+### 4. `opencode debug config` in V2
+
+- **Exists (source):** `packages/cli/src/commands/handlers/debug/config.ts` asks a server for `config.get` at the current directory and prints the redacted result as JSON ([debug/config.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/cli/src/commands/handlers/debug/config.ts)).
+- **Its output changed:** in V2 it lists the config sources, an array of `{type, path, info}` entries (`document` or `directory`), not one merged config as in V1; reported on V2.1.4 with a sample ([ollama/ollama #19303](https://github.com/ollama/ollama/issues/19303)).
+- **It talks to a server:** it resolves a server connection (`ServerConnection.resolve()`), which by default is the one shared background service per user ([CLI intro, Background service](https://opencode.ai/docs/cli/)). That service has its own environment, not the one umwayi would pass, so its answer does not show umwayi's inline content.
+- **Not documented** on the V2 CLI pages read (only `opencode debug paths` and `opencode debug heap-dump` are: [CLI, Paths](https://opencode.ai/docs/cli/), [Troubleshooting](https://opencode.ai/docs/troubleshooting)). **Not confirmed:** whether `--standalone` applies to it, and so whether it can show the view of a private server started with umwayi's environment.
+
+### 5. The first V2 version, and the versions since
+
+- **V2 is a separate package, `@opencode/cli`**, not the `opencode-ai` package of V1. The GitHub releases page still lists V1 releases; Homebrew's `opencode` formula moved to 2.x; V1 gets only critical fixes ([#54813, a maintainer's answer](https://github.com/anomalyco/opencode/issues/54813)). The package installs two commands, `opencode` and `opencode2` ([npm, @opencode/cli 2.0.0](https://registry.npmjs.org/@opencode%2Fcli/2.0.0)).
+- **First V2 release: 2.0.0, published to npm on Sep 11 2026.** Then 2.1.0 on Oct 20 and 2.2.0 on Oct 27. On Nov 11 the latest is **2.2.7** (Nov 10), the 46th stable 2.x release in two months ([npm registry, @opencode/cli](https://registry.npmjs.org/@opencode%2Fcli)).
+- **Versions the design needs** ([Policies](https://opencode.ai/docs/policies/)):
+  - 2.2.3 or newer for `integration.use` in its current meaning, `integration.connect`, `mcp.use`, `skill.use` and `plugin.use`; "Clients older than 2.2.3 ignore" them;
+  - 2.2.6 or newer for `websearch.use`.
+- **V1 refuses a V2 config:** V1 stops with "V2 permissions are not supported by OpenCode V1. Use V1 "permission" rules or run opencode2." when a config holds `permissions` (reported on an ACP start in an IDE, [#54133](https://github.com/anomalyco/opencode/issues/54133)). So a V1 `opencode` given umwayi's config fails to start rather than running ungated.
+- **Not confirmed:** the exact text `opencode --version` prints in V2.
+
+### Also read on Nov 11
+
+- **The V2 ACP page** confirms the Nov 9 notes: `opencode acp` starts a private server, opens no port, exits when stdin closes; `cwd` must be absolute; one prompt at a time; `session/cancel` rejects pending permission requests; `session/new` answers with config options including `model` as `provider/model` ([V2 ACP reference](https://dev.opencode.ai/v2/docs/cli/acp/)). `usage_update` carries a session `cost` in USD (same page).
+- **Disabling project config (source only):** `OPENCODE_DISABLE_PROJECT_CONFIG` (or `OPENCODE_CONFIG_PROJECT_DISABLE`) turns off the project walk, and `OPENCODE_CONFIG_DIR` replaces the global config directory (server-process.ts and [config/discovery.ts on dev](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/config/discovery.ts)). Neither is on a V2 docs page.
+- **Policies and the free tier:** with `integration.use` deny `*`, the signed-out free tier is the bare resource `opencode`, an `ANTHROPIC_API_KEY` in the environment is the bare `anthropic`, a provider from `opencode.json` is its provider ID, and a connected account is `<integration>#<account>` ([Policies, Integrations](https://opencode.ai/docs/policies/)).
+- **Plugins in the system directory:** `/etc/opencode` (Linux), `/Library/Application Support/opencode` (macOS) and `%ProgramData%\opencode` (Windows) load `opencode.json(c)`, `agents/`, `commands/`, `skills/` and `plugins/` for every user, and macOS also reads managed preferences for the domain `ai.opencode.managed` ([Config, Locations](https://opencode.ai/docs/config/)).
+
+### What could not be confirmed on Nov 11
+
+- That V2 keeps reading `OPENCODE_CONFIG_CONTENT`: it is in the source and not in the V2 docs.
+- That a plugin path given only in the inline content loads, and that a plain JS plugin with `node:` imports runs in the binary's runtime.
+- When `session.created` reaches a plugin compared with the client's first prompt.
+- What `opencode --version` prints.
+- Whether `opencode debug config --standalone` shows a private server's view.
+- The provider ID of OpenCode Go in a policy, and the `integration.use` resource of a saved API-key account compared with a ChatGPT sign-in (both are `openai`).
+- Everything here on a real install: no OpenCode was run. The owner's real check (tasks.md 10.51) records it.
+
 ## Budget governor: Claude Code telemetry (B.10, the owner's capture)
 
 Built in PR 33. What the receiver expects, from design.md "Budget governor", Facts (read Nov 9 2026, [Claude Code, Monitoring](https://code.claude.com/docs/en/monitoring-usage)):

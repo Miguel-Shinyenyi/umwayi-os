@@ -15,15 +15,15 @@ Each layer works alone and is tested before the next starts. A layer that is not
 | 7 Helpers | done | PR 7 | 461 |
 | 8 Workflows | done | PR 8 (with exit codes 64 and 2) | 532 |
 | Hardening and whole-system test | done | PR 9 (merge commit 18146f6) | 556, on Python 3.10, 3.11, 3.12 and 3.13 |
-| 9 Adapters | done, except 9.10 (repo rules.yaml) and 9.11 (with the whole-system test) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
-| 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 and 10.30 done, 10.31 waits for the owner's first real run; part 7c approved (10.32), part 7c-1 built (10.33 to 10.35), part 7c-2 built (10.38, 10.39), part 7c-3 built (10.36), 10.37 open; OpenCode and Muse Spark Open specified (10.40, 10.41), build after Dec 3 | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21; part 7c spec PR 22; part 7c-1 PR 23; part 7c-2 PR 28; part 7c-3 PR 29 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, 869 after PR 23, 929 after PR 28, 934 after PR 29, on Python 3.10 to 3.13 |
+| 9 Adapters | done (9.10, the repo rules.yaml, in PR 43; 9.11, the whole-system test, in PR 36) | PR 11 (part 1), PR 12 (part 2: Kiro, generic, kill switch) | 578 after PR 11, 619 after PR 12, on Python 3.10 to 3.13 |
+| 10 Own command line and chat | in progress: spec approved (10.0); all six parts built (agents.yaml, gate checks, `umwayi agent check`, `umwayi agent run` and `umwayi agent chat` with transport cli for Claude Code and Kiro, ACP chat for Kiro); 10.20 and 10.21 open; part 7 (Claude Code over ACP, 10.22 to 10.31) approved (10.22), part 7a built (10.23 to 10.25), part 7b built (10.26 to 10.28), 10.29 and 10.30 done, 10.31 waits for the owner's first real run; part 7c approved (10.32), part 7c-1 built (10.33 to 10.35), part 7c-2 built (10.38, 10.39), part 7c-3 built (10.36), 10.37 open; OpenCode and Muse Spark Open specified (10.40, 10.41), build after Dec 3; part 8 (OpenCode over ACP, 10.R13) and Muse Spark Open as an OpenCode model (10.R14) specified Nov 11 (10.41, 10.40), waiting for the owner's approval: part 8 to be built before Dec 3 (the owner, Nov 11), Muse Spark Open after it | spec PR 13; parts 1 and 2 PR 14; part 3 PR 15; part 4 PR 16; part 5 PR 17; part 6 PR 18; part 7 spec PR 19; part 7a PR 20; part 7b PR 21; part 7c spec PR 22; part 7c-1 PR 23; part 7c-2 PR 28; part 7c-3 PR 29; part 8 and Muse Spark Open spec PR 44 | 673 after PR 14, 697 after PR 15, 719 after PR 16, 747 after PR 17, 783 after PR 18, 829 after PR 20, 854 after PR 21, 869 after PR 23, 929 after PR 28, 934 after PR 29, on Python 3.10 to 3.13 |
 | 11 Linux-like features | approved (11.0); scheduled runs through systemd user timers built (11.1 to 11.5); 11.6 waits for the owner's real check; file watching and tmux cut, SQLite and a sandbox deferred | spec PR 30; build PR 31 | 978 after PR 31, on Python 3.10 to 3.13 |
 | Logbook crash safety (Layer 5 addendum) | approved Nov 9 (L5.0); built Nov 10 (L5.1 to L5.5), before 7c-2 | spec PR 26; build PR 27 | 906 after PR 27, on Python 3.10 to 3.13 |
 | Logbook hash chain (addendum) | approved Nov 9 (C.0); built early on Nov 7 (C.1 to C.4), planned Nov 16 | spec PR 24; build PR 32 | 1001 after PR 32, on Python 3.10 to 3.13 |
 | Budget governor | approved Nov 9 (B.0); built early (B.1 to B.9 and the capture mode of B.10), planned Nov 17 to Nov 22; B.10 waits for the owner's capture of one real export | spec PR 24; build PR 33 | 1091 after PR 33, on Python 3.10 to 3.13 |
 | Documentation layout (D.1) | added Nov 10 (PR 34); built Nov 10, before S.1 | spec PR 34; build PR 35 | 1104 after PR 35, on Python 3.10 to 3.13 |
 | Whole-system test and security scan | approved Nov 10 (S.0, S-Q1 to S-Q16 as proposed); S.1 and S.2 built Nov 10; Python 3.10 end of life waits for the owner (KNOWN-LIMITS 133) | spec PR 34; S.1 PR 36; S.2 PR 37 | 1155 after PR 37, on Python 3.10 to 3.13 |
-| 12 Web interface (the view) | in scope before Dec 3 since Nov 10; spec approved (UI.0, PR 38); look changed by the owner on Nov 11 (UI-Q12 to UI-Q16) and the hours cut (four cuts accepted); tiers, the public site and the scene additions decided in round 2 (UI-Q17 to UI-Q22), UI.1b in PR 39, UI.6 and UI.7 to follow; UI.1 (PR 39) reworked as the highlands scene with the home content, built, waits for the owner's look at the screenshots, not merged; UI.2 to UI.5 not started | spec PR 38; UI.1 PR 39 (reworked) | 69 Node tests, 31 package tests; full Python suite run at the end of the rework |
+| 12 Web interface (the view) | in scope before Dec 3 since Nov 10; spec approved (UI.0, PR 38); look changed by the owner on Nov 11 (UI-Q12 to UI-Q16) and the hours cut (four cuts accepted); tiers, the public site and the scene additions decided in round 2 (UI-Q17 to UI-Q22); UI.1 and UI.1b (PR 39) built, wait for the owner's look at the screenshots, not merged; UI.2 (`umwayi view snapshot`) built (PR 41); UI.6, UI.7 and UI.3 to UI.5 not started | spec PR 38; UI.1 and UI.1b PR 39; UI.2 PR 41 | 87 Node tests, 32 package tests; 1200 after PR 41, on Python 3.10 to 3.13 |
 
 Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (numbered there, referred to below as KNOWN-LIMITS 1 to 28; items 12 to 28 are about the layer 9 adapters).
 
@@ -43,6 +43,7 @@ Limits that are known and not fixed are listed in `docs/KNOWN-LIMITS.md` (number
 | Nov 10 to Nov 12 | Whole-system test and security scan (S.1, then S.2; approved, S.0), moved up by the owner from Nov 23 to Nov 26: the adapters, layers 10 and 11, the chain and the governor, including the telemetry receiver |
 | Nov 11 to Nov 22 | Layer 12, the web interface, re-estimated on Nov 11 at about 92 hours still to do (does not fit about 60 to 72; design.md lists what I propose to cut): UI.1 (the highlands scene, PR 39 reworked) first, then UI.2, UI.3, UI.4, UI.5. The web interface is no longer a non goal (the owner, Nov 10) |
 | Nov 23 to Nov 28 | README, demo, Devpost text (the scan moved up to Nov 10 to Nov 12) |
+| set by the owner | Layer 10 part 8: OpenCode over ACP (10.42 to 10.51, about 21.5 hours plus 1.5 hours of the owner's), after the owner approves the spec (PR 44). The owner asked on Nov 11 for it to be built before Dec 3 and sets its dates. Muse Spark Open (10.52 to 10.55) follows it and is not scheduled before Dec 3 |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
 
@@ -176,7 +177,7 @@ Still open:
 - [x] H.8 `docs/KNOWN-LIMITS.md`
 - Not tested yet: Windows, macOS, network file systems for the run lock, the installed `umwayi` script (KNOWN-LIMITS 9 and 11)
 
-## Layer 9: Adapters (done, 9.10 and 9.11 open)
+## Layer 9: Adapters (done)
 
 Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter code and the Claude Code adapter. Part 2 of 2 (PR 12): the Kiro adapter, the generic stdin and stdout adapter, and the kill switch in all three adapters.
 
@@ -195,7 +196,7 @@ Planned for Nov 8 to Nov 9. Part 1 of 2 (PR 11): the notes, the shared adapter c
 - 9.9 Tests per adapter, as real child processes, with planted faults:
   - [x] Claude Code: `tests/adapters/test_claude_code.py` (No blocks, Ask me first asks, Yes allows, a broken rules file does not allow, a crash in the adapter or in umwayi check blocks, bad or empty stdin blocks, a timeout blocks, one logbook entry per check and logbook verify ok). Three planted faults make them fail.
   - [x] Kiro and generic: `tests/adapters/test_kiro.py` and `tests/adapters/test_stdio.py`, plus `tests/adapters/test_core_for_adapters.py` for `--kill-switch` and `--if-not-open`, and kill switch tests for Claude Code. Planted faults and 28 mutations, all caught, are listed in PR 12.
-- [ ] 9.10 Starter rules for adapter actions in the repo rules.yaml. Done so far: example rules in `adapters/claude_code/rules.example.yaml`, `adapters/kiro/rules.example.yaml` and `adapters/stdio/rules.example.yaml`; the repo rules.yaml is unchanged.
+- [x] 9.10 (PR 43) Starter rules for adapter actions in the repo rules.yaml: every rule of `adapters/claude_code/rules.example.yaml`, `adapters/kiro/rules.example.yaml` and `adapters/stdio/rules.example.yaml` is in `rules.yaml` with the same id, verdict and matchers, each with a title, text and cause, plus a No for secret and key paths on Kiro and the generic adapter (`kiro-no-secrets`, `stdio-no-secrets`). Reading and listing is Yes; writing, shell commands, the web and deploys are Ask me first; wiping, pushing to main, money, the guard files and secret paths are No; no rule has `review_by`. The 15 older rules are unchanged and none conflicts. Test: `tests/test_starter_rules.py` (written first).
 - [x] 9.11 (PR 36) Whole-system test again with the adapters (S.1): the Claude Code, Kiro and stdio hooks called as each platform runs them, and every agent start's tool calls through them
 - [x] 9.12 Decide: should adapters deny everything while the kill switch is on? The owner answered yes. Done in PR 12 for all three adapters: `umwayi check --kill-switch` answers No while the kill switch is on or unknown, and the adapter also denies unless `kill_switch` is `off`.
 
@@ -397,11 +398,11 @@ Requirement 10.R12, design.md "Part 7c: subscription first, login and billing ch
     - the plan and credits cannot be read.
   - **The owner's real check (10.31):** `kiro-cli whoami` exit code signed in and signed out, and one Kiro `agent run` without `KIRO_API_KEY`.
 
-### Other platforms: OpenCode and Muse Spark Open (spec tasks only, written Nov 9 2026, waiting for owner approval)
+### Other platforms: OpenCode and Muse Spark Open (spec tasks written Nov 9 2026; answered and specified Nov 11 in PR 44; waiting for the owner's approval)
 
-design.md "OpenCode as a platform" and "Muse Spark Open as a platform"; facts in `adapters/NOTES-layer10.md` (sections of the same names). Nothing is built. Each task below writes a spec (requirement, design and build tasks) after the owner answers that section's open questions. The build is proposed for after Dec 3.
+design.md "OpenCode as a platform", "Muse Spark Open as a platform", "Part 8: OpenCode over ACP" and "Muse Spark Open as an OpenCode model"; requirements 10.R13 and 10.R14; facts in `adapters/NOTES-layer10.md` (the Nov 9 sections and "OpenCode V2: the facts checked for the adapter spec", Nov 11). Nothing is built. The owner answered on Nov 11: OC1 to OC5 and MS1 to MS4 as proposed; OC6 changed (OpenCode built before Dec 3, part 8 below); MS5 stands (Muse Spark Open spec only, built after OpenCode).
 
-- [ ] 10.41 The spec of the OpenCode adapter (2 h, spec only), from the answers to OC1 to OC6:
+- [x] 10.41 (PR 44) The spec of the OpenCode adapter (2 h, spec only), from the answers to OC1 to OC6. Written Nov 11: requirement 10.R13, design.md "Part 8: OpenCode over ACP", the tasks of part 8 below, KNOWN-LIMITS 180 to 187, and the five facts in NOTES-layer10.md with dates and links. New open questions OC7 to OC14 (design.md); the spec uses each proposal. Waits for the owner's approval. What the task asked for:
   - **What it specifies:**
     - `platform: opencode` with transport acp (`[OPENCODE, "acp"]`), and agents.yaml keys `provider` and `model`;
     - the environment allow list without provider keys and without `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR` and `OPENCODE_DB`;
@@ -416,13 +417,88 @@ design.md "OpenCode as a platform" and "Muse Spark Open as a platform"; facts in
     - the `toolCall` fields of an OpenCode permission request;
     - `opencode debug config` in V2;
     - the first V2 version number.
-- [ ] 10.40 The spec of Muse Spark Open as an OpenCode model (1.5 h, spec only, after 10.41), from the answers to MS1 to MS5:
+  - **The facts, checked Nov 11** (NOTES-layer10.md): `OPENCODE_CONFIG_CONTENT` is read by the V2 source but is on no V2 docs page, and it is the weakest source for policies; a plugin loads from an absolute path only as a directory, with the V2 `ctx.tool.hook` API; the `toolCall` fields are known from the source and carry no permission action or resource; `opencode debug config` exists in V2 but asks the shared service; the first V2 release is 2.0.0 (Sep 11 2026), and the policies the design needs work from 2.2.3. Not confirmed: each of these on a real install, the `--version` text, and the Go provider ID.
+- [x] 10.40 (PR 44) The spec of Muse Spark Open as an OpenCode model (1.5 h, spec only, after 10.41), from the answers to MS1 to MS5. Written Nov 11: requirement 10.R14, design.md "Muse Spark Open as an OpenCode model", tasks 10.52 to 10.55 below (not scheduled before Dec 3), KNOWN-LIMITS 188 and 189. New open questions MS6 to MS8. Waits for the owner's approval. What the task asked for:
   - the local provider entry (vLLM or another OpenAI-compatible server with tools enabled, a loopback or private URL only);
   - the recommended settings (temperature 1.0, top_p 1.0, an explicit `reasoning_effort`);
   - the refusal of any route that is not free or a subscription;
   - the later paid route behind the budget governor (OpenRouter's prepaid credits first);
   - the "Built with Muse Spark Open" notice after the owner has read `LICENSE.md`;
   - whether Muse Code becomes its own platform (MS3).
+
+### Part 8: OpenCode over ACP (10.R13; specified Nov 11 in PR 44; the owner asked for the build before Dec 3; built only after the owner approves the spec)
+
+Requirement 10.R13, design.md "Part 8: OpenCode over ACP". The build is about 21.5 hours plus 1.5 hours of the owner's, in the order below. Each task's tests are written before its code. Every test runs `python -m umwayi agent ...` as a real child process with a fake `opencode`, with `HOME` and `XDG_CONFIG_HOME` in a temporary folder, and no network. The plugin tests also run `node`. The owner sets the dates.
+
+- [ ] 10.42 Confirm the facts on a real install, before any code (1.5 h). In a throwaway sandbox, not on the owner's machine, install `@opencode/cli` at the newest 2.2.x with `--ignore-scripts` where possible. umwayi itself never installs it. Record in NOTES-layer10.md, with the date:
+  - the exact `opencode --version` output;
+  - that a plugin directory named only in `OPENCODE_CONFIG_CONTENT` loads, and that `node:child_process` `spawnSync` and `node:fs` work inside it;
+  - when `session.created` reaches the plugin compared with `session/new`'s answer;
+  - the V2 tool names that ask permission (the `ASKED` list);
+  - the settings key for a built-in local provider's URL;
+  - the provider ID and `integration.use` resource of OpenCode Go;
+  - what a permission request looks like on the wire for `shell`, `read`, `edit` and a subagent.
+
+  Any fact that differs from the spec is written in the pull request, and the spec is changed before code is written.
+- [ ] 10.43 agents.yaml (1.5 h): `opencode` in `PLATFORMS` (command `opencode`, transport `acp` only); the keys `provider` and `model`, only for OpenCode and required there; `run` and `login` refused for OpenCode. Tests: every allowed route; a missing `provider` or `model`; a `model` whose provider differs; a bad `model` pattern; `provider` on a Kiro agent; `transport: cli`; `agent run` and `agent login` give 64; `agent list` and `agent validate` show the agent.
+- [ ] 10.44 The environment and the inline config (2 h): `opencode_env()` and `opencode_inline_config()`, both pure. Tests: the exact bytes for each route (free tier, `ollama`, `lmstudio`, `vllm`, `openai`, `github-copilot`); every name in 10.R13.4 planted in umwayi's environment and absent from the child's; a root path holding `{env:` or `{file:` is refused; the same agent and token give the same bytes.
+- [ ] 10.45 The plugin (3.5 h): `adapters/opencode/plugin/index.js`, `tests/adapters/opencode_plugin_harness.mjs` and `adapters/opencode/rules.example.yaml`. Tests under `node`, with a fake `ctx` and a fake hook script that exits as told:
+  - exit 0 lets the call run;
+  - exit 2 throws;
+  - exit 3 lets an asked tool run and throws for an unasked one;
+  - a timeout, a missing hook and a start error each throw;
+  - bad options stop `setup`;
+  - the evaluate hook turns `allow` into `ask` and leaves `ask` and `deny`;
+  - `session.created` twice writes the token once, with mode 0600, and an existing file is not overwritten;
+  - the thrown text never holds the input.
+
+  A Python test checks the source: only `node:` imports, no `eval`, `Function(`, `require(`, `fetch`, `http`, `net` or `dgram`. Without `node` on PATH the plugin tests fail with a message.
+- [ ] 10.46 The gate checks (2.5 h): the six checks of 10.R13.8 in `agent check` and before every chat. Tests:
+  - each check refuses on its own planted fault: no `opencode`, versions `1.18.30`, `2.2.2` and unreadable text, a link in place of `index.js`, a managed folder (the path made configurable for the test only), a project `opencode.json` and a `.opencode` folder two levels up, a global file holding `"policies"` and `"plugin"`, a global `plugins` folder, a file over 1 MB, a pay-as-you-go `provider`;
+  - the refusal line names the path and never the file's text;
+  - one logbook entry and nothing started each time.
+- [ ] 10.47 The fake `opencode` (2 h): `tests/agents/fake_opencode.py`. It answers `--version`; speaks ACP v1 (`initialize`, `session/new` with a `model` config option, `session/prompt`, `session/request_permission` with the V2 `toolCall` shape, `session/cancel`); writes the canary from the inline config's plugin options as the plugin would; and records its environment and argv for the tests. A script switches each behaviour: no canary, a late canary, a wrong token, another model, `auth_required`, a child-session request, a request with no `name`, ignoring stdin's end.
+- [ ] 10.48 The chat start (2.5 h): the private folder and token; `Popen([OPENCODE, "acp"])`; `expect_model` in `acp.py`; the canary wait through `gate_ready`; `auth_required`; the 7b stop. Tests: canary seen; never seen; seen after 30 s; a wrong token; another model; `auth_required`; for each, the exit code, one entry, nothing of the owner sent and nothing alive. The folder is gone after a normal end, a refusal, the kill switch, SIGTERM and a crash.
+- [ ] 10.49 The chat end to end and the permission answers (2.5 h): a whole turn with the fake. Each tool call first runs the real plugin's hook script (the stdio adapter with `--platform opencode`), then a permission request. Cover:
+  - the rules Yes, No and Ask me first, with the owner's `y` and `n`;
+  - `always` never selected;
+  - a child-session request;
+  - a request with no `name` gives at most Ask me first;
+  - one `umwayi check` entry per check, with `platform: opencode`;
+  - nothing of the conversation, the token or the inline config in the logbook;
+  - the kill switch mid-turn gives 3;
+  - a Kiro ACP chat and a Claude Code ACP chat are unchanged.
+- [ ] 10.50 Planted faults and mutation checks (2 h), with the counts in the pull request.
+  - **Planted faults:** the canary wait skipped; `OPENCODE_API_KEY` passed to the child; the version not compared; the `ask` rule left out together with the evaluate hook; the project-config check skipped.
+  - **Mutation checks:** each gate check removed or loosened; each allow-list exclusion removed; each policy statement removed or reordered; the plugin's exit 3 allowed for every tool; the token not compared; `always` allowed; the model compare removed.
+- [ ] 10.51 Docs and the owner's real check (1.5 h, plus 1.5 h of the owner's):
+  - `docs/agent-front-door.md`, the adapter README and the main README;
+  - KNOWN-LIMITS 180 to 187 made true to what was built;
+  - design.md and these tasks ticked.
+
+  Then the owner's own chat, recorded in NOTES-layer10.md: OpenCode 2.2.3 or newer on the owner's machine, the free tier or a local model; the canary seen; one hook entry per tool call; the real `--version` output; a refusal with a planted project `opencode.json`. 10.51 is ticked only after that.
+
+**What could be cut if time runs short.** The owner decides; nothing here is cut by the spec. Each item says what is lost.
+
+| could be cut | saves | what is lost |
+| --- | --- | --- |
+| the ChatGPT and Copilot routes (part of 10.43 and 10.44) | about 1 h | only the free tier and local models work; the subscription routes wait |
+| the OpenCode Go route (OC13, part of 10.42) | about 0.5 h | Go stays refused, as it is until confirmed anyway |
+| the model compare (OC10, part of 10.48) | about 0.5 h | a wrong model in the inline config is not caught; the provider policy still limits who pays |
+| the evaluate hook (OC8, part of 10.45) | about 0.5 h | the second gate depends on the inline `ask` rule alone; the first gate still checks every call |
+| the mutation checks of 10.50 (keeping the planted faults) | about 1 h | weaker evidence that the tests catch a change that loosens the gate |
+| `rules.example.yaml` (part of 10.45) | about 0.5 h | no starter rules; every OpenCode call is Ask me first until the owner writes rules |
+
+**Not to be cut:** the plugin's `execute.before` gate; the canary and its wait; the environment allow list; the six gate checks; the fake and the end-to-end tests; the KNOWN-LIMITS items. Without any one of these the chat could run ungated, or the gate could not be shown to work.
+
+### Muse Spark Open as an OpenCode model (10.R14; specified Nov 11 in PR 44; built after part 8, not before Dec 3 (MS5))
+
+Requirement 10.R14, design.md "Muse Spark Open as an OpenCode model". About 6 hours plus 0.5 hour of the owner's, after part 8 is merged. Not scheduled before Dec 3.
+
+- [ ] 10.52 Confirm the custom provider fields (1 h): on a real install, with any small local model served by vLLM or llama.cpp standing in, the V2 field names for tool calls, temperature, top_p and the reasoning effort on a custom OpenAI-compatible provider. Recorded in NOTES-layer10.md; the spec is changed first if they differ.
+- [ ] 10.53 The `umwayi-local` route (2.5 h): the keys `base_url` and `reasoning_effort`; the provider entry; the refusal of every hosted provider. Tests: every allowed `base_url` shape (localhost, `127.0.0.1`, `[::1]`, `10.x`, `172.16.x` to `172.31.x`, `192.168.x`, `fc00::/7`, with and without a path); every refused one (a public address, a host name other than `localhost`, user and password, a query, a fragment, no port, `ftp://`); `base_url` on another provider; a hosted provider such as `openrouter`.
+- [ ] 10.54 End to end (1.5 h): the 10.49 chat with `provider: umwayi-local` and the fake, including the inline config bytes.
+- [ ] 10.55 Docs and the notice (1 h, plus 0.5 h of the owner's): the adapter README section; KNOWN-LIMITS 188 and 189; the "Built with Muse Spark Open" line in the README, added only after the owner has read `LICENSE.md` on Hugging Face and said so in the pull request.
 
 ## Layer 11: Linux-like features (approved; 11.1 to 11.5 built Nov 10 in PR 31, moved up from Nov 14 to Nov 15 by L11-Q14; 11.6 waits for the owner)
 
@@ -653,10 +729,10 @@ Requirements 12.R1 to 12.R11, design.md "Layer 12" (what is kept from the owner'
 - [ ] UI.7 Tier 3, High (about 30 h, 12.R16.3, 12.R16.4, 12.R20.5). Its own pull request, after UI.6.
   - Work: the High scene (more trees, finer ground, detailed rocks and water, better animals), the asset files with sources and licences, distant birds and an antelope on the ridge, the fallback to Standard.
   - Acceptance tests: Standard draws first; a failed asset gives Standard; every asset file is listed with a free licence; requests go to the site's own origin only; wildlife is never within 25 m of a station.
-- [ ] UI.2 `umwayi view snapshot` (9 h, 12.R4, 12.R9.4, 12.R10.1). Its own pull request; Python only, independent of UI.1. Tests first.
-  - [ ] UI.2.1 Tests first (3 h): `tests/test_view.py`, every case of 12.R10.1, failing before the code.
-  - [ ] UI.2.2 `umwayi/view.py` and the `view` subcommand (4 h): the order of the design (arguments 64, tamper check 1, gather through each layer's reader, render, write through the shared atomic writer, one logbook entry, undo on failure); `.umwayi/snapshot.json` in `.gitignore`; `ui/test/fixtures/snapshot.json` made from the fixed root of the tests.
-  - [ ] UI.2.3 Docs, planted faults and mutation checks (2 h): `docs/exit-codes.md` (the new command: 0, 1, 2, 64), `docs/testing.md`, `docs/interface.md`, the code guard for `view.py`; planted faults (a title written, a path written, a wrong count, the tamper check skipped, the entry skipped, `--out` allowed over `rules.yaml`) each killed by a named test; counts in the pull request; the full suite on Python 3.10 to 3.13.
+- [x] UI.2 `umwayi view snapshot` (9 h, 12.R4, 12.R9.4, 12.R10.1). Its own pull request (PR 41, Nov 11); Python only, independent of UI.1. Tests first.
+  - [x] UI.2.1 Tests first (3 h): `tests/test_view.py`, every case of 12.R10.1, failing before the code.
+  - [x] UI.2.2 `umwayi/view.py` and the `view` subcommand (4 h): the order of the design (arguments 64, tamper check 1, gather through each layer's reader, render, write through the shared atomic writer, one logbook entry, undo on failure); `.umwayi/snapshot.json` in `.gitignore`; `ui/test/fixtures/snapshot.json` made from the fixed root of the tests. **Not done in PR 41:** the fixture, because `ui/` belongs to the UI.1 branch (PR 39). UI.3 adds it from the fixed root of `tests/test_view.py` (`ContentTests.test_a_fixed_root_gives_exact_bytes_twice_the_same`), and the check that it equals the command's output byte for byte is part of UI.3.
+  - [x] UI.2.3 Docs, planted faults and mutation checks (2 h): `docs/exit-codes.md` (the new command: 0, 1, 2, 64), `docs/testing.md`, `docs/interface.md`, the code guard for `view.py`; planted faults (a title written, a path written, a wrong count, the tamper check skipped, the entry skipped, `--out` allowed over `rules.yaml`) each killed by a named test; counts in the pull request; the full suite on Python 3.10 to 3.13. Done in PR 41: 23 planted faults, 20 killed, 3 equivalent (a second check refuses the same input); 1200 tests on Python 3.10, 3.11, 3.12 and 3.13.
   - Acceptance tests: all of 12.R10.1; the fixture equals the command's output on the fixed root byte for byte; the exit codes are only 0, 1, 2 and 64; no file outside the snapshot and the logbook with its record changes.
 - [ ] UI.3 The page reads the snapshot and feeds the position function (8 h, 12.R3.6, 12.R3.7, 12.R4.9, 12.R4.10, 12.R9). Its own pull request, after UI.1 and UI.2.
   - Work (8 h now): `ui/src/data/snapshot.js` (the file picker and drop, `FileReader`, the strict validator, the mapping from counts to scene numbers), **the mapping from the snapshot to needs, fed to `setNeeds` of UI.1.3 (nothing else changes in the position code)**, the status strip of the home page with real values and the date, the snapshot date next to the scene, the "sample" label until a snapshot is loaded, unknown drawn as unknown.
@@ -676,3 +752,68 @@ Requirements 12.R1 to 12.R11, design.md "Layer 12" (what is kept from the owner'
 ## Non goals for Dec 3
 
 Finance and marketing loops, shared rule packs (after Dec 3). The web interface was a non goal until Nov 10; it is layer 12 now. File watching, an SQLite index, tmux sessions and a sandbox (layer 11 proposes to cut or defer them, 11.R8).
+
+## Layer 13: Correction and graded autonomy (spec in the L13.0 pull request; in scope before Dec 3; built slice by slice only after the owner approves it)
+
+Requirements 13.R1 to 13.R15, design.md "Layer 13" (the owner's decisions, the verdict order, the data shapes, the score with a worked example, the fail closed table, the failure modes, the docs page plan, the open questions L13-Q1 to L13-Q18). Five slices in the owner's order, **each shipping alone** and merged whole or not at all; the owner stops the build where Dec 3 finds us. The last day a slice can be merged is **Nov 28**; nothing is merged in the freeze except a fix for a defect that a test finds. Effort about 93 hours of build and 8 of spec. The normal suite stays standard library only and needs no network. Tests first, as real child processes, with a planted fault for each of the five the owner named (a rule past `review_by`, a petition spam, a forged score input, a reopen of a missing entry, a broken chain). Nothing is built before the owner approves L13.0. Every slice's pull request lists what it did not do, the mutation checks with their counts, and the full suite on Python 3.10 to 3.13.
+
+- [x] L13.0 (8 h) Requirements 13.R1 to 13.R15, the design section, these tasks, `docs/corrections.md` and `docs/autonomy.md` (written as "specified, not built"), the steering change (a Layer 13 section: in scope, three safety rules, what stays a non goal), and the links from the README, PROJECT.md, architecture and the schedule and status docs, written Nov 11. Docs and specs only, added at the end of the three spec files to ease merging with the layer 12 branches. **Waits for the owner's approval.** The owner's decisions of Nov 11 are in design.md ("Owner decisions"); L13-Q1 to L13-Q18 are open, each with a proposed answer, and the build starts with the proposals unless the owner answers otherwise.
+  - Acceptance tests: `python -m unittest tests.test_docs` passes; no em dash in any file the pull request touches; every safety rule of `.kiro/steering/product.md` is still there word for word; the pull request changes no file under `umwayi/`, `adapters/*.py`, `tests/`, `ui/` or `site/`.
+- [x] L13.1 Elections (14 h, 13.R2, 13.R3). Its own pull request; needs nothing else of layer 13.
+  - [x] L13.1.1 Tests first (4 h): `tests/test_elections.py`, every case of the design's slice 1 test list, failing before the code.
+  - [x] L13.1.2 `rules.py` (4 h): the `review_by` field, its errors, the lapse of a Yes rule in `decide`, `today` passed to `check`, the election clock (latest of the system date, `--date` and the newest logbook date), `Decision.lapsed`, the entry text and the JSON key `election_fallbacks` only when not empty.
+  - [x] L13.1.3 `umwayi rules due` (3 h): `umwayi/elections.py`, the subcommand, the output and the exit codes 0, 3 and 64; it writes nothing.
+  - [x] L13.1.4 Docs, planted faults and mutation checks (3 h): `docs/rules.md`, `docs/corrections.md` (Elections current), `docs/exit-codes.md`, `docs/testing.md`, the example rules of the three adapters (a note on `review_by`), the status docs; the mutations of the design's list for this slice.
+  - Acceptance tests (real child processes): **a rule past `review_by`** (a Yes rule with `review_by: 2026-11-01` and `check --date 2026-11-12` gives Ask me first, exit 3, the entry names the rule and the date; with `review_by: 2026-11-12` it gives Yes; with a later `--date` in the past or a logbook entry dated later it still gives Ask me first); a No rule, an Ask rule and each bad date with `review_by` make the rules malformed (Ask me first, `rules_ok` false); a lapsed Yes next to a fresh Yes gives Ask me first, next to a No gives No; the fallback applies to a job and a helper (bare `rules.check`); `rules due` prints the exact lines, exits 0 and 3, writes nothing (the root before and after), prints no rule text; a rules file with no `review_by` gives the old entry and JSON byte for byte; no module imports a network library.
+- [ ] L13.2 Reversal (20 h, 13.R4, 13.R5). Its own pull request; needs the hash chain (already built), nothing else of layer 13.
+  - [ ] L13.2.1 Tests first (6 h): `tests/test_reopen.py`, the cases of the design's slice 2 test list, failing before the code; the existing decision answer tests are updated for `--revisit-if` and listed in the pull request.
+  - [ ] L13.2.2 `logbook.read_chained` and the queue changes (5 h): the reader with the same checks as `read_checked`, `queue answer --revisit-if` (required for a decision, refused for a task, `none` allowed), and a way to add a row and an entry in one commit.
+  - [ ] L13.2.3 `umwayi decision reopen` (6 h): `umwayi/decisions.py`, the resolve step, the order of the design, the new row and the entry, the already-reopened check, the exit codes 0, 1, 2 and 64.
+  - [ ] L13.2.4 Docs, planted faults and mutation checks (3 h): `docs/queue.md`, `docs/logbook.md`, `docs/corrections.md` (Reversal current), `docs/exit-codes.md`, the adapter guard names for `umwayi decision`; the mutations of the design's list (the old entry marked, the old row opened, the hash not logged in full).
+  - Acceptance tests (real child processes): **a reopen of a missing entry** (an unknown hash, a 63 and a 65 character hash, uppercase, a hash of a `check` entry, a hash of an older closing entry, a missing Q id, a task, an open decision, an unchained entry: exit 1 or 64 as the design says, nothing changed, no entry); **a broken chain** (an old entry edited, an entry deleted, the hash record changed, a torn tail, a chain not started: exit 1 and nothing written); the happy path (the logbook before is a byte for byte prefix of the logbook after and the rest is one entry that starts with `Reopen of entry` and names the full hash; the old row is byte for byte the same; `logbook verify` is ok; an anchor taken before still verifies); a second reopen while the first row is open is refused, and succeeds after it is closed with the new hash; a decision answered without `--revisit-if` exits 64 and the row stays open; a task with it exits 64; an answer from before the slice reopens with `not recorded before layer 13`; an injected crash between the queue write and the entry puts `queue.md` back; two reopens at once leave one row; a reason with `|`, a newline or 301 characters exits 64.
+- [ ] L13.3 Courts and the rules change log (16 h, 13.R6, 13.R7). Its own pull request; needs nothing else of layer 13.
+  - [ ] L13.3.1 Tests first (5 h): `tests/test_petition.py` and `tests/test_rulelog.py`, failing before the code.
+  - [ ] L13.3.2 The rules change log (4 h): `umwayi/rulelog.py`, the hash and the state summary, the entry written before the rules are used, the fallback when it cannot be written (every Yes becomes Ask me first), the 200 rule cap.
+  - [ ] L13.3.3 `umwayi petition` (5 h): `umwayi/petition.py`, the five limits counted from `queue.md` and the logbook, the fixed title, the queue commit, the exit codes 0, 1, 2 and 64.
+  - [ ] L13.3.4 Docs, planted faults and mutation checks (2 h): `docs/rules.md`, `docs/queue.md`, `docs/logbook.md`, `docs/corrections.md` (Courts current), `docs/exit-codes.md`, the example rules of the adapters (petition left to the owner); the mutations of the design's list (the petition edits the rule, a limit off by one, the entry written after use).
+  - Acceptance tests (real child processes): **a petition spam** (200 petitions from one helper and 60 helper names: the open and accepted counts stop exactly at the limits, the refusals exit 1 and write nothing, the rows and entries equal the accepted count, `rules.yaml` and the answers of a fixed list of actions are byte for byte unchanged, the run ends within a generous time bound); a petition against a Yes, an Ask, a missing rule or broken rules exits 1; a reason that reads like an instruction is only in `queue.md`, the title is the fixed template, and the logbook never holds it; the owner's answer to a petition changes no rule; a weakening of `no-money` to `yes` is logged before the check that uses it (the entry order in `LOGBOOK.md`), names the id and `no to yes`, holds no rule text, and is not repeated by the next check; a comment only edit logs `no rule changed`; with the logbook lock held or the chain broken, a Yes from the new rules gives Ask me first and a No stays No.
+- [ ] L13.4 Honest tension (5 h, 13.R8). Its own pull request; docs and one test module.
+  - [ ] L13.4.1 The note and the stop criteria (2 h): the section "No state is perfect" and the stop criteria table made current in `docs/corrections.md` and `docs/autonomy.md`; KNOWN-LIMITS items 160 to 165 (and 166 to 170 are written by L13.5).
+  - [ ] L13.4.2 The words test (3 h): `tests/test_honest.py`, the banned list against both pages, the `--help` of every layer 13 command built so far and the output captured by the acceptance tests.
+  - Acceptance tests: the exact note is in both pages; the banned list finds a planted `guaranteed` in a copy of each page and in a planted command output; the stop criteria table matches 13.R8.3 and 13.R8.4 (a test lists the rows); every KNOWN-LIMITS item of the slices built exists; `tests.test_docs` passes.
+- [ ] L13.5 Graded autonomy (32 h, 13.R9 to 13.R12). Its own pull request, merged whole: the behaviour ships with the score, never the display alone. It may be reviewed in two commits (the inputs and `status`, then the move) but merges as one.
+  - [ ] L13.5.1 Tests first (8 h): `tests/autonomy/`, the worked example, the fail closed table, the forged inputs, the text blind test, the off by default test, failing before the code.
+  - [ ] L13.5.2 `autonomy.yaml` (4 h): the parser (every key required, ranges), `validate`, the change entry before use, `autonomy.example.yaml`.
+  - [ ] L13.5.3 The opt-in in `rules.py` (3 h): the `autonomy` field with `class`, `reversible`, `cost_uu`, the type matcher requirement, the never list, the agreement of two rules for one class, `review_by` on an opt-in rule.
+  - [ ] L13.5.4 The record (5 h): `umwayi autonomy record`, the fixed shapes, `read_inputs` with its whole-record `INVALID`, the duplicate `--ref`.
+  - [ ] L13.5.5 The score and the move (6 h): the formula in the fixed order, the thirteen gates, the check entry and the JSON key `autonomy` (only when on), the callers that log versus those that do not.
+  - [ ] L13.5.6 `umwayi autonomy status` (2 h).
+  - [ ] L13.5.7 Docs, adapters, planted faults and mutation checks (4 h): `docs/autonomy.md` current, `docs/rules.md`, `docs/logbook.md`, `docs/exit-codes.md`, `docs/security.md`, the guard names in the three adapters' example rules, KNOWN-LIMITS 166 to 170, one mutation per gate and the others of the design's list.
+  - Acceptance tests (real child processes): the worked example, cases 1 to 6, to the per mille, the same on Python 3.10 to 3.13; 200 fixed count tuples against precomputed scores; **every row of the fail closed table**, one test each, answer Ask me first (or No) and the gate word in the entry; off by default (100 clean approvals with no `autonomy.yaml`, and with `enabled: false`: Ask me first, and the entry and the JSON byte for byte as without layer 13); **a forged score input** (a hand appended entry: the tamper check refuses; a well formed chained entry with a wrong Checked line; an entry with a count field; an unchained input written before the chain; an unknown outcome word; a duplicate `ref`: each makes every class Ask me first); **a broken chain** (an old entry edited: Ask me first for every class and `status` prints no score); the text blind test (sentinel and instruction text in queue titles, answers, recommendations, petition reasons, rule titles and other logbook sources leaves the answer and `status` unchanged); the moves do not feed the score; each type on the never list with `autonomy` makes the rules malformed; two Ask rules with one opt-in give Ask me first; a matching No gives No; a job and a helper check are never moved; the daily cap; `--no-log`; a planted exception inside the score exits 2; the code guard (no `subprocess`, no network, no queue reader).
+- [ ] L13.6 The whole-system test and the security note for layer 13 (6 h). Its own pull request, after the last slice that was merged, and only for the slices merged.
+  - Work: scenarios in `tests/test_whole_system.py` (the owner's day gets a lapsed rule, a reopen, a petition and an autonomy move; fault scenarios: a lapsed rule at a scheduled job's start, a broken chain during a reopen, a petition flood, a forged input), the secrets sweep of `tests/test_scan_secrets.py` over the layer 13 output, `docs/security.md` and a dated section in `docs/SECURITY-SCAN.md` (what layer 13 adds and what it does not prove), `docs/testing.md`, the status docs.
+  - Acceptance tests: after every scenario `logbook verify` is ok and only the exit codes each command may give appear; no planted secret or sentinel in any output or entry; the suite passes on Python 3.10 to 3.13; the pull request lists the slices that were not built.
+
+### Layer 13 plan (added in the L13.0 pull request, not in the main table above, to ease merging)
+
+| dates | work |
+| --- | --- |
+| Nov 11 | L13.0, the spec (this pull request) |
+| Nov 12 to Nov 13 | L13.1 Elections (14 h), after the owner approves L13.0 |
+| Nov 14 to Nov 16 | L13.2 Reversal (20 h) |
+| Nov 17 to Nov 19 | L13.3 Courts and the rules change log (16 h) |
+| Nov 20 | L13.4 Honest tension (5 h) |
+| Nov 21 to Nov 26 | L13.5 Graded autonomy (32 h) |
+| Nov 27 to Nov 28 | L13.6 the whole-system and security update (6 h); the last day any slice is merged |
+| Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find |
+| Dec 3 | Submit |
+
+The dates run in parallel with layer 12 (round 2, about 75 hours until Nov 22) and with the owner's README, demo and Devpost work (Nov 23 to Nov 28). They are a plan, not a promise: a slice that is not merged by Nov 28 is not merged, and the cut is from the end (graded autonomy first). If the owner approves the spec later than Nov 12 the dates move by the days lost and the cut moves with them; the freeze and the submission never move.
+
+### Layer 13 status (added in the L13.0 pull request, not in the main table above, to ease merging)
+
+| part | status | pull request | tests on main after it |
+| --- | --- | --- | --- |
+| 13 Correction and graded autonomy | L13.0 spec merged (PR 40); L13.1 elections built; L13.2 to L13.6 not started | PR 40 (spec); L13.1: see status-log.md | |
+
+When layer 12 and this pull request are both merged, this row moves into the main status table as its last row.

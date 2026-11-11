@@ -11,14 +11,15 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | part | state | doc |
 | --- | --- | --- |
 | Layers 1 to 8 (memory, rules, queue, archive, logbook, automation, helpers, workflows) | built | [architecture](docs/architecture.md) |
-| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) | built; 9.10 open | [adapters](docs/adapters.md) |
-| Layer 10 front door for agents | built; the owner's real runs (10.21, 10.31) not done | [agent front door](docs/agent-front-door.md) |
+| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) | built | [adapters](docs/adapters.md) |
+| Layer 10 front door for agents | built; the owner's real runs (10.21, 10.31) not done; part 8 (OpenCode) specified, not built | [agent front door](docs/agent-front-door.md) |
 | Layer 11 scheduled runs | built; the owner's real check (11.6) not done | [scheduled runs](docs/scheduled-runs.md) |
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
 | Whole-system test (S.1) | built | [testing](docs/testing.md) |
-| Layer 12 web interface (the view) | the Kenyan highlands scene and home page; UI.1 reworked and built (PR 39, waits for the owner); UI.2 to UI.5 not started | [interface](docs/interface.md) |
+| Layer 12 web interface (the view) | `umwayi view snapshot` built (UI.2, PR 41); the Kenyan highlands scene and home page with List and Standard tiers built (UI.1 and UI.1b, PR 39, waits for the owner); UI.3 to UI.7 not started | [interface](docs/interface.md) |
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
+| Layer 13 correction and graded autonomy | slice 1 (elections: `review_by` and `umwayi rules due`) built; the other slices specified, not built | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 
@@ -57,7 +58,7 @@ Without installing, use `python -m umwayi` from the repo root.
 | 10 front door | `umwayi agent`: check, run, chat, login | [agent-front-door.md](docs/agent-front-door.md) |
 | 11 scheduled runs | systemd user timers for jobs and workflows | [scheduled-runs.md](docs/scheduled-runs.md) |
 | budget governor | a budget per run and per day, the telemetry receiver | [budget-governor.md](docs/budget-governor.md) |
-| 12 view | a calm, realistic 3D scene of eleven natural features and the home page, that will show counts from a read only snapshot (the scene and home page are built) | [interface.md](docs/interface.md) |
+| 12 view | a calm, realistic 3D scene of eleven natural features and the home page, that will show counts from a read only snapshot (the snapshot command, the scene and home page are built) | [interface.md](docs/interface.md) |
 
 How they fit together: [docs/architecture.md](docs/architecture.md). Requirements, design and tasks: `.kiro/specs/umwayi-os/`. Product rules: `.kiro/steering/product.md`.
 

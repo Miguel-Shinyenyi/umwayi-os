@@ -13,6 +13,11 @@
 # check what your Kiro version sends before you rely on them.
 #
 # Kiro has no ask: every Ask me first is a deny plus one queue item for the owner.
+# A Yes rule here may carry "review_by: YYYY-MM-DD" (layer 13, elections). The rule is
+# in force through that day and counts as Ask me first from the next day. It is allowed
+# on Yes rules only, and only once the version with elections is installed: older code
+# calls it an unknown field and every check gives Ask me first. "umwayi rules due"
+# lists the rules that lapsed or are due.
 rules:
   - id: kiro-read
     title: Kiro may read and search

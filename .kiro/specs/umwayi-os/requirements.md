@@ -192,7 +192,7 @@ Acceptance criteria:
 
 ## Layer 9: Adapters
 
-Status: built. Part 1 (the notes, the shared code, the Claude Code adapter) in PR 11; part 2 (the Kiro adapter, the generic stdin and stdout adapter, the kill switch in all adapters) in PR 12. Planned for Nov 8 to Nov 9. Open: starter rules in the repo rules.yaml, and the whole-system test with the adapters (Nov 23 to Nov 26).
+Status: built. Part 1 (the notes, the shared code, the Claude Code adapter) in PR 11; part 2 (the Kiro adapter, the generic stdin and stdout adapter, the kill switch in all adapters) in PR 12. Planned for Nov 8 to Nov 9. The whole-system test with the adapters was added in PR 36 and the starter rules in the repo rules.yaml in PR 43.
 
 User story: as the owner, I want the AI platforms I already use to ask umwayi before they act, so the same rules, queue and logbook cover them, and a broken adapter never lets an action through.
 
@@ -216,7 +216,7 @@ Acceptance criteria:
 
 ## Layer 10: Own command line and chat
 
-Status: approved by the owner on Nov 8 (tasks.md 10.0), with every open question answered as proposed. Parts 1 and 2 are built in PR 14: 10.R2 (agents.yaml), 10.R1.3 to 10.R1.5 (`list`, `check`, `validate`), 10.R5.1 and 10.R5.7 (argument lists), 10.R6 (gate checks). Part 3 is built in PR 15: `umwayi agent run` for Claude Code (10.R1.1, 10.R3, 10.R4, 10.R5.2, 10.R5.8, 10.R5.9, 10.R8 for run). Part 4 is built in PR 16: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2 before every Kiro start). Part 5 is built in PR 17: `umwayi agent chat` with transport cli for Claude Code and Kiro (10.R1.2, 10.R5.3, 10.R5.5, 10.R7.1). Part 6 is built in PR 18: ACP chat for Kiro (10.R5.6, 10.R7.2 to 10.R7.7), in `umwayi/acp.py`. All six parts of layer 10 are built. Still open: the KNOWN-LIMITS items that first real runs may settle (10.20) and the whole-system test with a real run of each platform (10.21, Nov 23 to Nov 26). Part 7, Claude Code over ACP (10.R11), was approved by the owner on Nov 8 (tasks.md 10.22), with every open question answered as proposed. Part 7a is built in PR 20: 10.R11.1 (agents.yaml), 10.R11.6 (the gate checks, in `umwayi agent check`), 10.R11.7 (`adapters/claude_acp/`), 10.R11.8 (sign-in by exit code) and 10.R11.9 (the environment allow list). Part 7b is built in PR 21: the chat itself, 10.R11.2 to 10.R11.5 (the start steps, the inline settings and the canary, refused with exit 2 when the canary is not seen), 10.R11.10 (session/new with `_meta` and session/set_mode `default`) and 10.R11.11 (the stop of the process group and every seen descendant). 10.29 (the whole chat end to end with the fake) and 10.30 (the planted faults of part 7) are done in PR 29. Still open: the owner's first real run (10.31: its docs are written in PR 29; the run itself is not done, steps and a results table in `adapters/NOTES-layer10.md`, "The owner's first real run (10.31)"). Part 7c (10.R12, subscription first) was approved on Nov 9 (tasks.md 10.32); part 7c-1 is built in PR 23: the login check for every Claude Code start (10.R12.2 to 10.R12.5, 10.R12.11), the credential names removed for `agent run` and the cli chat (10.R12.6) and `forceLoginMethod` (10.R12.7). Part 7c-2 is built in PR 28: `umwayi agent login` (10.R12.9) and Kiro subscription first (10.R12.13). Part 7c-3 is built in PR 29: the ACP watch (10.R12.8). Still open: the owner's real checks folded into 10.31. What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
+Status: approved by the owner on Nov 8 (tasks.md 10.0), with every open question answered as proposed. Parts 1 and 2 are built in PR 14: 10.R2 (agents.yaml), 10.R1.3 to 10.R1.5 (`list`, `check`, `validate`), 10.R5.1 and 10.R5.7 (argument lists), 10.R6 (gate checks). Part 3 is built in PR 15: `umwayi agent run` for Claude Code (10.R1.1, 10.R3, 10.R4, 10.R5.2, 10.R5.8, 10.R5.9, 10.R8 for run). Part 4 is built in PR 16: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2 before every Kiro start). Part 5 is built in PR 17: `umwayi agent chat` with transport cli for Claude Code and Kiro (10.R1.2, 10.R5.3, 10.R5.5, 10.R7.1). Part 6 is built in PR 18: ACP chat for Kiro (10.R5.6, 10.R7.2 to 10.R7.7), in `umwayi/acp.py`. All six parts of layer 10 are built. Still open: the KNOWN-LIMITS items that first real runs may settle (10.20) and the whole-system test with a real run of each platform (10.21, Nov 23 to Nov 26). Part 7, Claude Code over ACP (10.R11), was approved by the owner on Nov 8 (tasks.md 10.22), with every open question answered as proposed. Part 7a is built in PR 20: 10.R11.1 (agents.yaml), 10.R11.6 (the gate checks, in `umwayi agent check`), 10.R11.7 (`adapters/claude_acp/`), 10.R11.8 (sign-in by exit code) and 10.R11.9 (the environment allow list). Part 7b is built in PR 21: the chat itself, 10.R11.2 to 10.R11.5 (the start steps, the inline settings and the canary, refused with exit 2 when the canary is not seen), 10.R11.10 (session/new with `_meta` and session/set_mode `default`) and 10.R11.11 (the stop of the process group and every seen descendant). 10.29 (the whole chat end to end with the fake) and 10.30 (the planted faults of part 7) are done in PR 29. Still open: the owner's first real run (10.31: its docs are written in PR 29; the run itself is not done, steps and a results table in `adapters/NOTES-layer10.md`, "The owner's first real run (10.31)"). Part 7c (10.R12, subscription first) was approved on Nov 9 (tasks.md 10.32); part 7c-1 is built in PR 23: the login check for every Claude Code start (10.R12.2 to 10.R12.5, 10.R12.11), the credential names removed for `agent run` and the cli chat (10.R12.6) and `forceLoginMethod` (10.R12.7). Part 7c-2 is built in PR 28: `umwayi agent login` (10.R12.9) and Kiro subscription first (10.R12.13). Part 7c-3 is built in PR 29: the ACP watch (10.R12.8). Still open: the owner's real checks folded into 10.31. Part 8, OpenCode over ACP (10.R13), and Muse Spark Open as an OpenCode model (10.R14) are specified on Nov 11 (tasks.md 10.41 and 10.40) and wait for the owner's approval; nothing of them is built. What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
 
 User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them, and an agent umwayi cannot put a gate in front of is never started.
 
@@ -460,11 +460,96 @@ Acceptance criteria:
     - **`umwayi agent login NAME` for a Kiro agent** (any transport): the same steps as item 9 with action `{"type": "agent_login", "agent": NAME, "platform": "kiro", "transport": T}`, then `[KIRO, "login"]` with no flags, on the owner's terminal, with the Kiro start environment minus `KIRO_API_KEY`; then the `whoami` check; exit codes as item 9. Never `--license`, `--identity-provider`, `--social`, `logout`, `acp --login` or `--auth-method client`.
     - **Not known, and said so in KNOWN-LIMITS:** the plan, the credits left, the login method by field, whether `whoami` exits non-zero when signed out, and whether headless runs work without `KIRO_API_KEY` (the Kiro docs conflict: see NOTES). If they do not, a Kiro `agent run` is refused or fails with exit 2, which is fail closed.
 
+### 10.R13 OpenCode over ACP (part 8: spec written Nov 11 (tasks.md 10.41), waiting for the owner's approval; the owner asked on Nov 11 for the build before Dec 3)
+
+The owner asked on Nov 9 to include OpenCode as a platform, subscription or free first, and answered the open questions on Nov 11: OC1 to OC5 as proposed in design.md, and OC6 changed to "build before Dec 3". Nothing is built before the owner approves this spec (tasks.md 10.41). Facts with links and dates: `adapters/NOTES-layer10.md`, sections "OpenCode as a platform" (Nov 9) and "OpenCode V2: the facts checked for the adapter spec" (Nov 11). Design: design.md "Part 8: OpenCode over ACP". Items marked "proposed" depend on a new open question in design.md (OC7 to OC12); the spec is written with the proposal.
+
+Why: OpenCode speaks ACP, which umwayi already speaks, and can run free and local models. But it has no command hook like Claude Code or Kiro, its default policy allows every tool, and its config can come from many places that outrank one another. So the gate must be built from OpenCode's own plugin hook, the start must prove that hook is loaded, and every other place that could widen it must be absent.
+
+User story: as the owner, I want to chat with OpenCode through umwayi on a free or subscription route, with every tool call checked by my rules before it runs, and I want umwayi to refuse to start OpenCode whenever it cannot prove that.
+
+Words used below: the **plugin** is umwayi's OpenCode plugin directory, `adapters/opencode/plugin/`; the **inline config** is the one JSON document umwayi passes in `OPENCODE_CONFIG_CONTENT`; a **route** is the provider and account that pays for the model.
+
+Acceptance criteria:
+
+1. **Platform and transport.** `platform: opencode` joins the fixed platform list with command word `opencode` and transport `acp` only. `umwayi agent chat NAME` starts `[OPENCODE, "acp"]` in the workdir. `umwayi agent run` and `umwayi agent login` for an OpenCode agent are refused with exit 64 and a line that says only `agent chat` is offered for OpenCode. `transport: cli` for OpenCode is a validation error (64).
+2. **agents.yaml keys.** An OpenCode agent must have `provider` and `model`, and only OpenCode agents may have them (64 otherwise).
+   - `provider` is one of the routes in item 6, exactly as written there.
+   - `model` is `provider/model-id` with the same provider, matching `^[a-z0-9][a-z0-9._-]{0,39}/[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$`.
+   - `kiro_agent`, `trust_tools` and `max_turns` stay refused for OpenCode.
+3. **The start steps are the same as every chat** (10.R3, 10.R4): the kill switch, the rules with action type `agent_chat` and `platform: opencode`, the run lock, the gate checks (item 8), the start entry, the queue summary. The chat goes through `acp.py` with its stop, watch and Ctrl-C behaviour unchanged.
+4. **The environment is an allow list** like 10.R11.9: the names of 10.R11.9 except `CLAUDE_CONFIG_DIR` and `CLAUDE_AGENT_ACP_PROTOCOL`, plus `OPENCODE_CONFIG_CONTENT` set by umwayi, and nothing else that starts with `OPENCODE_`. The same environment is used for `opencode --version`. Every provider credential name, `OPENCODE_API_KEY`, `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR`, `OPENCODE_DB`, `OPENCODE_PASSWORD`, `OPENCODE_DISABLE_PROJECT_CONFIG` and every cloud credential variable are absent because they are not on the list. A test names each of them.
+5. **The inline config** is generated by one pure function from the agent and is the same bytes for the same agent and token. It holds exactly:
+   - `permissions`: one rule, `{"action": "*", "resource": "*", "effect": "ask"}`;
+   - `policies`, in this order: `provider.use` deny `*`, then allow the agent's provider; `integration.use` deny `*`, then allow the route's integration resource (item 6);
+   - `model`: the agent's `model`;
+   - `plugins`: one entry, `{"package": ABSOLUTE PATH OF adapters/opencode/plugin, "options": {...}}` with the options of item 7;
+   - for a local route, the provider entry of item 6;
+   - nothing else.
+
+   OpenCode replaces `{env:NAME}` and `{file:PATH}` in the inline config (NOTES, Nov 11), so the function refuses (exit 2) when any value it would write holds `{env:` or `{file:`, for example in the umwayi root path.
+6. **Routes: subscription or free first, never pay as you go** (OC3 as proposed). The allowed `provider` values and what each allows:
+
+   | provider | route | `integration.use` allows | needs |
+   | --- | --- | --- | --- |
+   | `opencode` | the signed-out free tier | the bare `opencode` only, so a signed-in Console account (`opencode#ACCOUNT`) is not used | nothing |
+   | `ollama`, `lmstudio`, `vllm` | a local server on its default loopback port | the provider ID | the server running |
+   | `openai` | ChatGPT Plus or Pro sign-in | `openai#*` only, never the bare `openai` (an environment key) | `opencode auth login` by the owner beforehand |
+   | `github-copilot` | GitHub Copilot sign-in | `github-copilot#*` only | `opencode auth login` by the owner beforehand |
+   | OpenCode Go | the Go subscription | refused until its provider ID and integration resource are confirmed (10.42) | the Go sign-in |
+
+   Console credits, provider API keys and every other provider are refused with exit 2 and a line that says pay as you go is not offered (it waits for the budget governor). For `ollama`, `lmstudio` and `vllm` the provider entry names the documented default loopback URL and nothing else.
+7. **The first gate: the plugin** (OC1 as proposed, with the V2 API). `adapters/opencode/plugin/index.js` is plain JavaScript with a default export `{id: "umwayi.gate", setup}` and no import other than `node:` built-ins. Its options, set only by umwayi in the inline config, are the hook command (an argv list), the canary file and the canary token. In `setup` it registers:
+   - `ctx.tool.hook("execute.before")`: for every tool call it runs the layer 9 generic adapter (`adapters/stdio/hook.py --root ROOT --platform opencode`) in exec form with `{"tool_name", "tool_input"}` on stdin and a timeout of 10 s. Exit 0 (Yes): the call goes on. Exit 3 (Ask me first): the call goes on to the permission request (item 9) only when the tool is one OpenCode asks permission for (a fixed list in the plugin); for any other tool it throws. Exit 2, any other code, a timeout, a start error or any exception: it throws, so the call does not run.
+   - `ctx.permission.hook("evaluate")`: an `allow` becomes `ask`; `ask` and `deny` stay. So a permission request reaches umwayi even if the `ask` rule of item 5 is lost.
+   - `ctx.event.subscribe` for `session.created`: it writes the canary token to the canary file, once, with `O_EXCL`.
+   - The plugin never reads or writes anything else, opens no network connection and prints nothing to stdout.
+8. **The gate checks, in this order**, each refusing with exit 2, one logbook entry and nothing started:
+   1. `opencode` on PATH;
+   2. its version, read from `opencode --version` (15 s, at most 64 KB), is 2.2.3 or newer (OC5 as proposed: V1 and older V2 are refused; 2.2.3 is the first release that honours `integration.use` in its current meaning and `plugin.use`). Output umwayi cannot read is a refusal;
+   3. `adapters/stdio/hook.py` and the plugin's `index.js` are regular files, not links, inside the umwayi source tree;
+   4. **no managed config** (OC4 as proposed): refused when `/etc/opencode` exists (Linux), or `/Library/Application Support/opencode` or any `ai.opencode.managed.plist` under `/Library/Managed Preferences` exists (macOS);
+   5. **no other config that can widen the gate** (proposed, OC7): refused when, from the workdir up to `/`, any `opencode.json`, `opencode.jsonc` or `.opencode` entry exists; or when a file in the global config directory (`$XDG_CONFIG_HOME/opencode`, else `~/.config/opencode`) named `opencode.json` or `opencode.jsonc` contains any of the quoted words `"permissions"`, `"permission"`, `"policies"`, `"plugins"`, `"plugin"`, `"agents"`, `"agent"`, `"experimental"`, `"enabled_providers"`, `"disabled_providers"`; or when that directory has a `plugins`, `plugin`, `agents` or `agent` entry. A file that cannot be read as UTF-8 text of at most 1 MB is a refusal. This is a text match, so a comment that names a key also refuses (the safe direction);
+   6. the route of item 6 is allowed.
+   `umwayi agent check NAME` runs the same checks and starts nothing. These checks hold at the start only. OpenCode reloads a changed config during a chat, so the starter rules in `adapters/opencode/rules.example.yaml` say No to any edit or shell command that names `opencode.json`, `opencode.jsonc` or `.opencode` (KNOWN-LIMITS 181).
+9. **The second gate: permission requests.** Every `session/request_permission` is answered by the rules through the existing `permission_action` with `platform: opencode`, `kind` and `tool` only when they are short plain words (the title and `rawInput` are never in the action), with one logbook entry each. Yes is `once`, No is `reject`, Ask me first asks the owner, then `once` or `reject`. `always` is never selected. A request from a child session is answered the same way. A request with no `name` gets at most Ask me first.
+10. **The canary.** After `session/new` the chat waits up to 30 s for the canary file to hold exactly the token (the 7b `gate_ready`). Not seen, or a different token: exit 2 with "could not be confirmed", one refusal entry, nothing of the owner sent, the agent stopped. The token is fresh for every start; the folder is private (0700) and removed on every path.
+11. **The model is checked** (proposed, OC10): the `model` config option in the `session/new` answer must equal the agent's `model`. Otherwise exit 2 before the first prompt.
+12. **No login by umwayi** (proposal 6 of design.md, unchanged by OC1 to OC5): `initialize` sends `clientCapabilities: {}`; `authenticate` is never sent. An `auth_required` error ends the chat with exit 2 and a line that says to run `opencode auth login` first.
+13. **Logbook and secrets.** Nothing of the inline config, the token, the conversation, tool input or OpenCode's output is written to the logbook. Each gated tool call writes its own `umwayi check` entry (the plugin) and, when a permission request follows, one more (item 9).
+14. **Tests** (10.R10), every one with a fake `opencode` started as a real child process:
+   - the inline config bytes for each route, and that every name of item 4 is absent from the child environment;
+   - each gate check refusing on its planted fault, and `agent check` showing the same;
+   - the plugin under `node` with a small fake `ctx`: Yes, No, Ask me first for an asked and an unasked tool, a timeout, a missing hook, an exception, the evaluate hook, the canary written once;
+   - a static check that `index.js` imports only `node:` modules and has no `eval`, `Function(` or network module;
+   - the chat end to end: canary seen and not seen, a wrong token, the model compare, permission answers for each verdict, a child-session request, `always` never chosen, `auth_required`;
+   - planted faults and mutation checks with counts in the pull request.
+   The plugin tests need `node` on PATH. Without it they fail with a message, they do not skip.
+15. **Known limits** are in `docs/KNOWN-LIMITS.md` items 180 to 187, written with the spec and made true to the build in 10.51.
+
+### 10.R14 Muse Spark Open as an OpenCode model (spec only, written Nov 11 (tasks.md 10.40); built after OpenCode and not before Dec 3 (MS5))
+
+The owner asked on Nov 9 to include Meta's Muse Spark Open, subscription or free first, and answered on Nov 11: MS1 to MS4 as proposed in design.md, and MS5 stands (spec only, built after OpenCode). Nothing of this is built before Dec 3. Facts: `adapters/NOTES-layer10.md`, "Muse Spark Open as a platform" (Nov 9; not read again on Nov 11). Design: design.md "Muse Spark Open as an OpenCode model".
+
+User story: as the owner, I want to run Muse Spark Open on my own machine through the same OpenCode front door, with the same gate, and never on a route that bills me by the token.
+
+Acceptance criteria:
+
+1. **A model, not a platform** (MS1): Muse Spark Open is an OpenCode agent, `platform: opencode`, with everything of 10.R13. No new platform name, command word or adapter.
+2. **Free first means local** (MS2): one more `provider` value, `umwayi-local`, a custom OpenAI-compatible provider whose URL comes from a new agents.yaml key `base_url`, allowed only for that provider.
+   - `base_url` is `http://` or `https://` with a host that is `localhost`, a loopback address, or a private address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), a port, and an optional path; no user, password, query or fragment. Anything else is 64.
+   - The provider entry in the inline config enables tool calls for the model and sets the recommended settings: temperature 1.0, top_p 1.0, and an explicit reasoning effort from a new key `reasoning_effort` (`low`, `medium` or `high`, default `medium`). The exact V2 field names are confirmed first (task 10.52); until then the route is refused.
+   - `integration.use` allows `umwayi-local` only.
+3. **No hosted route** for Muse Spark Open: OpenRouter, Together, Fireworks, Groq, Hugging Face and every other hosted provider are refused like every pay-as-you-go route (10.R13.6). A later paid route waits for the budget governor; OpenRouter's prepaid credits are the first candidate (they fail with 402 instead of billing beyond the balance).
+4. **The licence notice** (MS4): when this ships, the README says "Built with Muse Spark Open", only after the owner has read `LICENSE.md` on Hugging Face and said so (task 10.55).
+5. **Muse Code** (MS3): a separate platform for the closed Muse Spark under a Muse Code subscription, after Dec 3, with its own spec. Nothing of it is in this requirement.
+6. **Tests:** the `base_url` validation (every allowed and refused shape), the inline config for `umwayi-local`, the refusal of each hosted provider, and the 10.R13 chat end to end with a fake `opencode` and `provider: umwayi-local`.
+
 ### Out of scope for layer 10 (Dec 3)
 
 - A model client, model keys, or any network call by umwayi.
-- Any ACP agent or platform other than Kiro and, once part 7 is approved and built, Claude Code through the pinned `claude-agent-acp` adapter (10.R11): Codex, Gemini CLI and others are refused as not gated.
-- Kiro or Claude Code cloud sessions, background sessions, resuming or listing sessions, MCP configuration, model or effort choice.
+- Any ACP agent or platform other than Kiro, Claude Code through the pinned `claude-agent-acp` adapter (10.R11) and, once part 8 is approved and built, OpenCode (10.R13): Codex, Gemini CLI and others are refused as not gated.
+- Kiro or Claude Code cloud sessions, background sessions, resuming or listing sessions, MCP configuration, model or effort choice. OpenCode's `model` is fixed in agents.yaml (10.R13.2) and cannot be changed during a chat.
 - More than one agent at a time, and agents talking to each other.
 - Spend limits (budget governor, Nov 17 to 22) and sandboxing (layer 11 proposes to defer it to its own spec after Dec 3, 11.R8).
 - Windows and macOS.
@@ -811,7 +896,7 @@ umwayi view snapshot [--out PATH] [--date D]    read the counts, write one JSON 
 3. A part that cannot be read (a missing or broken `rules.yaml`, a malformed `queue.md`, a `schedule.yaml` that fails validation) is `null`, never zero and never a guess. The page shows `null` as unknown. A `schedule.yaml` that does not exist is 0 entries, not `null`. Every integer is whole, from 0 to 1000000000.
 4. **The tamper check runs first.** The command checks the logbook as every writer does (the whole-file hash and the hash chain, `read_checked`). If the logbook is broken it exits **1**, prints which check failed (never a line's text), and **writes nothing**: no snapshot and no entry. Whether a broken logbook should instead produce a snapshot that says so is open (UI-Q6).
 5. **One logbook entry** through the checked append, after the file is written: the source `umwayi view snapshot`, the file's name inside the root, its SHA-256 and the date. Not its content. If the entry cannot be written, the file is put back as it was (or removed if it was new) and the exit is 2.
-6. **The file.** The default is `.umwayi/snapshot.json` in the root. `--out PATH` must stay inside the root, end in `.json`, be at most 1024 characters and have no `..` part. It is written through the shared atomic writer. It replaces only a regular file that was written by this command earlier (it parses and has exactly the fields above) or a path that does not exist. A link, a folder, a hard linked file or any other existing file is refused (64), so `--out rules.yaml` can never overwrite anything. The mode follows the owner's umask (it holds counts only). `.umwayi/snapshot.json` is added to `.gitignore`.
+6. **The file.** The default is `.umwayi/snapshot.json` in the root. `--out PATH` must stay inside the root, end in `.json`, be at most 1024 characters and have no `..` part. It is written through the shared atomic writer. It replaces only a regular file that was written by this command earlier (it parses and has exactly the fields above) or a path that does not exist. A link, a folder, a hard linked file or any other existing file is refused (64), so `--out rules.yaml` can never overwrite anything. The mode is 0600 whatever the umask (the owner's instruction for UI.2, Nov 11: it holds counts only, but a private file is the safer default, and the page reads it as the same user; this replaces "follows the owner's umask"). `.umwayi/snapshot.json` is added to `.gitignore`.
 7. Same input, same bytes: the file has fixed key order, two spaces of indent and a final newline. `--date D` sets `date` and the end of the seven days, as for every command.
 8. **Exit codes: 0 done, 1 the tamper check failed (nothing changed), 64 a usage or config error** (a bad `--out`, a bad `--date`, a file that is not ours). An unexpected error exits **2**, never 0, 1 or 3 (rule 8). It never exits 3: it asks the rules nothing and is not stopped by the kill switch, because it starts no run and the owner needs it most when the switch is on. Messages never print file contents.
 9. **How the page reads it.** The owner picks the file in the page with a file picker (or drops it). The page reads it in the browser with `FileReader`, so it makes no request (UI-Q7).
@@ -983,3 +1068,209 @@ As for every layer: tests first. The normal suite (`python -m unittest discover 
 - Finance and marketing loops
 - Shared rule packs (after Dec 3)
 - File watching, an SQLite index, tmux sessions and a sandbox for agents and helpers (layer 11 proposes to cut or defer them, 11.R8)
+
+## Layer 13: Correction and graded autonomy
+
+Status: in scope before Dec 3 (the owner, Nov 11). Requirements 13.R1 to 13.R15, design.md "Layer 13" and tasks.md L13.0 to L13.6 are written in the L13.0 pull request and wait for the owner's approval; nothing is built. The owner's decisions of Nov 11 are recorded (design.md, "Owner decisions"); L13-Q1 to L13-Q18 are open, each with a proposed answer. Layer 13 is added as new sections at the end of the three spec files so that the layer 12 branches merge cleanly.
+
+User story: as the owner, I want my standing approvals to run out unless I renew them, a closed decision to be reopenable without rewriting history, a way for an AI helper to object to a No without changing it, and an autonomy score that can save me from a question I have answered the same way many times, so that umwayi can correct itself and trust a little more over time, and still never act without a rule I wrote.
+
+The layer has five parts, built in this order, each one a slice that ships alone and needs nothing from a later slice: **Elections** (13.R2, 13.R3), **Reversal** (13.R4, 13.R5), **Courts** (13.R6, 13.R7), **Honest tension** (13.R8), **Graded autonomy** (13.R9 to 13.R12). The owner stops the build where Dec 3 finds us; a slice is merged whole or not at all.
+
+### 13.R1 What never changes (applies to every part)
+
+1. **A No is never changed by anything in layer 13.** Not by `review_by`, a reopen, a petition, a rules change or the score. A No that matches an action is still the answer, exit 2.
+2. **Every part but graded autonomy can only move toward Ask me first.** An election lapse turns a Yes into Ask me first. A reopen opens a question. A petition adds a queue item. Only graded autonomy can move an answer toward Yes, and only Ask me first to Yes, only under 13.R10 and 13.R11.
+3. **Fail closed.** A missing, malformed, ambiguous or unreadable input of any part gives Ask me first (for `umwayi check`) or a refusal with nothing changed (for the other commands). No part has a default that says Yes.
+4. **One logbook entry for every change**, through the checked append, in the fixed shapes of design.md. A change that cannot be logged is not made, and an answer of Yes that cannot be logged becomes Ask me first (the rule of layer 2 holds).
+5. **The logbook is never edited.** No part of layer 13 changes, deletes, marks or rewrites an existing logbook line. Corrections are new entries.
+6. **Exit codes.** `umwayi check` keeps 0, 2, 3 and 64. The new commands use 0 (done), 1 (refused: something was checked and found wrong, nothing was changed), 2 (an unexpected error, a crash blocks) and 64 (usage). The per command codes are in design.md.
+7. **Standard library only, no network.** No module of layer 13 imports a network library or any third party package (rule 5 and rule 9 of the steering file); a code guard test checks every new module.
+8. **No text in errors.** A message of a layer 13 command never prints the text of a file, an answer, a reason, a petition or a rule, only ids, dates, counts and fixed words.
+9. **Words.** Messages and docs use the product words: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first. No em dash.
+10. **Each slice ships alone.** The code of slice N imports nothing from a slice after N, and the full suite passes with only the slices up to N merged. Where a later slice adds a step to the verdict order, the earlier order is unchanged without it.
+
+### 13.R2 Elections: `review_by` on standing approvals and Yes rules
+
+1. A rule may have a field `review_by` with a date `YYYY-MM-DD` (a real date; the same date check as the logbook). A **standing approval** is a Yes rule: it says Yes to a kind of action again and again until someone looks. Layer 13 adds no other kind of standing approval (L13-Q14).
+2. `review_by` is allowed on a rule whose verdict is `yes`, and on a rule with verdict `ask` that carries the `autonomy` opt-in of 13.R9 (so a standing permission to be moved to Yes also runs out). On any other rule, and on every `no` rule, it makes `rules.yaml` malformed (Ask me first for every action, as for any unknown field).
+3. A rule is **in force through the whole of its `review_by` day** and past it from the next day. A Yes rule that is past its `review_by` counts as an **Ask me first** rule for that check. It is not deleted, not edited and not rewritten; the file stays as the owner wrote it.
+4. The date of a check for this purpose is the **latest** of the system date, the `--date` given and the newest date in the logbook. A past `--date`, or a clock set back, cannot bring a lapsed rule back.
+5. **The fallback is logged.** The check's own logbook entry names every rule that fell back, with its id and its `review_by`, in the fixed shape of design.md. A check where no rule fell back writes the entry it writes today, byte for byte.
+6. After the lapse the strongest rule wins as in layer 2 (No beats Ask me first, Ask me first beats Yes), with the lapsed rule counted as an Ask me first rule. So a matching No still gives No, and a lapsed Yes rule that matches gives Ask me first even when another Yes rule that has not lapsed also matches (the stricter answer wins; L13-Q16).
+7. A rules file with no `review_by` anywhere behaves exactly as before layer 13, and its check output and entry are byte for byte the same.
+8. Renewing is the owner's act: the owner edits `review_by` in `rules.yaml`. The edit is logged before use (13.R7).
+
+### 13.R3 `umwayi rules due`
+
+```
+umwayi rules due [--within DAYS] [--date D]
+```
+
+1. It lists every rule that has a `review_by`, oldest first (then by id): the ones that have **lapsed** (and so are falling back to Ask me first) and the ones **due within** DAYS days (default 14, whole number from 0 to 3650). Each line holds the rule id, the `review_by` date, the number of days and one of the fixed words `lapsed` or `due`. It also prints how many Yes rules have no `review_by`. It prints no rule title, text or cause.
+2. It **changes nothing**: no file and no logbook entry. It is the one place the owner looks for what needs renewing.
+3. **Exit codes.** 0 when no rule has lapsed. 3 (Ask me first) when at least one rule has lapsed, or when `rules.yaml` is missing or broken (it prints that it cannot list). 64 for a bad argument. An unexpected error exits 2. It never exits 1. (L13-Q9.)
+4. A `review_by` more than 366 days after today is listed with the word `far` (the date was set very far ahead); it still counts as in force (L13-Q10).
+
+### 13.R4 Reversal: reopening a closed decision
+
+User story: as the owner, I want to say that a decision I closed should be looked at again, and to see that in the record as a new event, so that nothing I decided earlier is rewritten.
+
+```
+umwayi decision reopen ID_OR_HASH --reason TEXT --by NAME [--date D]
+```
+
+1. A **closed decision** is a row of `queue.md` of kind `decision` whose status is `answered` or `closed`. Only a closed decision can be reopened.
+2. The target is a queue id (`Q-0007`) or a **hash**: 64 lowercase hex characters, the `Chain` value of one entry of the logbook. A queue id is resolved to the newest chained entry whose source is `umwayi queue answer` or `umwayi queue close` and whose `Added` line starts with that id. The command always logs the full hash.
+3. **A reopen writes a new logbook entry.** The entry states in its `Added` line that it is a reopen and names the hash of the old entry, in the fixed shape of design.md. **The old entry is never changed or marked**, and neither is any other line of the logbook: after the command the logbook is the old file with one entry appended. The old queue row is not changed either.
+4. A reopen opens **one new row** in `queue.md`: kind `decision`, status `open`, a title that names the old id and a recommendation that carries the reason. The new row and the entry are written together (the existing queue commit: both, or neither).
+5. **Refused, with exit 1 and nothing changed:** a hash that no entry of the logbook has; an entry that is not a closing entry of a decision, or not the newest closing entry of its decision; a queue id that does not exist, is a task, or is still open; an old entry with no `Chain` line (written before the chain started); a logbook whose chain has not started; a decision that was already reopened and whose reopening row is still open.
+6. **Refused with exit 1 because the record is not intact:** a logbook that fails the tamper check or the hash chain, a hash record that does not match, an interrupted write, or a `queue.md` that does not parse. Nothing is written.
+7. `--reason` is one line of plain text, 1 to 300 characters, without `|`. `--by` is one short line of plain text, 1 to 40 characters. A bad value exits 64 with nothing changed.
+8. A decision can be reopened again after its reopening row is closed; the link then names the entry that closed the reopening row. The chain of reopens can be followed by hash from the newest entry back to the first, and each hop is a new entry.
+9. Reopening does not change a rule, an answer or a verdict. It asks a question again.
+
+### 13.R5 What would change my mind (`--revisit-if`)
+
+1. Answering a row of kind `decision` requires `--revisit-if TEXT`: one line of plain text, 1 to 200 characters, without `|`, or the word `none`. `umwayi queue answer Q-... --answer ... --revisit-if ...`. Without it the command exits 64 and the row stays open.
+2. `--revisit-if` on a row of kind `task` exits 64. A decision that is closed without an answer (`queue close` on an open row) records no revisit text.
+3. The text is written in the logbook entry of the answer (the fixed shape of design.md), so it cannot be edited later, and it is not written to `queue.md`. The existing rule that the logbook holds the length of an answer and not its text stays; only this short condition is stored (L13-Q2).
+4. A reopen shows the revisit condition that was recorded, in the new entry's `Checked` line and in the command's output. A decision answered before layer 13 shows `not recorded before layer 13`.
+5. Nothing in layer 13 watches for the condition to come true. It is for the owner to read when reopening (a limit, written in KNOWN-LIMITS).
+
+### 13.R6 Courts: a petition against a No
+
+User story: as an AI helper that is refused by a No I think is wrong, I want a way to say so to the owner that cannot change the answer, so that a bad rule is noticed and a good rule is not argued away.
+
+```
+umwayi petition RULE_ID --helper NAME --reason TEXT [--date D]
+```
+
+1. A petition is allowed only against a rule that exists in `rules.yaml` and has the verdict `no`. Any other rule, a missing rule or an unreadable `rules.yaml` exits 1 with nothing changed.
+2. The petition **becomes one queue item for the owner**: kind `decision`, status `open`, title `Petition against rule RULE_ID by HELPER` (the id and the name are validated, so the title holds no free text), and a recommendation that starts with `Petition, untrusted text from an AI helper:` followed by the reason.
+3. **It never changes the verdict by itself.** After any number of petitions, answered or not, `umwayi check` gives the same answer for the same action, and `rules.yaml` is byte for byte the same. Answering the queue item changes nothing in the rules. Only the owner editing `rules.yaml` changes a rule, and that edit is logged before use (13.R7).
+4. `--helper` is a name: a lowercase letter, then up to 39 of lowercase letters, digits, `_` or `-`. `--reason` is one line of plain text, 1 to 200 characters, without `|`. A bad value exits 64.
+5. **Limits against spam**, all counted from `queue.md` and the logbook, never from the command line: one open petition for the same helper and rule (a second prints `Already open, nothing added: Q-...` and exits 0); at most 3 open petitions for one helper; at most 10 open petitions in all; at most 5 accepted for one helper and at most 10 accepted in all on one logbook day. Past a limit the command exits 1 with nothing written, and it says which limit. (L13-Q12.)
+6. A refused petition writes no logbook entry, so a flood cannot grow the logbook. An accepted petition writes exactly one entry, in the fixed shape of design.md, with the id, the helper name and the length of the reason, not the reason.
+7. The command does not run an AI helper's action and does not ask the rules. The layer 9 and layer 10 gates already ask the rules before a helper runs it (steering rule 7). The reason text is untrusted: it is shown to the owner marked as such, never copied to the logbook, and never read by any layer 13 code.
+8. The owner answers the item with `umwayi queue answer Q-... --answer TEXT --revisit-if TEXT` like any decision.
+
+### 13.R7 Rule changes are logged before use
+
+1. Every check, and every other command that asks the rules, notices when `rules.yaml` (the exact bytes it reads) differs from the last version that was logged. Before the new rules are used for the first time, one entry is written: source `umwayi rules`, with the SHA-256 of the file, the number of rules before and after, the ids added, the ids removed, and for every rule whose verdict, `review_by` or opt-in changed the id and the old and new value. It holds no rule title, text or cause.
+2. The first time layer 13 sees a `rules.yaml` it writes the same entry in its baseline form ("first logged"), and the rules are used.
+3. **If that entry cannot be written** (a held lock, a broken chain, a failed tamper check), the new rules are used for No and Ask me first only: any Yes answer becomes Ask me first and the reason says why. A No stays a No.
+4. A change that changes nothing a rule means (a comment, spacing, the order of rules) is still logged, with the words `no rule changed` in place of the lists, because the bytes changed.
+5. The same is done for `autonomy.yaml` in graded autonomy (13.R9.4).
+6. The entry does not stop the owner from weakening a rule: it makes the weakening visible and dated. Holding a weakened rule until the owner accepts it is a different design and is left to the owner (L13-Q11).
+
+### 13.R8 Honest tension: stop criteria and the plain note
+
+1. The docs of layer 13 (`docs/corrections.md`, `docs/autonomy.md`) carry this note, in these words or words that say the same, in a section named "No state is perfect": the owner wants correction and also safety; every correction mechanism adds a way to be wrong; umwayi makes a wrong state visible and dated and moves toward Ask me first when unsure, and it does not make any state perfect or safe.
+2. **Nothing claims otherwise.** No layer 13 doc, message, `--help` text or logbook entry uses a claim of perfection or proof: the words `guarantee`, `guaranteed`, `foolproof`, `tamper proof`, `tamper-proof`, `unbreakable`, `unhackable`, `cannot fail`, `perfectly`, `100% safe`. A test searches the docs and the captured output of every layer 13 command for the list (the note itself is excluded by its exact sentence).
+3. **Stop criteria for the build.** (a) A slice is merged only when all its acceptance tests and planted faults pass on Python 3.10 to 3.13 and its docs are current. (b) A slice that is not merged by Nov 28 is not merged: it stays specified, not built, in the docs. (c) No slice is merged in the freeze (Nov 29 to Dec 2) except a fix for a defect that a test finds. (d) If a slice breaks an earlier test it is not merged until that is fixed, never by changing the earlier test. (e) The owner can stop the layer at any slice, and the slices before it stay.
+4. **Stop criteria at run time.** (a) Graded autonomy is off by default and has one setting (13.R12.1). (b) A `rejected` or `reverted` record stops moves for that action class for the cooldown (13.R10.7). (c) Every part falls back to Ask me first when its input is not intact (13.R11). (d) The kill switch stops moves at once (13.R11, row 4).
+5. **What is stated plainly in KNOWN-LIMITS** for layer 13 (numbered from 160, the list in design.md): that `review_by` depends on the owner renewing honestly, that the score is a statistic of the past and cannot see a new context inside a class, that a process of the same user can write well formed score inputs, and that nothing here checks whether the owner's record is wise.
+
+### 13.R9 Graded autonomy: the owner's record
+
+User story: as the owner, I do not want to answer the same Ask me first for the hundredth time, but I want umwayi to move to Yes only where I said it may, only for actions I can undo and that cost little, and only on the evidence of my own record.
+
+1. **Action class.** A class is a name the owner gives to a kind of action in a rule: a lowercase letter, then up to 39 of lowercase letters, digits, `_` or `-`. The class is declared by a rule, never found by reading an action's text, and the action's own fields are not used to name it (L13-Q3).
+2. **The opt-in is in a rule.** A rule with verdict `ask` may have a field `autonomy` with three entries: `class` (the name), `reversible` (true or false) and `cost_uu` (a whole number from 0 to 1000000, in UU, the budget governor's unit). The rule must have a matcher `type` (equals, one or more values), so that the actions it matches have a known type. Any other shape, an `autonomy` field on a rule that is not `ask`, or two opt-in rules that give one class different `reversible` or `cost_uu`, makes `rules.yaml` malformed (Ask me first). A rule with no `autonomy` field never opts in.
+3. **Types that can never be opted in:** `payment`, `transfer`, `purchase`, `withdraw`, `deposit`, `publish`, `post`, `send`, `publish_draft`, `schedule_install`, `budget_check`, `agent_run`, `agent_login` and `acp_permission`. A rule whose `type` matcher names any of them, and has `autonomy`, makes `rules.yaml` malformed. (The score may not move money, publishing, an install that runs by itself, a spending approval, or the start or permission of an agent.)
+4. **Settings are the owner's, in `autonomy.yaml`** in the root, and every one is required (no hidden default): `version`, `enabled`, `window_days`, `min_decisions`, `min_lower_bound`, `confidence_z`, `revert_weight`, `max_cost_uu`, `cooldown_days`, `max_moves_per_day`. Whole numbers except `enabled` (true or false). A missing key, an extra key, a value out of range or a file that does not parse makes the file invalid, and graded autonomy is off. Any change to the file is logged before it is used (13.R7.5).
+5. **The record.** The owner records one outcome at a time:
+
+   ```
+   umwayi autonomy record --class C --outcome approved|edited|rejected|reverted --by NAME [--ref Q-0007] [--date D]
+   ```
+
+   - `approved` means approved as proposed, `edited` means approved after the owner changed it, `rejected` means refused, `reverted` means undone after it was done.
+   - It writes one chained logbook entry of the fixed shape in design.md. The class and the outcome are the only things the score reads from it. `--by` is a name, not read by the score.
+   - It exits 1 with nothing written when the hash chain has not started, the logbook is not intact, or the same `--ref` was already recorded with the same outcome. It exits 64 for a bad class, outcome, name or ref.
+   - It is an owner's command. The example rules of every adapter carry a No rule for it (13.R14), and it does not run for a helper unless the owner's rules say so.
+6. **The inputs are only these entries.** The score reads the chained entries whose source is `umwayi autonomy record`, and counts them by class and outcome. An entry of that source, or of the source `umwayi autonomy`, that is not in exactly one of the fixed shapes, is not chained, or sits before the chain started, makes **every** input invalid: no class is moved anywhere (13.R11).
+7. **The score never reads text.** It reads the class word, the outcome word and the date of the fixed shapes, nothing else. It does not read a queue title, an answer, a recommendation, a petition, a reason, a rule title or any other logbook line. A test plants sentinel and instruction text in all of those and the score does not change.
+8. **The moves do not feed the score.** An action that was moved to Yes adds no approval. Only an outcome the owner records counts.
+9. `umwayi autonomy status [--class C] [--date D]` prints, per class, the four counts, the weighted total, the bound, the thresholds, whether the class is eligible and the first reason it is not (a fixed word). It changes nothing. `umwayi autonomy validate` checks `autonomy.yaml` and the opt-in rules and prints every problem with a line number, and changes nothing.
+
+### 13.R10 Graded autonomy: the score and the move
+
+1. **The counts.** For one class, over the entries with a date in the last `window_days` days ending today (the election clock of 13.R2.4): `a` approved, `e` edited, `r` rejected, `v` reverted.
+2. **The score** is the lower bound of the Wilson score interval, in per mille, as design.md defines it: successes `a`, failures `e + r + revert_weight * v`, total `n` the sum, the confidence `confidence_z` hundredths. It is computed with one fixed order of float operations and rounded **down** to a whole number of per mille, so a tie is never rounded up. With `n` equal to 0 the score is 0.
+3. A check may move **Ask me first to Yes** only when all of the following hold, tested in the order of design.md; the first that fails leaves the answer at Ask me first:
+   1. graded autonomy is on (`enabled` true) and `autonomy.yaml` is valid;
+   2. the check writes a logbook entry (not `--no-log`);
+   3. the kill switch is off (not on, not unknown);
+   4. the logbook is intact, the hash chain has started and is unbroken, and every input is in a fixed shape;
+   5. the answer was Ask me first and **every** matching rule that says Ask me first has the `autonomy` opt-in, and no matching rule lapsed (a lapsed Yes rule is final);
+   6. the matching opt-in rules all give the same class;
+   7. the opt-in rule has not passed its `review_by`;
+   8. the class is declared `reversible: true`;
+   9. the declared `cost_uu` is at most `max_cost_uu`;
+   10. no `rejected` or `reverted` outcome of the class is recorded within `cooldown_days`;
+   11. `n` is at least `min_decisions`;
+   12. the score is at least `min_lower_bound`;
+   13. fewer than `max_moves_per_day` moves of the class were logged today.
+4. A matching **No** is never moved (13.R1.1). A move is never made when no rule matches. An answer of Yes is never moved to anything.
+5. **Every move is logged with the score inputs**: the check entry holds the class, the four counts, the weight, `n`, the score, the thresholds, the declared reversibility and cost, and the moves counted for the day, in the fixed shape of design.md. If that entry cannot be written the answer is Ask me first.
+6. **Every check that matched an opt-in rule and did not move** writes the fixed word of the first gate that failed in its entry (while graded autonomy is on), so the owner can see why.
+7. **Cooldown.** A `rejected` or `reverted` outcome for a class stops all moves for that class for `cooldown_days` days from that outcome, whatever the score is.
+8. A worked example, with exact numbers, is in design.md and is a test fixture.
+9. **Where a move can happen.** In `umwayi check` and in every caller that logs its own check (the agent gates and the schedule). The callers that check without logging (jobs, helpers, publish and the inner checks of a workflow) are never moved: their Ask me first stays Ask me first. The election fallback of 13.R2 applies to every caller.
+
+### 13.R11 Graded autonomy: fail closed
+
+The following always mean **Ask me first** and never a move to Yes, each tested on its own by a child process (design.md has the table with the gate word of each):
+
+1. graded autonomy off, `autonomy.yaml` missing, unreadable or invalid;
+2. low data (`n` below `min_decisions`);
+3. an irreversible action, or `reversible` missing or not true;
+4. a costly action: `cost_uu` above `max_cost_uu`, or missing;
+5. a No (the answer is No, not moved);
+6. a broken hash chain, a chain that has not started, a failed tamper check, a logbook that cannot be read;
+7. an input that is not in a fixed shape, an unchained input, a duplicate of an outcome for one `--ref`;
+8. the kill switch on, or its state unknown;
+9. any state umwayi cannot read or tell: the clock, `rules.yaml`, `autonomy.yaml`, the action's JSON, the class;
+10. a dry run (`--no-log`), or a failed logbook write;
+11. a lapsed `review_by` on the Yes rule or on the opt-in rule;
+12. the cooldown or the daily cap;
+13. any unexpected error inside the move: an unexpected error exits 2 like every command (rule 8), never Yes.
+
+### 13.R12 Graded autonomy: one setting, off by default
+
+1. **One setting turns it off:** `enabled: false` in `autonomy.yaml`. A root with no `autonomy.yaml` has graded autonomy off. Nothing turns it on except the owner writing `enabled: true` with every other setting present.
+2. **Off means the behaviour of before.** With graded autonomy off, the answer, the exit code, the JSON and the logbook entry of `umwayi check` are byte for byte what they were without layer 13 (for a rules file that uses no other layer 13 field). The `autonomy` field in a rule is read and checked but has no effect.
+3. Turning it off takes effect at the next check. A move already made is not undone: the owner records `reverted` if it was wrong.
+4. `umwayi autonomy status` works whether it is on or off and says which.
+5. The setting is the owner's. The example rules of every adapter keep a helper from writing `autonomy.yaml` (13.R14).
+
+### 13.R13 Tests
+
+As for every layer: tests first, real child processes (`python -m umwayi ...` with `HOME` and `XDG_CONFIG_HOME` in a temporary folder), the standard library only, no network. The acceptance tests per slice are in tasks.md. In all of them:
+
+1. **Planted faults**, each found by a named test: a rule past its `review_by`; a petition spam; a forged score input; a reopen of a missing entry; a broken chain. Each slice adds the faults of its own part (tasks.md).
+2. **Mutation checks**, with the counts in the pull request: for each slice, faults put into the code on purpose (an expiry off by one day, the fallback not logged, a petition that changes the verdict, a reopen that marks the old entry, a move that skips one gate, a score that reads text) and the tests must fail.
+3. **Exit codes**: only the codes of design.md for each command, and the answer of `umwayi check` never Yes for a state in the fail closed table.
+4. **Nothing else changes**: a snapshot of the whole root before and after a command, except the files the command is allowed to write.
+5. **Python 3.10 to 3.13** in CI; the score fixtures give the same numbers on all four.
+6. The existing tests are not changed to make a slice pass, except where this spec says a behaviour changes (13.R5.1: the answer of a decision needs `--revisit-if`).
+
+### 13.R14 Docs
+
+1. `docs/corrections.md` (Elections, Reversal, Courts, the rules change log and "No state is perfect") and `docs/autonomy.md` (graded autonomy) are the new pages, in the four part format, each under 300 lines, linked from the README and PROJECT.md. They are written as "specified, not built" in the L13.0 pull request and made current in each slice's pull request (DOCS_MAINTENANCE.md).
+2. The other pages that change when a slice is built are listed in design.md ("Docs page plan"); each slice updates its own.
+3. The example rules of the Claude Code, Kiro and generic adapters keep an AI helper from writing `autonomy.yaml` and from running `umwayi autonomy` and `umwayi decision`; `umwayi petition` is left to the owner's choice.
+4. `tests/test_docs.py` passes with both pages.
+
+### 13.R15 Not in layer 13
+
+- **Any change to the view.** `umwayi view snapshot`, `ui/` and `site/` are not changed by layer 13. The review dates, reopened decisions and petitions of 12.R8 are drawn only if the owner asks for them after layer 13 exists (L13-Q13).
+- **A way for an AI helper to change a rule, an answer or its own score.** None.
+- **Learning from text.** No score, class or move is based on reading what an action says.
+- **A model, an embedding or any statistics beyond the counts and the one interval of 13.R10.**
+- **Automatic approval of a petition, and any automatic edit of `rules.yaml` or `autonomy.yaml`.**
+- **Moves for money, publishing, an install or a spending approval** (13.R9.3), and any move to Yes of a No.
+- **Holding a rules change until the owner accepts it** (L13-Q11), and an outside signature of the owner's record. Both are possible later.
+- **Expiry of an installed schedule** (L13-Q14): a schedule runs through the Yes rules it asks, and those can expire.
