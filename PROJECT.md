@@ -45,7 +45,7 @@ umwayi-os/
     testing.md              how everything is tested
     security.md             what is protected and how it is checked
     corrections.md          layer 13: elections, reversal, courts and the rules change log, the stop criteria and the plain note (built)
-    autonomy.md             layer 13: graded autonomy, the score and its gates (specified, not built)
+    autonomy.md             layer 13: graded autonomy, the score and its gates (built, off by default)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
     KNOWN-LIMITS.md         every known limit, numbered

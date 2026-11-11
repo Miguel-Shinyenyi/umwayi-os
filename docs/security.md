@@ -19,6 +19,7 @@ This page says what umwayi does to keep the owner in control (fail closed, rules
   - The scan's tests found 10 defects, all fixed in PR 37.
   - The record, every tool with its version and checksum, each finding with its decision, and what the scan cannot prove: [SECURITY-SCAN.md](SECURITY-SCAN.md).
 - How it is tested: `tests/test_scan_receiver.py`, `tests/test_scan_files.py`, `tests/test_scan_secrets.py` and the code guards ([testing.md](testing.md)).
+- Graded autonomy (layer 13) can move an Ask me first to Yes from the owner's record. The record is chained and read in fixed shapes, and a helper is kept from it by the guard names of the adapters, but a process of the same user can write well formed, chained inputs ([KNOWN-LIMITS](KNOWN-LIMITS.md) items 135 and 166). It is off by default.
 
 ## Decisions log
 

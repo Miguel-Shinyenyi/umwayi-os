@@ -10,6 +10,7 @@ Exit codes:
   umwayi view:   0, 1 (the tamper check failed), 2 or 64 only, never 3 (layer 12)
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
+  umwayi autonomy: record 0, 1 (refused), 2 or 64; status 0, 2 or 64; validate 0 (valid), 2 or 64 (layer 13)
 """
 
 from __future__ import annotations
@@ -22,8 +23,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, budget, decisions, elections, jobs, kill, logbook, petition, publish,
-                    report, rules, schedule, taskqueue, units, view, workflow)
+from umwayi import (__version__, agents, archive, autonomy, budget, decisions, elections, jobs, kill, logbook, petition,
+                    publish, report, rules, schedule, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -125,6 +126,23 @@ def build_parser() -> argparse.ArgumentParser:
     pt.add_argument("--reason", required=True, help="why, one line of plain text without | (up to 200 characters); "
                                                     "kept in queue.md only, marked as untrusted, never in the logbook")
     pt.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    au = sub.add_parser("autonomy", help="graded autonomy (layer 13): the owner's record, the score per class and "
+                                         "autonomy.yaml; off by default")
+    ausub = au.add_subparsers(dest="autonomy_command", parser_class=_Parser)
+    aus = ausub.add_parser("status", help="per class: the counts, the score, the thresholds and the first gate that "
+                                          "holds it (changes nothing)")
+    aus.add_argument("--class", dest="cls", help="only this class")
+    aus.add_argument("--date", type=_date_arg, help="the day YYYY-MM-DD (default: today, from the system clock)")
+    ausub.add_parser("validate", help="check autonomy.yaml and the opt-in rules, every problem with a line number "
+                                      "(changes nothing)")
+    aur = ausub.add_parser("record", help="record one outcome of the owner for a class: one chained logbook entry")
+    aur.add_argument("--class", dest="cls", required=True, help="the class, as a rule's autonomy field names it")
+    aur.add_argument("--outcome", required=True, help="approved, edited, rejected or reverted")
+    aur.add_argument("--by", required=True, help="who records it (one line, no ; or | character, up to 40 "
+                                                 "characters)")
+    aur.add_argument("--ref", help="the queue id the outcome is about, for example Q-0007 (optional)")
+    aur.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
 
     ar = sub.add_parser("archive", help="archive commands")
     arsub = ar.add_subparsers(dest="archive_command", parser_class=_Parser)
@@ -544,6 +562,25 @@ def _cmd_view(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_autonomy(args, out) -> int:
+    """Layer 13. status and validate change nothing: 0, 2 or 64, never 1."""
+    try:
+        if args.autonomy_command == "status":
+            code, lines = autonomy.status(Path(args.root), args.cls, args.date or _today())
+        else:
+            code, lines = autonomy.validate(Path(args.root))
+        out.write("\n".join(lines) + "\n")
+        return code
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _cmd_schedule(args, out) -> int:
     """Layer 11. Its own error handling: 64 for usage and config, 2 for anything else, never 1 (11.R6)."""
     root = Path(args.root)
@@ -596,6 +633,13 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_view(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "autonomy" and getattr(args, "autonomy_command", None) == "record":
+            e = autonomy.record(Path(args.root), args.cls, args.outcome, args.by, args.ref, args.date or _today())
+            out.write(f"Recorded {e.added.split(' recorded by ')[0]}.\n"
+                      "Nothing was moved. The score is computed when a check runs.\n")
+            return 0
+        if args.command == "autonomy" and getattr(args, "autonomy_command", None) in ("status", "validate"):
+            return _cmd_autonomy(args, out)
         if args.command == "petition":
             r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
             out.write("\n".join(petition.render(r)) + "\n")

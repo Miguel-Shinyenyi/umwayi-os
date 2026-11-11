@@ -29,6 +29,9 @@ A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 | `umwayi view snapshot` | 0 done, 1 the logbook failed its tamper check (nothing written), 2 an unexpected error, 64 usage (a bad `--out` or `--date`); never 3 |
 | `umwayi decision reopen` | 0 done, 1 refused (the record does not fit or is not intact; nothing changed), 2 an unexpected error, 64 usage (a bad id, hash, reason, name or date); never 3 |
 | `umwayi petition` | 0 added, or the same petition already open; 1 refused (not a No rule, a limit, a broken logbook or rules file; nothing written); 2 an unexpected error; 64 usage (a bad rule id, helper or reason); never 3 |
+| `umwayi autonomy record` | 0 recorded, 1 refused (no hash chain, a logbook that is not intact, a `--ref` already recorded with the outcome; nothing written), 2 an unexpected error, 64 usage |
+| `umwayi autonomy status` | 0 printed, 2 an unexpected error, 64 a bad `--class` or `--date`; never 1 or 3 |
+| `umwayi autonomy validate` | 0 valid (or no file), 64 invalid (every problem with a line number), 2 an unexpected error; never 1 or 3 |
 | `umwayi queue answer` | as the other queue commands; 64 also for a decision without `--revisit-if` and a task with it |
 | any command given a path longer than the system allows | 64, a usage error that does not print the path |
 | the layer 9 adapters | never 1; any error blocks (Kiro 0 or 2, generic 0, 2 or 3) |
@@ -41,6 +44,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | `umwayi autonomy record` uses 0, 1, 2 and 64; `status` 0, 2 and 64; `validate` 0, 2 and 64; `umwayi check` keeps 0, 2, 3 and 64, and a move gives 0 | Layer 13, L13.5 (design.md, "Commands and exit codes"). |
 | 2026-11-11 | `umwayi petition` uses 0, 1, 2 and 64; the same petition already open is 0 | Layer 13, L13.3 (13.R6.5, design.md "Commands and exit codes"). |
 | 2026-11-11 | `umwayi decision reopen` uses 0, 1, 2 and 64; `queue answer` gives 64 for a missing or misplaced `--revisit-if` | Layer 13, L13.2 (design.md, "Commands and exit codes"). |
 | 2026-11-11 | `umwayi rules due` uses 0, 3, 64 and 2, never 1; 3 when a rule lapsed so a scheduled job can notice (L13-Q9, proposal used) | L13.1, 13.R3.3. |

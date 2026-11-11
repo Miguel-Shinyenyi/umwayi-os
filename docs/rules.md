@@ -51,7 +51,7 @@ The repo `rules.yaml` ends with starter rules for the actions that the Claude Co
 | fetches a web page or searches the web | Ask me first | `cc-ask-web` |
 | deploys (generic adapter) | Ask me first | `stdio-ask-deploy` |
 | wipes folders or disks, pushes to main or forces a push, names a payment service | No | `cc-no-destroy`, `kiro-no-destroy`, `cc-no-push-main`, `cc-no-money` |
-| changes or names `rules.yaml`, `LOGBOOK.md`, `.umwayi`, `.git` or the hook settings | No | `cc-no-guard-edits`, `cc-no-guard-shell`, `kiro-no-guard-edits`, `kiro-no-guard-shell` |
+| changes or names `rules.yaml`, `autonomy.yaml`, `LOGBOOK.md`, `.umwayi`, `.git` or the hook settings, or runs `umwayi decision` or `umwayi autonomy` | No | `cc-no-guard-edits`, `cc-no-guard-shell`, `kiro-no-guard-edits`, `kiro-no-guard-shell` |
 | touches a secret or key path (`.env`, `.pem`, `id_rsa`, `id_ed25519`, `.aws/credentials`, `.netrc`) | No | `cc-no-secrets`, `kiro-no-secrets`, `stdio-no-secrets` |
 | deploys to production (generic adapter) | No | `stdio-no-prod` |
 | anything else (other tools, MCP tools, helpers' own sub tasks) | Ask me first | no rule matches |
@@ -97,12 +97,36 @@ Before new rules are used, the change is logged. Every check, and every other co
 - The change is logged only when the rules are used: an action that is not readable JSON, or a `rules.yaml` that does not parse, gives Ask me first as before and logs no rules entry.
 - `rules due` and `view snapshot` only read the rules, so they log nothing.
 
+### The autonomy opt-in (layer 13, graded autonomy)
+
+An `ask` rule may carry `autonomy` with three entries, `class`, `reversible` and `cost_uu`, and must then have a `type` matcher (equals). It is the only way an Ask me first can ever be moved to Yes, and only while `autonomy.yaml` turns graded autonomy on ([autonomy](autonomy.md)). With it, the rule may also carry `review_by`, so a standing permission to be moved runs out too.
+
+```yaml
+  - id: commit-ask
+    title: A commit on a feature branch is asked
+    text: The owner is asked before an AI helper commits.
+    verdict: ask
+    review_by: 2027-02-01
+    autonomy:
+      class: git-commit
+      reversible: true
+      cost_uu: 2
+    matchers:
+      type: tool_bash
+      command__contains: git commit
+```
+
+- `rules.yaml` is malformed (every check gives Ask me first) when `autonomy` is on a Yes or No rule, has another shape, is on a rule without a `type` equals matcher, names a type of the never list (`payment`, `transfer`, `purchase`, `withdraw`, `deposit`, `publish`, `post`, `send`, `publish_draft`, `schedule_install`, `budget_check`, `agent_run`, `agent_login`, `acp_permission`), or when two rules give one class a different `reversible` or `cost_uu`.
+- The rules change log lists the opt-in in its state (`commit-ask ask review_by 2027-02-01 autonomy git-commit reversible yes cost 2`), so turning `reversible` to true, or a lower cost, is named in the entry.
+- Only a Yes rule lapses at its `review_by` (elections). An opt-in rule past its date stays Ask me first and is held by its own gate (`opt-in-lapsed`).
+
 ## Decisions log
 
 Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | An `ask` rule may opt its class in to graded autonomy with `autonomy`; the never list and the agreement of two rules are checked when the file is read; only a Yes rule lapses at `review_by` | Layer 13, L13.5 (13.R9.2, 13.R9.3, 13.R2.2). |
 | 2026-11-11 | Every caller that asks the rules logs a changed `rules.yaml` before it uses it; if that cannot be written, a Yes becomes Ask me first; a dry run logs nothing and keeps its answer | Layer 13, L13.3 (13.R7; L13-Q11 and the new L13-Q19 as proposed). |
 | 2026-11-11 | The repo `rules.yaml` holds starter rules for the actions the three adapters send, taken from the example files, with the strictest verdict the examples give; `kiro-no-secrets` and `stdio-no-secrets` are added because the examples have no secret rule for those two; no starter rule has `review_by` (9.10) | Task 9.10, PR 43. |
 | 2026-11-11 | A Yes rule past its `review_by` counts as Ask me first, in every caller of the rules; a lapsed Yes beside a fresh Yes gives Ask me first (L13-Q16, proposal used); `rules due` exits 3 when a rule lapsed (L13-Q9, proposal used); a date more than 366 days ahead is listed as `far` (L13-Q10, proposal used) | L13.1, 13.R2 and 13.R3. |

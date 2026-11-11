@@ -594,8 +594,8 @@ class RulesDueTests(Base):
 class CodeGuardTests(unittest.TestCase):
     NETWORK = {"socket", "http", "urllib", "ssl", "smtplib", "ftplib", "xmlrpc", "requests", "asyncio", "telnetlib",
                "imaplib", "poplib", "socketserver"}
-    LATER = {"decisions", "petition", "autonomy"}  # modules of slices 2 to 5 that rules.py must not import; rulelog
-    # is slice 3's step 4 of the verdict order, which design.md puts inside rules.check
+    LATER = {"decisions", "petition"}  # modules of slices 2 to 5 that rules.py must not import; rulelog (step 4) and
+    # autonomy (step 8, L13.5, imported inside check_and_log) are steps of the verdict order that design.md puts there
 
     def imports(self, path):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -622,10 +622,10 @@ class CodeGuardTests(unittest.TestCase):
                 self.assertNotIn(top, self.NETWORK, f"{name} imports {imp}")
 
     def test_nothing_of_a_later_slice_exists_yet(self):
-        # decisions.py (L13.2), rulelog.py and petition.py (L13.3) are built; slice 1 imports none of them but
-        # rulelog (the test above)
-        for name in ("autonomy",):
-            self.assertFalse((REPO / "umwayi" / f"{name}.py").exists(), name)
+        # every slice is built (L13.5 was the last): no module of a later slice can exist, and the modules of the
+        # layout of design.md are there
+        for name in ("elections", "decisions", "rulelog", "petition", "autonomy"):
+            self.assertTrue((REPO / "umwayi" / f"{name}.py").exists(), name)
 
 
 if __name__ == "__main__":
