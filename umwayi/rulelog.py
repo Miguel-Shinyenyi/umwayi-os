@@ -1,7 +1,7 @@
 """Layer 13, slice 3: the rules change log (13.R7).
 
-Every check, and every other command that asks the rules, calls `ensure_logged` with the exact bytes of rules.yaml
-it read and the rules it parsed, before it uses them. When the SHA-256 of the bytes is not the one of the newest
+Every check, and every other command that asks the rules, calls `ensure_logged` with the SHA-256 of the exact bytes of
+rules.yaml it read and the rules it parsed, before it uses them. When the SHA-256 of the bytes is not the one of the newest
 `umwayi rules` entry, one entry is written first:
 
     Added:    rules.yaml first logged (sha256 HEX); rules N
@@ -19,7 +19,6 @@ first (a No stays a No). This module only reads rules.yaml through its caller an
 
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -132,14 +131,14 @@ def _why(e: Exception) -> str:
     return str(e).removeprefix("logbook: ").rstrip(". ")
 
 
-def ensure_logged(root: Path, data: bytes, rules: list, when: str) -> str | None:
-    """Make sure these exact rules are the last logged version before they are used. None when they are (or were
-    just logged); otherwise why the entry could not be written, and then no Yes may come from these rules.
+def ensure_logged(root: Path, digest: str, rules: list, when: str) -> str | None:
+    """Make sure these rules (parsed from bytes with this SHA-256) are the last logged version before they are used.
+    None when they are (or were just logged); otherwise why the entry could not be written, and then no Yes may
+    come from these rules.
 
     A read without the lock finds the usual case (nothing changed) without waiting for a writer. A change is
     decided again under the logbook lock, so two checks that see it at once write it once.
     """
-    digest = hashlib.sha256(data).hexdigest()
     try:
         last = newest(logbook.read_checked(Path(root)))
     except UmwayiError as e:

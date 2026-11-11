@@ -335,10 +335,10 @@ class ContentTests(unittest.TestCase):
 
     def test_the_counts_come_from_the_layers_readers(self):
         w = World(self.tmp).build()
-        self.assertEqual(w.log_counts(), (9, 3))  # six by hand, then the seal and two checks
+        self.assertEqual(w.log_counts(), (10, 4))  # six by hand, then the seal, the rules entry (L13.3) and two checks
         self.assertEqual(w.view("--date", DAY).returncode, 0)
         got = w.read()
-        self.assertEqual(got["logbook"], {"entries": 9, "chain_length": 3})
+        self.assertEqual(got["logbook"], {"entries": 10, "chain_length": 4})  # L13.3 (13.R7.2): the rules entry before the first check
         self.assertEqual(got["queue"], {"open": 2, "answered": 2})
         self.assertEqual(got["rules"], {"yes": 3, "no": 2, "ask": 1})
         self.assertEqual([d["used_uu"] for d in got["budget"]["days"]], [0, 0, 0, 0, 13, 0, 105])
@@ -761,11 +761,11 @@ class EntryTests(Case):
         self.assertEqual(m.group("file"), SNAP)
         self.assertEqual(m.group("sha"), sha(self.w.snap.read_bytes()))
         self.assertEqual(self.w.u("logbook", "verify").returncode, 0)
-        self.assertEqual(self.w.log_counts(), (10, 4))
+        self.assertEqual(self.w.log_counts(), (11, 5))  # L13.3 (13.R7.2): the rules entry before the first check
 
     def test_the_snapshot_counts_the_logbook_before_its_own_entry(self):
         self.run_ok()
-        self.assertEqual(self.w.read()["logbook"], {"entries": 9, "chain_length": 3})
+        self.assertEqual(self.w.read()["logbook"], {"entries": 10, "chain_length": 4})  # L13.3 (13.R7.2): the rules entry before the first check
 
     def test_a_logbook_that_fails_after_the_file_is_written_puts_the_file_back(self):
         for fault, extra in (("umwayi.logbook:append:crash", None),

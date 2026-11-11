@@ -64,12 +64,31 @@ A reopen never edits, deletes or marks an entry. It appends one entry of source 
 - `logbook.read_chained` gives every entry with its `Chain` value, under the same checks as the other checked readers. A reopen reads the record with it and needs the hash chain to have started.
 - The id of the row a reopen opens counts as used, like an id at the start of an `Added` line, so it is never given again.
 
+A rules change and a petition are new entries too, in fixed shapes:
+
+```text
+- Source: umwayi rules
+- Added: rules.yaml changed (sha256 HEX); rules 14 to 15; added a-id; removed b-id; changed c-id verdict no to ask
+- Checked: rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: ID VERDICT[ review_by DATE]; ...
+- Not done: Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry.
+
+- Source: umwayi petition
+- Added: Q-0031 (decision) as open: Petition against rule ID by HELPER
+- Checked: rule ID exists with verdict No; limits held (open for this helper 1 of 3, open in all 4 of 10, accepted today for this helper 1 of 5, in all 4 of 10); reason N characters
+- Not done: The rule, rules.yaml and every answer were not changed. The reason text is in queue.md and not copied here.
+```
+
+- The other rules shapes are `rules.yaml first logged (sha256 HEX); rules N` (the baseline) and the endings `no rule changed`, `the rules are not listed (more than 200)` and `the earlier state was not listed, so this entry is a new baseline`. The state is `no rules` or `too many rules to list` when there is nothing to list or too much.
+- A rules entry is read back only when all three of its lines match these shapes exactly. The entry is decided under the logbook lock (`logbook.append_with`), so two checks that see one change write one entry.
+- The reason of a petition is never written to the logbook, only its length.
+
 ## Decisions log
 
 Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | The rules change and the petition entries; a rules entry is decided under the lock | Layer 13, L13.3 (13.R6.6, 13.R7). |
 | 2026-11-11 | A reopen is a new entry that links the old one by its hash; the old one is never marked | Layer 13, L13.2 (13.R4.3; L13-Q17 as proposed: the hash chain is needed). |
 | 2026-11-10 | `LOGBOOK.md` and its lock refuse a second name; the append never follows a link; the intent is 0600 | The security scan (S.2, PR 37): a hard link at the lock let its pid write reach an outside file, and a link swapped in before the append was written through (S-Q9 for the mode). |
 | 2026-11-10 | The hash chain (C.1 to C.4, PR 32): a seal entry starts it; `seal --chain` once (C-Q1); recompute the chain on every append (C-Q2); `verify` keeps exit codes 0 and 1 (C-Q3) | Approved Nov 9 in PR 24; built in PR 32. |

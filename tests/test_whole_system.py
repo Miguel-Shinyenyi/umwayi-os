@@ -145,7 +145,7 @@ class WholeSystemTests(unittest.TestCase):
         r = self.u("logbook", "anchor", code=0)
         type(self).anchor_morning = r.stdout.split("\n")[0].strip()
         self.assertRegex(type(self).anchor_morning, r"^1:[0-9a-f]{64}$")
-        self.assertEqual(sources(self.new(n)), ["umwayi check"] * 3 + ["umwayi logbook seal"])
+        self.assertEqual(sources(self.new(n)), ["umwayi rules"] + ["umwayi check"] * 3 + ["umwayi logbook seal"])  # L13.3 (13.R7.2): the rules entry before the first check
         self.assertIn("- Chain: ", self.world.log_text())
 
     def test_03_rules_and_the_chain(self):

@@ -58,6 +58,8 @@ rules:
       type: [tool_write, tool_edit, tool_multiedit, tool_notebookedit]
       path__contains: ["rules.yaml", "logbook.md", "/.umwayi/", "/.claude/settings", "/.git/"]
 
+  # umwayi petition (layer 13) is left to the owner: an AI helper may object to a No this way. To refuse it,
+  # add "umwayi petition" to the list below.
   - id: cc-no-guard-shell
     title: Shell commands that touch the guard files
     text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .claude/settings, umwayi kill, umwayi decision or decision reopen are refused.

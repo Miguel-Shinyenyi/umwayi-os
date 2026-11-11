@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, without_run_lock, write_sealed_logbook
+from tests.helpers import after_rules, entry_text, log_rules, without_run_lock, write_sealed_logbook
 from umwayi import jobs, logbook, publish, report
 from umwayi.cli import main
 from umwayi.errors import UmwayiError, UsageError
@@ -236,7 +236,7 @@ class RunTests(Base):
         self.assertIn("Job open-queue ran.", out)
         self.assertIn("Q-0001", out)
         self.assertNotIn("Q-0002", out)
-        e = self.entries()
+        e = after_rules(self.entries())  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(len(e), 1)
         self.assertEqual(e[0].source, "umwayi run")
         self.assertEqual(e[0].added, "Job open-queue ran (command queue-list): listed 1 rows with status open")
@@ -249,7 +249,7 @@ class RunTests(Base):
         self.assertEqual(code, 0, err)
         self.assertIn("Wrote drafts/report-0001.md (1 commits from 2026-10-31 to 2026-11-07)", out)
         self.assertTrue((self.root / "drafts" / "report-0001.md").exists())
-        e = self.entries()
+        e = after_rules(self.entries())  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(len(e), 1)
         self.assertTrue(e[0].added.startswith("Job weekly-report ran (command report): wrote drafts/report-0001.md"))
 
@@ -267,7 +267,7 @@ class RunTests(Base):
             self.assertEqual(self.run_job("open-queue", clock=clock)[0], 0)
             now = self.log.read_bytes()
             self.assertTrue(now.startswith(seen))
-            self.assertEqual(len(self.entries()), n)
+            self.assertEqual(len(self.entries()), n + 1)  # L13.3 (13.R7.2): the rules are logged before their first use
             seen = now
 
     def test_only_one_job_in_the_file_needs_no_name(self):
@@ -351,7 +351,7 @@ class RunTests(Base):
         self.assertTrue(out.startswith("No\nRule: no-jobs\n"))
         self.assertIn("Job weekly-report did not run.", out)
         self.assertFalse((self.root / "drafts").exists())
-        e = self.entries()
+        e = after_rules(self.entries())  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(len(e), 1)
         self.assertEqual(e[0].added, "Job weekly-report stopped before running (command report): rule no-jobs gave No")
 
@@ -393,6 +393,7 @@ class RunTests(Base):
 
     def test_failed_logbook_means_no_run_for_every_command(self):
         self.make_git()
+        log_rules(self.root)  # L13.3 (13.R7.2): the rules are logged before their first use, so the refusals change nothing
         for name in ("weekly-report", "open-queue", "read-check", "money-check"):
             with self.subTest(job=name):
                 before = self.snap()
@@ -423,6 +424,7 @@ class RunTests(Base):
 
     def test_draft_cannot_be_removed_after_a_failed_log_is_reported_loudly(self):
         self.make_git()
+        log_rules(self.root)  # L13.3: logged before the patch below, which makes every os.unlink fail
         with mock.patch("umwayi.jobs.logbook.append", side_effect=UmwayiError("x")), \
                 mock.patch("umwayi.report.os.unlink", side_effect=OSError("busy")):
             code, _, err = self.run_job("weekly-report")
@@ -433,6 +435,7 @@ class RunTests(Base):
 
     def test_refusals_exit_1_and_change_nothing(self):
         # a missing or bad jobs file is a config error (64); a failure while running is a refusal (1)
+        log_rules(self.root)  # L13.3 (13.R7.2): the rules are logged before their first use, so the refusals change nothing
         self.assert_refused(["run", str(self.root / "nope.yaml"), "--job", "x"], 64, "was not found")
         self.assert_refused(["run", str(self.root / "jobs.yaml"), "--job", "weekly-report"], 1, "git log failed")
         bad = self.root / "bad.yaml"
@@ -675,7 +678,7 @@ class PublishTests(Base):
         self.assertTrue(out.startswith("Ask me first\nRule: publish-ask\n"))
         self.assertIn("--approved-by", out)
         self.assertFalse((self.root / "outbox").exists())
-        e = self.entries()
+        e = after_rules(self.entries())  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(len(e), 1)
         self.assertEqual(e[0].added, "publish of drafts/report-0001.md stopped before copying: rule publish-ask gave Ask me first")
 
@@ -685,7 +688,7 @@ class PublishTests(Base):
         self.assertIn("Copied drafts/report-0001.md to outbox/report-0001.txt", out)
         self.assertIn("Nothing was published, sent or pushed.", out)
         self.assertEqual((self.root / "outbox" / "report-0001.txt").read_bytes(), self.draft.read_bytes())
-        e = self.entries()
+        e = after_rules(self.entries())  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(len(e), 1)
         self.assertIn("approved by Miguel after rule publish-ask gave Ask me first", e[0].added)
         self.assertIn(logbook.sha256_hex(self.draft.read_bytes()), e[0].added)
@@ -740,9 +743,10 @@ class PublishTests(Base):
         self.assertEqual(code, 1)
         self.assertIn("already exists", err)
         self.assertEqual((self.root / "outbox" / "report-0001.txt").read_text(), "someone else\n")
-        self.assertEqual(self.entries(), [])
+        self.assertEqual(after_rules(self.entries()), [])  # L13.3 (13.R7.2): the rules are logged before their first use
 
     def test_failed_logbook_removes_the_copy(self):
+        log_rules(self.root)  # L13.3 (13.R7.2): the rules are logged before their first use, so the refusal changes nothing
         before = self.snap()
         with mock.patch("umwayi.publish.logbook.append", side_effect=UmwayiError("disk full")):
             code, out, _ = self.pub("drafts/report-0001.md", "--approved-by", "Miguel")

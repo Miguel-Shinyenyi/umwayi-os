@@ -673,7 +673,7 @@ class RealProcessTests(CrashBase):
                 [rec] = self.recoveries()
                 self.assertIn(words, rec.added)
                 self.assertIn(f"(writer PID {p.pid}, started ", rec.added)
-                self.assertEqual(len(self.added()), 2 + (step != "_append_bytes") + 1)
+                self.assertEqual(len(self.added()), 3 + (step != "_append_bytes") + 1)  # L13.3 (13.R7.2): the rules are logged before their first use
                 self.assert_intact()
 
     def test_two_writers_started_at_once_after_a_crash_write_one_recovery_entry(self):
@@ -687,7 +687,7 @@ class RealProcessTests(CrashBase):
             out, err = q.communicate(timeout=60)
             self.assertEqual(q.returncode, 0, out + err)
         self.assertEqual(len(self.recoveries()), 1)
-        self.assertEqual(len(self.added()), 5)
+        self.assertEqual(len(self.added()), 6)  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assert_intact()
 
     def test_a_recovery_sigkilled_half_way_still_leaves_one_recovery_entry(self):

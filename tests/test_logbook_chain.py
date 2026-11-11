@@ -169,7 +169,8 @@ class StartTests(ChainCase):
     def test_every_entry_after_the_start_is_chained_to_the_one_before(self):
         text = self.chained(appends=4)
         found = entries_of(text)
-        self.assertEqual([c is None for _, _, c in found], [True, True, False, False, False, False, False])
+        # L13.3 (13.R7.2): the first check after the seal logs the rules first, so one more chained entry
+        self.assertEqual([c is None for _, _, c in found], [True, True, False, False, False, False, False, False])
         lines = text.split("\n")
         prev = sha("".join(x + "\n" for x in lines[:found[2][0] - 1]).encode("utf-8"))
         for _, body, c in found[2:]:
@@ -177,7 +178,7 @@ class StartTests(ChainCase):
             prev = c
         r = self.verify()
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertIn("info: the hash chain is intact: 5 chained entries", r.stdout)
+        self.assertIn("info: the hash chain is intact: 6 chained entries", r.stdout)
 
     def test_until_the_chain_is_started_entries_stay_unchained(self):
         for _ in range(2):
@@ -230,7 +231,7 @@ class BrokenChainTests(ChainCase):
         lines = text.split("\n")
         lines[h + 3] = "- Added: " + SECRET
         self.tamper("\n".join(lines))
-        self.refused_everywhere(f"problem: entry 6 (line {h + 7}): the Chain value does not match")
+        self.refused_everywhere(f"problem: entry 7 (line {h + 7}): the Chain value does not match")  # L13.3: +1 rules entry
 
     def test_an_edit_in_an_unchained_entry_before_the_start_breaks_the_genesis(self):
         text = self.chained()
@@ -299,7 +300,7 @@ class BrokenChainTests(ChainCase):
         self.assertEqual(self.verify().returncode, 0)
         r = self.verify("--anchor", mark)
         self.assertEqual(r.returncode, 1)
-        self.assertIn("problem: anchor: the chain is shorter than the anchor (3 of 4 chained entries)", r.stdout)
+        self.assertIn("problem: anchor: the chain is shorter than the anchor (4 of 5 chained entries)", r.stdout)  # L13.3
 
 
 # ===================================================================== C.3 anchor and verify --anchor
@@ -312,7 +313,7 @@ class AnchorTests(ChainCase):
         r = self.u("logbook", "anchor")
         self.assertEqual(r.returncode, 0, r.stderr)
         first, *rest = r.stdout.splitlines()
-        self.assertEqual(first, f"3:{entries_of(text)[-1][2]}")
+        self.assertEqual(first, f"4:{entries_of(text)[-1][2]}")  # L13.3: the seal, the rules entry and two checks
         self.assertIn("hub repository", " ".join(rest))
         self.assertIn("Kiro Notion page", " ".join(rest))
         self.assertEqual({p: p.read_bytes() for p in (self.log, self.rec)}, before)

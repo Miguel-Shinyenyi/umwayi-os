@@ -202,7 +202,7 @@ class Helper:
         head = f"Step {n} ({type_})"
         stopped = f"{self.label} stopped at step {n} ({type_})."
         self._kill_stop(stopped, f"{head} stopped before it ran")
-        decision = rules.check(json.dumps(action), self.rules_path, root=self.root, when=self.today)
+        decision = rules.check_in_root(json.dumps(action), self.rules_path, self.root, self.today)
         who = f"rule {decision.rule_id}" if decision.rule_id else "no rule"
         checked = f"{who} gave {decision.answer} for action type {type_} from {self.label}"
         verdict = [decision.answer, f"Rule: {decision.rule_id or '(none)'}", f"Reason: {decision.reason}"]

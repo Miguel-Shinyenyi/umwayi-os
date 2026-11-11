@@ -31,7 +31,7 @@ Shared by every layer:
 - The kill switch (`.umwayi/KILL`) and the run lock (`.umwayi/run.lock`) are described in [workflows.md](workflows.md).
 - The command line is `umwayi/cli.py`; the exit codes are in [exit-codes.md](exit-codes.md).
 - The requirements, design and tasks of every layer are in [requirements.md](../.kiro/specs/umwayi-os/requirements.md), [design.md](../.kiro/specs/umwayi-os/design.md) and [tasks.md](../.kiro/specs/umwayi-os/tasks.md).
-- Layer 13 (slice 1, elections, and slice 2, reversal, built; the rest specified, not built): correction and graded autonomy. It changes `umwayi/rules.py` (built in slice 1), `umwayi/taskqueue.py` (`--revisit-if` and `add_with_entry`, slice 2) and `umwayi/logbook.py` (`read_chained`, slice 2), and adds `elections.py` (built), `decisions.py` (built), `rulelog.py`, `petition.py` and `autonomy.py` to the core; it changes nothing in `ui/`. See [corrections.md](corrections.md) and [autonomy.md](autonomy.md).
+- Layer 13 (slices 1 to 3 built: elections, reversal, and courts with the rules change log, `rulelog.py` and `petition.py`; the rest specified, not built): correction and graded autonomy. It changes `umwayi/rules.py` (built in slice 1), `umwayi/taskqueue.py` (`--revisit-if` and `add_with_entry`, slice 2) and `umwayi/logbook.py` (`read_chained`, slice 2), and adds `elections.py` (built), `decisions.py` (built), `rulelog.py`, `petition.py` and `autonomy.py` to the core; it changes nothing in `ui/`. See [corrections.md](corrections.md) and [autonomy.md](autonomy.md).
 
 ## Decisions log
 
