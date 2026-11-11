@@ -6,7 +6,7 @@ Layer 13 lets the owner correct umwayi without rewriting its record: a standing 
 
 ## Current state
 
-**Elections (L13.1), Reversal (L13.2), and Courts with the rules change log (L13.3) are built. Honest tension and graded autonomy are specified, not built.** The spec is in the L13.0 pull request (PR 40). The commands of the parts not built yet do not exist. Requirements: [13.R1 to 13.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 13](../.kiro/specs/umwayi-os/design.md), tasks: [L13.0 to L13.6](../.kiro/specs/umwayi-os/tasks.md).
+**Elections (L13.1), Reversal (L13.2), Courts with the rules change log (L13.3) and Honest tension (L13.4, this page and the words test) are built. Graded autonomy is specified, not built.** The spec is in the L13.0 pull request (PR 40). The commands of the parts not built yet do not exist. Requirements: [13.R1 to 13.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 13](../.kiro/specs/umwayi-os/design.md), tasks: [L13.0 to L13.6](../.kiro/specs/umwayi-os/tasks.md).
 
 The parts are built in this order, each one shipping alone. The owner stops the build where Dec 3 finds us, and the last day a slice can be merged is Nov 28.
 
@@ -59,19 +59,30 @@ umwayi petition RULE_ID --helper NAME --reason TEXT [--date D]
 
 ### Stop criteria
 
-| what | stops when | who acts |
-| --- | --- | --- |
-| the build of a slice | an acceptance test or a planted fault fails, or it is not merged by Nov 28 | the slice is not merged; it stays specified, not built |
-| the layer | the owner says stop, or Dec 3 | the slices before it stay |
-| an election | a rule without `review_by` never lapses | the owner adds the date (built) |
-| a reopen | it is a question, not a change | the owner answers |
-| a petition | a limit is reached | the command refuses |
+These are the stop criteria of 13.R8.3 (the build) and 13.R8.4 (run time), then the stop of each built part. Each row says what stops, when, and who acts. The run time rows are the same on the [autonomy page](autonomy.md). They are criteria, not proof that nothing goes wrong.
+
+| criterion | what stops | stops when | who acts |
+| --- | --- | --- | --- |
+| 13.R8.3 (a) | the merge of a slice | its acceptance tests and planted faults do not pass on Python 3.10 to 3.13, or its docs are not current | the slice is not merged until they do |
+| 13.R8.3 (b) | the merge of a slice | it is not merged by Nov 28 | it is not merged; it stays specified, not built, in the docs |
+| 13.R8.3 (c) | every merge | Nov 29 to Dec 2, the freeze | nothing is merged except a fix for a defect that a test finds |
+| 13.R8.3 (d) | the merge of a slice that breaks an earlier test | an earlier test fails | the slice is not merged until that is fixed, never by changing the earlier test |
+| 13.R8.3 (e) | the layer | the owner says stop, or Dec 3 | the owner; the slices before it stay |
+| 13.R8.4 (a) | graded autonomy (specified, not built) | it is off by default: `enabled: false`, or no `autonomy.yaml` | the owner turns it on, with every setting present |
+| 13.R8.4 (b) | moves of one action class (specified, not built) | a `rejected` or `reverted` record, for the cooldown | the gates; the owner's record decides |
+| 13.R8.4 (c) | every part | its input is not intact (built for elections, reversal and courts; specified for graded autonomy) | the part falls back to Ask me first, or refuses with nothing changed |
+| 13.R8.4 (d) | moves of graded autonomy (specified, not built) | the kill switch is on or its state is unknown | the kill switch, at once |
+| an election | a rule with no `review_by` never lapses | there is no date | the owner adds the date (built) |
+| a reopen | it is a question, not a change | it is asked | the owner answers (built) |
+| a petition | the petitions of one helper or in all | a limit of 13.R6.5 is reached | the command refuses (built) |
+
+L13.3 changed the counts of 43 earlier tests for the baseline rules entry of 13.R7.2, listed in PR 48, and this is a known departure from row (d), for the owner to judge.
 
 ### No state is perfect
 
 The owner wants umwayi to correct itself and to be safe. Each way to correct something is also a way to be wrong: a date can be set too far ahead, a reopen can be forgotten, a petition can be a bad idea, a score can be built on careless approvals. umwayi makes each state visible and dated, and falls back to Ask me first when it is not sure. It does not make any state perfect, and nothing in these pages says it does.
 
-Known limits of this layer are numbered from 160 in [KNOWN-LIMITS.md](KNOWN-LIMITS.md) when each slice is built. Elections added 160 and 161; Courts added 192 to 195 (162 to 179 are left free, and 180 to 191 belong to layer 10).
+Known limits of this layer are in [KNOWN-LIMITS.md](KNOWN-LIMITS.md). Elections added 160 and 161; Reversal added 162 and 163; Courts added 192 to 195. The design planned 164 and 165 for the petition names and the weakened rule; those limits are items 192 and 193, because main used 180 to 191 for layer 10 before Courts was built, so 164 and 165 are not used. 166 to 170 are left for graded autonomy (L13.5), and 171 to 179 stay free.
 
 ## Decisions log
 
@@ -79,6 +90,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | Honest tension built (L13.4): the stop criteria table lists the rows of 13.R8.3 and 13.R8.4, the note is on both pages in the design's words, and `tests/test_honest.py` searches the pages, the help and the output of the built commands for the banned list; limits 162 and 163 are written, and 164 and 165 are not used | The L13.4 pull request. |
 | 2026-11-11 | Courts and the rules change log built (L13.3) with the proposals of L13-Q11 (a weakened rule is logged and used at once) and L13-Q12 (the limits and a free text reason); the new L13-Q19 (a dry run logs no rules change and keeps its answer) and L13-Q20 (only ids, verdicts and dates are listed) are open, with their proposals used | The L13.3 pull request. |
 | 2026-11-11 | Reversal built (L13.2) with the proposals of L13-Q1 (a new row, the old one untouched), L13-Q2 (the revisit text in the answer entry) and L13-Q17 (the hash chain is needed) | The L13.2 pull request; the questions are open and the build uses their proposals. |
 | 2026-11-11 | L13.1 built with the proposals of L13-Q9 (`rules due` exits 3 when a rule lapsed), L13-Q10 (a date more than 366 days ahead is listed as `far` and still in force), L13-Q14 (a standing approval is a Yes rule), L13-Q15 (no queue item for a lapsed rule) and L13-Q16 (a lapsed Yes beside a fresh Yes gives Ask me first) | The spec says to use the proposal while a question is open. |

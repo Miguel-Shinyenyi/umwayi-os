@@ -19,7 +19,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | Whole-system test (S.1) | built | [testing](docs/testing.md) |
 | Layer 12 web interface (the view) | `umwayi view snapshot` built (UI.2, PR 41); the Kenyan highlands scene and home page with List and Standard tiers built (UI.1 and UI.1b, PR 39, waits for the owner); UI.3 to UI.7 not started | [interface](docs/interface.md) |
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
-| Layer 13 correction and graded autonomy | slices 1 to 3 built (elections, reversal, courts and the rules change log); honest tension and graded autonomy specified, not built | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
+| Layer 13 correction and graded autonomy | slices 1 to 4 built (elections, reversal, courts and the rules change log, honest tension); graded autonomy specified, not built | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 

@@ -41,6 +41,18 @@ The full steps of the formula are in the design.
 
 Always Ask me first, never a move: off or an invalid `autonomy.yaml`; low data; an irreversible or costly action; a No; a missing or broken hash chain, a failed tamper check or an unreadable logbook; an input that is out of shape, not chained or repeated; the kill switch on or unknown; any state umwayi cannot read; a dry run or a failed logbook write; a lapsed `review_by`; the cooldown after a rejected or reverted outcome; the daily cap. An unexpected error exits 2, never Yes.
 
+### Stop criteria
+
+The run time stop criteria of 13.R8.4, then the stop of graded autonomy by itself. The build criteria (13.R8.3) are on the [corrections page](corrections.md). Graded autonomy is specified, not built, so these rows describe what it must do once it is built.
+
+| criterion | what stops | stops when | who acts |
+| --- | --- | --- | --- |
+| 13.R8.4 (a) | graded autonomy (specified, not built) | it is off by default: `enabled: false`, or no `autonomy.yaml` | the owner turns it on, with every setting present |
+| 13.R8.4 (b) | moves of one action class (specified, not built) | a `rejected` or `reverted` record, for the cooldown | the gates; the owner's record decides |
+| 13.R8.4 (c) | every part | its input is not intact (built for elections, reversal and courts; specified for graded autonomy) | the part falls back to Ask me first, or refuses with nothing changed |
+| 13.R8.4 (d) | moves of graded autonomy (specified, not built) | the kill switch is on or its state is unknown | the kill switch, at once |
+| graded autonomy, by itself | a move | the cooldown, the daily cap, an input that is not intact or the kill switch | the gates, at the next check |
+
 ### No state is perfect
 
 The owner wants umwayi to correct itself and to be safe. Each way to correct something is also a way to be wrong: a date can be set too far ahead, a reopen can be forgotten, a petition can be a bad idea, a score can be built on careless approvals. umwayi makes each state visible and dated, and falls back to Ask me first when it is not sure. It does not make any state perfect, and nothing in these pages says it does.
