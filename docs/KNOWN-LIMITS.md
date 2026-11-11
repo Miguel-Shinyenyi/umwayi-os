@@ -755,3 +755,11 @@ OpenCode's `execute` tool (Code Mode) runs JavaScript that can call `fetch` and 
 - The first gate sees `execute` and each inner tool under its own name (`opencode_worktree_list`). With the starter rules (Ask me first), the plugin throws and they do not run.
 - A rule that says Yes to `tool_execute` lets the model run any JavaScript that the inner tools and `fetch` allow. A `fetch` then asks as the `execute` tool call: the owner sees the code, not the URL, and the rules see only `kind: other`.
 - No setting to turn Code Mode off was found (OC15).
+
+### 191. OpenCode downloads ripgrep from the network on its own
+
+On its first use in a fresh home folder, OpenCode 2.2.7 fetched `ripgrep` from the network and saved it as `bin/rg` under its cache folder (`~/.cache/opencode/bin/rg`), seen in 10.42. This is network access by OpenCode itself, and it is outside umwayi's control.
+
+- umwayi cannot stop it or see it. It happens inside the `opencode` process, before or apart from any tool call, so neither the plugin nor a permission request is involved, and nothing about it reaches the logbook.
+- The policies in umwayi's inline config cover providers and integrations (`provider.use`, `integration.use`). They do not cover this download.
+- What would fix it later: a cache folder with `rg` already in place, inside a private `HOME` that umwayi gives OpenCode, so there is nothing to fetch; or a network sandbox around OpenCode, after Dec 3.

@@ -1861,6 +1861,7 @@ The existing `permission_action(agent, tool_call, "opencode")` makes `{"type": "
 | the kill switch turns on | the 7b stop: process group and every seen descendant | 3 |
 | a connected Console workspace allows more than umwayi's policies | not detected (KNOWN-LIMITS 182) | |
 | the configured model is not served, and OpenCode picks another one | the model compare at `session/new` refuses (10.42 saw this with `lmstudio`) | 2 |
+| OpenCode downloads `ripgrep` into its cache on first use | not stopped and not seen by umwayi; the inline policies do not cover it (KNOWN-LIMITS 191) | |
 | the model uses Code Mode (`execute`) | the first gate checks `execute` and each inner tool; Ask me first throws, because they ask no permission (KNOWN-LIMITS 190) | |
 
 #### New open questions (OC7 to OC15), each with the proposal the spec uses

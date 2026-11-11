@@ -481,7 +481,7 @@ Requirement 10.R13, design.md "Part 8: OpenCode over ACP". The build is about 21
   - KNOWN-LIMITS 180 to 187 made true to what was built;
   - design.md and these tasks ticked.
 
-  Then the owner's own chat, recorded in NOTES-layer10.md: OpenCode 2.2.3 or newer on the owner's machine, the free tier or a local model; the canary seen; one hook entry per tool call; the real `--version` output; a refusal with a planted project `opencode.json`. 10.51 is ticked only after that.
+  Then the owner's own chat, recorded in NOTES-layer10.md: OpenCode 2.2.3 or newer on the owner's machine, the free tier or a local model; the canary seen; one hook entry per tool call; the real `--version` output; a refusal with a planted project `opencode.json`. On the first run the owner also looks at what OpenCode wrote in its private `HOME` (for example the downloaded `rg` in its cache, KNOWN-LIMITS 191) and records it. 10.51 is ticked only after that.
 
 **What could be cut if time runs short.** The owner decides; nothing here is cut by the spec. Each item says what is lost.
 
