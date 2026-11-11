@@ -81,7 +81,7 @@ The schedule in `.kiro/specs/umwayi-os/tasks.md` ("Schedule to Dec 3") is the on
 - Nov 16: logbook hash chain
 - Nov 17 to Nov 22: budget governor
 - Nov 23 to Nov 26: whole-system test again and a security scan (moved up to Nov 10 to Nov 12)
-- Nov 11 to Nov 22: web interface, layer 12, phases UI.1 to UI.5 (re-estimated on Nov 11 at about 92 hours; the owner decides what to cut)
+- Nov 11 to Nov 22: web interface, layer 12, phases UI.1 to UI.5 (re-estimated on Nov 11 at about 92 hours; the owner accepted four cuts, leaving about 75)
 - Nov 23 to Nov 28: README, demo, Devpost text
 - Nov 29 to Dec 2: freeze, only fixes for defects that tests find
 - Dec 3: submit

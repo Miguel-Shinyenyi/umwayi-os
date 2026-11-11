@@ -2363,10 +2363,10 @@ A station is an ordered list of poses and the short ease out moves between them 
 | Queue | a round sheepfold of drystone with one gap; sheep waiting in line outside; a cairn | the line; the front sheep at the gap with the hurdle lifted; the hurdle down and the line moved up | `queue.open`: sheep; `queue.answered`: stones in the cairn |
 | Archive | a dark cave mouth in a rock face, a flat stone slab at the foot, a small cairn | the tablet at the slab; the tablet lifted towards the cave; the tablet inside, a stone with a seal added to the cairn, a flag at the slab | none |
 | Logbook | a tall standing stone with rings cut into its top and a helix of small beads round it | chain intact; one bead added; one bead altered and the rest dark, a seal ring sweeps up | `logbook.chain_length`: beads, `entries` in the panel |
-| Automation | the river with a timber water wheel on the bank | the wheel at three angles (morning, noon, evening); spokes lit for the schedules | `schedule`: spokes lit for entries, installed and enabled |
+| Automation | the river with a timber water wheel (no sluice: cut on Nov 11) | the wheel at three angles (morning, noon, evening); spokes lit for the schedules | `schedule`: spokes lit for entries, installed and enabled |
 | AI helpers | a sheepdog beside a small herd, a row of white stones, a flat stone | the dog with the draft; the dog stopped at the white stones; the draft on the flat stone (you publish) | none |
-| Workflows | a stream down the hillside through four rock pools joined by short cascades, a sheep on stepping stones | the first pool lit; the middle pools lit; a token at the last pool (approve) | none |
-| Adapters | a stone ford with stepping stones, a plank foot bridge and a rope line over the river, one gate post on the bank | a pulse from each crossing into the post in turn | none |
+| Workflows | a stream down the hillside through three rock pools joined by short cascades (four was cut on Nov 11), a sheep on stepping stones | the first pool lit; the middle pool lit; a token at the last pool (approve) | none |
+| Adapters | a stone ford with stepping stones and a plank foot bridge over the river, one gate post on the bank (the rope line was cut on Nov 11) | a pulse from the ford, then from the bridge, into the post; the last caption says any stdin and stdout tool can reach it too | none |
 | Kill switch | a lone gate in an open field and a latch post with a red lamp | the gate open; a sheep passes; the gate shut, the lamp lit red, the next sheep halts | `kill_switch`: shut and lit for on or unknown |
 | Budget | a corrugated iron rain water tank on a timber stand with a sight tube; seven notches on the stand | the tube low; today's mark; at the limit | `budget.days`: the seven notches, the level at the last |
 
@@ -2374,6 +2374,7 @@ Red, mint and amber mean something only at Rules, Kill switch and Logbook. Count
 
 ### The scene, the look and the motion engine
 
+- **First realism pass only** (the owner cut the second pass on Nov 11): no more work on cloud shapes, snow detail, rock strata or a third kind of plant. The cloud, the snow and the strata that the first pass has stay as they are.
 - **Everything is generated.** The ground is a mesh of the height function with a shader that blends dry gold grass, green grass, red soil, gravel and rock by height, slope and noise, and adds fine relief with a derivative bump made from noise (no texture). Rock is displaced icospheres with layered strata. Wood has grain from stretched noise. Wool, iron and water have their own simple shaders. Grass is thousands of instanced blades in the gold and green of red oat grass; acacia is a thin trunk with a flat, wide, layered crown; cedar is a dark narrow cone of layered tiers. Plants stand only where the ground and distance allow, and never inside a station's footprint at any place the station can reach.
 - **Light and air:** one dim warm directional light with a shadow map over the stations, a blue hemisphere fill, a warm point light in the lantern, fog tinted to the sky at the horizon, filmic tone mapping, a bloom that only the lantern and a few lit parts reach.
 - **Water** is a shader surface: dark, with the sky reflected by a Fresnel curve, a soft warm streak where the sky glows, and a little noise. It does not flow. A station's pool and the river are drawn the same way.
@@ -2382,7 +2383,7 @@ Red, mint and amber mean something only at Rules, Kill switch and Logbook. Count
 - **Trails of light** for the selected, hovered or focused station: for each station it works with (the `deps` of meta.js), a row of about 30 small soft lights following the ground between the two features, fading in over 600 ms. Hidden in Calm mode and drawn at once (no fade) with reduced motion.
 - **No free running frame loop, one ease out, no repeating timer** (unchanged), Calm mode (lower glow, bloom, light and haze contrast, slower moves, no trails), reduced motion (jumps, poses by hand).
 - **Camera.** The overview is low enough to show the horizon and Mount Kenya and wide enough to show every station at every default position and at the nearest and furthest they can reach. Selecting flies to the lantern side of the station, the station in the left third (the top third on a phone). Arrow keys move between stations, Esc returns, drag orbits within limits.
-- **The detail mode** (12.R12.3): `chooseDetail(env)` picks high or low at start from the renderer name (software rendering is low), the processor core count (4 or fewer is low), the memory hint (4 GB or less is low) and `#detail=`; `stepDown()` goes one step lower after 24 slow frames: pixel ratio down to 1, then bloom and multisampling off, then shadows off and half the plants. Low detail starts at the second step. The choice and the steps are pure functions with Node tests.
+- **The detail mode** (12.R12.3): `chooseDetail(env)` picks high or low at start from the renderer name (software rendering is low), the processor core count (4 or fewer is low), the memory hint (4 GB or less is low) and `#detail=`; `stepDown()` goes one step lower after 24 slow frames: pixel ratio down to 1, then bloom and multisampling off. **Two steps, not three: the owner cut the last step (no shadows and fewer plants) on Nov 11.** Low detail starts at the second step. The choice and the steps are pure functions with Node tests.
 - **Palette:** dusk colours from the scene (warm gold, red soil, olive, cool blue shadow, slate sky, the lantern's amber) and the UI tokens of the nightwatch palette (base `#0E1310`, ink `#EEE8DB` for text only, amber, mint, red, glass).
 
 ### The home page (12.R15)
@@ -2459,31 +2460,32 @@ Layer 13 has no requirements, design or tasks in this repo. What follows is from
 - The owner's notes in the checks panel are lost when the page closes.
 - The npm tree (three, esbuild and its platform binary) is outside the S.2 scan until the scan is run again on `ui/package-lock.json` (UI.5).
 - A browser that ignores `prefers-reduced-motion` shows the click motion.
+- The lower detail mode has two steps. A machine that cannot draw the page at the second step still sees the list view and the home content, but not a lighter picture (the owner cut the third step on Nov 11).
+- The picture is a first realism pass: simple cloud shapes, simple snow, one kind of rock strata and two kinds of tree (the owner cut the second pass on Nov 11).
 
 ### Hours and schedule effect
 
-Re-estimated on Nov 11 for the highlands rework, honestly. The first scene took about 16 hours of work for what it was; the new brief is a different order of work: real relief, a valley, Mount Kenya, plants, rock, water and light made from code, eleven stations that are each a natural feature, a layout and a position function, trails, a detail mode, and a home page.
+Re-estimated on Nov 11 for the highlands rework, honestly, then cut by the owner the same day. The first scene took about 16 hours of work for what it was; the new brief is a different order of work: real relief, a valley, Mount Kenya, plants, rock, water and light made from code, eleven stations that are each a natural feature, a layout and a position function, trails, a detail mode, and a home page.
 
-| task | hours | was |
+| task | hours before the cuts | hours now |
 | --- | --- | --- |
-| UI.0 spec | 5 | 5 (done) |
-| UI.0b the Nov 11 spec change | 3 | |
-| UI.1 the static world, as the highlands scene | 56 | 16 |
+| UI.0 spec | 5 (done) | 5 (done) |
+| UI.0b the Nov 11 spec change | 3 | 3 |
+| UI.1 the static world, as the highlands scene | 56 | 42 |
 | UI.2 `umwayi view snapshot` | 9 | 9 |
-| UI.3 the page reads the snapshot and feeds the position function | 8 | 6 |
+| UI.3 the page reads the snapshot and feeds the position function | 8 | 8 |
 | UI.4 the owner checks panel | 6 | 6 |
-| UI.5 polish, docs, the scan of `ui/`, the owner's interface check | 10 (and 1 of the owner's) | 8 |
+| UI.5 polish, docs, the scan of `ui/`, the owner's interface check | 10 (and 1 of the owner's) | 7 (and 1 of the owner's) |
 
-UI.1 in parts: the engine, calm, reduced motion, build and tests are kept (0 extra); the ground, relief, river, rock, light and haze 12; the sky, cloud and Mount Kenya 4; plants (grass, acacia, cedar) 5; the lantern, staff, shepherd and dog 3; the eleven natural feature stations 18 (about 1.5 each); the layout, position function, placement and their tests 6; trails and hover/focus 3; the detail mode 3; the home page content 6; the browser pass, screenshots, the page size, docs 5. Total about 65, less 9 for what the first build already gives (engine, build, panel, list view) gives 56.
+Before the cuts: about 92 hours still to do (97 with UI.0). **After the cuts: about 75 hours still to do (80 with UI.0), plus 1 of the owner's.** The window is Nov 11 to Nov 22, about 12 days; at 5 to 6 hours a day that is 60 to 72 hours. README, demo and Devpost stay Nov 23 to Nov 28, the freeze Nov 29 to Dec 2 and submit Dec 3.
 
-**About 92 hours still to do (97 with UI.0), plus 1 of the owner's.** The window is Nov 11 to Nov 22, about 12 days; at 5 to 6 hours a day that is 60 to 72 hours. **It does not fit.** README, demo and Devpost stay Nov 23 to Nov 28, the freeze Nov 29 to Dec 2 and submit Dec 3.
+**The owner's decision (Nov 11): all four proposed cuts are accepted, and nothing else is cut.**
+1. **The second realism pass** (6 h of UI.1) is cut: no more work on soft cloud shapes, snow detail, rock strata detail or a third kind of plant. The first pass stays: the relief, the light, the haze, the river, the acacia, the cedar, the grass and the rock.
+2. **Station detail** (6 h of UI.1) is cut: the Adapters feature keeps the ford and one bridge, not three crossings; the Workflows stream has three pools, not four; the Automation wheel has no sluice.
+3. **The low detail mode's last step** (2 h of UI.1.10) is cut: the mode has two steps (a lower pixel ratio, then no bloom and no multisampling), not three. A very weak machine gets no further relief; this is a known limit.
+4. **UI.5 extras** (3 h) are cut: the contrast check of the glass panel over every part of the sky, and the second device pass.
 
-What I propose to cut, in this order, until it fits (each is the owner's decision; nothing is cut without it):
-1. **A second realism pass** (about 6 h of UI.1): soft cloud shapes, the snow detail on the mountain, rock strata detail, a third kind of plant. The first pass has the relief, light, haze, river, acacia, cedar, grass and rock.
-2. **Station detail** (about 6 h): the Adapters bridge keeps the ford and one crossing, not three; the Workflows pools are three, not four; the Automation wheel has no sluice.
-3. **The low detail mode's last step** (2 h): two steps (pixel ratio, then bloom and multisampling off) instead of three.
-4. **UI.5 extras** (3 h): the contrast check of the glass panel over every part of the sky, and the second device pass.
-That is about 17 hours and brings the total to about 75, which is still more than 72. The decision after that is the owner's: **UI.4, the owner checks panel, moves to after Dec 3** (6 h), or **UI.3's drift (the position wiring) ships with the numbers fixed at the defaults** (the function is built in UI.1 anyway). I would cut UI.4 last, because UI-Q5 asked for it.
+**UI.4, the owner checks panel, is not cut** (6 h), and **the drift of UI.3 is not fixed to the default numbers** (the position function is fed real numbers from the snapshot). Both stay in scope. **No further cut is made unless the owner agrees.** What is left is about 75 hours against 60 to 72, which is 3 to 15 hours over the window. That gap is stated, not hidden: if it shows by Nov 17, I ask the owner what to do rather than cut on my own.
 
 ### Risks (layer 12)
 
@@ -2491,9 +2493,9 @@ That is about 17 hours and brings the total to about 75, which is still more tha
 | --- | --- | --- |
 | a count leaks text | a title or path appears in the page or the file | the structural leaf test, sentinel words, and a view module that reads through the layers' readers only |
 | the page makes a request | the no network rule is broken | the static test, the zero attempt browser pass, no `fetch` in the source, no file loader bundled, and a Content-Security-Policy tag with `default-src 'none'`; links are anchors and nothing is prefetched |
-| the real life look is heavy | a weak machine stutters or fails | the detail mode (start low from what it can tell, step down on slow frames), draw only on demand, a pixel ratio cap, the list view |
+| the real life look is heavy | a weak machine stutters or fails | the detail mode (start low from what it can tell, step down twice on slow frames), draw only on demand, a pixel ratio cap, the list view; a machine too weak for the low step still has the list view |
 | the real life look is bright or busy | it stops being calm | luminance and white area limits kept, nothing moves by itself, trails only for the station in focus, no labels at rest |
-| realism from code is not a photograph | the owner expects more than it can give | said plainly in the PR with screenshots; the first pass is judged by the owner before the second |
+| realism from code is not a photograph | the owner expects more than it can give | said plainly in the PR with screenshots; there is only a first pass (the second was cut), so what the owner sees is what is built |
 | the page is large | over 2 MB | a size test; all realism is generated, nothing embedded |
 | stations overlap or hide when they move | a feature is lost | the position function pushes apart, tested for thousands of random needs and the extremes |
 | a station on the river cannot move like the others | it jumps or leaves the bank | river stations slide along the river; tested to stay on the bank |

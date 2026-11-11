@@ -11,7 +11,7 @@ The plan of work up to the submission on Dec 3. It exists so the order of the re
 | Nov 7 to Nov 10 | Layers 1 to 11, logbook crash safety, the hash chain and the budget governor, all built (see [status-log.md](status-log.md)) |
 | Nov 10 | Documentation layout (D.1): a short README and one doc per layer under `docs/` |
 | Nov 10 to Nov 12 | Whole-system test and security scan (S.1, then S.2), moved up by the owner from Nov 23 to Nov 26 |
-| Nov 11 to Nov 22 | Layer 12, the web interface (UI.1 to UI.5), re-estimated on Nov 11 at about 92 hours still to do, which does not fit; the cuts are the owner's choice, see [interface.md](interface.md). It is no longer a non goal (the owner, Nov 10) |
+| Nov 11 to Nov 22 | Layer 12, the web interface (UI.1 to UI.5), re-estimated on Nov 11 at about 92 hours, cut by the owner the same day to about 75 (four cuts accepted, UI.4 and the drift of UI.3 stay); that is 3 to 15 hours over the window and is stated, see [interface.md](interface.md). It is no longer a non goal (the owner, Nov 10) |
 | Nov 23 to Nov 28 | README, demo, Devpost text |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |

@@ -17,7 +17,7 @@ What is decided:
 - **A scattered layout.** Not a circle: the features stand on hillsides, the valley floor and the river bank, nearer the lantern the more closely they work with the shepherd. Trails of light link features that work together, for the one in focus only. With a snapshot a feature moves nearer when it needs the owner now and drifts out when quiet, slowly, ending within 3 seconds, and jumps with reduced motion. The position function takes numbers only.
 - **The home page.** The scene is the hero. Below it: the title and promise, a status strip (sample until a snapshot is loaded), install and first commands with Copy buttons (clipboard only on a click), and links (repo, docs; Devpost and demo video are marked "link to come").
 - **The snapshot.** `umwayi view snapshot [--out PATH]` (UI.2) is read only. It writes one JSON file of counts: queue open and answered, rules by verdict, logbook entries and chain length, budget used on each of seven days, the kill switch state, the schedule state. No text from any file, no path, no secret. It runs the tamper check first, writes one logbook entry, and exits 0, 1 (tamper check failed, nothing written) or 64. An unexpected error exits 2.
-- **Calm by default.** Nothing flashes or blinks, and nothing in the scene moves by itself. At rest the page asks for no animation frame. A click, a key or the cursor starts a move; every move eases out and ends within 3 seconds (5 in Calm mode). With reduced motion the camera jumps and each feature shows still poses. Calm mode lowers brightness, glow and haze contrast. Text stays at 4.5 to 1 or better. An automatic lower detail mode starts on weak machines and steps down on slow frames.
+- **Calm by default.** Nothing flashes or blinks, and nothing in the scene moves by itself. At rest the page asks for no animation frame. A click, a key or the cursor starts a move; every move eases out and ends within 3 seconds (5 in Calm mode). With reduced motion the camera jumps and each feature shows still poses. Calm mode lowers brightness, glow and haze contrast. Text stays at 4.5 to 1 or better. An automatic lower detail mode starts on weak machines and steps down twice on slow frames.
 - **The owner checks panel** (UI.4) lists 10.21, 10.31, 11.6, the B.10 capture, 10.37 and the interface check, with steps and a place to tick and type. The page cannot tell whether a check passed.
 - **Access.** Every feature has a real button over it; arrow keys and Escape work; a plain list view of the stations is the fallback when WebGL is missing.
 
@@ -37,6 +37,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | The hours: all four proposed cuts accepted (second realism pass, station detail, the last step of the low detail mode, UI.5 extras); UI.4 stays; UI.3's drift stays; no further cut unless the owner agrees. About 75 hours remain | The owner, Nov 11. |
 | 2026-11-11 | UI-Q16: the scene is the hero of the home page; one page, two modes (sample world with home content, or the owner's live view); title and promise, a status strip (sample until a snapshot), install and first commands with Copy (clipboard only on a click), links (Devpost and demo video placeholders) | The owner, Nov 11. |
 | 2026-11-11 | UI-Q15: a station moves closer to the lantern when it needs the owner now and drifts out when quiet; slow, eased, within 3 seconds, off under reduced motion; the position function takes numbers only | The owner, Nov 11. |
 | 2026-11-11 | UI-Q14: a scattered layout by how closely each works with the shepherd, fixed default distances (a seeded layout), no overlap, keyboard reachable; streams and trails of light between related stations, no drawn paths | The owner, Nov 11. |
@@ -54,7 +55,7 @@ Newest first. Each row names where it was decided.
 ## Open questions
 
 - UI.1 is being reworked on PR 39 and is not merged. UI.2 to UI.5 are not built.
-- The rework does not fit the schedule as estimated (about 92 hours against 60 to 72). The proposed cuts, in order, are in the design: a second realism pass, station detail, the last step of the low detail mode, UI.5 extras; then UI.4 moves to after Dec 3 or UI.3's drift ships with the numbers fixed. The owner decides.
+- After the owner's four cuts about 75 hours remain against a window of 60 to 72 (3 to 15 hours over). Nothing more is cut unless the owner agrees; if the gap shows by Nov 17 the owner is asked.
 - Realism made from code is not a photograph. The first pass is judged by the owner on the screenshots before a second pass.
 - The frame rate on a real integrated GPU, Firefox, Safari, a real touch screen and a screen reader are not verified.
 - The Devpost and demo video addresses are placeholders until the owner supplies them.
