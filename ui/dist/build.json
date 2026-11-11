@@ -3,7 +3,8 @@
     "build.mjs": "d63fe287ff7807c60f0ae97a07d5b09c62944044ea1f422d15ec5f0f2bac5679",
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
-    "src/app.js": "09713c899d48f10eb2085eaa28cae93c8ca436be9611e6a83ed96d739fc83f8a",
+    "src/app.js": "707815f77fff430f1ab5e57104325f1709d84d7e5fe5bb10400a360111865813",
+    "src/boot.js": "b23d93fedb433cec4e043bfd336190a98ed9653711debd44138450fb0257d86f",
     "src/data/counts.js": "f76b331dd5957d53a0dafc05cd8a29ffd5128804286c49c86d40998c7cd9a6fb",
     "src/data/home.js": "ecd32380a6108b7648174e24dd339912df071d2e68d3f0ff372897951756c622",
     "src/data/sample.js": "4e3c9c35d900787b763d13871e9e1dca0db9e92a90daf84ef2fa7c82aacf6b6e",
@@ -18,10 +19,11 @@
     "src/engine/poses.js": "092c66687cb5c64aa032eef32f4a7739dd07aba4c2dfe4a7cf5c479e645dc6c2",
     "src/engine/rig.js": "ebe206d8a60856522b1c9b34ab05a7ec022a9c84f33ed7a5cb1373b9a42011b1",
     "src/engine/settings.js": "59425bcb2a419c4403686b21231bfdbacec2d0ef416b18cf0610a848ad1e1891",
-    "src/engine/stage.js": "e583ed744d40b3e23bfc2f2112683460f202c2eabb4fc80e80ef9921dadfbe2e",
+    "src/engine/stage.js": "35e1c999b7ff735213ec79d7e179e724ad5fec6f6864a841f905508da2d5ab33",
     "src/engine/tier.js": "0c874c72777d288dd606a47b083690bb2d61f8f75d799c2a410aa27f16eebe08",
     "src/index.html": "ea2d9a8b5c07b2dbfb99f2c0b08f34afe76def0a72cd9169999553b1f7a921de",
-    "src/main.js": "aeb382cdfc4031f4a9cfaf53eedb7f2bc0b0d20e6ad44b5ff5ddd76c4534989e",
+    "src/main.js": "066fb7bafe825ebb70bb000c1e28597501ccb88660e851122bd896d8749fb442",
+    "src/scene.js": "ad3cc8d4da1e7962aa69e5a7343abd2629de92468b649bb4066b6bd11a2f68b7",
     "src/stations/adapters.js": "fc57f901f56ae67403ebdfa40ba3c6963d923e83ed2eca14b11cba3d31c22e18",
     "src/stations/archive.js": "d32b7e882609343c11073ad930e840d58ea13ed0b632eeb2d289cacb8500ff25",
     "src/stations/automation.js": "2fdfbc419fe7a9ea1337787d9ec5a52f89f4cc090e9b3fadbc5fe37122f25185",
@@ -61,5 +63,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "da43818fa952a1aed1b8850caac4e84ddff3424e5ec49be4c640197636903801"
+  "page": "7c2900f2fa0128ef24180faabe0c4cbc16c3c25ccf04fc1191c5465a6a877cd9"
 }
