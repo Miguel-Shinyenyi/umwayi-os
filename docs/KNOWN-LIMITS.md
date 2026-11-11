@@ -697,6 +697,16 @@ A Yes rule runs out only if it has a `review_by` date. A rule with no date, or a
 
 The date of a check is the latest of the system date, `--date` and the newest logbook date. A system clock set far ahead, or one entry with a far date, makes every dated Yes rule give Ask me first until the owner edits the dates; that is a safe error, not a Yes. A clock set back changes nothing, because the newest logbook date still counts. If the logbook cannot be read, only the system date and `--date` are used, and the entry of that check cannot be written either, so no Yes comes out.
 
+## Layer 13: reversal (found while building L13.2, written in L13.4)
+
+### 162. A reopen links a hash, so it needs the hash chain, and an older entry cannot be linked
+
+`umwayi decision reopen` names the old entry by its `Chain` value. A logbook whose chain has not started cannot be reopened (the owner starts it once with `umwayi logbook seal --chain`), and a decision closed before the chain started has no hash to link, so it is refused. A decision that was answered or closed by hand in `queue.md`, with no closing entry in the logbook, is refused too, and so is a `queue.md` row that was deleted by hand after a reopen: the row is not made again. Only the newest closing entry of a decision can be linked. The link proves which entry the owner meant; it does not prove the entry was wise, and a process of the same user that can write a well formed chained entry can write a reopen that nobody asked for (item 135 again).
+
+### 163. The revisit condition is the owner's words, and nothing watches for it
+
+`--revisit-if` keeps one line of text in the logbook entry of the answer, up to 200 characters, or `none`. umwayi shows it again when the decision is reopened and does nothing else with it: it does not check that the condition came true, and it does not remind the owner. An answer from before layer 13 shows `not recorded before layer 13`. A condition in another shape than the fixed one, for example text a person added to an entry, is not read. The text is the owner's, so a vague condition stays vague.
+
 ## Layer 10 part 8: OpenCode over ACP, and Muse Spark Open (known from the spec, Nov 11; nothing is built)
 
 These come from the spec (10.R13 and 10.R14, PR 44), not from a build. They are numbered from 180 so they do not collide with the items other open work adds. Task 10.51 (10.55 for 188 and 189) makes them true to what is built. Facts with links: `adapters/NOTES-layer10.md`, "OpenCode V2: the facts checked for the adapter spec".

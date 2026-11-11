@@ -12,7 +12,7 @@ Status: all eight layers are built: memory, rules, queue, archive, logbook, auto
 
 The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-os/tasks.md), section "Status".
 
-Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Slice 2, reversal (L13.2: `umwayi decision reopen` and `queue answer --revisit-if`), is built. Slice 3, courts and the rules change log (L13.3: `umwayi petition`, the `umwayi rules` entries), is built. Honest tension and graded autonomy are not built. See [corrections](corrections.md) and [autonomy](autonomy.md).
+Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Slice 2, reversal (L13.2: `umwayi decision reopen` and `queue answer --revisit-if`), is built. Slice 3, courts and the rules change log (L13.3: `umwayi petition`, the `umwayi rules` entries), is built. Slice 4, honest tension (L13.4: the stop criteria, the plain note and the words test), is built. Graded autonomy is not built. See [corrections](corrections.md) and [autonomy](autonomy.md).
 
 ### Pull requests
 
