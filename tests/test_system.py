@@ -326,6 +326,9 @@ class FaultTests(SystemBase):
         (["kill", "on", "--date", D1], "umwayi.logbook:render"),
         (["kill", "off", "--date", D1], "umwayi.kill:state"),
         (["kill", "status"], "umwayi.kill:state"),
+        (["view", "snapshot", "--date", D1], "umwayi.logbook:read_checked_chain"),
+        (["view", "snapshot", "--date", D1], "umwayi.fsutil:atomic_write"),
+        (["view", "snapshot", "--date", D1], "umwayi.logbook:render"),  # while writing its logbook entry
     ]
 
     def test_an_unexpected_error_in_every_command_exits_2_never_1(self):

@@ -676,3 +676,13 @@ umwayi writes in place only to `LOGBOOK.md` (an append) and the logbook lock (it
 
 `rules.yaml` (and `--rules PATH`) and `umwayi.json` may be links to a regular file elsewhere, for a dotfiles setup; they must be regular files of at most 1 MB and 64 KB. Other files umwayi reads are refused when they are links, but the check comes before the open, so a link swapped in between can make umwayi read another file's text. Nothing is written that way; the writes are atomic or `O_NOFOLLOW` (item 136).
 
+
+## Layer 12: the snapshot (found while building UI.2, not fixed)
+
+### 138. The snapshot is only as fresh and as true as the last run
+
+`umwayi view snapshot` writes counts at the moment it runs; the page shows the snapshot's date and does not poll. The logbook counts in it leave out the command's own entry, so the file says one entry fewer than the logbook has after the run. Anyone who can write the file can forge it: the page checks its shape, not its truth (the logbook chain and `umwayi logbook verify` are the check). It also does not say whether the logbook was intact later than the run.
+
+### 139. A reader that fails shows as null, and a check before the write can race
+
+A layer reader that raises (even for a bug) gives null for its part and the command still exits 0, as 12.R4.3 says; only an error in the command itself exits 2. A missing `queue.md` is null, not 0, because only `schedule.yaml` is allowed to be absent. The `--out` target is checked (regular, one name, an earlier snapshot) and then replaced through a new file: another process of the same user that swaps the file in between would have its file replaced, never written through (see 135). `used_uu` counts a reservation without a settle in full, so a lost run raises it until `umwayi budget settle-lost`.
