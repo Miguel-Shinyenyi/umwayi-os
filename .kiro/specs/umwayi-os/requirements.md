@@ -192,7 +192,7 @@ Acceptance criteria:
 
 ## Layer 9: Adapters
 
-Status: built. Part 1 (the notes, the shared code, the Claude Code adapter) in PR 11; part 2 (the Kiro adapter, the generic stdin and stdout adapter, the kill switch in all adapters) in PR 12. Planned for Nov 8 to Nov 9. Open: starter rules in the repo rules.yaml, and the whole-system test with the adapters (Nov 23 to Nov 26).
+Status: built. Part 1 (the notes, the shared code, the Claude Code adapter) in PR 11; part 2 (the Kiro adapter, the generic stdin and stdout adapter, the kill switch in all adapters) in PR 12. Planned for Nov 8 to Nov 9. The whole-system test with the adapters was added in PR 36 and the starter rules in the repo rules.yaml in PR NN.
 
 User story: as the owner, I want the AI platforms I already use to ask umwayi before they act, so the same rules, queue and logbook cover them, and a broken adapter never lets an action through.
 

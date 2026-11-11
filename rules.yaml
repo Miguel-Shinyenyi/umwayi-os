@@ -131,3 +131,210 @@ rules:
       helper: workflow
       type: workflow_step
       command: [queue-list, steward, social-draft, report, check, approve]
+
+  # Starter rules for the actions the adapters send (layer 9, task 9.10). The source is the example file in each
+  # adapter folder (adapters/claude_code, adapters/kiro, adapters/stdio). The ids, verdicts and matchers are the
+  # same as in the examples. The rules whose id ends in "secrets" for Kiro and stdio are added here, because the
+  # examples have no rule for secret files on those two. Every rule names its platform, so a rule for one platform
+  # never answers for another. An action that no rule names is Ask me first. See docs/rules.md.
+
+  # --- Claude Code: never
+  - id: cc-no-money
+    title: Claude Code never moves money
+    text: An AI helper never moves money or uses bank or card details. A command that names a payment service is refused.
+    cause: Safety rule for all AI helpers.
+    verdict: no
+    matchers:
+      platform: claude-code
+      command__contains: ["stripe ", paypal, "/payments", card_number]
+
+  - id: cc-no-push-main
+    title: Claude Code never pushes to main
+    text: Nothing is pushed to the main branch, and no push is forced. Work on a feature branch and open a pull request.
+    cause: Work happens on feature branches with pull requests.
+    verdict: no
+    matchers:
+      platform: claude-code
+      type: tool_bash
+      command__contains: ["git push origin main", "git push origin master", "git push -f", "git push --force"]
+
+  - id: cc-no-destroy
+    title: Claude Code never runs commands that wipe things
+    text: Commands that delete whole folders, wipe a disk or open up permissions for everyone are refused.
+    cause: These cannot be undone.
+    verdict: no
+    matchers:
+      platform: claude-code
+      type: [tool_bash, tool_powershell]
+      command__contains: ["rm -rf", "rm -fr", "mkfs", "dd if=", "chmod -r 777", "remove-item -recurse"]
+
+  - id: cc-no-guard-edits
+    title: Claude Code never edits the files that guard it
+    text: Only the owner changes rules.yaml, LOGBOOK.md, the .umwayi folder, the .git folder and the Claude Code settings.
+    cause: An AI helper must not turn off its own rules, logbook or hook.
+    verdict: no
+    matchers:
+      platform: claude-code
+      type: [tool_write, tool_edit, tool_multiedit, tool_notebookedit]
+      path__contains: ["rules.yaml", "logbook.md", "/.umwayi/", "/.claude/settings", "/.git/"]
+
+  - id: cc-no-guard-shell
+    title: Claude Code shell commands never touch the guard files
+    text: A shell command that names rules.yaml, LOGBOOK.md, .umwayi, the Claude Code settings or umwayi kill is refused.
+    cause: An AI helper must not turn off its own rules, logbook or hook.
+    verdict: no
+    matchers:
+      platform: claude-code
+      type: [tool_bash, tool_powershell]
+      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill"]
+
+  - id: cc-no-secrets
+    title: Claude Code never touches secret files
+    text: Files that usually hold passwords or keys are not read or changed by an AI helper.
+    cause: A secret that is read can end up in a log or a reply.
+    verdict: no
+    matchers:
+      platform: claude-code
+      path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]
+
+  # --- Claude Code: reading and listing is fine
+  - id: cc-read
+    title: Claude Code may read and search
+    text: Reading files and searching for files or text is allowed.
+    cause: Reading changes nothing.
+    verdict: yes
+    matchers:
+      platform: claude-code
+      type: [tool_read, tool_glob, tool_grep]
+
+  # --- Claude Code: the owner decides
+  - id: cc-ask-write
+    title: Claude Code writing a file needs the owner
+    text: The owner confirms every file write or edit.
+    cause: A changed file is hard to take back without notice.
+    verdict: ask
+    matchers:
+      platform: claude-code
+      type: [tool_write, tool_edit, tool_multiedit, tool_notebookedit]
+
+  - id: cc-ask-shell
+    title: Claude Code shell commands need the owner
+    text: The owner confirms every shell command. This covers deleting, installing, publishing and sending.
+    cause: A shell command can do anything, so the owner looks first.
+    verdict: ask
+    matchers:
+      platform: claude-code
+      type: [tool_bash, tool_powershell]
+
+  - id: cc-ask-web
+    title: Claude Code using the web needs the owner
+    text: The owner confirms every web page fetch and every web search.
+    cause: A web request sends text out of this computer.
+    verdict: ask
+    matchers:
+      platform: claude-code
+      type: [tool_webfetch, tool_websearch]
+
+  # --- Kiro: reading and listing is fine
+  - id: kiro-read
+    title: Kiro may read and search
+    text: Reading files and searching for text is allowed.
+    cause: Reading changes nothing.
+    verdict: yes
+    matchers:
+      platform: kiro
+      type: [tool_read_file, tool_grep_search]
+
+  # --- Kiro: the owner decides. Kiro cannot ask, so the call is refused and one item waits in the queue.
+  - id: kiro-ask-write
+    title: Kiro writing or deleting a file needs the owner
+    text: The owner confirms every file write, edit or delete.
+    cause: A changed or deleted file is hard to take back without notice.
+    verdict: ask
+    matchers:
+      platform: kiro
+      type: [tool_fs_write, tool_fs_append, tool_str_replace, tool_delete_file]
+
+  - id: kiro-ask-shell
+    title: Kiro shell commands need the owner
+    text: The owner confirms every shell command. This covers deleting, installing, publishing and sending.
+    cause: A shell command can do anything, so the owner looks first.
+    verdict: ask
+    matchers:
+      platform: kiro
+      type: [tool_execute_bash, tool_execute_pwsh]
+
+  # --- Kiro: never. Kiro does not document the field names inside a tool call. The adapter sends each text field
+  # as input_NAME, and these rules assume input_command and input_path. See adapters/kiro/README.md.
+  - id: kiro-no-destroy
+    title: Kiro never runs commands that wipe things
+    text: Commands that delete whole folders or wipe a disk are refused.
+    cause: These cannot be undone.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_command__contains: ["rm -rf", "rm -fr", "mkfs", "dd if=", "remove-item -recurse"]
+
+  - id: kiro-no-guard-shell
+    title: Kiro shell commands never touch the guard files
+    text: A shell command that names rules.yaml, LOGBOOK.md, .umwayi, the Kiro hooks or umwayi kill is refused.
+    cause: An AI helper must not turn off its own rules, logbook or hook.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill"]
+
+  - id: kiro-no-guard-edits
+    title: Kiro never edits the files that guard it
+    text: Only the owner changes rules.yaml, LOGBOOK.md, the .umwayi folder and the Kiro hooks.
+    cause: An AI helper must not turn off its own rules, logbook or hook.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_path__contains: ["rules.yaml", "logbook.md", ".umwayi/", ".kiro/hooks"]
+
+  - id: kiro-no-secrets
+    title: Kiro never touches secret files
+    text: Files that usually hold passwords or keys are not read or changed by an AI helper.
+    cause: A secret that is read can end up in a log or a reply.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]
+
+  # --- Generic stdin and stdout adapter (platform name stdio, the default of --platform)
+  - id: stdio-read
+    title: Reading is fine
+    text: Reading is allowed.
+    cause: Reading changes nothing.
+    verdict: yes
+    matchers:
+      platform: stdio
+      type: tool_read
+
+  - id: stdio-ask-deploy
+    title: Deploys need the owner
+    text: The owner confirms every deploy.
+    cause: A deploy changes something other people use.
+    verdict: ask
+    matchers:
+      platform: stdio
+      type: tool_deploy
+
+  - id: stdio-no-prod
+    title: Never production
+    text: An AI helper never deploys to production.
+    cause: Production is used by real people, so only the owner touches it.
+    verdict: no
+    matchers:
+      platform: stdio
+      input_target__contains: [prod]
+
+  - id: stdio-no-secrets
+    title: Never secret files
+    text: Files that usually hold passwords or keys are not read or changed by an AI helper.
+    cause: A secret that is read can end up in a log or a reply.
+    verdict: no
+    matchers:
+      platform: stdio
+      input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]

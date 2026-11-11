@@ -39,6 +39,29 @@ Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as 
 
 Every check writes one logbook entry with the rule id and the answer. The action JSON is never written, only its `type` if that is a short plain word. If the logbook cannot be written (for example it was edited by hand), a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. Use `--no-log` for a dry run that writes nothing, and `--date` to set the entry date.
 
+### Starter rules for the adapters (task 9.10)
+
+The repo `rules.yaml` ends with starter rules for the actions that the Claude Code, Kiro and generic adapters send. Each rule names its platform (`claude-code`, `kiro` or `stdio`), so a rule for one never answers for another. The ids, verdicts and matchers are the ones in `adapters/claude_code/rules.example.yaml`, `adapters/kiro/rules.example.yaml` and `adapters/stdio/rules.example.yaml`.
+
+| what the AI helper does | answer | rule ids |
+| --- | --- | --- |
+| reads, lists or searches files | Yes | `cc-read`, `kiro-read`, `stdio-read` |
+| writes, edits or deletes a file | Ask me first | `cc-ask-write`, `kiro-ask-write` |
+| runs a shell command (this covers installing, publishing, sending and deleting one file) | Ask me first | `cc-ask-shell`, `kiro-ask-shell` |
+| fetches a web page or searches the web | Ask me first | `cc-ask-web` |
+| deploys (generic adapter) | Ask me first | `stdio-ask-deploy` |
+| wipes folders or disks, pushes to main or forces a push, names a payment service | No | `cc-no-destroy`, `kiro-no-destroy`, `cc-no-push-main`, `cc-no-money` |
+| changes or names `rules.yaml`, `LOGBOOK.md`, `.umwayi`, `.git` or the hook settings | No | `cc-no-guard-edits`, `cc-no-guard-shell`, `kiro-no-guard-edits`, `kiro-no-guard-shell` |
+| touches a secret or key path (`.env`, `.pem`, `id_rsa`, `id_ed25519`, `.aws/credentials`, `.netrc`) | No | `cc-no-secrets`, `kiro-no-secrets`, `stdio-no-secrets` |
+| deploys to production (generic adapter) | No | `stdio-no-prod` |
+| anything else (other tools, MCP tools, helpers' own sub tasks) | Ask me first | no rule matches |
+
+- Two rules are not in the example files: `kiro-no-secrets` and `stdio-no-secrets`. They are the secret path rule of `cc-no-secrets` for the other two adapters.
+- No starter rule has a `review_by` date. A Yes rule gets one only when the owner wants it reviewed.
+- Matching is plain text and not a shell parser, so a command can be written to get past it. Ask me first for every shell command is the real guard. Keep hard limits in the platform's own deny rules too.
+- The Kiro rules that look at `input_command` and `input_path` work only if Kiro uses those field names (KNOWN-LIMITS 21). If it does not, a Kiro call is still Ask me first, except reads, which stay Yes.
+- `tests/test_starter_rules.py` loads the file with the real parser and checks every rule, the ids, a table of adapter actions and an unknown action.
+
 ### Review dates: a Yes rule that runs out (layer 13, elections)
 
 A Yes rule may have `review_by: 2026-12-01` (a real date, `YYYY-MM-DD`). The rule is in force through the whole of that day. From the next day it counts as an Ask me first rule in every check: `umwayi check`, the agent gates, the schedule, and the callers that have no logbook (jobs, AI helpers, `publish-draft`, the inner checks of a workflow). The file is not edited and the rule is not deleted; the owner renews it by editing the date.
@@ -70,6 +93,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | The repo `rules.yaml` holds starter rules for the actions the three adapters send, taken from the example files, with the strictest verdict the examples give; `kiro-no-secrets` and `stdio-no-secrets` are added because the examples have no secret rule for those two; no starter rule has `review_by` (9.10) | Task 9.10, PR NN. |
 | 2026-11-11 | A Yes rule past its `review_by` counts as Ask me first, in every caller of the rules; a lapsed Yes beside a fresh Yes gives Ask me first (L13-Q16, proposal used); `rules due` exits 3 when a rule lapsed (L13-Q9, proposal used); a date more than 366 days ahead is listed as `far` (L13-Q10, proposal used) | L13.1, 13.R2 and 13.R3. |
 | 2026-11-10 | The rules file is read only as a regular file of at most 1 MB | The security scan (S.2, PR 37): a rules file that was a link to /dev/zero made `umwayi check` read forever. |
 | 2026-11-08 | `umwayi check --kill-switch` answers No while the kill switch is on or unknown (9.12) | Layer 9, PR 12: the owner answered that adapters deny everything while the kill switch is on. |
@@ -79,4 +103,4 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
-- 9.10: starter rules for adapter actions in the repo `rules.yaml`. Example rules exist in each adapter folder; the repo `rules.yaml` is unchanged ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), layer 9).
+None.
