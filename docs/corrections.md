@@ -6,7 +6,7 @@ Layer 13 lets the owner correct umwayi without rewriting its record: a standing 
 
 ## Current state
 
-**Elections (L13.1) are built. Reversal, courts and the rules change log are specified, not built.** The spec is in the L13.0 pull request. The commands of the parts not built yet do not exist. Requirements: [13.R1 to 13.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 13](../.kiro/specs/umwayi-os/design.md), tasks: [L13.0 to L13.6](../.kiro/specs/umwayi-os/tasks.md).
+**Elections (L13.1) and Reversal (L13.2) are built. Courts and the rules change log are specified, not built.** The spec is in the L13.0 pull request (PR 40). The commands of the parts not built yet do not exist. Requirements: [13.R1 to 13.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 13](../.kiro/specs/umwayi-os/design.md), tasks: [L13.0 to L13.6](../.kiro/specs/umwayi-os/tasks.md).
 
 The parts are built in this order, each one shipping alone. The owner stops the build where Dec 3 finds us, and the last day a slice can be merged is Nov 28.
 
@@ -25,12 +25,20 @@ The parts are built in this order, each one shipping alone. The owner stops the 
 - `umwayi rules due [--within DAYS] [--date D]` lists the rules that lapsed, the ones due soon and any date more than 366 days ahead (`far`). It changes nothing. It exits 0 when no rule lapsed, 3 when one did or `rules.yaml` cannot be read, 64 for a bad argument. Details and an example: [rules.md](rules.md).
 - A rule without `review_by` never lapses; that is the owner's choice. There is no queue item for a lapsed rule: `rules due` is the list, and a scheduled job can run it and notice exit 3.
 
-### Reversal (L13.2)
+### Reversal (L13.2, built)
 
-- `umwayi decision reopen Q-0007 --reason TEXT --by NAME` reopens a decision that is answered or closed.
-- It writes a new logbook entry that says it is a reopen and names the old entry by its hash (64 hex characters, the entry's `Chain` value). The old entry is never changed or marked. A new decision row is opened in the queue; the old row is untouched.
-- It needs the hash chain. A missing entry, an open decision, a task or a broken chain is refused (exit 1) and nothing changes.
-- Answering a decision needs `--revisit-if TEXT` (what would change my mind, or `none`). The text is kept in the logbook entry of the answer, so it cannot be edited later, and is shown again when the decision is reopened.
+```
+umwayi decision reopen ID_OR_HASH --reason TEXT --by NAME [--date D]
+umwayi queue answer Q-0007 --answer TEXT --revisit-if TEXT|none [--date D]
+```
+
+- `decision reopen` reopens a decision that is answered or closed. The target is its queue id (`Q-0007`) or the hash of its newest closing entry (64 lowercase hex characters, the entry's `Chain` value). An id is resolved to the newest `queue answer` or `queue close` entry of that id.
+- It writes one new logbook entry that says it is a reopen and names the old entry by its full hash. The old entry, the old row and every other logbook line are never changed or marked: after the command the logbook is the old file with one entry appended. A new open decision row, `Reopen decision Q-0007`, is opened in the same queue commit as the entry (both, or neither). The recommendation holds the date, the name and the reason.
+- Refused with exit 1 and nothing changed: a hash no entry has; an entry that is not the newest closing entry of a decision; an id that does not exist, is a task or is still open; an entry from before the hash chain started; a logbook whose chain has not started; a decision whose reopening row is still open; a logbook that fails the tamper check or the chain; a `queue.md` that does not parse or that disagrees with the logbook. `--reason` (1 to 300 characters, no `|`) and `--by` (1 to 40, no `|` or `;`) are checked first, and a bad value exits 64.
+- Once the reopening row is answered or closed, the decision can be reopened again, by either id. The link then names the newest closing entry of the reopening row, so each closing entry is reopened at most once and the reopens can be followed by hash from the newest entry back to the first.
+- Answering a decision needs `--revisit-if TEXT` (what would change my mind, 1 to 200 characters, no `|`) or `--revisit-if none`. A task refuses it. Both mistakes exit 64. The text is kept in the logbook entry of the answer, never in `queue.md`, so it cannot be edited later. A reopen shows it again in its entry and its output. An answer from before layer 13 shows `not recorded before layer 13`, and a decision closed without an answer shows `not recorded, closed without an answer`. Nothing watches for the condition to come true.
+- A reopen changes no rule, no answer and no verdict. It asks the question again. One reopen runs at a time (`.umwayi/reopen.lock`, a kernel lock that holds no data).
+- The example rules of the Claude Code, Kiro and generic adapters refuse a shell command of an AI helper that names `umwayi decision` or `decision reopen`.
 
 ### Courts (L13.3)
 
@@ -61,6 +69,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | Reversal built (L13.2) with the proposals of L13-Q1 (a new row, the old one untouched), L13-Q2 (the revisit text in the answer entry) and L13-Q17 (the hash chain is needed) | The L13.2 pull request; the questions are open and the build uses their proposals. |
 | 2026-11-11 | L13.1 built with the proposals of L13-Q9 (`rules due` exits 3 when a rule lapsed), L13-Q10 (a date more than 366 days ahead is listed as `far` and still in force), L13-Q14 (a standing approval is a Yes rule), L13-Q15 (no queue item for a lapsed rule) and L13-Q16 (a lapsed Yes beside a fresh Yes gives Ask me first) | The spec says to use the proposal while a question is open. |
 | 2026-11-11 | Build the four correction mechanisms and the graded autonomy score in order (elections, reversal, courts, honest tension, graded autonomy); stop where Dec 3 finds us; each slice ships alone | The owner, Nov 11. |
 | 2026-11-11 | A reopen writes a new logbook entry that states it is a reopen and links the old entry by its hash; the old entry is never changed or marked; each decision records what would change my mind | The owner, Nov 11. |

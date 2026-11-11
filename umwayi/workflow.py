@@ -471,7 +471,7 @@ def run(root: Path, name: str, today: str) -> Result:
             if row.kind == "decision" and row.title.startswith(waits_title(name)):
                 lines = [rules.ASK, "Rule: (none)",
                          f"Reason: Queue item {row.id} from an earlier run still waits for the owner. "
-                         f"Answer or close it first: umwayi queue answer {row.id} --answer TEXT",
+                         f"Answer or close it first: umwayi queue answer {row.id} --answer TEXT --revisit-if TEXT",
                          f"Workflow {name} did not start. Nothing was read or written."]
                 helper._log_or_note(lines, f"Workflow {name} did not start: queue item {row.id} still waits for the owner",
                                     "the kill switch, the logbook, the rules and the workflow file were checked",

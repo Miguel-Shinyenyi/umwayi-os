@@ -1234,11 +1234,27 @@ def read_checked_chain(root: Path) -> tuple:
 
     The chain length is 0 while the chain is not started. The same checks and the same errors as read_checked.
     """
+    entries, cs = _read_intact(root)
+    return [p.entry for p in entries], len(cs.values)
+
+
+def read_chained(root: Path) -> list:
+    """(Entry, its Chain value or None) for every entry of an intact logbook, oldest first (layer 13, slice 2).
+
+    The same checks and the same errors as read_checked: the tamper check, the format and the hash chain. An entry
+    written before the chain started has None. Reads only, takes no lock. No logbook gives an empty list.
+    """
+    entries, _cs = _read_intact(root)
+    return [(p.entry, p.chain) for p in entries]
+
+
+def _read_intact(root: Path) -> tuple:
+    """(the parsed entries, the chain state) of an intact logbook, or the error every checked reader raises."""
     data, problem, _info = _view(root)
     if problem is not None:
         raise UmwayiError("logbook: " + (_STATE_MESSAGES.get(problem) or _INTENT_MESSAGES[problem]))
     if not data:
-        return [], 0
+        return [], ChainState(False, ())
     text = _decode(data)
     entries, problems = parse(text)
     if problems:
@@ -1249,7 +1265,7 @@ def read_checked_chain(root: Path) -> tuple:
     if cs.broken is not None:
         raise UmwayiError(f"logbook: LOGBOOK.md: the hash chain is broken at {cs.broken.where}. "
                           "See 'umwayi logbook verify'.")
-    return [p.entry for p in entries], len(cs.values)
+    return entries, cs
 
 
 # --------------------------------------------------------------- id reader
@@ -1260,7 +1276,8 @@ def logged_ids(root: Path, prefix: str = "Q") -> set[int]:
 
     A missing LOGBOOK.md means no ids. A logbook that exists but cannot be
     read is an error, never an empty answer. Only the id at the very start of
-    an "Added" line counts, so a title that merely contains "Q-9999" is ignored.
+    an "Added" line counts, so a title that merely contains "Q-9999" is ignored. The one other place is the new
+    row of a reopen (layer 13), named after the fixed start of its "Added" line.
     This reads leniently on purpose: counting too many ids is safe.
     """
     if not re.fullmatch(r"[A-Z]", prefix):
@@ -1269,4 +1286,13 @@ def logged_ids(root: Path, prefix: str = "Q") -> set[int]:
     data = _read_logbook(root)
     if data is None:
         return set()
-    return {int(m.group(1)) for m in pattern.finditer(_decode(data))}
+    text = _decode(data)
+    found = {int(m.group(1)) for m in pattern.finditer(text)}
+    if prefix == "Q":
+        found |= {int(m.group(1)) for m in _REOPENED_ID.finditer(text)}
+    return found
+
+
+# the id of the row a reopen opened (umwayi decision reopen, layer 13), from the fixed start of its Added line
+_REOPENED_ID = re.compile(r"^- Added: Reopen of entry [0-9a-f]{64} \(Q-\d{4,} (?:answered|closed) on "
+                          r"\d{4}-\d{2}-\d{2}\); new decision Q-(\d{4,}) opened by ", re.MULTILINE)

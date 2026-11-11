@@ -231,7 +231,7 @@ class BaseStepTests(Base):
         self.assertEqual([r.id for r in taskqueue.list_rows(self.root)], ["Q-0001"])
         self.assertIn("queue item Q-0001 was already open", self.entries()[-1].added)
         # once answered, the next stop asks again
-        taskqueue.answer(self.root, "Q-0001", "no", "2026-11-07")
+        taskqueue.answer(self.root, "Q-0001", "no", "2026-11-07", revisit_if="none")
         with self.assertRaises(Stop):
             self.helper().step("read_calendar", self.ok_work)
         self.assertEqual([r.id for r in taskqueue.list_rows(self.root)], ["Q-0001", "Q-0002"])
@@ -239,7 +239,7 @@ class BaseStepTests(Base):
     def test_answering_the_queue_item_does_not_let_the_helper_go_on(self):
         with self.assertRaises(Stop):
             self.helper().step("read_calendar", self.ok_work)
-        taskqueue.answer(self.root, "Q-0001", "Yes, go ahead", "2026-11-07")
+        taskqueue.answer(self.root, "Q-0001", "Yes, go ahead", "2026-11-07", revisit_if="none")
         with self.assertRaises(Stop) as cm:
             self.helper().step("read_calendar", self.ok_work)
         self.assertEqual(cm.exception.code, 3)

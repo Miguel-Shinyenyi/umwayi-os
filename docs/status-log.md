@@ -12,13 +12,14 @@ Status: all eight layers are built: memory, rules, queue, archive, logbook, auto
 
 The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-os/tasks.md), section "Status".
 
-Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Reversal, courts, honest tension and graded autonomy are not built. See [corrections](corrections.md) and [autonomy](autonomy.md).
+Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Slice 2, reversal (L13.2: `umwayi decision reopen` and `queue answer --revisit-if`), is built. Courts, honest tension and graded autonomy are not built. See [corrections](corrections.md) and [autonomy](autonomy.md).
 
 ### Pull requests
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
 | 2026-11-11 | 46 | 10.42: the OpenCode facts confirmed on 2.2.7 in a throwaway sandbox, and the spec changed where they differed (OC9, OC10, OC15); docs only | |
+| 2026-11-11 | 45 | Layer 13 slice 2, Reversal: `umwayi decision reopen`, `queue answer --revisit-if`, `logbook.read_chained` | 1321 |
 | 2026-11-11 | 44 | spec: layer 10 part 8, OpenCode over ACP (10.41), and Muse Spark Open as an OpenCode model (10.40); docs only, waits for the owner's approval | |
 | 2026-11-11 | 43 | 9.10: starter rules for the adapter actions in the repo `rules.yaml`, and `tests/test_starter_rules.py` | 1265 |
 | 2026-11-11 | 42 | L13.1: elections, `review_by` on Yes rules and `umwayi rules due` (layer 13, slice 1) | 1254 |

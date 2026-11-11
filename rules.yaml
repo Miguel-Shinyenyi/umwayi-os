@@ -180,13 +180,13 @@ rules:
 
   - id: cc-no-guard-shell
     title: Claude Code shell commands never touch the guard files
-    text: A shell command that names rules.yaml, LOGBOOK.md, .umwayi, the Claude Code settings or umwayi kill is refused.
+    text: A shell command that names rules.yaml, LOGBOOK.md, .umwayi, the Claude Code settings, umwayi kill, umwayi decision or decision reopen is refused.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: claude-code
       type: [tool_bash, tool_powershell]
-      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill"]
+      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill", "umwayi decision", "decision reopen"]
 
   - id: cc-no-secrets
     title: Claude Code never touches secret files
@@ -277,12 +277,12 @@ rules:
 
   - id: kiro-no-guard-shell
     title: Kiro shell commands never touch the guard files
-    text: A shell command that names rules.yaml, LOGBOOK.md, .umwayi, the Kiro hooks or umwayi kill is refused.
+    text: A shell command that names rules.yaml, LOGBOOK.md, .umwayi, the Kiro hooks, umwayi kill, umwayi decision or decision reopen is refused.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: kiro
-      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill"]
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill", "umwayi decision", "decision reopen"]
 
   - id: kiro-no-guard-edits
     title: Kiro never edits the files that guard it
@@ -329,6 +329,15 @@ rules:
     matchers:
       platform: stdio
       input_target__contains: [prod]
+
+  - id: stdio-no-owner-commands
+    title: Owner commands of layer 13
+    text: A shell command that runs umwayi decision, or names decision reopen, is refused.
+    cause: Only the owner reopens a decision.
+    verdict: no
+    matchers:
+      platform: stdio
+      input_command__contains: ["umwayi decision", "decision reopen"]
 
   - id: stdio-no-secrets
     title: Never secret files

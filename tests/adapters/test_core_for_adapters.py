@@ -89,7 +89,7 @@ class IfNotOpenTests(Base):
         self.add()
         self.add(kind="task")
         self.assertEqual(len(self.rows()), 2)
-        self.u("queue", "answer", "Q-0001", "--answer", "x")
+        self.u("queue", "answer", "Q-0001", "--answer", "x", "--revisit-if", "none")
         self.add()
         self.u("queue", "close", "Q-0003")
         self.add()
