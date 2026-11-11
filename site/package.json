@@ -1,0 +1,23 @@
+{
+  "name": "umwayi-site",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The umwayi-os public site (layer 12, UI.6): server rendered home text and list, and the shared scene for Standard. Installed with npm ci --ignore-scripts; umwayi never runs npm.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "node scripts/next.mjs dev",
+    "build": "node scripts/next.mjs build",
+    "start": "node scripts/next.mjs start",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "three": "0.187.0"
+  }
+}

@@ -6,8 +6,11 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
+// the context attributes, once: a second getContext with the same attributes returns the same context
+export const GL_ATTRIBUTES = { antialias: false, powerPreference: 'default', alpha: false };
+
 export function createStage(canvas, scene) {
-  const gl = canvas.getContext('webgl2', { antialias: false, powerPreference: 'default', alpha: false });
+  const gl = canvas.getContext('webgl2', GL_ATTRIBUTES);
   if (!gl) throw new Error('no webgl2');
   const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: false });
   renderer.shadowMap.enabled = true;
