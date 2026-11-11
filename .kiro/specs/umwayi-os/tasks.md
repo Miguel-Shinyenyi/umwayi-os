@@ -774,6 +774,6 @@ The dates run in parallel with layer 12 (round 2, about 75 hours until Nov 22) a
 
 | part | status | pull request | tests on main after it |
 | --- | --- | --- | --- |
-| 13 Correction and graded autonomy | L13.0 spec merged (PR 40); L13.1 elections built (PR 42); L13.2 Reversal built (PR 45); L13.3 Courts and the rules change log built (its own pull request); L13.4 to L13.6 not started | PR 40 (spec); L13.1: PR 42; L13.2: PR 45; L13.3: its pull request | |
+| 13 Correction and graded autonomy | L13.0 spec merged (PR 40); L13.1 elections built (PR 42); L13.2 Reversal built (PR 45); L13.3 Courts and the rules change log built (PR 48); L13.4 to L13.6 not started | PR 40 (spec); L13.1: PR 42; L13.2: PR 45; L13.3: PR 48 | |
 
 When layer 12 and this pull request are both merged, this row moves into the main status table as its last row.
