@@ -726,7 +726,7 @@ An OpenCode `toolCall` carries the tool's `name`, `kind`, `title` and `rawInput`
 
 ### 184. The first gate is JavaScript inside OpenCode
 
-The plugin is umwayi's only JavaScript in a gate. It runs in the `opencode` binary's own runtime, which was not confirmed to support `node:child_process`; the tests run it under `node`. It starts one Python process per tool call, so every call waits for `umwayi check` (up to 10 s). It works only while OpenCode keeps calling `execute.before` for every tool and lets a throw stop the call. Built-in plugins (the policy plugin, the Console plugin) cannot be turned off, and their order among the `evaluate` hooks is not documented. A later hook could lower umwayi's `ask` back to `allow`; the first gate still runs.
+The plugin is umwayi's only JavaScript in a gate. It runs in the `opencode` binary's own runtime, Bun 1.4.4 on 2.2.7, where `node:child_process` `spawnSync` and `node:fs` worked (10.42); the tests run it under `node`, not Bun, so a difference between the two is not caught by them. It starts one Python process per tool call, so every call waits for `umwayi check` (up to 10 s). It works only while OpenCode keeps calling `execute.before` for every tool and lets a throw stop the call. Built-in plugins (the policy plugin, the Console plugin) cannot be turned off, and their order among the `evaluate` hooks is not documented. A later hook could lower umwayi's `ask` back to `allow`; the first gate still runs.
 
 ### 185. One tool call can write two logbook entries and ask twice
 
@@ -738,7 +738,7 @@ Every shell command OpenCode runs inherits `OPENCODE_CONFIG_CONTENT`, with the h
 
 ### 187. OpenCode changes fast, and the version is read as text
 
-There were 46 stable 2.x releases between Sep 11 and Nov 10 2026, and several facts the design uses are from the source, not the docs. The version check takes the first `N.N.N` in `opencode --version` and compares it with 2.2.3, and its exact output was not confirmed. A newer release may rename a hook or change the config order. The canary and the gate checks fail closed when that happens, but they cannot catch a change that keeps the names and loosens the behaviour.
+There were 46 stable 2.x releases between Sep 11 and Nov 10 2026, and several facts the design uses are from the source, not the docs. The version check takes the first `N.N.N` in `opencode --version` (on 2.2.7 the whole output is `opencode v2.2.7`) and compares it with 2.2.3. Only 2.2.7 was run (10.42); 2.2.3 to 2.2.6 are allowed but were not seen. A newer release may rename a hook or change the config order. The canary and the gate checks fail closed when that happens, but they cannot catch a change that keeps the names and loosens the behaviour.
 
 ### 188. Muse Spark Open: the local server is trusted as it is
 
@@ -747,3 +747,19 @@ umwayi checks that `base_url` is a loopback or private address, not what is behi
 ### 189. Muse Spark Open: free means local only, on large hardware
 
 No free hosted route was confirmed on Nov 9 and none was looked for again on Nov 11. The local route needs about 300 GB of memory or more. The V2 field names for tool calls and settings on a custom provider are not confirmed, so the route stays refused until a real install confirms them (10.52).
+
+### 190. Code Mode runs JavaScript whose inner tools ask no permission
+
+OpenCode's `execute` tool (Code Mode) runs JavaScript that can call `fetch` and OpenCode's own tools, such as `worktree_create`, `worktree_remove` and `session_move` (seen on 2.2.7 in 10.42). `execute` itself asks no permission, and neither do the inner tools.
+
+- The first gate sees `execute` and each inner tool under its own name (`opencode_worktree_list`). With the starter rules (Ask me first), the plugin throws and they do not run.
+- A rule that says Yes to `tool_execute` lets the model run any JavaScript that the inner tools and `fetch` allow. A `fetch` then asks as the `execute` tool call: the owner sees the code, not the URL, and the rules see only `kind: other`.
+- No setting to turn Code Mode off was found (OC15).
+
+### 191. OpenCode downloads ripgrep from the network on its own
+
+On its first use in a fresh home folder, OpenCode 2.2.7 fetched `ripgrep` from the network and saved it as `bin/rg` under its cache folder (`~/.cache/opencode/bin/rg`), seen in 10.42. This is network access by OpenCode itself, and it is outside umwayi's control.
+
+- umwayi cannot stop it or see it. It happens inside the `opencode` process, before or apart from any tool call, so neither the plugin nor a permission request is involved, and nothing about it reaches the logbook.
+- The policies in umwayi's inline config cover providers and integrations (`provider.use`, `integration.use`). They do not cover this download.
+- What would fix it later: a cache folder with `rg` already in place, inside a private `HOME` that umwayi gives OpenCode, so there is nothing to fetch; or a network sandbox around OpenCode, after Dec 3.
