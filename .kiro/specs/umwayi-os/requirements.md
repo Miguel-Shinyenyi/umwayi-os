@@ -216,7 +216,7 @@ Acceptance criteria:
 
 ## Layer 10: Own command line and chat
 
-Status: approved by the owner on Nov 8 (tasks.md 10.0), with every open question answered as proposed. Parts 1 and 2 are built in PR 14: 10.R2 (agents.yaml), 10.R1.3 to 10.R1.5 (`list`, `check`, `validate`), 10.R5.1 and 10.R5.7 (argument lists), 10.R6 (gate checks). Part 3 is built in PR 15: `umwayi agent run` for Claude Code (10.R1.1, 10.R3, 10.R4, 10.R5.2, 10.R5.8, 10.R5.9, 10.R8 for run). Part 4 is built in PR 16: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2 before every Kiro start). Part 5 is built in PR 17: `umwayi agent chat` with transport cli for Claude Code and Kiro (10.R1.2, 10.R5.3, 10.R5.5, 10.R7.1). Part 6 is built in PR 18: ACP chat for Kiro (10.R5.6, 10.R7.2 to 10.R7.7), in `umwayi/acp.py`. All six parts of layer 10 are built. Still open: the KNOWN-LIMITS items that first real runs may settle (10.20) and the whole-system test with a real run of each platform (10.21, Nov 23 to Nov 26). Part 7, Claude Code over ACP (10.R11), was approved by the owner on Nov 8 (tasks.md 10.22), with every open question answered as proposed. Part 7a is built in PR 20: 10.R11.1 (agents.yaml), 10.R11.6 (the gate checks, in `umwayi agent check`), 10.R11.7 (`adapters/claude_acp/`), 10.R11.8 (sign-in by exit code) and 10.R11.9 (the environment allow list). Part 7b is built in PR 21: the chat itself, 10.R11.2 to 10.R11.5 (the start steps, the inline settings and the canary, refused with exit 2 when the canary is not seen), 10.R11.10 (session/new with `_meta` and session/set_mode `default`) and 10.R11.11 (the stop of the process group and every seen descendant). 10.29 (the whole chat end to end with the fake) and 10.30 (the planted faults of part 7) are done in PR 29. Still open: the owner's first real run (10.31: its docs are written in PR 29; the run itself is not done, steps and a results table in `adapters/NOTES-layer10.md`, "The owner's first real run (10.31)"). Part 7c (10.R12, subscription first) was approved on Nov 9 (tasks.md 10.32); part 7c-1 is built in PR 23: the login check for every Claude Code start (10.R12.2 to 10.R12.5, 10.R12.11), the credential names removed for `agent run` and the cli chat (10.R12.6) and `forceLoginMethod` (10.R12.7). Part 7c-2 is built in PR 28: `umwayi agent login` (10.R12.9) and Kiro subscription first (10.R12.13). Part 7c-3 is built in PR 29: the ACP watch (10.R12.8). Still open: the owner's real checks folded into 10.31. What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
+Status: approved by the owner on Nov 8 (tasks.md 10.0), with every open question answered as proposed. Parts 1 and 2 are built in PR 14: 10.R2 (agents.yaml), 10.R1.3 to 10.R1.5 (`list`, `check`, `validate`), 10.R5.1 and 10.R5.7 (argument lists), 10.R6 (gate checks). Part 3 is built in PR 15: `umwayi agent run` for Claude Code (10.R1.1, 10.R3, 10.R4, 10.R5.2, 10.R5.8, 10.R5.9, 10.R8 for run). Part 4 is built in PR 16: `umwayi agent run` for Kiro (10.R5.4, 10.R6.2 before every Kiro start). Part 5 is built in PR 17: `umwayi agent chat` with transport cli for Claude Code and Kiro (10.R1.2, 10.R5.3, 10.R5.5, 10.R7.1). Part 6 is built in PR 18: ACP chat for Kiro (10.R5.6, 10.R7.2 to 10.R7.7), in `umwayi/acp.py`. All six parts of layer 10 are built. Still open: the KNOWN-LIMITS items that first real runs may settle (10.20) and the whole-system test with a real run of each platform (10.21, Nov 23 to Nov 26). Part 7, Claude Code over ACP (10.R11), was approved by the owner on Nov 8 (tasks.md 10.22), with every open question answered as proposed. Part 7a is built in PR 20: 10.R11.1 (agents.yaml), 10.R11.6 (the gate checks, in `umwayi agent check`), 10.R11.7 (`adapters/claude_acp/`), 10.R11.8 (sign-in by exit code) and 10.R11.9 (the environment allow list). Part 7b is built in PR 21: the chat itself, 10.R11.2 to 10.R11.5 (the start steps, the inline settings and the canary, refused with exit 2 when the canary is not seen), 10.R11.10 (session/new with `_meta` and session/set_mode `default`) and 10.R11.11 (the stop of the process group and every seen descendant). 10.29 (the whole chat end to end with the fake) and 10.30 (the planted faults of part 7) are done in PR 29. Still open: the owner's first real run (10.31: its docs are written in PR 29; the run itself is not done, steps and a results table in `adapters/NOTES-layer10.md`, "The owner's first real run (10.31)"). Part 7c (10.R12, subscription first) was approved on Nov 9 (tasks.md 10.32); part 7c-1 is built in PR 23: the login check for every Claude Code start (10.R12.2 to 10.R12.5, 10.R12.11), the credential names removed for `agent run` and the cli chat (10.R12.6) and `forceLoginMethod` (10.R12.7). Part 7c-2 is built in PR 28: `umwayi agent login` (10.R12.9) and Kiro subscription first (10.R12.13). Part 7c-3 is built in PR 29: the ACP watch (10.R12.8). Still open: the owner's real checks folded into 10.31. Part 8, OpenCode over ACP (10.R13), and Muse Spark Open as an OpenCode model (10.R14) are specified on Nov 11 (tasks.md 10.41 and 10.40) and wait for the owner's approval; nothing of them is built. What the platform docs say, with links and the date read: `adapters/NOTES-layer10.md`.
 
 User story: as the owner, I want one front door that starts any of my AI agents, so the queue, rules and logbook are always in front of them, and an agent umwayi cannot put a gate in front of is never started.
 
@@ -460,11 +460,96 @@ Acceptance criteria:
     - **`umwayi agent login NAME` for a Kiro agent** (any transport): the same steps as item 9 with action `{"type": "agent_login", "agent": NAME, "platform": "kiro", "transport": T}`, then `[KIRO, "login"]` with no flags, on the owner's terminal, with the Kiro start environment minus `KIRO_API_KEY`; then the `whoami` check; exit codes as item 9. Never `--license`, `--identity-provider`, `--social`, `logout`, `acp --login` or `--auth-method client`.
     - **Not known, and said so in KNOWN-LIMITS:** the plan, the credits left, the login method by field, whether `whoami` exits non-zero when signed out, and whether headless runs work without `KIRO_API_KEY` (the Kiro docs conflict: see NOTES). If they do not, a Kiro `agent run` is refused or fails with exit 2, which is fail closed.
 
+### 10.R13 OpenCode over ACP (part 8: spec written Nov 11 (tasks.md 10.41), waiting for the owner's approval; the owner asked on Nov 11 for the build before Dec 3)
+
+The owner asked on Nov 9 to include OpenCode as a platform, subscription or free first, and answered the open questions on Nov 11: OC1 to OC5 as proposed in design.md, and OC6 changed to "build before Dec 3". Nothing is built before the owner approves this spec (tasks.md 10.41). Facts with links and dates: `adapters/NOTES-layer10.md`, sections "OpenCode as a platform" (Nov 9) and "OpenCode V2: the facts checked for the adapter spec" (Nov 11). Design: design.md "Part 8: OpenCode over ACP". Items marked "proposed" depend on a new open question in design.md (OC7 to OC12); the spec is written with the proposal.
+
+Why: OpenCode speaks ACP, which umwayi already speaks, and can run free and local models. But it has no command hook like Claude Code or Kiro, its default policy allows every tool, and its config can come from many places that outrank one another. So the gate must be built from OpenCode's own plugin hook, the start must prove that hook is loaded, and every other place that could widen it must be absent.
+
+User story: as the owner, I want to chat with OpenCode through umwayi on a free or subscription route, with every tool call checked by my rules before it runs, and I want umwayi to refuse to start OpenCode whenever it cannot prove that.
+
+Words used below: the **plugin** is umwayi's OpenCode plugin directory, `adapters/opencode/plugin/`; the **inline config** is the one JSON document umwayi passes in `OPENCODE_CONFIG_CONTENT`; a **route** is the provider and account that pays for the model.
+
+Acceptance criteria:
+
+1. **Platform and transport.** `platform: opencode` joins the fixed platform list with command word `opencode` and transport `acp` only. `umwayi agent chat NAME` starts `[OPENCODE, "acp"]` in the workdir. `umwayi agent run` and `umwayi agent login` for an OpenCode agent are refused with exit 64 and a line that says only `agent chat` is offered for OpenCode. `transport: cli` for OpenCode is a validation error (64).
+2. **agents.yaml keys.** An OpenCode agent must have `provider` and `model`, and only OpenCode agents may have them (64 otherwise).
+   - `provider` is one of the routes in item 6, exactly as written there.
+   - `model` is `provider/model-id` with the same provider, matching `^[a-z0-9][a-z0-9._-]{0,39}/[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$`.
+   - `kiro_agent`, `trust_tools` and `max_turns` stay refused for OpenCode.
+3. **The start steps are the same as every chat** (10.R3, 10.R4): the kill switch, the rules with action type `agent_chat` and `platform: opencode`, the run lock, the gate checks (item 8), the start entry, the queue summary. The chat goes through `acp.py` with its stop, watch and Ctrl-C behaviour unchanged.
+4. **The environment is an allow list** like 10.R11.9: the names of 10.R11.9 except `CLAUDE_CONFIG_DIR` and `CLAUDE_AGENT_ACP_PROTOCOL`, plus `OPENCODE_CONFIG_CONTENT` set by umwayi, and nothing else that starts with `OPENCODE_`. The same environment is used for `opencode --version`. Every provider credential name, `OPENCODE_API_KEY`, `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR`, `OPENCODE_DB`, `OPENCODE_PASSWORD`, `OPENCODE_DISABLE_PROJECT_CONFIG` and every cloud credential variable are absent because they are not on the list. A test names each of them.
+5. **The inline config** is generated by one pure function from the agent and is the same bytes for the same agent and token. It holds exactly:
+   - `permissions`: one rule, `{"action": "*", "resource": "*", "effect": "ask"}`;
+   - `policies`, in this order: `provider.use` deny `*`, then allow the agent's provider; `integration.use` deny `*`, then allow the route's integration resource (item 6);
+   - `model`: the agent's `model`;
+   - `plugins`: one entry, `{"package": ABSOLUTE PATH OF adapters/opencode/plugin, "options": {...}}` with the options of item 7;
+   - for a local route, the provider entry of item 6;
+   - nothing else.
+
+   OpenCode replaces `{env:NAME}` and `{file:PATH}` in the inline config (NOTES, Nov 11), so the function refuses (exit 2) when any value it would write holds `{env:` or `{file:`, for example in the umwayi root path.
+6. **Routes: subscription or free first, never pay as you go** (OC3 as proposed). The allowed `provider` values and what each allows:
+
+   | provider | route | `integration.use` allows | needs |
+   | --- | --- | --- | --- |
+   | `opencode` | the signed-out free tier | the bare `opencode` only, so a signed-in Console account (`opencode#ACCOUNT`) is not used | nothing |
+   | `ollama`, `lmstudio`, `vllm` | a local server on its default loopback port | the provider ID | the server running |
+   | `openai` | ChatGPT Plus or Pro sign-in | `openai#*` only, never the bare `openai` (an environment key) | `opencode auth login` by the owner beforehand |
+   | `github-copilot` | GitHub Copilot sign-in | `github-copilot#*` only | `opencode auth login` by the owner beforehand |
+   | OpenCode Go | the Go subscription | refused until its provider ID and integration resource are confirmed (10.42) | the Go sign-in |
+
+   Console credits, provider API keys and every other provider are refused with exit 2 and a line that says pay as you go is not offered (it waits for the budget governor). For `ollama`, `lmstudio` and `vllm` the provider entry names the documented default loopback URL and nothing else.
+7. **The first gate: the plugin** (OC1 as proposed, with the V2 API). `adapters/opencode/plugin/index.js` is plain JavaScript with a default export `{id: "umwayi.gate", setup}` and no import other than `node:` built-ins. Its options, set only by umwayi in the inline config, are the hook command (an argv list), the canary file and the canary token. In `setup` it registers:
+   - `ctx.tool.hook("execute.before")`: for every tool call it runs the layer 9 generic adapter (`adapters/stdio/hook.py --root ROOT --platform opencode`) in exec form with `{"tool_name", "tool_input"}` on stdin and a timeout of 10 s. Exit 0 (Yes): the call goes on. Exit 3 (Ask me first): the call goes on to the permission request (item 9) only when the tool is one OpenCode asks permission for (a fixed list in the plugin); for any other tool it throws. Exit 2, any other code, a timeout, a start error or any exception: it throws, so the call does not run.
+   - `ctx.permission.hook("evaluate")`: an `allow` becomes `ask`; `ask` and `deny` stay. So a permission request reaches umwayi even if the `ask` rule of item 5 is lost.
+   - `ctx.event.subscribe` for `session.created`: it writes the canary token to the canary file, once, with `O_EXCL`.
+   - The plugin never reads or writes anything else, opens no network connection and prints nothing to stdout.
+8. **The gate checks, in this order**, each refusing with exit 2, one logbook entry and nothing started:
+   1. `opencode` on PATH;
+   2. its version, read from `opencode --version` (15 s, at most 64 KB), is 2.2.3 or newer (OC5 as proposed: V1 and older V2 are refused; 2.2.3 is the first release that honours `integration.use` in its current meaning and `plugin.use`). Output umwayi cannot read is a refusal;
+   3. `adapters/stdio/hook.py` and the plugin's `index.js` are regular files, not links, inside the umwayi source tree;
+   4. **no managed config** (OC4 as proposed): refused when `/etc/opencode` exists (Linux), or `/Library/Application Support/opencode` or any `ai.opencode.managed.plist` under `/Library/Managed Preferences` exists (macOS);
+   5. **no other config that can widen the gate** (proposed, OC7): refused when, from the workdir up to `/`, any `opencode.json`, `opencode.jsonc` or `.opencode` entry exists; or when a file in the global config directory (`$XDG_CONFIG_HOME/opencode`, else `~/.config/opencode`) named `opencode.json` or `opencode.jsonc` contains any of the quoted words `"permissions"`, `"permission"`, `"policies"`, `"plugins"`, `"plugin"`, `"agents"`, `"agent"`, `"experimental"`, `"enabled_providers"`, `"disabled_providers"`; or when that directory has a `plugins`, `plugin`, `agents` or `agent` entry. A file that cannot be read as UTF-8 text of at most 1 MB is a refusal. This is a text match, so a comment that names a key also refuses (the safe direction);
+   6. the route of item 6 is allowed.
+   `umwayi agent check NAME` runs the same checks and starts nothing. These checks hold at the start only. OpenCode reloads a changed config during a chat, so the starter rules in `adapters/opencode/rules.example.yaml` say No to any edit or shell command that names `opencode.json`, `opencode.jsonc` or `.opencode` (KNOWN-LIMITS 181).
+9. **The second gate: permission requests.** Every `session/request_permission` is answered by the rules through the existing `permission_action` with `platform: opencode`, `kind` and `tool` only when they are short plain words (the title and `rawInput` are never in the action), with one logbook entry each. Yes is `once`, No is `reject`, Ask me first asks the owner, then `once` or `reject`. `always` is never selected. A request from a child session is answered the same way. A request with no `name` gets at most Ask me first.
+10. **The canary.** After `session/new` the chat waits up to 30 s for the canary file to hold exactly the token (the 7b `gate_ready`). Not seen, or a different token: exit 2 with "could not be confirmed", one refusal entry, nothing of the owner sent, the agent stopped. The token is fresh for every start; the folder is private (0700) and removed on every path.
+11. **The model is checked** (proposed, OC10): the `model` config option in the `session/new` answer must equal the agent's `model`. Otherwise exit 2 before the first prompt.
+12. **No login by umwayi** (proposal 6 of design.md, unchanged by OC1 to OC5): `initialize` sends `clientCapabilities: {}`; `authenticate` is never sent. An `auth_required` error ends the chat with exit 2 and a line that says to run `opencode auth login` first.
+13. **Logbook and secrets.** Nothing of the inline config, the token, the conversation, tool input or OpenCode's output is written to the logbook. Each gated tool call writes its own `umwayi check` entry (the plugin) and, when a permission request follows, one more (item 9).
+14. **Tests** (10.R10), every one with a fake `opencode` started as a real child process:
+   - the inline config bytes for each route, and that every name of item 4 is absent from the child environment;
+   - each gate check refusing on its planted fault, and `agent check` showing the same;
+   - the plugin under `node` with a small fake `ctx`: Yes, No, Ask me first for an asked and an unasked tool, a timeout, a missing hook, an exception, the evaluate hook, the canary written once;
+   - a static check that `index.js` imports only `node:` modules and has no `eval`, `Function(` or network module;
+   - the chat end to end: canary seen and not seen, a wrong token, the model compare, permission answers for each verdict, a child-session request, `always` never chosen, `auth_required`;
+   - planted faults and mutation checks with counts in the pull request.
+   The plugin tests need `node` on PATH. Without it they fail with a message, they do not skip.
+15. **Known limits** are in `docs/KNOWN-LIMITS.md` items 180 to 187, written with the spec and made true to the build in 10.51.
+
+### 10.R14 Muse Spark Open as an OpenCode model (spec only, written Nov 11 (tasks.md 10.40); built after OpenCode and not before Dec 3 (MS5))
+
+The owner asked on Nov 9 to include Meta's Muse Spark Open, subscription or free first, and answered on Nov 11: MS1 to MS4 as proposed in design.md, and MS5 stands (spec only, built after OpenCode). Nothing of this is built before Dec 3. Facts: `adapters/NOTES-layer10.md`, "Muse Spark Open as a platform" (Nov 9; not read again on Nov 11). Design: design.md "Muse Spark Open as an OpenCode model".
+
+User story: as the owner, I want to run Muse Spark Open on my own machine through the same OpenCode front door, with the same gate, and never on a route that bills me by the token.
+
+Acceptance criteria:
+
+1. **A model, not a platform** (MS1): Muse Spark Open is an OpenCode agent, `platform: opencode`, with everything of 10.R13. No new platform name, command word or adapter.
+2. **Free first means local** (MS2): one more `provider` value, `umwayi-local`, a custom OpenAI-compatible provider whose URL comes from a new agents.yaml key `base_url`, allowed only for that provider.
+   - `base_url` is `http://` or `https://` with a host that is `localhost`, a loopback address, or a private address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`), a port, and an optional path; no user, password, query or fragment. Anything else is 64.
+   - The provider entry in the inline config enables tool calls for the model and sets the recommended settings: temperature 1.0, top_p 1.0, and an explicit reasoning effort from a new key `reasoning_effort` (`low`, `medium` or `high`, default `medium`). The exact V2 field names are confirmed first (task 10.52); until then the route is refused.
+   - `integration.use` allows `umwayi-local` only.
+3. **No hosted route** for Muse Spark Open: OpenRouter, Together, Fireworks, Groq, Hugging Face and every other hosted provider are refused like every pay-as-you-go route (10.R13.6). A later paid route waits for the budget governor; OpenRouter's prepaid credits are the first candidate (they fail with 402 instead of billing beyond the balance).
+4. **The licence notice** (MS4): when this ships, the README says "Built with Muse Spark Open", only after the owner has read `LICENSE.md` on Hugging Face and said so (task 10.55).
+5. **Muse Code** (MS3): a separate platform for the closed Muse Spark under a Muse Code subscription, after Dec 3, with its own spec. Nothing of it is in this requirement.
+6. **Tests:** the `base_url` validation (every allowed and refused shape), the inline config for `umwayi-local`, the refusal of each hosted provider, and the 10.R13 chat end to end with a fake `opencode` and `provider: umwayi-local`.
+
 ### Out of scope for layer 10 (Dec 3)
 
 - A model client, model keys, or any network call by umwayi.
-- Any ACP agent or platform other than Kiro and, once part 7 is approved and built, Claude Code through the pinned `claude-agent-acp` adapter (10.R11): Codex, Gemini CLI and others are refused as not gated.
-- Kiro or Claude Code cloud sessions, background sessions, resuming or listing sessions, MCP configuration, model or effort choice.
+- Any ACP agent or platform other than Kiro, Claude Code through the pinned `claude-agent-acp` adapter (10.R11) and, once part 8 is approved and built, OpenCode (10.R13): Codex, Gemini CLI and others are refused as not gated.
+- Kiro or Claude Code cloud sessions, background sessions, resuming or listing sessions, MCP configuration, model or effort choice. OpenCode's `model` is fixed in agents.yaml (10.R13.2) and cannot be changed during a chat.
 - More than one agent at a time, and agents talking to each other.
 - Spend limits (budget governor, Nov 17 to 22) and sandboxing (layer 11 proposes to defer it to its own spec after Dec 3, 11.R8).
 - Windows and macOS.
