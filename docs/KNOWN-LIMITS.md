@@ -686,3 +686,13 @@ umwayi writes in place only to `LOGBOOK.md` (an append) and the logbook lock (it
 ### 139. A reader that fails shows as null, and a check before the write can race
 
 A layer reader that raises (even for a bug) gives null for its part and the command still exits 0, as 12.R4.3 says; only an error in the command itself exits 2. A missing `queue.md` is null, not 0, because only `schedule.yaml` is allowed to be absent. The `--out` target is checked (regular, one name, an earlier snapshot) and then replaced through a new file: another process of the same user that swaps the file in between would have its file replaced, never written through (see 135). `used_uu` counts a reservation without a settle in full, so a lost run raises it until `umwayi budget settle-lost`.
+
+## Layer 13: elections (found while building L13.1)
+
+### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses
+
+A Yes rule runs out only if it has a `review_by` date. A rule with no date, or a date the owner moves forward without looking, stays in force. `umwayi rules due` lists what needs a look, but nothing makes the owner run it, and a date more than 366 days ahead is only flagged as `far`, not refused (L13-Q10). The owner may put `review_by` in `rules.yaml` only after the version with elections is installed: older code calls it an unknown field and every check gives Ask me first.
+
+### 161. A clock set far ahead lapses every dated rule, and the election clock never goes back
+
+The date of a check is the latest of the system date, `--date` and the newest logbook date. A system clock set far ahead, or one entry with a far date, makes every dated Yes rule give Ask me first until the owner edits the dates; that is a safe error, not a Yes. A clock set back changes nothing, because the newest logbook date still counts. If the logbook cannot be read, only the system date and `--date` are used, and the entry of that check cannot be written either, so no Yes comes out.

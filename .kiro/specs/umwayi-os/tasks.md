@@ -633,11 +633,11 @@ Requirements 13.R1 to 13.R15, design.md "Layer 13" (the owner's decisions, the v
 
 - [x] L13.0 (8 h) Requirements 13.R1 to 13.R15, the design section, these tasks, `docs/corrections.md` and `docs/autonomy.md` (written as "specified, not built"), the steering change (a Layer 13 section: in scope, three safety rules, what stays a non goal), and the links from the README, PROJECT.md, architecture and the schedule and status docs, written Nov 11. Docs and specs only, added at the end of the three spec files to ease merging with the layer 12 branches. **Waits for the owner's approval.** The owner's decisions of Nov 11 are in design.md ("Owner decisions"); L13-Q1 to L13-Q18 are open, each with a proposed answer, and the build starts with the proposals unless the owner answers otherwise.
   - Acceptance tests: `python -m unittest tests.test_docs` passes; no em dash in any file the pull request touches; every safety rule of `.kiro/steering/product.md` is still there word for word; the pull request changes no file under `umwayi/`, `adapters/*.py`, `tests/`, `ui/` or `site/`.
-- [ ] L13.1 Elections (14 h, 13.R2, 13.R3). Its own pull request; needs nothing else of layer 13.
-  - [ ] L13.1.1 Tests first (4 h): `tests/test_elections.py`, every case of the design's slice 1 test list, failing before the code.
-  - [ ] L13.1.2 `rules.py` (4 h): the `review_by` field, its errors, the lapse of a Yes rule in `decide`, `today` passed to `check`, the election clock (latest of the system date, `--date` and the newest logbook date), `Decision.lapsed`, the entry text and the JSON key `election_fallbacks` only when not empty.
-  - [ ] L13.1.3 `umwayi rules due` (3 h): `umwayi/elections.py`, the subcommand, the output and the exit codes 0, 3 and 64; it writes nothing.
-  - [ ] L13.1.4 Docs, planted faults and mutation checks (3 h): `docs/rules.md`, `docs/corrections.md` (Elections current), `docs/exit-codes.md`, `docs/testing.md`, the example rules of the three adapters (a note on `review_by`), the status docs; the mutations of the design's list for this slice.
+- [x] L13.1 Elections (14 h, 13.R2, 13.R3). Its own pull request; needs nothing else of layer 13.
+  - [x] L13.1.1 Tests first (4 h): `tests/test_elections.py`, every case of the design's slice 1 test list, failing before the code.
+  - [x] L13.1.2 `rules.py` (4 h): the `review_by` field, its errors, the lapse of a Yes rule in `decide`, `today` passed to `check`, the election clock (latest of the system date, `--date` and the newest logbook date), `Decision.lapsed`, the entry text and the JSON key `election_fallbacks` only when not empty.
+  - [x] L13.1.3 `umwayi rules due` (3 h): `umwayi/elections.py`, the subcommand, the output and the exit codes 0, 3 and 64; it writes nothing.
+  - [x] L13.1.4 Docs, planted faults and mutation checks (3 h): `docs/rules.md`, `docs/corrections.md` (Elections current), `docs/exit-codes.md`, `docs/testing.md`, the example rules of the three adapters (a note on `review_by`), the status docs; the mutations of the design's list for this slice.
   - Acceptance tests (real child processes): **a rule past `review_by`** (a Yes rule with `review_by: 2026-11-01` and `check --date 2026-11-12` gives Ask me first, exit 3, the entry names the rule and the date; with `review_by: 2026-11-12` it gives Yes; with a later `--date` in the past or a logbook entry dated later it still gives Ask me first); a No rule, an Ask rule and each bad date with `review_by` make the rules malformed (Ask me first, `rules_ok` false); a lapsed Yes next to a fresh Yes gives Ask me first, next to a No gives No; the fallback applies to a job and a helper (bare `rules.check`); `rules due` prints the exact lines, exits 0 and 3, writes nothing (the root before and after), prints no rule text; a rules file with no `review_by` gives the old entry and JSON byte for byte; no module imports a network library.
 - [ ] L13.2 Reversal (20 h, 13.R4, 13.R5). Its own pull request; needs the hash chain (already built), nothing else of layer 13.
   - [ ] L13.2.1 Tests first (6 h): `tests/test_reopen.py`, the cases of the design's slice 2 test list, failing before the code; the existing decision answer tests are updated for `--revisit-if` and listed in the pull request.
@@ -688,6 +688,6 @@ The dates run in parallel with layer 12 (round 2, about 75 hours until Nov 22) a
 
 | part | status | pull request | tests on main after it |
 | --- | --- | --- | --- |
-| 13 Correction and graded autonomy | specified (L13.0); waits for the owner's approval; L13.1 to L13.6 not started | spec: this pull request | |
+| 13 Correction and graded autonomy | L13.0 spec merged (PR 40); L13.1 elections built; L13.2 to L13.6 not started | PR 40 (spec); L13.1: see status-log.md | |
 
 When layer 12 and this pull request are both merged, this row moves into the main status table as its last row.

@@ -12,12 +12,13 @@ Status: all eight layers are built: memory, rules, queue, archive, logbook, auto
 
 The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-os/tasks.md), section "Status".
 
-Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified in the L13.0 pull request (docs and specs only, written 2026-11-11) and waits for the owner's approval; nothing of it is built. Its status is the small table at the end of tasks.md until the layer 12 branches merge, see [corrections](corrections.md) and [autonomy](autonomy.md). Its pull request row is added here when the number is known and the layer 12 rows are in.
+Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Reversal, courts, honest tension and graded autonomy are not built. See [corrections](corrections.md) and [autonomy](autonomy.md).
 
 ### Pull requests
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
+| 2026-11-11 | 42 | L13.1: elections, `review_by` on Yes rules and `umwayi rules due` (layer 13, slice 1) | 1254 |
 | 2026-11-11 | 41 | UI.2: `umwayi view snapshot`, the read only snapshot of counts for the web interface | 1200 |
 | 2026-11-10 | 38 | spec: layer 12, the web interface (UI.0); docs only, waits for the owner's approval | |
 | 2026-11-10 | 37 | S.2: the security scan; 10 defects it found fixed | 1155 |
