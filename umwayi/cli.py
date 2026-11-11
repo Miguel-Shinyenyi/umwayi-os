@@ -9,6 +9,7 @@ Exit codes:
   umwayi budget: 0, 2, 3 or 64 only, never 1 (budget governor)
   umwayi view:   0, 1 (the tamper check failed), 2 or 64 only, never 3 (layer 12)
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
+  umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
 """
 
 from __future__ import annotations
@@ -21,8 +22,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, budget, decisions, elections, jobs, kill, logbook, publish, report,
-                    rules, schedule, taskqueue, units, view, workflow)
+from umwayi import (__version__, agents, archive, budget, decisions, elections, jobs, kill, logbook, petition, publish,
+                    report, rules, schedule, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -115,6 +116,15 @@ def build_parser() -> argparse.ArgumentParser:
     dcr.add_argument("--by", required=True, help="who reopens it (one line, no | or ; character, up to 40 "
                                                  "characters)")
     dcr.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    pt = sub.add_parser("petition", help="an AI helper objects to a No rule (layer 13): one open queue item for the "
+                                         "owner; it never changes the rule or any answer")
+    pt.add_argument("rule_id", help="the id of a rule in rules.yaml whose verdict is no")
+    pt.add_argument("--helper", required=True, help="the AI helper's name: a lowercase letter, then up to 39 "
+                                                    "lowercase letters, digits, _ or -")
+    pt.add_argument("--reason", required=True, help="why, one line of plain text without | (up to 200 characters); "
+                                                    "kept in queue.md only, marked as untrusted, never in the logbook")
+    pt.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
 
     ar = sub.add_parser("archive", help="archive commands")
     arsub = ar.add_subparsers(dest="archive_command", parser_class=_Parser)
@@ -586,6 +596,10 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_view(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "petition":
+            r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
+            out.write("\n".join(petition.render(r)) + "\n")
+            return 0
         if args.command == "decision" and getattr(args, "decision_command", None) == "reopen":
             r = decisions.reopen(Path(args.root), args.target, args.reason, args.by, args.date or _today())
             out.write("\n".join(decisions.render(r)) + "\n")

@@ -436,7 +436,7 @@ class _Run:
 
     def check(self, step: Step, k: int) -> Outcome:
         t = step.options["action_type"]
-        inner = rules.check(json.dumps({"type": t}), self.root / "rules.yaml")
+        inner = rules.check(json.dumps({"type": t}), self.root / "rules.yaml", root=self.root, when=self.today)
         who = f"rule {inner.rule_id}" if inner.rule_id else "no rule"
         o = self.outcome(step, k, f"{who} gave {inner.answer} for action type {t}",
                          "The checked action was not run.", [f"{who} gave {inner.answer} for action type {t}."])

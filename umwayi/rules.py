@@ -13,7 +13,7 @@ from datetime import date as _date
 from pathlib import Path
 from typing import Any, Callable
 
-from umwayi import logbook, miniyaml
+from umwayi import logbook, miniyaml, rulelog
 from umwayi.errors import UmwayiError
 from umwayi.fsutil import NotRegular, TooBig, read_regular
 
@@ -205,8 +205,14 @@ def parse_rules(text: str) -> list[Rule]:
 def load_rules(path: Path) -> list[Rule]:
     """The rules of a regular file of at most MAX_RULES_BYTES (a link to one is followed). Anything else, /dev/zero
     or a FIFO among them, is a broken rules file: Ask me first, never a hang (S.2)."""
+    return load_rules_and_bytes(path)[0]
+
+
+def load_rules_and_bytes(path: Path) -> tuple[list[Rule], bytes]:
+    """The rules and the exact bytes they were parsed from (layer 13: the rules change log hashes these bytes)."""
     try:
-        text = read_regular(Path(path), MAX_RULES_BYTES).decode("utf-8")
+        data = read_regular(Path(path), MAX_RULES_BYTES)
+        text = data.decode("utf-8")
     except TooBig:
         raise UmwayiError(f"rules.yaml: the file is larger than {MAX_RULES_BYTES} bytes") from None
     except NotRegular:
@@ -215,7 +221,7 @@ def load_rules(path: Path) -> list[Rule]:
         raise UmwayiError("rules.yaml: cannot read the file") from None
     except UnicodeDecodeError:
         raise UmwayiError("rules.yaml: not valid UTF-8") from None
-    return parse_rules(text)
+    return parse_rules(text), data
 
 
 # --------------------------------------------------------------- matching
@@ -337,9 +343,15 @@ def safe_action_type(action: dict) -> str | None:
     return t if isinstance(t, str) and _PLAIN_TYPE.match(t) else None
 
 
-def check(action_text: str | None, rules_path: Path, today: str | Callable[[], str] | None = None) -> Decision:
+def check(action_text: str | None, rules_path: Path, today: str | Callable[[], str] | None = None, *,
+          root: Path | None = None, when: str | None = None) -> Decision:
     """Return the Decision for an action. `today` is the date for the review_by of Yes rules (default: the system
     date); the callers without a root (jobs, helpers, publish, workflow steps) use the default.
+
+    With `root` (every caller that asks the rules in a root, layer 13.R7), the rules change log comes first: if the
+    bytes of the rules differ from the last logged version, one `umwayi rules` entry dated `when` is written before
+    the rules are used. If it cannot be written, a Yes becomes Ask me first; a No and an Ask me first stay. A dry
+    run passes no root, so it writes nothing (L13-Q19, proposal used).
 
     Anything unknown, missing or broken (the action, rules.yaml) is Ask me first.
     An unexpected error (a bug, not a bad input) is not hidden as Ask me first:
@@ -353,10 +365,15 @@ def check(action_text: str | None, rules_path: Path, today: str | Callable[[], s
         return Decision(ASK, None, str(e))
     action_type = safe_action_type(action)
     try:
-        rules = load_rules(rules_path)
+        rules, data = load_rules_and_bytes(rules_path)
     except UmwayiError as e:
         return Decision(ASK, None, f"Rules could not be loaded ({e}).", action_ok=True, action_type=action_type)
+    not_logged = rulelog.ensure_logged(root, data, rules, when or system_today()) if root is not None else None
     decision = decide(rules, action, today)
+    if not_logged is not None and decision.answer == YES:
+        decision = Decision(ASK, decision.rule_id, f"Rule {decision.rule_id} gave Yes, but rules.yaml changed and the "
+                            f"change could not be logged before use ({not_logged}), so the answer is {ASK}.",
+                            list(decision.matched), lapsed=list(decision.lapsed))
     decision.action_ok = True
     decision.rules_ok = True
     decision.rules_count = len(rules)
@@ -413,7 +430,9 @@ def check_and_log(
     state is unknown) turns any answer into No, with no rule, before it is logged.
     """
     # the election clock (13.R2.4): the system date, `when` and the newest logbook date, read only if a rule needs it
-    decision = check(action_text, rules_path, lambda: election_clock(root, when))
+    # the rules change log (13.R7) runs inside check when it is given the root; not for a dry run (L13-Q19)
+    decision = check(action_text, rules_path, lambda: election_clock(root, when), root=root if log else None,
+                     when=when)
     decision.kill_state = kill_state
     if stop_reason is not None:
         decision = replace(decision, answer=NO, rule_id=None, reason=stop_reason, matched=[], lapsed=[],
