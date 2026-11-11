@@ -1226,11 +1226,19 @@ def read_checked(root: Path) -> list:
     A write that is running, or was interrupted in one of the two exact states
     the next write recovers, reads as the file it left.
     """
+    return read_checked_chain(root)[0]
+
+
+def read_checked_chain(root: Path) -> tuple:
+    """(the entries as read_checked, how many of them are in the hash chain), from one read of an intact logbook.
+
+    The chain length is 0 while the chain is not started. The same checks and the same errors as read_checked.
+    """
     data, problem, _info = _view(root)
     if problem is not None:
         raise UmwayiError("logbook: " + (_STATE_MESSAGES.get(problem) or _INTENT_MESSAGES[problem]))
     if not data:
-        return []
+        return [], 0
     text = _decode(data)
     entries, problems = parse(text)
     if problems:
@@ -1241,7 +1249,7 @@ def read_checked(root: Path) -> list:
     if cs.broken is not None:
         raise UmwayiError(f"logbook: LOGBOOK.md: the hash chain is broken at {cs.broken.where}. "
                           "See 'umwayi logbook verify'.")
-    return [p.entry for p in entries]
+    return [p.entry for p in entries], len(cs.values)
 
 
 # --------------------------------------------------------------- id reader

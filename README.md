@@ -17,7 +17,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
 | Whole-system test (S.1) | built | [testing](docs/testing.md) |
-| Layer 12 web interface (the view) | specified, not built; waits for the owner's approval | [interface](docs/interface.md) |
+| Layer 12 web interface (the view) | `umwayi view snapshot` built (UI.2); the page is in progress | [interface](docs/interface.md) |
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
@@ -57,7 +57,7 @@ Without installing, use `python -m umwayi` from the repo root.
 | 10 front door | `umwayi agent`: check, run, chat, login | [agent-front-door.md](docs/agent-front-door.md) |
 | 11 scheduled runs | systemd user timers for jobs and workflows | [scheduled-runs.md](docs/scheduled-runs.md) |
 | budget governor | a budget per run and per day, the telemetry receiver | [budget-governor.md](docs/budget-governor.md) |
-| 12 view | a calm 3D page of eleven stations that shows counts from a read only snapshot (specified, not built) | [interface.md](docs/interface.md) |
+| 12 view | a calm 3D page of eleven stations that shows counts from a read only snapshot (the snapshot command is built, the page is not) | [interface.md](docs/interface.md) |
 
 How they fit together: [docs/architecture.md](docs/architecture.md). Requirements, design and tasks: `.kiro/specs/umwayi-os/`. Product rules: `.kiro/steering/product.md`.
 

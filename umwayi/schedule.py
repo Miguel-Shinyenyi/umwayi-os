@@ -520,6 +520,41 @@ def show(root, name: str | None = None, cron: bool = False, given: str | None = 
     return Result(0, lines)
 
 
+def _entry_state(folder: Path, fs: str, paths: Paths, e: Entry) -> tuple:
+    """(unit base, {service, timer: missing, same, changed, not_regular}, drop-in names, enabled) of one entry."""
+    base = unit_base(paths, e)
+    service, timer = render(paths, e)
+    states = {"service": _file_state(folder / f"{base}.service", service.encode("utf-8")),
+              "timer": _file_state(folder / f"{base}.timer", timer.encode("utf-8"))}
+    drops = _drop_ins(folder, base) if fs == "ok" else []
+    enabled = fs == "ok" and os.path.lexists(_enable_link(folder, base))
+    return base, states, drops, enabled
+
+
+def counts(root) -> tuple:
+    """(entries, installed, enabled) for `umwayi view snapshot`: the same read as `check`, numbers only, nothing run.
+
+    No schedule.yaml is (0, 0, 0). installed: both unit files are exactly what umwayi would write and no drop-in sits
+    next to them (the entries `check` calls installed and good). enabled: the timer has its enable link. A schedule
+    file that fails validation, or a unit folder that is a link or a file, is an error (the snapshot shows null).
+    """
+    try:
+        os.lstat(schedule_path(root, None))
+    except FileNotFoundError:
+        return 0, 0, 0
+    entries, paths = load(root)
+    folder = unit_dir()
+    fs = _folder_state(folder)
+    if fs == "bad":
+        raise UmwayiError("schedule: the unit folder is not a normal folder")
+    installed = enabled = 0
+    for e in entries:
+        _base, states, drops, on = _entry_state(folder, fs, paths, e)
+        installed += set(states.values()) == {"same"} and not drops
+        enabled += on
+    return len(entries), installed, enabled
+
+
 def check(root, name: str | None = None, given: str | None = None) -> Result:
     """`umwayi schedule check`: installed files against what umwayi would write. 0 only when all match. Writes nothing."""
     entries, paths = load(root, given)
@@ -531,12 +566,7 @@ def check(root, name: str | None = None, given: str | None = None) -> Result:
                           "checked."])
     lines, good = [], True
     for e in chosen:
-        base = unit_base(paths, e)
-        service, timer = render(paths, e)
-        states = {"service": _file_state(folder / f"{base}.service", service.encode("utf-8")),
-                  "timer": _file_state(folder / f"{base}.timer", timer.encode("utf-8"))}
-        drops = _drop_ins(folder, base) if fs == "ok" else []
-        enabled = fs == "ok" and os.path.lexists(_enable_link(folder, base))
+        base, states, drops, enabled = _entry_state(folder, fs, paths, e)
         if set(states.values()) == {"missing"}:
             what = "not installed"
         elif set(states.values()) == {"same"}:
