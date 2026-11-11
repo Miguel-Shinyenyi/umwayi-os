@@ -2,6 +2,7 @@
 
 Exit codes:
   umwayi check:  0 Yes, 2 No, 3 Ask me first
+  umwayi rules due: 0 or 3, 64 for usage, 2 for a crash, never 1 (layer 13)
   usage errors:  64 (never 0, 2 or 3)
   other errors:  1
   umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
@@ -18,8 +19,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, budget, jobs, kill, logbook, publish, report, rules, schedule,
-                    taskqueue, units, workflow)
+from umwayi import (__version__, agents, archive, budget, elections, jobs, kill, logbook, publish, report, rules,
+                    schedule, taskqueue, units, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -44,6 +45,12 @@ def _date_arg(value: str) -> str:
 def _waiting_days_arg(value: str) -> int:
     if not re.fullmatch(r"\d{1,3}", value) or not 1 <= int(value) <= steward.MAX_WAITING_DAYS:
         raise argparse.ArgumentTypeError(f"must be a whole number from 1 to {steward.MAX_WAITING_DAYS}")
+    return int(value)
+
+
+def _within_arg(value: str) -> int:
+    if not re.fullmatch(r"\d{1,4}", value) or not 0 <= int(value) <= elections.MAX_WITHIN:
+        raise argparse.ArgumentTypeError(f"must be a whole number from 0 to {elections.MAX_WITHIN}")
     return int(value)
 
 
@@ -113,6 +120,15 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entry (default: today)")
     c.add_argument("--kill-switch", action="store_true",
                    help="answer No while the kill switch is on or its state cannot be read (the layer 9 adapters use this)")
+
+    ru = sub.add_parser("rules", help="rules commands")
+    rusub = ru.add_subparsers(dest="rules_command", parser_class=_Parser)
+    rud = rusub.add_parser("due", help="list the rules that have lapsed or are due for review (changes nothing); "
+                                       "0, or 3 when a rule has lapsed")
+    rud.add_argument("--within", type=_within_arg, default=elections.DEFAULT_WITHIN,
+                     help=f"also list rules due within this many days (default {elections.DEFAULT_WITHIN}, 0 to "
+                          f"{elections.MAX_WITHIN})")
+    rud.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD; a date earlier than today changes nothing")
 
     rn = sub.add_parser("run", help="run one job from a jobs file (asks the rules first)")
     rn.add_argument("jobfile", help="the jobs file, for example jobs.yaml")
@@ -252,6 +268,24 @@ def _cmd_check(args, out) -> int:
         if args.no_log:
             out.write("Nothing was logged (--no-log, dry run).\n")
     return decision.exit_code
+
+
+def _cmd_rules(args, out) -> int:
+    """Layer 13, `umwayi rules due`. Its own error handling: 64 for usage, 2 for anything else, never 1 (13.R3.3)."""
+    try:
+        code, lines = elections.due(Path(args.root), args.within, args.date)
+        out.write("\n".join(lines) + "\n")
+        return code
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except (Exception, KeyboardInterrupt) as e:
+        try:
+            sys.stderr.write(f"umwayi: rules due: stopped by an unexpected error ({type(e).__name__}). "
+                             f"Exit {EXIT_CRASH}. Nothing was changed.\n")
+        except Exception:
+            pass
+        return EXIT_CRASH
 
 
 def _cmd_run(args, out) -> int:
@@ -492,6 +526,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
     try:
         if args.command == "check":
             return _cmd_check(args, out)
+        if args.command == "rules" and getattr(args, "rules_command", None):
+            return _cmd_rules(args, out)
         if args.command == "agent" and getattr(args, "agent_command", None):
             return _cmd_agent(args, out)
         if args.command == "schedule" and getattr(args, "schedule_command", None):

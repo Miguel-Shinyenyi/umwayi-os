@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field, replace
+from datetime import date as _date
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from umwayi import logbook, miniyaml
 from umwayi.errors import UmwayiError
@@ -26,7 +27,8 @@ _STRENGTH = {NO: 2, ASK: 1, YES: 0}
 MAX_ACTION_BYTES = 64 * 1024
 MAX_RULES_BYTES = 1 << 20  # a rules file larger than 1 MB is refused unread
 _ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
-_RULE_KEYS = {"id", "title", "text", "cause", "verdict", "matchers"}
+_RULE_KEYS = {"id", "title", "text", "cause", "verdict", "matchers", "review_by"}
+MAX_NAMED_FALLBACKS = 10  # the entry of a check names at most this many lapsed rules, then counts the rest
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,7 @@ class Rule:
     verdict: str  # YES / NO / ASK
     cause: str | None = None
     matchers: tuple[Matcher, ...] = ()
+    review_by: str | None = None  # layer 13.R2: a Yes rule is in force through this day (YYYY-MM-DD), then it asks
 
 
 @dataclass
@@ -60,6 +63,8 @@ class Decision:
     # set by the command line when it was asked to honour the kill switch (layer 9 adapters)
     kill_state: str | None = None
     stopped_by: str | None = None
+    # layer 13.R2: (rule id, review_by) of every matching Yes rule that was past its date and counted as Ask me first
+    lapsed: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def exit_code(self) -> int:
@@ -67,7 +72,7 @@ class Decision:
 
     def to_dict(self) -> dict:
         """The --json answer. Adapters (layer 9) read answer, rule_id and rules_ok, never the reason text."""
-        return {
+        data = {
             "answer": self.answer,
             "rule_id": self.rule_id,
             "reason": self.reason,
@@ -75,9 +80,15 @@ class Decision:
             "rules_ok": self.rules_ok,  # true only when rules.yaml was read and is valid
             "action_ok": self.action_ok,  # true only when the action was a readable JSON object
         }
+        if self.lapsed:  # only when a rule fell back: without one the answer is the same bytes as before layer 13
+            data["election_fallbacks"] = [rid for rid, _ in self.lapsed]
+        return data
 
     def render(self) -> str:
-        return f"{self.answer}\nRule: {self.rule_id or '(none)'}\nReason: {self.reason}\n"
+        text = f"{self.answer}\nRule: {self.rule_id or '(none)'}\nReason: {self.reason}\n"
+        if self.lapsed:
+            text += f"Election fallbacks: {', '.join(f'{rid} (review_by {day})' for rid, day in self.lapsed)}\n"
+        return text
 
 
 # ---------------------------------------------------------------- loading
@@ -135,6 +146,15 @@ def _req_str(d: dict, key: str, rid: str) -> str:
     return v.strip()
 
 
+def _parse_review_by(raw: object, verdict: str, rid: str) -> str:
+    """13.R2.1 and 13.R2.2: a real date YYYY-MM-DD, on a Yes rule only (an Ask rule needs the opt-in of slice 5)."""
+    if verdict != YES:
+        raise UmwayiError(f"rule '{rid}': review_by is allowed on a Yes rule only")
+    if not isinstance(raw, str) or "\n" in raw or not logbook.real_date(raw):
+        raise UmwayiError(f"rule '{rid}': review_by must be a real date in the form YYYY-MM-DD")
+    return raw
+
+
 def parse_rules(text: str) -> list[Rule]:
     try:
         data = miniyaml.loads(text)
@@ -166,14 +186,17 @@ def parse_rules(text: str) -> list[Rule]:
         cause = item.get("cause")
         if cause is not None and (not isinstance(cause, str) or not cause.strip()):
             raise UmwayiError(f"rule '{rid}': cause must be text")
+        verdict = _VERDICTS[verdict_raw.strip().lower()]
+        review_by = _parse_review_by(item["review_by"], verdict, rid) if "review_by" in item else None
         rules.append(
             Rule(
                 id=rid,
                 title=_req_str(item, "title", rid),
                 text=_req_str(item, "text", rid),
-                verdict=_VERDICTS[verdict_raw.strip().lower()],
+                verdict=verdict,
                 cause=cause.strip() if cause else None,
                 matchers=_parse_matchers(item.get("matchers"), rid),
+                review_by=review_by,
             )
         )
     return rules
@@ -230,13 +253,51 @@ def _reason(rule: Rule) -> str:
     return r
 
 
-def decide(rules: list[Rule], action: dict) -> Decision:
+def system_today() -> str:
+    """The system date, YYYY-MM-DD. One place, so a test can set the clock of a child process."""
+    return _date.today().isoformat()
+
+
+def _newest_logbook_date(root: Path) -> str | None:
+    """The newest date in the logbook, or None when there is no logbook or it cannot be read (it is read like any
+    other reader does, so a hand edited or broken logbook gives None; the write of the entry then fails)."""
+    try:
+        entries = logbook.read_checked(Path(root))
+    except Exception:
+        return None
+    dates = [e.date for e in entries if logbook.real_date(e.date)]
+    return max(dates) if dates else None
+
+
+def election_clock(root: Path | None, *dates: str | None) -> str:
+    """The date of a check for 13.R2.4: the latest of the system date, the dates given (--date) and the newest date
+    in the logbook. A past --date, or a clock set back, cannot bring a lapsed rule back."""
+    days = [system_today()] + [d for d in dates if d]
+    if root is not None:
+        days.append(_newest_logbook_date(root))
+    return max(d for d in days if d and logbook.real_date(d))
+
+
+def decide(rules: list[Rule], action: dict, today: str | Callable[[], str] | None = None) -> Decision:
+    """The strongest matching rule wins. A Yes rule past its review_by counts as an Ask me first rule (13.R2.3).
+    `today` is a date, or a function that gives it (called only when a matching rule has a review_by), or None for
+    the system date."""
     matched = [r for r in rules if rule_matches(r, action)]
     if not matched:
         return Decision(ASK, None, "No rule matches this action.")
-    top = max(_STRENGTH[r.verdict] for r in matched)
-    winner = next(r for r in matched if _STRENGTH[r.verdict] == top)
-    return Decision(winner.verdict, winner.id, _reason(winner), [r.id for r in matched])
+    lapsed_rules: list[Rule] = []
+    if any(r.review_by for r in matched):
+        day = today() if callable(today) else (today or system_today())
+        lapsed_rules = [r for r in matched if r.review_by is not None and r.review_by < day]
+    lapsed_ids = {r.id for r in lapsed_rules}
+    strength = {r.id: _STRENGTH[ASK] if r.id in lapsed_ids else _STRENGTH[r.verdict] for r in matched}
+    top = max(strength.values())
+    winner = next(r for r in matched if strength[r.id] == top)
+    lapsed = [(r.id, r.review_by) for r in lapsed_rules]
+    if winner.id in lapsed_ids:
+        reason = f"Rule {winner.id} is past its review_by date ({winner.review_by}), so it counts as Ask me first."
+        return Decision(ASK, winner.id, reason, [r.id for r in matched], lapsed=lapsed)
+    return Decision(winner.verdict, winner.id, _reason(winner), [r.id for r in matched], lapsed=lapsed)
 
 
 # ------------------------------------------------------------ action JSON
@@ -276,8 +337,9 @@ def safe_action_type(action: dict) -> str | None:
     return t if isinstance(t, str) and _PLAIN_TYPE.match(t) else None
 
 
-def check(action_text: str | None, rules_path: Path) -> Decision:
-    """Return the Decision for an action.
+def check(action_text: str | None, rules_path: Path, today: str | Callable[[], str] | None = None) -> Decision:
+    """Return the Decision for an action. `today` is the date for the review_by of Yes rules (default: the system
+    date); the callers without a root (jobs, helpers, publish, workflow steps) use the default.
 
     Anything unknown, missing or broken (the action, rules.yaml) is Ask me first.
     An unexpected error (a bug, not a bad input) is not hidden as Ask me first:
@@ -294,12 +356,21 @@ def check(action_text: str | None, rules_path: Path) -> Decision:
         rules = load_rules(rules_path)
     except UmwayiError as e:
         return Decision(ASK, None, f"Rules could not be loaded ({e}).", action_ok=True, action_type=action_type)
-    decision = decide(rules, action)
+    decision = decide(rules, action, today)
     decision.action_ok = True
     decision.rules_ok = True
     decision.rules_count = len(rules)
     decision.action_type = action_type
     return decision
+
+
+def _fallback_text(lapsed: list[tuple[str, str]]) -> str:
+    """The end of the Checked line when a Yes rule fell back (13.R2.5); nothing when none did."""
+    if not lapsed:
+        return ""
+    named = ", ".join(f"{rid} (review_by {day})" for rid, day in lapsed[:MAX_NAMED_FALLBACKS])
+    more = len(lapsed) - MAX_NAMED_FALLBACKS
+    return f"; election fallbacks: {named}" + (f", and {more} more" if more > 0 else "")
 
 
 def log_entry(decision: Decision, when: str) -> logbook.Entry:
@@ -320,6 +391,7 @@ def log_entry(decision: Decision, when: str) -> logbook.Entry:
             + (f" ({decision.rules_count} rules)" if decision.rules_ok else "")
             + f"; rules matched: {matched}"
             + (f"; kill switch: {decision.kill_state}" if decision.kill_state else "")
+            + _fallback_text(decision.lapsed)
         ),
         not_done="The action was not run. The action JSON was not stored in the logbook.",
     )
@@ -340,10 +412,12 @@ def check_and_log(
     kill_state is recorded in the entry. stop_reason (the kill switch is on, or its
     state is unknown) turns any answer into No, with no rule, before it is logged.
     """
-    decision = check(action_text, rules_path)
+    # the election clock (13.R2.4): the system date, `when` and the newest logbook date, read only if a rule needs it
+    decision = check(action_text, rules_path, lambda: election_clock(root, when))
     decision.kill_state = kill_state
     if stop_reason is not None:
-        decision = replace(decision, answer=NO, rule_id=None, reason=stop_reason, matched=[], stopped_by="the kill switch")
+        decision = replace(decision, answer=NO, rule_id=None, reason=stop_reason, matched=[], lapsed=[],
+                           stopped_by="the kill switch")
     if not log:
         return decision, False
     try:
@@ -352,6 +426,7 @@ def check_and_log(
         why = str(e).rstrip(". ")
         note = f"The logbook could not be written ({why}). Nothing was logged"
         if decision.answer == NO:
-            return Decision(NO, decision.rule_id, f"{decision.reason} {note}.", list(decision.matched)), False
-        return Decision(ASK, None, f"{note}, so the answer is {ASK}."), False
+            return Decision(NO, decision.rule_id, f"{decision.reason} {note}.", list(decision.matched),
+                            lapsed=list(decision.lapsed)), False
+        return Decision(ASK, None, f"{note}, so the answer is {ASK}.", lapsed=list(decision.lapsed)), False
     return decision, True
