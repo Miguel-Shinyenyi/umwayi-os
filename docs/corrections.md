@@ -66,7 +66,7 @@ These are the stop criteria of 13.R8.3 (the build) and 13.R8.4 (run time), then 
 | 13.R8.3 (a) | the merge of a slice | its acceptance tests and planted faults do not pass on Python 3.10 to 3.13, or its docs are not current | the slice is not merged until they do |
 | 13.R8.3 (b) | the merge of a slice | it is not merged by Nov 28 | it is not merged; it stays specified, not built, in the docs |
 | 13.R8.3 (c) | every merge | Nov 29 to Dec 2, the freeze | nothing is merged except a fix for a defect that a test finds |
-| 13.R8.3 (d) | the merge of a slice that breaks an earlier test | the earlier test fails | the code is fixed; an earlier test changes only where the spec says a behaviour changes (13.R13.6), and the pull request lists it |
+| 13.R8.3 (d) | the merge of a slice that breaks an earlier test | an earlier test fails | the slice is not merged until that is fixed, never by changing the earlier test |
 | 13.R8.3 (e) | the layer | the owner says stop, or Dec 3 | the owner; the slices before it stay |
 | 13.R8.4 (a) | graded autonomy (specified, not built) | it is off by default: `enabled: false`, or no `autonomy.yaml` | the owner turns it on, with every setting present |
 | 13.R8.4 (b) | moves of one action class (specified, not built) | a `rejected` or `reverted` record, for the cooldown | the gates; the owner's record decides |
@@ -75,6 +75,8 @@ These are the stop criteria of 13.R8.3 (the build) and 13.R8.4 (run time), then 
 | an election | a rule with no `review_by` never lapses | there is no date | the owner adds the date (built) |
 | a reopen | it is a question, not a change | it is asked | the owner answers (built) |
 | a petition | the petitions of one helper or in all | a limit of 13.R6.5 is reached | the command refuses (built) |
+
+L13.3 changed the counts of 43 earlier tests for the baseline rules entry of 13.R7.2, listed in PR 48, and this is a known departure from row (d), for the owner to judge.
 
 ### No state is perfect
 

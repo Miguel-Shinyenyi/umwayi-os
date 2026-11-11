@@ -57,7 +57,7 @@ BUILD_ROWS = {
     "13.R8.3 (a)": ["Python 3.10 to 3.13", "docs are not current"],
     "13.R8.3 (b)": ["Nov 28", "specified, not built"],
     "13.R8.3 (c)": ["Nov 29 to Dec 2", "defect that a test finds"],
-    "13.R8.3 (d)": ["earlier test", "13.R13.6"],
+    "13.R8.3 (d)": ["not merged until that is fixed", "never by changing the earlier test"],
     "13.R8.3 (e)": ["owner", "slices before it stay"],
 }
 RUN_ROWS = {
@@ -67,6 +67,10 @@ RUN_ROWS = {
     "13.R8.4 (d)": ["kill switch"],
 }
 PART_ROWS = ["an election", "a reopen", "a petition"]
+
+# the line under the stop criteria table: a departure from row (d) that is stated, not hidden
+DEPARTURE = ("L13.3 changed the counts of 43 earlier tests for the baseline rules entry of 13.R7.2, listed in PR 48, "
+             "and this is a known departure from row (d), for the owner to judge.")
 
 # KNOWN-LIMITS items of the slices built so far: the number and a word its title must hold
 BUILT_ITEMS = {160: "review_by", 161: "clock", 162: "hash", 163: "revisit", 192: "etition", 193: "weakening",
@@ -237,6 +241,39 @@ class StopCriteriaTests(unittest.TestCase):
         # the rows of the three built parts that have no stop of their own stay, in the words of the design
         parts = [r[0] for r in rows if not r[0].startswith("13.R8")]
         self.assertEqual(parts, PART_ROWS)
+
+    def test_row_d_uses_the_words_of_the_spec_and_is_not_softened(self):
+        """13.R8.3 (d): not merged until that is fixed, never by changing the earlier test. The words are read from the
+        requirement, so the row cannot drift from it."""
+        spec = (REPO / ".kiro" / "specs" / "umwayi-os" / "requirements.md").read_text(encoding="utf-8")
+        sentence = re.search(r"\(d\) (If a slice breaks an earlier test[^.]*\.)", spec).group(1)
+        self.assertIn("not merged until that is fixed, never by changing the earlier test", sentence)
+        row = next(r for r in self.table(CORRECTIONS, "### Stop criteria") if r[0] == "13.R8.3 (d)")
+        cells = " ".join(row[1:])
+        for words in ("not merged until that is fixed", "never by changing the earlier test"):
+            self.assertIn(words, cells)
+        # no way out is written into the row itself
+        for softer in ("only where", "except", "13.R13.6", "unless", "may change", "changes only", "listed"):
+            self.assertNotIn(softer, cells)
+
+    def test_the_departure_from_row_d_is_one_plain_line_under_the_table(self):
+        text = CORRECTIONS.read_text(encoding="utf-8")
+        stop = section(text, "### Stop criteria")
+        flat = " ".join(stop.split())
+        self.assertEqual(flat.count(DEPARTURE), 1)
+        # it is its own paragraph, directly after the last row of the table, before the next heading
+        lines = stop.rstrip("\n").split("\n")
+        last_row = max(i for i, l in enumerate(lines) if l.startswith("|"))
+        self.assertEqual(lines[last_row + 1], "")
+        self.assertEqual(lines[last_row + 2], DEPARTURE)
+        self.assertEqual(len(lines), last_row + 3)
+        self.assertEqual(find_banned(DEPARTURE), [])
+        self.assertNotIn("\u2014", DEPARTURE)
+
+    def test_the_departure_line_is_not_repeated_on_the_other_pages(self):
+        for path in (AUTONOMY, ):
+            self.assertNotIn("known departure", path.read_text(encoding="utf-8"))
+        self.assertEqual(" ".join((DOCS / "status-log.md").read_text(encoding="utf-8").split()).count(DEPARTURE), 0)
 
     def test_every_row_has_four_filled_cells_and_no_claim(self):
         for path in (CORRECTIONS, AUTONOMY):
