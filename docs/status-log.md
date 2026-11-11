@@ -18,6 +18,7 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
+| 2026-11-11 | L13.2 | Layer 13 slice 2, Reversal: `umwayi decision reopen`, `queue answer --revisit-if`, `logbook.read_chained` | 1256 |
 | 2026-11-11 | 41 | UI.2: `umwayi view snapshot`, the read only snapshot of counts for the web interface | 1200 |
 | 2026-11-10 | 38 | spec: layer 12, the web interface (UI.0); docs only, waits for the owner's approval | |
 | 2026-11-10 | 37 | S.2: the security scan; 10 defects it found fixed | 1155 |
