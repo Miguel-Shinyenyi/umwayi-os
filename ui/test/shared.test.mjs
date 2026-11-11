@@ -56,7 +56,8 @@ test('the one scene module is the only place that builds the world, the stage, t
 test('the device query is one module for both pages: boot.js decides the tier and starts the scene, main.js only sets the live view options', () => {
   const boot = read('boot.js'), main = read('main.js');
   assert.ok(/chooseTier\(/.test(boot) && /readEnv\(/.test(boot), 'boot.js does not run the device query');
-  assert.ok(imports(main).includes('./boot.js'), 'main.js does not use boot.js');
+  assert.ok(imports(main).includes('./boot.js') && imports(main).includes('./app.js'), 'main.js does not use boot.js and app.js');
+  assert.ok(!imports(boot).includes('./app.js'), 'boot.js imports the scene code itself, so a List visitor of the site would download it');
   assert.ok(!/chooseTier\(/.test(main), 'main.js has its own copy of the tier choice');
   assert.ok(/maxTier:\s*2/.test(main) && /local:\s*true/.test(main), 'the live view must pass a highest tier of Standard and ignore the network');
 });

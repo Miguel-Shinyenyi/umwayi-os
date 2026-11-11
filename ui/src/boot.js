@@ -2,7 +2,6 @@
 // (site/app/scene.js) both call boot, so the device query is one function and not two. The page is List (tier 1) in its HTML; this
 // picks the tier from the device and starts the picture for Standard. The hints the query reads (env.js) stay in the page: nothing
 // here sends, stores or writes them to the address. The only thing written to the address is the tier name, in the fragment.
-import { createApp } from './app.js';
 import { setTier } from './ui/fallback.js';
 import { initHome } from './ui/home.js';
 import { chooseTier, parseTier, tierHash, TIERS } from './engine/tier.js';
@@ -12,33 +11,43 @@ const NO_WEBGL = 'This browser cannot draw the picture (no WebGL). The List view
 const FAILED = 'The picture could not start in this browser. The List view shows the same stations.';
 
 // options: { maxTier, local }. The live view passes a highest tier of Standard and ignores the network (it is a file on disk).
+// loadApp() gives a promise of createApp: the live view has the code in its one file already, the site fetches it from its own host
+// only when a scene tier is chosen, so a visitor on List (a slow network, Save-Data, no WebGL) never downloads the 3D code.
 // Returns { stop } so a page that is torn down (the site, when its component unmounts) can take the listeners off again.
-export function boot(win, options) {
+export function boot(win, options, loadApp) {
   const doc = win.document;
   doc.documentElement.setAttribute('data-js', '');
   const stopHome = initHome(doc, win);
   const env = readEnv(win);
-  let app = null;
+  let app = null, loading = null, turn = 0;
 
   function startScene() {
-    if (app) return true;
-    try {
+    if (app) return Promise.resolve(true);
+    loading ||= loadApp().then((createApp) => {
       app = createApp(win);
       app.onLost = () => { env.webgl = false; use(chooseTier(env, options), 'The picture stopped. The List view shows the same stations.'); };
       app.start();
       return true;
-    } catch {
+    }).catch(() => {
       app = null;
       return false;
-    }
+    }).finally(() => { loading = null; });
+    return loading;
   }
 
+  // The newest choice wins: a scene that finishes loading after the visitor chose List is built but not shown.
   function use(choice, message = '') {
+    const mine = ++turn;
     if (choice.tier >= 2) {
       setTier(doc, 'standard', choice.warn ? 'You chose Standard. The picture may be slow on this device.' : '');
-      if (startScene()) { app.setFlat(false); return; }
-      env.webgl = false;
-      message = FAILED;
+      startScene().then((ok) => {
+        if (mine !== turn) return;
+        if (ok) { app.setFlat(false); return; }
+        env.webgl = false;
+        setTier(doc, 'list', FAILED);
+        if (app) app.setFlat(true);
+      });
+      return;
     }
     setTier(doc, 'list', message);
     if (app) app.setFlat(true);

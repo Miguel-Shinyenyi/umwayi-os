@@ -4,7 +4,7 @@
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
     "src/app.js": "707815f77fff430f1ab5e57104325f1709d84d7e5fe5bb10400a360111865813",
-    "src/boot.js": "b23d93fedb433cec4e043bfd336190a98ed9653711debd44138450fb0257d86f",
+    "src/boot.js": "2f123b6a13a11e4255484ee0e6b0d48dadaa39feef6f2c67f23e246fd173ed6d",
     "src/data/counts.js": "f76b331dd5957d53a0dafc05cd8a29ffd5128804286c49c86d40998c7cd9a6fb",
     "src/data/home.js": "ecd32380a6108b7648174e24dd339912df071d2e68d3f0ff372897951756c622",
     "src/data/sample.js": "4e3c9c35d900787b763d13871e9e1dca0db9e92a90daf84ef2fa7c82aacf6b6e",
@@ -22,7 +22,7 @@
     "src/engine/stage.js": "35e1c999b7ff735213ec79d7e179e724ad5fec6f6864a841f905508da2d5ab33",
     "src/engine/tier.js": "0c874c72777d288dd606a47b083690bb2d61f8f75d799c2a410aa27f16eebe08",
     "src/index.html": "ea2d9a8b5c07b2dbfb99f2c0b08f34afe76def0a72cd9169999553b1f7a921de",
-    "src/main.js": "066fb7bafe825ebb70bb000c1e28597501ccb88660e851122bd896d8749fb442",
+    "src/main.js": "94e514fcbee0df432364c0a563805fa9e5b426de52465a7d7464b707d99a942b",
     "src/scene.js": "ad3cc8d4da1e7962aa69e5a7343abd2629de92468b649bb4066b6bd11a2f68b7",
     "src/stations/adapters.js": "fc57f901f56ae67403ebdfa40ba3c6963d923e83ed2eca14b11cba3d31c22e18",
     "src/stations/archive.js": "d32b7e882609343c11073ad930e840d58ea13ed0b632eeb2d289cacb8500ff25",
@@ -63,5 +63,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "7c2900f2fa0128ef24180faabe0c4cbc16c3c25ccf04fc1191c5465a6a877cd9"
+  "page": "d76342d038606115972212e635340e7e30865ade1d1e6c829db5c549cc963a0c"
 }
