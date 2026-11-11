@@ -18,6 +18,7 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
+| 2026-11-11 | 51 | L13.5: graded autonomy, off by default: the opt-in, `umwayi autonomy record`, `status` and `validate`, the thirteen gates and the move (layer 13, slice 5) | 1635 |
 | 2026-11-11 | 49 | L13.4: honest tension, the stop criteria, the plain note and `tests/test_honest.py` (layer 13, slice 4) | 1500 |
 | 2026-11-11 | 48 | L13.3: courts and the rules change log, `umwayi petition` and the `umwayi rules` entry (layer 13, slice 3) | 1465 |
 | 2026-11-11 | NN | 10.43 and 10.44: an OpenCode agent in agents.yaml (`provider`, `model`, acp only; `agent run` and `agent login` refused) and the pure `opencode_env()` and `opencode_inline_config()`; nothing starts OpenCode yet | 1405 |
