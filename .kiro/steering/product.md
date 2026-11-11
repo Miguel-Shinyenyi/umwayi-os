@@ -95,3 +95,22 @@ The schedule in `.kiro/specs/umwayi-os/tasks.md` ("Schedule to Dec 3") is the on
 ## Non goals for Dec 3
 
 Finance and marketing loops.
+
+## Layer 13: correction and graded autonomy (in scope before Dec 3, the owner, Nov 11)
+
+This section is added at the end so it merges cleanly with the layer 12 changes. It replaces the older sentence in item 12 of the build order that says nothing of layer 13 is built or planned: layer 13 is now planned.
+
+- **What it is.** Four ways to correct and one score, built in this order, each slice shipping alone, merged whole or not at all, and stopped where Dec 3 finds us: (1) Elections: a `review_by` date on Yes rules and standing approvals, past it the rule falls back to Ask me first, `umwayi rules due` lists them, the fallback is logged; (2) Reversal: a closed decision is reopened with a reason, as a new logbook entry that links the old entry by its hash, the old entry never changed or marked, and every decision records what would change my mind; (3) Courts: an AI helper may petition against a No, the petition becomes a queue item and never changes the verdict, and a rules change is logged before it is used; (4) Honest tension: stop criteria and a plain note in the docs that no state is perfect; (5) Graded autonomy: a score per action class from the owner's record (approved as proposed, edited, rejected, reverted), shipped with its behaviour.
+- **Status.** Spec in the L13.0 pull request. It is built (L13.1 to L13.6) only after the owner approves that spec. The last day a slice can be merged is Nov 28. Specs: `.kiro/specs/umwayi-os/` (requirements 13.R1 to 13.R15, design "Layer 13", tasks L13.0 to L13.6).
+- **Safety rules added by layer 13** (the rules 1 to 10 above are unchanged and still apply):
+  11. Layer 13 never changes a No and never writes to the logbook except by appending a new entry. A correction is a new entry, never an edit.
+  12. Graded autonomy can only move Ask me first to Yes, only where a rule explicitly opts that action class in, and it fails closed: low data, an irreversible or costly action, a No, a broken or missing hash chain, the kill switch on, an unknown state, a dry run or a failed logbook write always mean Ask me first. It never reads text, only counts. Every move is logged with its inputs. It is off by default and one setting turns it off. It never applies to money, publishing, a schedule install, a spending approval or the start or permission of an agent.
+  13. Nothing claims a state is perfect, safe or proven. The docs say that no state is perfect, and a test searches the layer 13 docs and output for claims of perfection.
+- **Stays a non goal for Dec 3:**
+  - any change to the web interface for layer 13 (the review, reopened and petition stations of 12.R8 only if the owner asks after layer 13 exists);
+  - a way for an AI helper to change a rule, an answer or its own score;
+  - learning from text, a model or any statistics beyond the counts and one interval;
+  - automatic approval of a petition, and any automatic edit of `rules.yaml` or `autonomy.yaml`;
+  - holding a rules change until the owner accepts it, and an outside signature of the owner's record;
+  - an expiry on installed schedules (they run through Yes rules, which can expire).
+- **The words of layer 13** are the product words above: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first. No em dash.

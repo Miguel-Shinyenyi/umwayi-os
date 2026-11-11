@@ -31,6 +31,7 @@ Shared by every layer:
 - The kill switch (`.umwayi/KILL`) and the run lock (`.umwayi/run.lock`) are described in [workflows.md](workflows.md).
 - The command line is `umwayi/cli.py`; the exit codes are in [exit-codes.md](exit-codes.md).
 - The requirements, design and tasks of every layer are in [requirements.md](../.kiro/specs/umwayi-os/requirements.md), [design.md](../.kiro/specs/umwayi-os/design.md) and [tasks.md](../.kiro/specs/umwayi-os/tasks.md).
+- Layer 13 (specified, not built): correction and graded autonomy. It changes `umwayi/rules.py` and `umwayi/taskqueue.py` and adds `elections.py`, `decisions.py`, `rulelog.py`, `petition.py` and `autonomy.py` to the core; it changes nothing in `ui/`. See [corrections.md](corrections.md) and [autonomy.md](autonomy.md).
 
 ## Decisions log
 

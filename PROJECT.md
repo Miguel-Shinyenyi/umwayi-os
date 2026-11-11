@@ -43,6 +43,8 @@ umwayi-os/
     exit-codes.md           every exit code and which command gives it
     testing.md              how everything is tested
     security.md             what is protected and how it is checked
+    corrections.md          layer 13: elections, reversal, courts, the stop criteria (specified, not built)
+    autonomy.md             layer 13: graded autonomy, the score and its gates (specified, not built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
     KNOWN-LIMITS.md         every known limit, numbered

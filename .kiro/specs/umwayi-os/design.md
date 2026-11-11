@@ -2459,3 +2459,384 @@ Answers (owner, Nov 10): UI-Q1 to UI-Q5 as recorded above. UI-Q6 to UI-Q11 are o
 - `tests/test_system.py` runs the umwayi command as real processes in a fresh folder: one scripted run of every layer, and fault tests (logbook edits, broken rules, bad config, injected crashes in every command, corrupt state files, unknown actions, no network import, no approver code path).
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
 - Layer 9 adapters get their own tests and CI job (see above).
+
+## Layer 13: Correction and graded autonomy (spec in the L13.0 pull request, tasks.md L13.0; built only after the owner approves it, slice by slice)
+
+Requirements 13.R1 to 13.R15. Tasks L13.0 to L13.6. Five slices in the owner's order, each shipping alone: Elections (L13.1), Reversal (L13.2), Courts (L13.3), Honest tension (L13.4), Graded autonomy (L13.5), then the whole-system update (L13.6). The owner stops the build where Dec 3 finds us. Layer 13 is added after the "Testing" section on purpose, so that the layer 12 branches (PR 39 and the UI.2 branch), which edit the layer 12 sections, merge without a conflict.
+
+### Owner decisions (Nov 11)
+
+Decided, not open:
+
+1. Build all four correction mechanisms and the graded autonomy score, in this order, and stop where the deadline (Dec 3) finds us. Shape every slice so it ships alone.
+2. Elections: a `review_by` date on standing approvals and Yes rules; when it passes the rule falls back to Ask me first; `umwayi rules due` lists them; the fallback is logged.
+3. Reversal: a closed decision can be reopened with a reason. Reopening writes a **new** logbook entry that states it is a reopen and links to the old entry by its hash. The old entry is never changed or marked. Each decision records what would change my mind.
+4. Courts: a helper can petition against a No; the petition becomes a queue item for the owner; it never changes the verdict by itself; rule changes are logged before use.
+5. Honest tension: stop criteria, and a plain note in the docs that no state is perfect. Nothing claims otherwise.
+6. Graded autonomy: a score per action class from the owner's record (approved as proposed, edited, rejected, reverted), with a cautious lower bound, reversibility and cost, and owner defined thresholds. It ships with its behaviour, not as a display only, and fails closed. It can move Ask me first to Yes only where a rule explicitly opts that action class in. Low data, irreversible or costly actions, a No, a broken chain, the kill switch on or an unknown state always mean Ask me first. Every move is logged with the score inputs. The score never reads text, only counts. One setting turns it off, and it is off by default.
+
+### Facts (read Nov 11 2026, in the code of main at 5cd03a8)
+
+- `rules.py` has a closed set of rule fields (`_RULE_KEYS`: id, title, text, cause, verdict, matchers). A field outside it makes `rules.yaml` malformed, and every check gives Ask me first. So `review_by` and `autonomy` are unknown fields until slices 1 and 5 add them: **the owner must not write them into `rules.yaml` before the slice is merged.** A rules file that uses them is then read by the new code only.
+- `rules.check(action_text, rules_path)` is called without a root by the jobs, the helpers, `publish` and the inner checks of a workflow. `rules.check_and_log(...)` (a root, a date, an entry) is called by `umwayi check`, the agent gates (`agent_run`, `agent_login`, `budget_check`) and the schedule. Elections must therefore live in `check` (every caller), and graded autonomy only in `check_and_log` (13.R10.9).
+- `umwayi check` already reads the kill switch on every call (`kill.state(root)`), and the adapters read only `answer`, `rule_id` and `rules_ok` from `--json`. A new key in the JSON does not break an adapter.
+- Exit codes today: `UmwayiError` is 1 (a refusal, nothing changed), a crash 2, usage 64, `check` 0, 2 and 3. The layer 13 commands that refuse use 1, like `queue answer` and `view snapshot`.
+- The logbook entry has three free lines (Added, Checked, Not done) that must be one line of plain printable text. With the hash chain, an entry's `Chain` value is the SHA-256 of the previous value, a newline and the entry's text, so it names the entry and everything before it. `read_checked` returns entries without their Chain value; `parse` has it (`ParsedEntry.chain`). The queue's `_commit` writes `queue.md` and one entry together or neither. The budget governor's `pending_change` is the model for logging a changed file before use (a SHA-256 and a state summary in the entry).
+- The queue has kinds `task` and `decision` and statuses `open`, `answered`, `closed`. Titles, recommendations and answers hold no `|` and no line break, up to 500 characters for the last two. Ids are never reused.
+- The example rules of the adapters already refuse a shell command that names `rules.yaml`, `LOGBOOK.md`, `.umwayi` or `umwayi kill` (`cc-no-guard-shell`) and any write to those paths (`cc-no-guard-edits`). Layer 13 extends those lists (13.R14.3).
+
+### Layout
+
+```
+umwayi/rules.py          review_by and autonomy fields, the lapse of a Yes rule, the election clock, the verdict order   (L13.1, L13.5)
+umwayi/elections.py      due(): the list for `umwayi rules due`, the clock                                              (L13.1)
+umwayi/decisions.py      `umwayi decision reopen`; resolves an id or a hash through logbook.read_chained                  (L13.2)
+umwayi/rulelog.py        the rules change entry, the last logged rules, the state summary                                (L13.3)
+umwayi/petition.py       `umwayi petition`, the limits                                                                  (L13.3)
+umwayi/autonomy.py       autonomy.yaml, the inputs reader, the score, the gates, `status`, `validate`, `record`          (L13.5)
+umwayi/taskqueue.py      `answer(..., revisit_if=)` and a way to add a row and an entry in one commit                     (L13.2, L13.3)
+umwayi/logbook.py        read_chained(root): (Entry, Chain value) pairs under the same checks as read_checked           (L13.2)
+umwayi/cli.py            the subcommands: rules due, decision reopen, petition, autonomy status|validate|record
+autonomy.example.yaml    the settings with suggested values, enabled: false                                              (L13.5)
+tests/test_elections.py  tests/test_reopen.py  tests/test_rulelog.py  tests/test_petition.py  tests/test_honest.py
+tests/autonomy/          support.py  test_score.py  test_gates.py  test_inputs.py  test_off.py  test_text_blind.py
+docs/corrections.md      docs/autonomy.md
+```
+
+`umwayi/view.py` and `ui/` are not changed (13.R15). Each module is standard library only; a code guard test lists the imports of the four new modules.
+
+### The verdict order, with the new steps
+
+`umwayi check` and `check_and_log` today: kill switch (with `--kill-switch`), parse the action, load the rules, match, strongest wins, log. Layer 13 adds steps; a step exists only when its slice is built, and without it the order is the one before.
+
+| step | what | slice | answer if it fails or is unsure |
+| --- | --- | --- | --- |
+| 1 | the kill switch with `--kill-switch`: on or unknown turns any answer into No | before | No (unchanged) |
+| 2 | the action is read: a bad action is Ask me first | before | Ask me first |
+| 3 | `rules.yaml` is read; a missing, broken, too big or unknown field file is Ask me first (this now includes a bad `review_by` or `autonomy`) | before, 1, 5 | Ask me first |
+| 4 | **the rules change is logged** (`rulelog`): if the bytes differ from the last logged version, one `umwayi rules` entry is written first | 3 | the new rules are used for No and Ask me first only; every Yes becomes Ask me first |
+| 5 | the election clock is set: the latest of the system date, `--date` and the newest logbook date | 1 | the system date and `--date`; the logbook write then fails like any other |
+| 6 | the matching rules are found; **a Yes rule past its `review_by` counts as an Ask me first rule**, and its id is kept for the entry | 1 | Ask me first for that rule |
+| 7 | the strongest wins: No, then Ask me first, then Yes (layer 2, unchanged) | before | |
+| 8 | **graded autonomy**: only when the answer is Ask me first and the call is `umwayi check` or a logging caller; the thirteen gates in order; the first that fails leaves Ask me first | 5 | Ask me first |
+| 9 | the check's entry is written, with the fallback and the move in their fixed shapes. If it cannot be written: No stays No, a Yes (a move included) becomes Ask me first | before, 1, 5 | as layer 2 |
+
+Notes: step 4 comes before step 6 so a rule is logged before it is used; step 6 comes before step 8 so a lapse is final (a lapsed Yes rule matching means no move); step 8 never runs for a No, for no match, or for a Yes.
+
+### Data shapes
+
+**`rules.yaml`** (slices 1 and 5 add the two fields):
+
+```yaml
+rules:
+  - id: report-yes
+    title: The weekly report job may run
+    text: The report job only reads files and writes one draft.
+    verdict: yes
+    review_by: 2026-12-01            # slice 1: a real date; yes rules, or ask rules with autonomy
+    matchers:
+      type: run_job
+      command: report
+
+  - id: commit-ask
+    title: A commit on a feature branch is asked
+    text: The owner is asked before an AI helper commits.
+    verdict: ask
+    review_by: 2027-02-01
+    autonomy:                         # slice 5: the opt-in
+      class: git-commit
+      reversible: true
+      cost_uu: 2
+    matchers:
+      type: tool_bash
+      command__contains: git commit
+```
+
+**`autonomy.yaml`** (slice 5; every key required; `autonomy.example.yaml` is the copy with `enabled: false`):
+
+```yaml
+version: 1
+enabled: false          # the one setting; no file, or false, means off
+window_days: 90         # outcomes older than this are not counted (1 to 3650)
+min_decisions: 30       # n must be at least this (1 to 1000000)
+min_lower_bound: 850    # the score in per mille, 1 to 1000
+confidence_z: 258       # hundredths: 258 is 2.58, about 99 percent (100 to 400)
+revert_weight: 3        # one revert counts as this many failures (1 to 100)
+max_cost_uu: 10         # a class declared above this is never moved (0 to 1000000)
+cooldown_days: 30       # after a rejected or reverted outcome (1 to 3650)
+max_moves_per_day: 5    # moves of one class on one logbook day (1 to 1000)
+```
+
+**Logbook entries** (every entry is three lines of plain text; the chain adds the fourth). The readers match the whole line against a fixed pattern. A line that does not match is not read.
+
+| source | slice | `Added` | `Checked` | `Not done` |
+| --- | --- | --- | --- | --- |
+| `umwayi check` (unchanged parts as today) | 1 | `Rule ID gave Ask me first; action type: T` | today's text, then `; election fallbacks: ID (review_by DATE), ID2 (review_by DATE2)` only when a Yes rule lapsed (at most 10 named, then `and N more`) | unchanged |
+| `umwayi check` | 5 | `Rule ID gave Ask me first and autonomy moved it to Yes; action type: T` | today's text, then `; autonomy: moved to Yes; class C; approved A; edited E; rejected R; reverted V; weight W; n N; score S per mille; needs n NMIN and score SMIN; reversible yes; cost U of UMAX UU; moves today K of KMAX`. When it did not move: `; autonomy: no move (GATE)` | unchanged |
+| `umwayi rules` | 3 | `rules.yaml changed (sha256 HEX); rules 14 to 15; added a-id; removed b-id; changed c-id verdict no to ask, d-id review_by none to 2026-12-01` or `rules.yaml first logged (sha256 HEX); rules 15` or `...; no rule changed` | `rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: ID verdict[ review_by DATE][ autonomy CLASS]; ...` | `Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry.` |
+| `umwayi decision reopen` | 2 | `Reopen of entry HEX (Q-0007 answered on 2026-11-05); new decision Q-0012 opened by NAME; reason: TEXT` | `the hash chain was intact before this entry; HEX is a chained entry of source umwayi queue answer for Q-0007; Q-0007 is a decision that is not open; revisit if recorded then: TEXT` | `The old entry, the old row Q-0007 and the rules were not changed or marked. Nothing was decided again.` |
+| `umwayi queue answer` (a decision) | 2 | today's text, then `; revisit if: TEXT` | unchanged | unchanged |
+| `umwayi petition` | 3 | `Q-0031 (decision) as open: Petition against rule ID by HELPER` | `rule ID exists with verdict No; limits held (open for this helper 1 of 3, open in all 4 of 10, accepted today for this helper 1 of 5, in all 4 of 10); reason N characters` | `The rule, rules.yaml and every answer were not changed. The reason text is in queue.md and not copied here.` |
+| `umwayi autonomy record` | 5 | `outcome OUTCOME for class C recorded by NAME` plus `; ref Q-0007` when given | `the hash chain was intact before this entry; the class and the outcome were checked against the allowed words` | `Nothing was moved or changed by this entry. The score is computed when a check runs, not here.` |
+| `umwayi autonomy` | 5 | `autonomy.yaml changed (sha256 HEX): KEY OLD to NEW; ...`, or `autonomy.yaml first logged (sha256 HEX)`, or `autonomy.yaml removed` | `autonomy.yaml was read and validated before this entry; this entry is written before the new values are first used` | `Only the setting names and numbers are logged. Nothing was moved by this entry.` |
+
+`NAME` and `HELPER` are plain words without `;`. The first line of each shape starts with a fixed word, so a reader finds it by `fullmatch` and never searches inside free text. The `reason` and `revisit if` texts are the only free text, and each is last on its line.
+
+### Slice 1: Elections
+
+- **Parse.** `review_by` is a string made by the miniyaml reader and checked with `logbook.real_date` (so `2026-2-1`, `2026-13-01`, a number, a list and an empty value are errors). On a `no` rule, on an `ask` rule without `autonomy`, and (until slice 5 exists) on any `ask` rule, it is an error: `rules.yaml` is malformed and every check gives Ask me first. With slice 5 the `ask` plus `autonomy` case is allowed.
+- **Clock.** `today = max(system date, --date, newest logbook date)`. The newest logbook date comes from the same read the check does anyway; if the logbook cannot be read the first two are used and the entry write fails, so a Yes cannot come out. `rules.check` takes `today` as an argument (default the system date) so the callers without a root are covered.
+- **Lapse.** A Yes rule with `review_by < today` is treated as `ASK` in `decide`, with its id added to `Decision.lapsed`. The strongest wins as before. A Yes rule with `review_by == today` is in force (the last day).
+- **Entry and JSON.** `Decision.lapsed` is put in the entry's `Checked` line (shape above) and, only when not empty, in the JSON as `"election_fallbacks": ["id"]`. With none, the JSON and the entry are the same bytes as before.
+- **`rules due`.** Reads `rules.yaml` with the same loader, sorts by `review_by` then id, and prints:
+
+  ```
+  lapsed  2026-11-01  report-yes  10 days ago
+  due     2026-11-20  commit-ask  in 9 days
+  far     2030-01-01  old-yes     in 1146 days
+  Yes rules without review_by: 5
+  ```
+
+  `lapsed` is `review_by < today`; `due` is `today <= review_by <= today + DAYS`; `far` is more than 366 days ahead and is shown instead of `due`. Exit 0, or 3 if a rule lapsed or the rules cannot be read. It writes nothing.
+- **Why this shape.** The date is on the rule, not in a second file, so the rule and its expiry cannot drift. The rule is not edited when it lapses, so the file is always what the owner wrote and the fallback is a property of the date.
+
+### Slice 2: Reversal
+
+- **`logbook.read_chained(root)`.** The same checks as `read_checked` (tamper check, format, chain), returning `(Entry, chain value or None)` for every entry. Read only, no lock. Used by `decision reopen`.
+- **Resolve.** The closing entries of one decision are the entries with source `umwayi queue answer` or `umwayi queue close` whose `Added` matches `^(Q-\d{4,}) `. The newest one for the id, with a `Chain` value, is *the* old entry. An id argument is resolved to it; a hash argument must equal its `Chain` value. Anything else is refused (13.R4.5).
+- **Order of `reopen`.** Arguments (64), the lock, the tamper and chain check (1), `queue.md` parse (1), resolve the old entry (1), the row is a decision that is not open (1), no earlier reopen of this hash with an open row (1), build the new row and the entry, one queue commit (queue.md and the logbook entry; both or neither), print.
+- **The new row.** Kind `decision`, status `open`, title `Reopen decision Q-0007`, recommendation `Reopened on DATE by NAME: REASON` (cut to 500 characters, never mid-word). The old row is untouched.
+- **Already reopened.** The command scans the chained entries for `Reopen of entry HEX (` with the same HEX and takes the new id from `new decision (Q-\d{4,}) opened`; if that row is still `open` in `queue.md`, it refuses. A reopen of a reopening row is the normal path: the closing entry of the new row is the newest closing entry for that id.
+- **`--revisit-if`.** `queue answer` takes it, requires it for a decision, and appends `; revisit if: TEXT` to `Added`. It is validated like an answer (one line, no `|`) up to 200 characters, or the word `none`. The reopen reads it back with `fullmatch` on `^Q-\d{4,} marked answered on \d{4}-\d{2}-\d{2} \(status open to answered, \d+ characters of answer\); revisit if: (.{1,200})$`; no match (an answer from before layer 13) gives `not recorded before layer 13`. An entry that has the text but a different shape is not read.
+- **What the old entry keeps.** Nothing in the code path opens the old entry for writing; the logbook is only appended. A test compares the file before and after: the first part is byte for byte the same and the rest is exactly one entry.
+
+### Slice 3: Courts and the rules change log
+
+- **Petition order.** Arguments (64), the lock, tamper and chain check (1), read `rules.yaml` (1 if unreadable), the rule exists and its verdict is `no` (1), the five limits (1), the same open petition (prints `Already open, nothing added`, 0), add the row and write the entry in one queue commit.
+- **Counting the limits.** Open petitions are the `queue.md` rows of kind `decision` and status `open` whose title matches `^Petition against rule ([a-z0-9][a-z0-9_-]*) by ([a-z][a-z0-9_-]{0,39})$`. Accepted today are the `umwayi petition` entries of the current logbook date, read with the fixed shapes. A helper cannot beat a limit by a new name for the total limits (10 open, 10 a day); the per helper limits are bounded by the totals.
+- **Verdict never changes.** `petition.py` imports `rules` only to read the rule's verdict (through `load_rules`), writes nothing to `rules.yaml` and has no code path that does. A test hashes `rules.yaml` and the answers of a fixed list of actions before and after 200 petitions and after the owner's answers.
+- **Rules change log (`rulelog`).** On every `check`, after the rules load: SHA-256 of the exact bytes read; find the newest chained-or-not entry of source `umwayi rules` in the shape above (one read of the logbook, shared with the election clock and, in slice 5, the inputs); if its hash is the same, nothing; otherwise build the diff against its `state:` list, write one entry through the checked append, then go on. Rules with `review_by` or `autonomy` show them in the state (`report-yes yes review_by 2026-12-01`). More than 200 rules: the entry holds the hash and counts and `state: too many rules to list`, and the next change is logged as a baseline. A rules file that fails to parse is not logged (it is not used).
+- **If the entry cannot be written** the check goes on with `rules_logged = false`: a Yes becomes Ask me first. This is the same effect as the existing "the logbook cannot be written" case, so nothing new has to be tested for the entry's own check write.
+- **Not blocked.** A weakened rule is used at once. The entry says `changed no-money verdict no to yes` in the logbook, dated, in the chain. The owner finds it with `umwayi logbook verify` and by reading the log; a hold-until-accepted design is L13-Q11.
+
+### Slice 4: Honest tension
+
+- **Stop criteria** are written in 13.R8.3 and 13.R8.4 and in a table in `docs/corrections.md`:
+
+  | what | stop criterion | who acts |
+  | --- | --- | --- |
+  | build of a slice | a failing acceptance test or planted fault, or not merged by Nov 28 | the slice is not merged; it stays "specified, not built" |
+  | the layer | the owner says stop, or Dec 3 | slices before it stay |
+  | an election | none to stop; a rule without `review_by` never lapses | the owner adds the date |
+  | a reopen | none; it is a question, not a change | the owner answers |
+  | a petition | the limits of 13.R6.5 | the command refuses |
+  | graded autonomy, now | `enabled: false`, or the file removed | the owner, at the next check |
+  | graded autonomy, by itself | a rejected or reverted outcome (cooldown), the daily cap, an input that is not intact, the kill switch | the gates |
+- **The plain note**, in `docs/corrections.md` and `docs/autonomy.md`, section "No state is perfect": "The owner wants umwayi to correct itself and to be safe. Each way to correct something is also a way to be wrong: a date can be set too far ahead, a reopen can be forgotten, a petition can be a bad idea, a score can be built on careless approvals. umwayi makes each state visible and dated, and falls back to Ask me first when it is not sure. It does not make any state perfect, and nothing in these pages says it does."
+- **The words test** (`tests/test_honest.py`): the banned list of 13.R8.2 against `docs/corrections.md`, `docs/autonomy.md`, the `--help` of every layer 13 command, and the captured output and logbook entries of the acceptance tests. The exact sentence of the note is removed before the search; a planted `guaranteed` in a copy of each page is found.
+- **KNOWN-LIMITS for layer 13**, numbered from 160 (layer 12 holds 138 to 159; the first free number at write time, never lower): 160 `review_by` depends on the owner renewing honestly, and a rule with none never lapses; 161 a clock set far ahead lapses every rule (a safe error) and the election clock never goes back; 162 a reopen links to a hash and needs the chain, entries before the chain cannot be linked; 163 the revisit condition is the owner's words, and nothing watches for it; 164 petition names are labels, refused petitions are not logged, and the caps stop a flood, not a patient one; 165 the rules change log shows a weakening and does not hold it; 166 a process of the same user can write well formed, chained score inputs (item 135 again); 167 the score is a statistic of the past: it cannot see that this commit differs from the last 80, and a class that is too wide mixes histories; 168 reversibility and cost are the owner's declaration; 169 careless approving builds a high score (the owner's record is the input); 170 the moves of one day are capped but a wrong move is still a wrong move.
+
+### Slice 5: Graded autonomy
+
+**The inputs.** `autonomy.read_inputs(entries)` takes the output of `logbook.read_checked` plus the chain values and returns counts per `(class, outcome)` and the dates of the rejected and reverted ones, or `INVALID`. It only looks at entries whose source starts with `umwayi autonomy`. Each such entry must have all three lines equal to one of the fixed shapes of the table above (a `fullmatch` on each line), a `Chain` value, and a date not before the chain started. One entry that fails makes the whole result `INVALID`, and then no class is moved (13.R11). It also counts the check entries of the day with the move shape (source `umwayi check`, `Added` matching `^Rule [a-z0-9][a-z0-9_-]* gave Ask me first and autonomy moved it to Yes; action type: [A-Za-z0-9_.:-]{1,40}$`, and the class in `Checked`) to know the moves of the day. No other line of any entry is read: not a queue title, not an answer, not a reason.
+
+A `--ref` is unique per outcome: a second `approved` record for `Q-0007` makes `record` refuse (1), and the reader treats a duplicate it finds as `INVALID`. A `reverted` for a ref needs no earlier `approved` for it: the record is a count, and the owner may revert something a human approved outside the tool.
+
+**The score.** For one class over the window, with the weights of `autonomy.yaml`:
+
+```
+s = a                              # approved as proposed
+f = e + r + revert_weight * v      # edited, rejected, and each revert counted revert_weight times
+n = s + f
+z = confidence_z / 100
+if n == 0: score = 0
+p      = s / n
+centre = p + z*z / (2*n)
+spread = z * sqrt( p*(1-p)/n + z*z / (4*n*n) )
+bound  = (centre - spread) / (1 + z*z / n)
+score  = floor(bound * 1000), kept between 0 and 1000
+```
+
+It is the lower end of the Wilson score interval for the share of proposals the owner accepted as proposed. It is cautious in two ways: few records give a wide interval and so a low bound, and the confidence z is the owner's (2.58 is about 99 percent). Only `+`, `-`, `*`, `/` and `sqrt` on 64 bit floats are used, in this order, so the result is the same on Python 3.10 to 3.13. The result is rounded down. A revert counts on top of its own approval on purpose: the approval stays a success and the revert adds `revert_weight` failures, which is the cautious side. An edit is a failure of the proposal as proposed (L13-Q7).
+
+**Worked example.** `autonomy.yaml` as above (window 90, min 30, bound 850, z 2.58, weight 3, max cost 10, cooldown 30, 5 moves a day). Rule `commit-ask` opts in the class `git-commit`, reversible, cost 2. Today is 2026-12-01. The owner's record in the window:
+
+| case | a | e | r | v | s | f | n | p | centre | spread | bound | score | gate that stops it | answer |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 70 | 3 | 1 | 0 | 70 | 4 | 74 | 0.945946 | 0.990922 | 0.081377 | 0.834482 | 834 | score 834 is below 850 (`low-score`) | Ask me first |
+| 2 | 80 | 2 | 0 | 0 | 80 | 2 | 82 | 0.975610 | 1.016198 | 0.059825 | 0.884568 | 884 | none: n 82 at least 30, score at least 850, reversible, cost 2 of 10, no cooldown, 0 of 5 moves today | **Yes** (moved, logged) |
+| 3 | 80 | 2 | 0 | 1 (dated 2026-11-30) | 80 | 5 | 85 | 0.941176 | 0.980332 | 0.076607 | 0.838093 | 838 | cooldown until 2026-12-30 (`cooldown`); after it, score 838 is below 850 (`low-score`) | Ask me first |
+| 4 | as case 2, but the rule says `reversible: false` | | | | | | | | | | | 884 | `irreversible`, whatever the score | Ask me first |
+| 5 | as case 2, but the rule says `cost_uu: 11` | | | | | | | | | | | 884 | `cost` (11 above 10) | Ask me first |
+| 6 | 20 | 0 | 0 | 0 | 20 | 0 | 20 | 1.000000 | | | | 750 | `low-data` (n 20 below 30) | Ask me first |
+
+The numbers of cases 1 to 3 are computed with the order above and are test fixtures. In case 2 the move is logged as `Rule commit-ask gave Ask me first and autonomy moved it to Yes; action type: tool_bash` with `class git-commit; approved 80; edited 2; rejected 0; reverted 0; weight 3; n 82; score 884 per mille; needs n 30 and score 850; reversible yes; cost 2 of 10 UU; moves today 1 of 5`. One later revert (case 3) takes the class out for a month and then holds it under the bound, and 100 clean approvals later it would be above the bound again: the owner's record alone moves it.
+
+**The gates, in order.** Each has a fixed word that the entry and `status` print.
+
+| # | gate | word | stays Ask me first when |
+| --- | --- | --- | --- |
+| 1 | on and valid | `autonomy-off`, `settings-invalid` | no `autonomy.yaml`, `enabled` not true, or the file is invalid |
+| 2 | logging | `no-log` | the call is a dry run (`--no-log`) or a caller that does not log |
+| 3 | kill switch | `kill-switch` | the state is on or unknown (read on every call, with or without `--kill-switch`) |
+| 4 | the record is intact | `chain`, `inputs-invalid` | the logbook cannot be read, fails the tamper check, has no chain, has a broken chain, or one input is out of shape, unchained or duplicate |
+| 5 | the rules | `not-opted-in`, `election-lapsed` | there is no matching rule, a matching Ask rule has no opt-in, or a Yes rule lapsed |
+| 6 | one class | `class-mismatch` | the matching opt-in rules give different classes |
+| 7 | the opt-in's own review | `opt-in-lapsed` | the opt-in rule is past its `review_by` |
+| 8 | reversible | `irreversible` | `reversible` is not true |
+| 9 | cost | `cost` | `cost_uu` is above `max_cost_uu` |
+| 10 | cooldown | `cooldown` | a rejected or reverted outcome of the class is within `cooldown_days` |
+| 11 | data | `low-data` | `n` is below `min_decisions` |
+| 12 | score | `low-score` | the score is below `min_lower_bound` |
+| 13 | daily cap | `daily-cap` | `max_moves_per_day` moves of the class are already logged today |
+
+The two cheapest gates that need no logbook (1, 2) come first; the gates that read the logbook (4) are before the numbers (10 to 13) so a forged or broken record never reaches the score. Gate 5 is last of the rule gates so that a lapse or a missing opt-in shows its own word.
+
+**Fail closed table.** The rows of 13.R11, each with the gate and the child process test that plants it (tests/autonomy/test_gates.py):
+
+| 13.R11 | planted state | gate | answer, exit |
+| --- | --- | --- | --- |
+| 1 | no `autonomy.yaml` / `enabled: false` / a key missing / a value out of range / a YAML error | `autonomy-off` / `settings-invalid` | Ask me first, 3 |
+| 2 | 29 clean approvals with `min_decisions: 30` | `low-data` | Ask me first, 3 |
+| 3 | `reversible: false`; the field missing (the rule is malformed) | `irreversible` / rules broken | Ask me first, 3 |
+| 4 | `cost_uu` 11 with max 10; missing (malformed) | `cost` / rules broken | Ask me first, 3 |
+| 5 | a matching No rule and an opt-in Ask rule with 500 clean approvals | no step 8 | No, 2 |
+| 6 | an old chained entry edited; a deleted entry; the hash record changed; a chain not started; a torn tail; `LOGBOOK.md` unreadable | `chain` | Ask me first, 3 (the logbook refusal of layer 5 holds) |
+| 7 | a forged input: a well formed entry with a wrong Checked line; an entry with a count field; an unchained input written before the chain; an unknown outcome word; a duplicate `ref` | `inputs-invalid` | Ask me first, 3 |
+| 8 | `.umwayi/KILL` present; `.umwayi` a file (unknown) | `kill-switch` | Ask me first, 3 (No with `--kill-switch`) |
+| 9 | `rules.yaml` unreadable; `autonomy.yaml` a directory; a bad action JSON; a clock that is not a date (`--date` is refused at 64) | rules or file errors | Ask me first, 3 |
+| 10 | `--no-log`; a held logbook lock; a full disk is not tested | `no-log` / the layer 2 write rule | Ask me first, 3 |
+| 11 | the Yes rule past `review_by` matching the same action; the opt-in rule past `review_by` | `election-lapsed` / `opt-in-lapsed` | Ask me first, 3 |
+| 12 | a `rejected` ten days ago with a perfect score; 5 moves already logged today | `cooldown` / `daily-cap` | Ask me first, 3 |
+| 13 | a planted crash (an exception) inside the score | none | exit 2 |
+
+**`autonomy status`** prints one block per class declared by a rule or present in the record:
+
+```
+class git-commit   rule commit-ask   reversible yes   cost 2 of 10 UU
+  approved 80  edited 2  rejected 0  reverted 1  weight 3  n 85  score 838 per mille  (needs n 30, score 850)
+  cooldown until 2026-12-30   moves today 0 of 5   state: Ask me first (cooldown)
+graded autonomy: on. inputs: intact (146 outcomes). kill switch: off.
+```
+
+Exit 0. When off it prints `graded autonomy: off` and the counts as a display. When the inputs are invalid it says so and prints no score.
+
+**The adapters.** The example rules of the three adapters add, to the guard lists: the paths `autonomy.yaml` and `autonomy.example.yaml`, and the shell commands `umwayi autonomy`, `umwayi decision`. A helper can still run `umwayi petition` (owner's choice).
+
+### Commands and exit codes
+
+| command | 0 | 1 | 2 | 3 | 64 |
+| --- | --- | --- | --- | --- | --- |
+| `umwayi check` | Yes | | No, a crash | Ask me first | usage |
+| `umwayi rules due` | no rule lapsed | | a crash | a rule lapsed, or the rules cannot be read | bad `--within` or `--date` |
+| `umwayi decision reopen` | done | refused, nothing changed (13.R4.5, 13.R4.6) | a crash | | bad id, hash, reason or name |
+| `umwayi queue answer` | done | as today | a crash | | a decision without `--revisit-if`, a bad value, a task with it |
+| `umwayi petition` | added, or already open | refused (13.R6.1, 13.R6.5) | a crash | | bad rule id, helper or reason |
+| `umwayi autonomy status` | printed | | a crash | | bad `--class` or `--date` |
+| `umwayi autonomy validate` | valid | | a crash | | invalid (every problem printed with a line number) |
+| `umwayi autonomy record` | recorded | refused (13.R9.5) | a crash | | bad class, outcome, name or ref |
+
+### Failure modes
+
+| failure | what happens |
+| --- | --- |
+| `review_by` is not a real date, or is on a No rule | `rules.yaml` is malformed: every check is Ask me first until fixed; `rules due` exits 3 and says so |
+| `rules.yaml` has `review_by` before slice 1 is merged | the old code calls the file malformed (Ask me first for all); the docs say not to add it early |
+| the system clock jumps forward | rules lapse early (safe); they renew when the owner edits the date |
+| the system clock jumps back | the newest logbook date still counts, so nothing revives; new entries are refused as going backwards (a Yes becomes Ask me first) |
+| a lapsed rule is the only one that approved a scheduled job | the job's check gives Ask me first and the job stops with its queue item; `rules due` warns 14 days ahead |
+| reopen of a hash with no entry, of an open or task row, of an unchained entry | exit 1, nothing changed, no entry |
+| reopen with a broken chain | exit 1, nothing changed; `umwayi logbook verify` names the line |
+| `queue.md` and the logbook disagree (a row hand deleted) | exit 1; the row is not recreated |
+| a crash between the queue write and the entry | the queue commit puts `queue.md` back; exit 2 |
+| a petition flood | the limits refuse with exit 1; no entry, no row |
+| a petition reason with instructions in it | it is untrusted text in `queue.md` only, marked as such; no code reads it; the owner reads it as a claim, not an order (a risk below) |
+| `rules.yaml` changed while the logbook is locked | the new rules give no Yes for this check; the next check logs the change |
+| `autonomy.yaml` invalid | graded autonomy is off; `validate` prints the problems |
+| a hand edited logbook | every write and every check that logs is refused by layer 5 as today; no move |
+| `status` run with a broken chain | prints that the inputs cannot be read and no score |
+| a very large logbook | one pass of the file per check, shared by the clock, the rules log and the inputs; the acceptance test runs a 5000 entry logbook (KNOWN-LIMITS 124 for the same cost in the governor) |
+
+### Tests (13.R13)
+
+All as real child processes in a temporary root. Each slice has a support module that builds a root with a chained logbook, a rules file and the fixtures, and writes records through the real commands, not by hand, except for the forged inputs, which are written on purpose through `logbook.append` or by editing the file.
+
+- **Slice 1** (`tests/test_elections.py`): the rule past `review_by` (the planted fault): `check --date` the day after is Ask me first (3) with the fallback in the entry; the same day is Yes; a past `--date` or a logbook entry dated later does not revive it; a No rule, an Ask rule without opt-in and each bad date (`2026-13-01`, `2026-2-1`, `tomorrow`, `20261101`, a list) make the rules malformed; a lapsed Yes beside a fresh Yes gives Ask me first; a lapsed Yes beside a No gives No; `rules due` output byte for byte, exit 0 and 3, no write (root snapshot), no rule text printed (sentinels in title, text, cause); bare `rules.check` callers (a job, a helper) fall back too; a rules file with no `review_by` gives the old bytes (a golden file of an entry and the JSON).
+- **Slice 2** (`tests/test_reopen.py`): the reopen of a missing entry (the planted fault): an unknown hash, a 63 and a 65 character hash, uppercase hex, a hash of a `check` entry, a hash of an older closing entry, a Q id that does not exist, a task, an open decision, an unchained entry: exit 1 or 64 as the table says, nothing changed; the broken chain (the planted fault): an old entry edited, a deleted entry, a changed hash record, a torn tail, a chain not started: exit 1, nothing written; the happy path: one entry appended, the file before is a byte for byte prefix of the file after, the entry names the hash in full and starts with `Reopen of entry`, the new row is open and the old row is byte for byte the same, `logbook verify` is ok, the anchor still verifies; a second reopen while the first row is open is refused, and after closing it succeeds with the new hash; `--revisit-if` required for a decision, refused for a task, `none` accepted, a pre layer 13 answer reads `not recorded before layer 13`; the injected crash in the queue commit; two reopens at once; the reason with `|`, a newline, 301 characters.
+- **Slice 3** (`tests/test_petition.py`, `tests/test_rulelog.py`): the petition spam (the planted fault): 200 petitions from one helper and 60 helper names, with the counts of open and accepted exactly at the limits of 13.R6.5, the exit codes, the number of rows and entries, the time bounded, `rules.yaml` and the answers of a fixed set of actions unchanged; a petition against a Yes, an Ask, a missing rule or with broken rules: exit 1; a reason that reads like an instruction appears only in `queue.md`, never in the logbook, the title is the fixed template; the owner's answer does not change a rule; a rules edit before use (the weakening of `no-money` to `yes`): the `umwayi rules` entry is in the logbook before the check entry of the same call, names the id and `no to yes`, holds no rule text, and is not repeated by the next check; a comment only edit logs `no rule changed`; with the logbook locked or the chain broken the new Yes rule gives Ask me first and a No stays No.
+- **Slice 4** (`tests/test_honest.py`): the note is in both pages; the banned list finds a planted word in a copy; the KNOWN-LIMITS items exist; the stop criteria table is in the page.
+- **Slice 5** (`tests/autonomy/`): the worked example, cases 1 to 6, to the per mille, on Python 3.10 to 3.13; 200 fixed tuples against precomputed scores; every row of the fail closed table; off by default (100 clean approvals, no file or `enabled: false`: Ask me first, and the entry and JSON byte for byte as without layer 13); a forged score input (the planted fault) in the five ways of row 7; the text blind test (sentinels and instruction text in queue titles, answers, recommendations, petitions, reasons, rule titles, other logbook sources: `status` output and the answer are the same); the moves do not feed the score (100 moves, `n` the same); every class on the never list with `autonomy` makes the rules malformed; two Ask rules with one opt-in: Ask me first; a matching No: No; the daily cap; the dry run; a caller that does not log (a job): no move; a code guard (the module imports no `queue`, no `subprocess`, no network).
+- **Mutation checks** (13.R13.2): at least these faults, each killed by a named test, counts in the pull request: expiry `<` for `<=`; the clock from `--date` only; the fallback not logged; the old entry marked; a reopen that opens the old row; a petition that edits the rule; a petition limit off by one; the rules entry written after use; a gate skipped (one mutation per gate); the score rounded up; a revert not counted; a score that reads a queue title; `enabled` ignored; an unchained input accepted.
+
+### Docs page plan
+
+| page | what | when |
+| --- | --- | --- |
+| `docs/corrections.md` (new) | Purpose; Current state (Elections, Reversal, Courts, the rules change log, stop criteria, "No state is perfect"); Decisions log (the owner's decisions of Nov 11); Open questions | written "specified, not built" in L13.0; each slice makes its part current |
+| `docs/autonomy.md` (new) | the score, `autonomy.yaml`, the opt-in, `record`, `status`, the gates and the fail closed table, the worked example, "No state is perfect" | L13.0 (specified); current in L13.5 |
+| `docs/rules.md` | `review_by`, `rules due`, the `autonomy` field, the rules change log, the election clock | L13.1, L13.3, L13.5 |
+| `docs/queue.md` | `--revisit-if`, a petition item, a reopen item | L13.2, L13.3 |
+| `docs/logbook.md` | the new entry shapes; "a reopen is a new entry; the old one is never marked" | L13.2, L13.3, L13.5 |
+| `docs/exit-codes.md` | the table of Commands and exit codes | each slice |
+| `docs/adapters.md` and the three adapter READMEs | the new guard names in the example rules | L13.1 (rules due), L13.5 |
+| `docs/architecture.md`, `docs/testing.md`, `docs/security.md` | the layer 13 line, the test modules, the boundary (item 135) | each slice |
+| `docs/KNOWN-LIMITS.md` | items 160 to 170 | the slice that causes each |
+| `docs/status-log.md`, `docs/schedule.md`, the status table in tasks.md, README, PROJECT.md | the status and the pull requests | each slice |
+| `docs/interface.md` | one line if the owner asks for the layer 13 stations (L13-Q13) | not in layer 13 |
+| `autonomy.example.yaml` | the settings with `enabled: false` | L13.5 |
+
+### Hours and schedule effect
+
+| task | hours |
+| --- | --- |
+| L13.0 spec | 8 |
+| L13.1 Elections | 14 |
+| L13.2 Reversal | 20 |
+| L13.3 Courts and the rules change log | 16 |
+| L13.4 Honest tension | 5 |
+| L13.5 Graded autonomy | 32 |
+| L13.6 whole-system update | 6 |
+
+About 93 hours of build and 8 of spec. The layer 12 round 2 plan is about 75 hours in the same weeks (PR 39, UI.2 and later), so the two together are about 170 hours between Nov 11 and Nov 28. That does not fit one person at a normal pace, and the owner has said to stop where the deadline finds us. The plan, if the spec is approved on Nov 12: L13.1 Nov 12 to Nov 13, L13.2 Nov 14 to Nov 16, L13.3 Nov 17 to Nov 19, L13.4 Nov 20, L13.5 Nov 21 to Nov 26, L13.6 Nov 27 to Nov 28. The last day a slice can be merged is **Nov 28**. Nothing on the main schedule moves: README, demo and Devpost text Nov 23 to Nov 28, the freeze Nov 29 to Dec 2, submit Dec 3. A slice that is not merged by Nov 28 is not merged (13.R8.3), so the cut is always from the end: graded autonomy first, then the whole-system update, then Honest tension, and so on. After any slice the product is whole: the earlier slices do not depend on the later ones. The hours of L13.5 are the least certain (the gates are many, each with a test); if the owner wants the safer cut, L13.5 is built after Nov 22 only if L13.1 to L13.4 are merged and green, which is the plan.
+
+### Risks (layer 13)
+
+| risk | what happens | what we do |
+| --- | --- | --- |
+| a lapse stops a scheduled job at night | the job asks and waits | `rules due` 14 days ahead; the queue shows the Ask me first; a lapse is never silent |
+| the owner renews by habit | `review_by` moves forward without a look | stated in KNOWN-LIMITS 160; `rules due` lists what lapsed; an election is only as good as the person |
+| a petition is a prompt injection | the owner (or an AI helper that reads the queue) follows text a helper wrote | the title is a fixed template; the reason is marked untrusted; no code reads it; the logbook never holds it; the steering rule 4 holds (a helper drafts only) |
+| petition spam hides a real petition | the owner stops reading them | the limits of 13.R6.5; the cap on open petitions means a spammer fills the cap and no more |
+| the score rewards careless approving | a high score from habit | the bound is cautious, a revert weighs 3 and starts a cooldown, a class is narrow by the rule's matchers, the owner's record is the input and is stated as the limit (KNOWN-LIMITS 169) |
+| a class is too wide | one score for different things | the class is the owner's name in a rule with its own matchers; `status` shows the counts so a wide class is visible (L13-Q3) |
+| a forged score input | a move that the owner did not earn | fixed shapes, chain, tamper check, a whole record invalid on one bad entry, text never read; a same-user writer with the chain logic is the item 135 boundary, not prevented |
+| an AI helper opens the autonomy door | a helper writes `autonomy.yaml` or records outcomes | the guard names in the example rules of every adapter; the settings are logged before use; `enabled` is off by default |
+| the logbook read on every check slows a hook | a hook times out | one pass shared by every step; the 5000 entry test; if too slow the entry reader is cached by file size and hash, in a later change |
+| the existing tests break (`queue answer` needs `--revisit-if`) | red CI | the tests of decisions are updated in L13.2 with the reason in the pull request; nothing else of the earlier tests is changed |
+| the spec of layer 12 and 13 disagree | confusion about the view | layer 13 changes nothing in the view (13.R15); 12.R8 and UI-Q11 stay the place where the owner decides |
+| rules were weakened and used at once | a helper edited the rules | the entry names the id and the change, dated; the guard rules forbid a helper to touch `rules.yaml`; L13-Q11 is the stricter option |
+
+### Open questions for the owner (layer 13)
+
+The owner's decisions of Nov 11 are above and are not asked again. Each question below has the answer proposed; the build uses the proposal unless the owner answers otherwise.
+
+1. **L13-Q1. What a reopen does to the queue.** It adds a new open row and leaves the old row as it was (proposed, like the logbook). Or it flips the old row to open.
+2. **L13-Q2. Where "what would change my mind" is stored.** In the logbook entry of the answer, as `; revisit if: TEXT` (proposed: it cannot be edited later, and no migration). Or a new column in `queue.md`, visible in `queue list`, which needs a migration like the answer column did.
+3. **L13-Q3. What an action class is.** A name the opt-in rule gives (`class: git-commit`), with the rule's own matchers saying which actions belong (proposed: it is narrow, it is the owner's, and no action text names it). Or the action's `type` (wide, so a `tool_bash` score would mix everything).
+4. **L13-Q4. Where reversibility and cost are declared.** In the opt-in rule, next to the class (proposed: one place, and they can lapse with the rule's `review_by`). Or per class in `autonomy.yaml`.
+5. **L13-Q5. Defaults for the thresholds.** None: every setting is required and `autonomy.example.yaml` carries suggested values (proposed: "owner defined" means no hidden default). Or defaults in the code.
+6. **L13-Q6. How outcomes are recorded.** With `umwayi autonomy record` (proposed: explicit, one chained entry each). Or as a flag on `queue answer` (`--outcome approved`), which is easier to use and is a later addition.
+7. **L13-Q7. The weights.** Only `approved` is a success; `edited` and `rejected` are one failure each; a revert is `revert_weight` (3) failures on top of its approval (proposed, cautious). Or an edit counts as half.
+8. **L13-Q8. Confidence and suggested thresholds.** z 2.58 (about 99 percent), `min_decisions` 30, `min_lower_bound` 850 per mille, so a class needs about 60 clean approvals to pass (proposed: cautious). Or z 1.96, which needs fewer.
+9. **L13-Q9. `rules due` exit codes.** 3 when a rule lapsed (proposed: a scheduled job can notice), else 0. Or always 0.
+10. **L13-Q10. How far ahead `review_by` may be.** No limit, but a date more than 366 days ahead is listed as `far` (proposed). Or a date that far makes the rules malformed.
+11. **L13-Q11. A weakened rule.** Logged before use and used at once (proposed, as the owner decided for Courts). Or held at Ask me first until the owner runs `umwayi rules accept --by NAME`, which is a stricter design for after Dec 3.
+12. **L13-Q12. Petition limits and the reason.** One open per helper and rule, 3 open per helper, 10 open in all, 5 accepted a day per helper, 10 in all, a free text reason of 200 characters (proposed). Or a fixed list of grounds and no free text, which has no injection path and says less.
+13. **L13-Q13. The view.** Layer 13 changes nothing in the view; the owner decides on the review, reopened and petition stations (12.R8, UI-Q11) when layer 13 is built (proposed). Or a counts only snapshot schema 2 is added in L13.6.
+14. **L13-Q14. What a standing approval is.** A Yes rule (proposed). An installed schedule runs through the Yes rules it asks (`run_job`, `workflow_step`), so it lapses when they do. Or `schedule.yaml` entries get their own `review_by`.
+15. **L13-Q15. A queue item for a lapsed rule.** No: `rules due` is the list, and a scheduled job can run it (proposed). Or `rules due --queue` adds one decision per lapsed rule.
+16. **L13-Q16. A lapsed Yes next to a fresh Yes.** Ask me first, the stricter answer (proposed). Or the lapsed rule is ignored and the fresh Yes stands.
+17. **L13-Q17. The chain.** Reopen and `autonomy record` need the hash chain to have started (proposed; the owner runs `umwayi logbook seal --chain` once). Or they work without it, linking an unchained entry by the SHA-256 of its text, a weaker link.
+18. **L13-Q18. Cooldown and the daily cap.** A rejected or reverted outcome stops moves for the class for `cooldown_days` (30), and at most 5 moves a class a day (proposed). Or a revert alone triggers the cooldown.
+
+Answers (owner, Nov 11): decisions 1 to 6 above. L13-Q1 to L13-Q18 are open.
