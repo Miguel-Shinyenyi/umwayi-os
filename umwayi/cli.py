@@ -7,6 +7,7 @@ Exit codes:
   other errors:  1
   umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
   umwayi budget: 0, 2, 3 or 64 only, never 1 (budget governor)
+  umwayi view:   0, 1 (the tamper check failed), 2 or 64 only, never 3 (layer 12)
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, budget, elections, jobs, kill, logbook, publish, report, rules,
-                    schedule, taskqueue, units, workflow)
+                    schedule, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -222,6 +223,15 @@ def build_parser() -> argparse.ArgumentParser:
                                                "crash), as unknown at the worst case")
     bgl.add_argument("--by", required=True, help="who settles them (your name)")
     bgl.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entries (default: today)")
+
+    vw = sub.add_parser("view", help="the web interface (layer 12); 0, 1, 2 or 64, never 3")
+    vwsub = vw.add_subparsers(dest="view_command", parser_class=_Parser)
+    vws = vwsub.add_parser("snapshot", help="write one JSON file of counts for the page, and one logbook entry "
+                                            "(no text, path or secret of any file)")
+    vws.add_argument("--out", help="the file to write, inside the root, ending in .json "
+                                   "(default: .umwayi/snapshot.json)")
+    vws.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD, the last of the seven budget days "
+                                                    "(default: today, from the system clock)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -486,6 +496,27 @@ def _cmd_budget(args, out) -> int:
         return EXIT_CRASH
 
 
+def _cmd_view(args, out) -> int:
+    """Layer 12. Its own error handling: 0, 1 (the tamper check, from view.snapshot), 2 or 64, never 3."""
+    try:
+        code, lines = view.snapshot(Path(args.root), args.out, args.date or _today())
+        out.write("\n".join(lines) + "\n")
+        return code
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except OSError as e:
+        if e.errno == errno.ENAMETOOLONG:
+            sys.stderr.write("umwayi: error: a path is longer than this system allows. Nothing was changed.\n")
+            return EXIT_USAGE
+        return _crashed(e)
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _cmd_schedule(args, out) -> int:
     """Layer 11. Its own error handling: 64 for usage and config, 2 for anything else, never 1 (11.R6)."""
     root = Path(args.root)
@@ -534,6 +565,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_schedule(args, out)
         if args.command == "budget" and getattr(args, "budget_command", None):
             return _cmd_budget(args, out)
+        if args.command == "view" and getattr(args, "view_command", None) == "snapshot":
+            return _cmd_view(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
         if args.command == "workflow" and getattr(args, "workflow_command", None) == "validate":

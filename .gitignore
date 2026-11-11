@@ -23,3 +23,6 @@ memory/journal/*-private.md
 # drafts and the outbox are the owner's material, not code
 drafts/
 outbox/
+
+# the web interface snapshot (layer 12): the owner's counts, not code
+.umwayi/snapshot.json
