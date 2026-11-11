@@ -2491,88 +2491,222 @@ That is about three working days: Nov 10 to Nov 12 (S-Q16, moved up by the owner
 
 Answers (owner, Nov 10): S-Q1 to S-Q16 as proposed. S.1 and S.2 are built right after PR 34 merges, Nov 10 to Nov 12, in two pull requests (S.1 first); the web interface follows the scan, with its own spec first; README, demo and Devpost stay Nov 23 to Nov 28.
 
-## Layer 12: Web interface, the view (spec in the UI.0 pull request, tasks.md UI.0; built only after the owner approves it)
+## Layer 12: Web interface, the view (spec approved Nov 10; the look changed by the owner on Nov 11, UI-Q12 to UI-Q16; tiers, the public site and the scene additions on Nov 11, round 2, UI-Q17 to UI-Q22)
 
-Requirements 12.R1 to 12.R11. Tasks UI.0 to UI.5. Facts with links, and the owner's interface check: `adapters/NOTES-layer12.md`. It was a non goal until Nov 10; the owner moved it into scope before Dec 3. Layer 12 changes the core in one place only: the read only command `umwayi view snapshot` (`umwayi/view.py`). Everything else is in `ui/`, outside the package. If the owner approves, the order is UI.1 (the static world), UI.2 (the snapshot command), UI.3 (the page reads it), UI.4 (the owner checks panel), UI.5 (polish, docs, the owner's check).
+Requirements 12.R1 to 12.R20. Tasks UI.0 to UI.5. Facts with links, and the owner's interface check: `adapters/NOTES-layer12.md`. It was a non goal until Nov 10; the owner moved it into scope before Dec 3. Layer 12 changes the core in one place only: the read only command `umwayi view snapshot` (`umwayi/view.py`). Everything else is in `ui/`, outside the package. The order is UI.1 (the static world: the highlands scene, the stations, the layout, the home content), UI.2 (the snapshot command), UI.3 (the page reads it and feeds the position function), UI.4 (the owner checks panel), UI.5 (polish, docs, the scan, the owner's check).
 
-### The owner's reference, and what this design keeps and changes
+### The owner's references, and what changed on Nov 11
 
-The owner supplied a screenshot and a design document of a 3D shepherd hillside (three.js, eleven stations around a lantern). `main.js` and `package.json` of the reference were not available; the design document describes them. The reference and its prompt are not in the repo; this section carries what the build needs. It is a starting point, not a copy.
+The first reference was a screenshot and a design document of a 3D shepherd hillside (three.js, eleven stations on podiums in a ring round a lantern). UI.1 was built from it (PR 39) and the owner reviewed it on Nov 11 and **asked for a different look** (UI-Q12 to UI-Q16): real life instead of a stylised game scene; the Kenyan highlands at dusk; stations that are natural features, not podiums; a scattered layout, not a circle; and the scene as the hero of the home page.
 
-| in the reference | in layer 12 | why |
+**Kept** (they were not the problem): the engine (the ease out tween, following, the on demand loop, settings, the pose player and its time limits), Calm mode, reduced motion, the build, the Content-Security-Policy, `build.json`, the list view and its fallback, the panel, the text contrast test, the sheep and dog shapes, and every test of those.
+
+**Dropped** (the owner can ask for any back):
+- the ring of eleven evenly spaced podiums with their rim lights, the ring layout code, the label declutter code and their tests;
+- the always visible name pills, the signpost, the amber arcs in the sky, the row of lamp posts;
+- the stylised look: a flat dark meadow, a ridge of one dark colour, round blob trees.
+
+| in the first scene | in the highlands scene | why |
 | --- | --- | --- |
-| eleven stations around a lantern, a station is a small model that acts out one function | kept; each station is a module made of still poses and the short moves between them | the poses give reduced motion its still frames (UI-Q4) |
-| Budget drawn as a dashed ghost labelled "planned" | Budget is a built station | the budget governor was built in PR 33; showing it as planned would be wrong. B.10 (the owner's capture) is said in words |
-| sample motion plays on its own, a "Play motion" button | no autoplay, motion after a click or cursor move, "Replay" in the panel | UI-Q4 |
-| about 50,000 swaying grass blades, drifting mist, fireflies, aurora, constellation with packets, river light, circuit pulses | cut; sparse still grass, one fixed layer of fog, a still moon | calm and less congested (UI-Q4); every one of them moves or glows by itself |
-| arcs between all stations at once | arcs only for the selected station and the stations it depends on; hidden in calm mode | less congestion |
-| labels that look like game tags with a dot | eleven labels that are real buttons, quiet at rest | access (12.R6) |
-| the state comes from `snapshot.js` loaded with a script tag | the owner picks `snapshot.json` in the page | UI-Q3 says one JSON file; a `fetch` of a file is a network call and a script tag would execute the file (UI-Q7) |
-| pointer parallax, drag to orbit, slow sway | parallax and orbit only while the cursor or finger moves, easing to rest; no sway | UI-Q4 |
-| the Fraunces and Karla fonts, Georgia and system fallbacks | system fonts only (a serif stack for titles, a sans stack for text) | no font file is loaded, so there is nothing to fetch |
-| a no-WebGL page that says so and stops | the list view, with everything but the 3D scene | 12.R6.2 |
+| a flat dark meadow with faint contour lines | relief: rolling hills with real height, a river valley cut into them, rock | UI-Q12, UI-Q13 |
+| a generic dusk sky and a brown ridge | a sky with soft cloud and a warm glow low in the west, long shadows, haze, and **Mount Kenya** on the horizon | UI-Q13 |
+| blob trees | umbrella thorn acacia and African pencil cedar, grass in dry gold and green, rock | UI-Q13 |
+| a lamp post at the centre | a **hanging lantern on a shepherd's staff**, a plain silhouette shepherd and a dog; the brightest point | UI-Q13 |
+| 11 podiums on a circle | 11 natural features scattered on hillsides, the valley and the river bank; distance by how closely each works with the shepherd | UI-Q13, UI-Q14 |
+| sky arcs to dependent stations | trails of light along the ground, for the selected, hovered or focused station only | UI-Q14 |
+| fixed positions | positions from a function of needs (closer when it needs the owner now); UI.3 feeds the numbers | UI-Q15 |
+| a scene on a page with two buttons | the hero of the home page: title, promise, status strip, install and first commands with Copy, links | UI-Q16 |
 
-### Layout
+### What changed on Nov 11, round 2 (UI-Q17 to UI-Q22)
+
+The owner reviewed the reworked scene on PR 39 and answered UI-Q17 to UI-Q22 the same day. PR 39 stays open; it carries step 1 below.
+
+| before | now | answer |
+| --- | --- | --- |
+| one page; a List view button | three tiers (List, Standard, High) chosen by a device query in the browser, with a visible switch; the list is tier 1 | UI-Q17 |
+| one static page for visitors and the owner | two parts: a public site in `site/` (Next.js on the Vercel free tier, server rendered home text, no analytics) and the owner's live view, the static page of `ui/` | UI-Q18, UI-Q19 |
+| the scene code only in the page | one scene module in `ui/` used by both | UI-Q19 |
+| the home content below a full screen scene | the top of the status strip shows at the bottom of the first screen, with a still cue | UI-Q20 |
+| outer stations within about 25 m | at least three stations at 30 m or more | UI-Q20 |
+| trails only for the station in focus; a faint river | every trail drawn faintly at rest; a long reach of the river in the overview | UI-Q20 |
+| the Rules name over the promise on a phone | no name over the hero text | UI-Q20 |
+| low poly rocks and walls | displaced rocks with strata, walls of separate stones, ground with stones and tufts | UI-Q20 |
+| a few trees | a dense forest across the river | UI-Q21 |
+| still water | rapids over rocks, foam, moving highlights; still with reduced motion and in Calm mode | UI-Q21 |
+| a plain silhouette shepherd | a Maasai silhouette in a shuka with the staff, beads only as shape | UI-Q21 |
+| simple sheep | a mixed flock of sheep and goats and a herding dog with real proportions; wildlife at the edge in High only | UI-Q21 |
+| hours cut to fit a window | the owner keeps the timeline; no scope is cut; no question about hours | UI-Q22 |
+
+**The order of the work (UI-Q22)**, one pull request each:
+1. **UI.1b, in PR 39**: the Standard tier fixes, the home page layout, the scene additions at Standard detail, and the tier choice function (tests first). The live view uses the function with a highest tier of Standard, so the switch offers List and Standard.
+2. **UI.6**: the shared scene module and the Next.js site serving List and Standard, with the device query.
+3. **UI.7**: tier 3, High.
+
+I read "the scene additions, all tiers" as part of step 1 at Standard detail, because the live view is the Standard look and step 2 should only move code into a module, not change the picture. Wildlife is High only, so it is in step 3.
+
+**My choices where the brief leaves room, the calmer one each time:**
+- The water is still in Calm mode as well as with reduced motion. It also stops while the scene is off screen or the page is hidden, and it draws at most 30 frames a second while it flows.
+- High is chosen by itself only when the network is known to be fast. Safari and Firefox do not offer the Network Information API, so they get Standard and the switch offers High.
+- The switch keeps a choice only in the address fragment, never in storage, so 12.R2.2 holds.
+- The owner's four cuts of Nov 11 stand, except that the realism of rocks, walls and ground (part of the second realism pass) comes back because the owner asks for it now.
+
+### The tier choice (12.R16)
+
+`ui/src/engine/tier.js`, pure, no browser call inside:
 
 ```
-umwayi/view.py              umwayi view snapshot: gather the counts, render, write, one logbook entry
+chooseTier(env, { maxTier = 3, local = false, requested = null }) -> { tier, reason, warn }
+env = { webgl, cores, memory, connection: { effectiveType, downlink, saveData } | null,
+        renderer, screen: { w, h }, reducedMotion }
+```
+
+In order:
+1. no WebGL: List (`reason: "no-webgl"`), whatever was requested.
+2. a requested tier (from `#tier=`) is used, capped by `maxTier`; `warn` is set when it is above the automatic choice.
+3. Save-Data on, or an effective type of `slow-2g` or `2g` (ignored when `local`): List.
+4. High when `maxTier` is 3 and all of: not `local`; a connection is known with effective type `4g` and downlink at least 10; cores at least 8; memory at least 8 when reported; the renderer is known and not software (`SwiftShader`, `llvmpipe`, `softpipe`, `Software`, `Microsoft Basic Render`); the shorter screen side at least 720; no reduced motion.
+5. Otherwise Standard.
+
+`readEnv()` in `ui/src/engine/env.js` reads the browser into `env` and is the only file that touches `navigator`; it never sends or stores what it reads. The detail mode (`chooseDetail`) still picks high or low detail inside Standard.
+
+### The public site (12.R17), built in UI.6
+
+```
+site/
+  package.json package-lock.json (exact versions: next, react, react-dom), next.config.mjs, README.md
+  app/layout.js app/page.js     server components: home text, status strip (sample), install and first commands, links, the tier 1 list
+  app/scene.js                  a client component: reads the env, calls chooseTier, imports the shared scene for Standard or High
+  public/high/                  tier 3 assets (UI.7), each listed in NOTES with source and licence
+```
+
+- The page is static at build time (no server code runs per request), so the free tier is enough and nothing per visitor is computed on the server.
+- Headers in `next.config.mjs`: `Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'` (Next.js inline scripts get a hash or nonce, settled in UI.6), `Referrer-Policy: no-referrer`, `Permissions-Policy` with everything off but clipboard write, `X-Content-Type-Options: nosniff`.
+- No `@vercel/analytics`, no `@vercel/speed-insights`, no `next/font/google`, no `next/script` from a remote host; a test in the Python suite reads `site/package.json`, the lockfile and the source and fails on any of them.
+- **A known limit, stated:** the site's host sees which files a browser asks for, so its request logs can tell which tier was loaded. That is a property of serving files, not tracking; nothing else about the device is sent.
+
+### The shared scene module (12.R18), built in UI.6
+
+`ui/src/scene.js` exports `createScene(canvas, { tier, detail, settings, onSelect })` and returns `{ select, overview, setNeeds, setCalm, setReducedMotion, dispose }`. `ui/src/app.js` (the live view) and `site/app/scene.js` both call it. The live view's build bundles it into the one file as now; the site imports it through a relative path set in `next.config.mjs`. A Python test checks that `site/` has no copy of any file of `ui/src/`.
+
+### The scene additions (12.R20), how they are made
+
+- **Forest**: a band of instanced trees on the far bank, 30 to 90 m from the lantern behind the river, several hundred trees in Standard: pencil cedars (tall narrow cones of layered foliage) and broadleaf trees (clustered crowns), with a darker understorey and ground under them. The river leaves the forest through a gap, so it cuts through it. Kept clear of every station footprint.
+- **Water**: the river surface carries a flow direction along the centre line; the shader moves two layers of noise along it at different speeds for the highlights, and foam gathers around rocks placed in the bed and where the bed drops (rapids). One time uniform drives it; with reduced motion, in Calm mode, off screen or hidden, the time stops and the loop asks for no frame.
+- **The Maasai shepherd**: a tall, slim standing figure; a shuka wrapped over one shoulder and falling to below the knee (deep red, in shadow at dusk); a beaded collar as a flat disc at the neck; the staff in one hand with the lantern; no face detail. Made from smooth shapes, not boxes.
+- **Animals**: sheep of the kinds kept in Kenya (the Red Maasai with a red brown coat, the Dorper with a white body and a black head), goats (lean, horns, an upright tail, mixed colours) and a herding dog with real proportions (a long muzzle, ears, a tail). Each is a few smooth shapes with a coat grain, posed still; they move only as part of a station's action.
+- **Rocks, walls, ground**: rocks from a subdivided sphere displaced by noise and flattened, with strata; a wall from many separate stones of different size laid in courses with a capping row; the ground near each station gets small stones and tufts.
+
+### Layout of the files
+
+```
+umwayi/view.py              umwayi view snapshot (UI.2): gather the counts, render, write, one logbook entry
 umwayi/cli.py               the view subcommand
-tests/test_view.py          the snapshot, real child processes
-tests/test_ui_package.py    package.json, lockfile, .gitignore, build.json, the built page (standard library)
+tests/test_view.py          the snapshot, real child processes (UI.2)
+tests/test_ui_package.py    package.json, lockfile, .gitignore, build.json, the built page, its size and addresses
 ui/
-  package.json              three 0.187.0 and esbuild 0.28.2, exact versions
-  package-lock.json         committed; sha512 for every package
-  README.md                 the pinned versions, npm ci --ignore-scripts, the build command
-  .gitignore                node_modules/
-  build.mjs                 bundles src/ with esbuild into one page, writes dist/build.json
+  package.json package-lock.json README.md .gitignore build.mjs
   src/
-    index.html style.css main.js
-    engine/                 on demand renderer, tween with ease out, pose player, reduced motion, calm mode
-    world/                  sky, mountains, land, sparse grass, trees, lantern
-    stations/               one module per station (memory.js ... budget.js) and index.js, the one list of stations
-    data/                   snapshot.js (validate, map to scene numbers), sample.js, checks.js (the owner checks)
-    ui/                     labels, panel, list view, checks panel, top bar
-  test/                     node --test, no package
-  dist/index.html           the built page, committed
-  dist/build.json           SHA-256 of every src file, of package-lock.json and of index.html
+    index.html style.css main.js app.js
+    engine/                 ease, follow, motion, loop, settings, poses, rig (camera), stage (renderer), detail (the detail mode), placement (moves the stations), tier (the tier choice), env (reads the device hints)
+    world/                  noise.js, river.js, height.js (the ground), layout.js (the fixed table and the position function), sky.js (sky, cloud, Mount Kenya), terrain.js, water.js, plants.js (grass, acacia, cedar), rocks.js, lantern.js (lantern, staff, shepherd, dog), trails.js, palette.js
+    stations/               meta.js (the words), kit.js (shared parts: sheep, dog, rock, wood, wall, gate), one module per station, index.js
+    data/                   sample.js, counts.js, home.js (the status strip, install and first commands, links; UI.3 adds the snapshot mapping)
+    ui/                     labels.js (the buttons over the features), panel.js, fallback.js (the list view), home.js (Copy, status strip)
+  test/                     node --test
+  dist/index.html dist/build.json
 ```
 
-`ui/` imports nothing from `umwayi/` and `umwayi/` nothing from `ui/`. The repo's `.gitignore` ignores `dist/` and `build/`; it gets an exception for `ui/dist/` so the page and `build.json` are committed, and a line for `.umwayi/snapshot.json` so the owner's counts are not.
+`ui/` imports nothing from `umwayi/` and `umwayi/` nothing from `ui/`. From UI.6 the public site lives in `site/` and imports the scene from `ui/src/scene.js`; it imports nothing from `umwayi/`.
 
-### The stations: poses, moves and counts
+### The place
 
-A station is an ordered list of poses (a full arrangement of its parts) and moves (short ease out tweens between two poses). A click plays the moves of the selected station once and stops on the last pose. Reduced motion shows the poses only, one at a time. The count drives the numbers of the first pose (how many sheep, stones, beads).
+The scene is a river valley in the Laikipia and Mount Kenya highlands at dusk, seen from a slope on the south west. One function, `heightAt(x, z)` (metres, the same for the ground, the plants and the stations), gives:
+- a wide **valley floor** at about 0 m with a gentle roll of under half a metre, the lantern on a low **knoll** of 1.2 m, and the bowl round the lantern kept level to about 17 m;
+- the **river** cut 1.6 m below the floor along a smoothed curve, 6 m wide, with banks that slope up over 3 m; the water surface sits at -0.4 m and does not flow;
+- **hills** that rise away from the valley (from about 14 m off the river and 17 m off the lantern), broad swells with a few sharp ridges, higher on the left, reaching 35 to 60 m;
+- the Archive's rock face, which is a big rock mass built with the station on the left hillside.
+
+Mount Kenya stands at the far back, a little right of straight behind the lantern, drawn as a silhouette of two sharp peaks (Batian, Nelion) and a lower shoulder, with snow on the upper slopes that holds the last pink light, about 6 degrees above the horizon so it shows between the hills and the sky. Facts and sources: `adapters/NOTES-layer12.md`.
+
+The light is a low warm glow from the west behind the left hills, just after sunset: a dim warm directional light with long shadows, a blue sky fill from above, haze that lifts and softens the distance, and the lantern as the only strong point light. The sky has a warm band at the horizon, a deep blue top, a few soft clouds made once from noise and never drifting, and a few faint stars.
+
+### The layout: scattered, by how closely each works with the shepherd
+
+The lantern is the origin (0, 0), x to the right and z towards the viewer. Each station has a default distance `d0` and a bearing (degrees from the viewer's direction, towards +x), fixed here, in `ui/src/world/layout.js` and in the layout test. The order of the distances is the order of how closely each works with the shepherd: the AI helpers walk with him; he consults the rules, the kill switch and the queue all the time; the logbook is written beside him; memory, workflows and the budget are tended now and then; the adapters and the scheduled runs work at the river's edge; the archive is far, a place he goes to rarely.
+
+| station | feature | ground | `d0` m | bearing | footprint m | default position (x, z) |
+| --- | --- | --- | --- | --- | --- | --- |
+| AI helpers | sheepdog and herd | valley floor, by the lantern | 4.8 | 24 | 2.6 | (1.95, 4.4) |
+| Kill switch | lone gate and latch | low rise, back right | 9.0 | 140 | 2.4 | (5.8, -6.9) |
+| Rules | drystone wall with gates | gentle slope, left front | 9.6 | -42 | 3.9 | (-6.4, 7.1) |
+| Queue | sheepfold | valley floor, right | 10.5 | 78 | 3.7 | (10.3, 2.2) |
+| Logbook | standing stone | knoll, back left | 12.6 | -120 | 2.4 | (-10.9, -6.3) |
+| Memory | spring pool | hollow at the foot of the front hill | 15.4 | -8 | 2.8 | (-2.1, 15.3) |
+| Workflows | stream through connected pools | left hillside, with a feeder stream | 15.5 | -88 | 3.6 | (-15.5, 0.5) |
+| Budget | rain water tank | right front, on the slope | 16.0 | 52 | 2.3 | (12.6, 9.9) |
+| Adapters | ford and bridge | the river, right | 20.5 | on the river | 3.6 | (19.0, -7.8) |
+| Automation | river with a water wheel | the river, left | 22.5 | on the river | 3.6 | (-11.0, -20.1) |
+| Archive | cave in a rock face | steep left hillside | 24.0 | -112 | 4.2 | (-22.3, -9.0) |
+
+The river runs from the back left, behind the lantern, to the front right. Its centre line passes through the control points (-110, -36), (-80, -32), (-52, -30), (-34, -29), (-20, -24), (-8, -19), (4, -16), (14, -12), (22, -4), (27, 8), (36, 18), (52, 24), (80, 36), (110, 44), smoothed once (Catmull-Rom). Its nearest point to the lantern is about 16.5 m away, at (4.9, -15.7). The river stations stand on the river's centre line, because the wheel and the ford span the water. The default gap between any two features (centre distance minus both footprints) is 2.0 m at the least, which a test checks. Free stations stand where the ground is not steeper than their feature allows (the Archive's hillside is the steepest, 0.65); a test checks the slope under each station at the defaults and at 300 random need sets.
+
+### The position function (12.R14): built now, UI.3 feeds numbers
+
+```
+stationPositions(needs) -> { id: { x, z, y } }      needs: { id: 0..1 }, a missing or bad value is 0.4
+```
+
+1. For a free station: `d = d0 * (1.2 - 0.5 * need)` along its bearing from the lantern. For a river station: a position along the river centre line, `d` measured the same way but kept on the bank on its own side of the nearest point (Automation to the left, Adapters to the right); `need` slides it towards the nearest point and away from it.
+2. `d` is never less than `shepherdSpace + footprint` (2.0 m plus the footprint), so nothing stands on the lantern.
+3. **No overlap**: every pair is kept at least `footprintA + footprintB + 0.8 m` apart. The stations are placed one by one, the closest to the shepherd first; one that would overlap a station already placed slides outward along its own bearing (a river station along the river) on a fixed grid of a tenth of a metre until it is clear. The same needs always give the same positions. (Built this way because it cannot fail to end; pushing pairs apart for a number of rounds, the first idea, could.)
+4. `y` is `heightAt(x, z)`.
+5. `createPlacement({ stations, motion })` holds the current positions and has `setNeeds(needs)`: it eases every station from where it is to its new place (`Motion`, ease out, 2400 ms, 1.6 times in Calm, a jump with reduced motion), cancels a move in progress and starts from where the stations are. At rest nothing moves. UI.3 maps the snapshot to needs (below) and calls `setNeeds`; it changes nothing else.
+6. Proposed needs from a snapshot (UI.3 to confirm): Queue `min(1, open / 6)`; Kill switch 1 when on or unknown, else 0; Budget the share by which today's use is above the average of the other six days, 1 once it is above 1.5 times that average; Rules, Logbook, Automation, Archive, Memory, Workflows, AI helpers and Adapters 0.4 (the default) until the snapshot has a number for them. A bad number is 0.4.
+
+### The stations: natural features, poses, moves and counts
+
+A station is an ordered list of poses and the short ease out moves between them (unchanged). A click plays the moves of the selected station once and stops on the last pose, then eases back to rest when it is left. Reduced motion shows the poses one at a time. The count drives the numbers of the first pose.
 
 | station | what you see | poses (still frames) | count from the snapshot |
 | --- | --- | --- | --- |
-| Memory | a fenced pasture, and a walled plot with a lid | grazing; the lid closed over a few pebbles (private paths are left out) | none |
-| Rules | a gate with a lantern and a sheep at it | Yes (mint lantern, gate open, sheep through), No (red lantern, gate shut, sheep turned back), Ask me first (amber lantern, gate half open, sheep waits) | `rules`: lanterns of each colour by verdict |
-| Queue | sheep in single file to a hut, a signpost | line; front sheep at the door; door closed behind it | `queue.open`: sheep; `queue.answered`: stones in a cairn by the hut |
-| Archive | a tablet beside a stone slab, a cairn | tablet at the slab; tablet lifted; stone added with a seal, flag left at the slab | none |
-| Logbook | a stump with growth rings and a helix of linked beads | chain intact; one bead added; one bead altered and the rest dark, the seal sweeps up the chain | `logbook.chain_length`: beads, `entries` in the panel |
-| Automation | a sundial under an arc | morning; noon; evening, shadow turning | `schedule`: marks for entries, installed and enabled |
-| AI helpers | a sheepdog, a white line, a stool with a lantern | scroll at the dog; scroll at the line, dog stopped; scroll on the stool (you publish) | none |
-| Workflows | stepping stones to an arch with a lantern | first stone lit; middle stone lit; token left at the arch (approve adds a queue item) | none |
-| Adapters | three kinds of fence (rail, dry stone, wire) on one latch post | each fence pulses into the latch in turn | none |
-| Kill switch | a lane with a wattle hurdle between two posts | hurdle down, a sheep passes; hurdle up, posts glow red, the sheep halts | `kill_switch`: down for off, up for on or unknown |
-| Budget | a trough inside a scaffold | level low; level at today's mark; level over the line | `budget.days`: seven marks, the water at the last |
+| Memory | a small spring pool ringed with mossy stones; flat pebbles at the edge | the pool low; the pool full and still, a ring of light on the water; a flat stone laid over the pebbles (private paths stay out) | none |
+| Rules | a drystone wall along the slope with a gate in it, a sheep at the gate and a hanging lamp on the gate post; small lamps on the wall top | Yes (gate open, lamp mint, sheep through), No (gate shut, lamp red, sheep turned back), Ask me first (gate half open, lamp amber, sheep waits) | `rules`: lamps on the wall top by verdict |
+| Queue | a round sheepfold of drystone with one gap; sheep waiting in line outside; a cairn | the line; the front sheep at the gap with the hurdle lifted; the hurdle down and the line moved up | `queue.open`: sheep; `queue.answered`: stones in the cairn |
+| Archive | a dark cave mouth in a rock face, a flat stone slab at the foot, a small cairn | the tablet at the slab; the tablet lifted towards the cave; the tablet inside, a stone with a seal added to the cairn, a flag at the slab | none |
+| Logbook | a tall standing stone with rings cut into its top and a helix of small beads round it | chain intact; one bead added; one bead altered and the rest dark, a seal ring sweeps up | `logbook.chain_length`: beads, `entries` in the panel |
+| Automation | the river with a timber water wheel (no sluice: cut on Nov 11) | the wheel at three angles (morning, noon, evening); spokes lit for the schedules | `schedule`: spokes lit for entries, installed and enabled |
+| AI helpers | a sheepdog beside a small herd, a row of white stones, a flat stone | the dog with the draft; the dog stopped at the white stones; the draft on the flat stone (you publish) | none |
+| Workflows | a stream down the hillside through three rock pools joined by short cascades (four was cut on Nov 11), a sheep on stepping stones | the first pool lit; the middle pool lit; a token at the last pool (approve) | none |
+| Adapters | a stone ford with stepping stones and a plank foot bridge over the river, one gate post on the bank (the rope line was cut on Nov 11) | a pulse from the ford, then from the bridge, into the post; the last caption says any stdin and stdout tool can reach it too | none |
+| Kill switch | a lone gate in an open field and a latch post with a red lamp | the gate open; a sheep passes; the gate shut, the lamp lit red, the next sheep halts | `kill_switch`: shut and lit for on or unknown |
+| Budget | a corrugated iron rain water tank on a timber stand with a sight tube; seven notches on the stand | the tube low; today's mark; at the limit | `budget.days`: the seven notches, the level at the last |
 
-Red, mint and amber mean something only at Rules, Kill switch and Logbook. Everywhere else the same colours are light and carry no signal. Counts the snapshot does not hold (Memory, Archive, Workflows, AI helpers, Adapters) are not shown; the sheep and stones there are decoration, and the panel says no count is shown. The reference's amber collar for decisions is dropped, because the snapshot has no decision count.
+Red, mint and amber mean something only at Rules, Kill switch and Logbook. Counts the snapshot does not hold are not shown; the panel says so. The panel shows: the name, built or planned, two short lines, the command, the counts with the date; Budget also says that B.10 is not done; Rules says that unknown is drawn as Ask me first.
 
-The panel shows, for the selected station: the name, built or planned, two short lines, the command, and the counts with the snapshot's date. At Budget it also says that B.10, the capture of one real export, is not done. At Rules it says that unknown is drawn as Ask me first.
+### The scene, the look and the motion engine
 
-### The scene and the motion engine
+- **First realism pass only** (the owner cut the second pass on Nov 11): no more work on cloud shapes, snow detail, rock strata or a third kind of plant. The cloud, the snow and the strata that the first pass has stay as they are.
+- **Everything is generated.** The ground is a mesh of the height function with a shader that blends dry gold grass, green grass, red soil, gravel and rock by height, slope and noise, and adds fine relief with a derivative bump made from noise (no texture). Rock is displaced icospheres with layered strata. Wood has grain from stretched noise. Wool, iron and water have their own simple shaders. Grass is thousands of instanced blades in the gold and green of red oat grass; acacia is a thin trunk with a flat, wide, layered crown; cedar is a dark narrow cone of layered tiers. Plants stand only where the ground and distance allow, and never inside a station's footprint at any place the station can reach.
+- **Light and air:** one dim warm directional light with a shadow map over the stations, a blue hemisphere fill, a warm point light in the lantern, fog tinted to the sky at the horizon, filmic tone mapping, a bloom that only the lantern and a few lit parts reach.
+- **Water** is a shader surface: dark, with the sky reflected by a Fresnel curve, a soft warm streak where the sky glows, and a little noise. It does not flow. A station's pool and the river are drawn the same way.
+- **Nothing moves by itself**: no wind, no flow, no cloud drift. Motion is only the tweens (12.R5.3).
+- **Hover and focus** ease a small warm light up on the feature and show its name above it; both ease away. With reduced motion they switch at once.
+- **Trails of light** for the selected, hovered or focused station: for each station it works with (the `deps` of meta.js), a row of about 30 small soft lights following the ground between the two features, fading in over 600 ms. Hidden in Calm mode and drawn at once (no fade) with reduced motion.
+- **No free running frame loop, one ease out, no repeating timer** (unchanged), Calm mode (lower glow, bloom, light and haze contrast, slower moves, no trails), reduced motion (jumps, poses by hand).
+- **Camera.** The overview is low enough to show the horizon and Mount Kenya and wide enough to show every station at every default position and at the nearest and furthest they can reach. Selecting flies to the lantern side of the station, the station in the left third (the top third on a phone). Arrow keys move between stations, Esc returns, drag orbits within limits.
+- **The detail mode** (12.R12.3): `chooseDetail(env)` picks high or low at start from the renderer name (software rendering is low), the processor core count (4 or fewer is low), the memory hint (4 GB or less is low) and `#detail=`; `stepDown()` goes one step lower after 24 slow frames: pixel ratio down to 1, then bloom and multisampling off. **Two steps, not three: the owner cut the last step (no shadows and fewer plants) on Nov 11.** Low detail starts at the second step. The choice and the steps are pure functions with Node tests.
+- **Palette:** dusk colours from the scene (warm gold, red soil, olive, cool blue shadow, slate sky, the lantern's amber) and the UI tokens of the nightwatch palette (base `#0E1310`, ink `#EEE8DB` for text only, amber, mint, red, glass).
 
-- **Layers kept:** a dusk sky (gradient, glow behind the mountains, a still moon), mountains, one land mesh with soft contour lines, sparse still grass, about 30 trees with smooth shapes, a lantern. **Cut:** wind, mist planes, fireflies, aurora, constellation, river, circuit pulses (12.R5.7).
-- **Rendering style:** MSAA on, ACES filmic tone mapping, one soft directional light with soft shadows, a hemisphere light, distance fog, pixel ratio up to 2. Bloom only on the lantern and on lit station parts, capped. No pixelation, dither or scan lines.
-- **No file loaders.** Textures are made in code or inlined as data. None of three.js's file loaders is imported, so the bundle holds no `fetch`. (Checked on Nov 10 in a bundle of the renderer, the composer and the bloom pass: no `fetch(`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, `localStorage`, `sessionStorage`, `indexedDB` or `document.cookie`, and one `http://` string, the XML namespace `http://www.w3.org/1999/xhtml`.)
-- **On demand drawing.** There is no free running `requestAnimationFrame`. `invalidate()` asks for a frame; the loop draws while a tween is running and stops when none is. At rest the page draws nothing and the GPU is idle. A hover or a resize invalidates once.
-- **Ease out.** Every tween is `1 - (1 - t)^3`. A camera flight lasts 1.4 s (2.2 s in calm mode), a station move 0.8 s to 1.6 s, the parallax settles in 0.6 s after the cursor stops. The whole chain ends in at most 3 s after the last input (5 s in calm mode). Nothing repeats.
-- **Reduced motion.** `matchMedia("(prefers-reduced-motion: reduce)")` is read at start and on `change`. When on, `tween()` jumps to its end value, parallax is off, and the panel has Previous and Next for the poses. When it changes while a move runs, the move completes at once.
-- **Calm mode.** A toggle in the top bar. It scales the scene's light, bloom and line brightness down, lowers contrast, slows the tweens, and hides the arcs. Panel and label text keep at least the floor of UI-Q9. It starts off, and starts on when the system asks for less contrast (`prefers-contrast: less`), proposed in UI-Q9.
-- **Camera.** Overview at a low angle that shows the horizon. Select (click, tap, key, label): fly to a front view with the station in the left third and the panel on the right (a bottom sheet on a phone). Arrow keys move between stations, Esc returns. Drag orbits within limits.
-- **Frame rate.** The page holds 30 frames a second while moving on an integrated GPU at 1440 by 900; after sustained slow frames it lowers the pixel ratio to 1. Phone: a wider field of view and the camera pulled back.
-- **Palette** (the nightwatch tokens of the reference). base `#0E1310`, ink `#EEE8DB` (text only, never a large area), amber `#E0A965`, mint `#9CC39A`, red `#E07A6F`, glass `rgba(20,26,23,.62)` with a 14 to 22 px blur. Calm mode: the same hues at lower lightness; its values are fixed in UI.1 from the screenshots and checked against the 4.5 to 1 floor for text.
+### The home page (12.R15)
+
+**Since Nov 11, round 2:** the top bar has the tier switch (List, Standard, and High on the public site) instead of List view; the hero is the first screen less a peek, so the top of the status strip and a still "More below" cue show at the bottom of the first screen at 1440 by 900 and 390 by 844; no name pill is placed over the hero text. One page. Top to bottom: the top bar (a small wordmark, List view, Calm mode); the **hero**, the scene filling the first screen, with the title "umwayi-os" and the promise "An AI operating system for one person. Your rules come before every AI helper acts, and every change is written down." over the sky at the left; below it, scrolling normally:
+
+1. **Status strip**: four items, each `name`, value, and the word "sample" (or the date of the snapshot once UI.3 loads one): *Kill switch* off, *Budget used today* a number of UU, *Queue open* a count, *Logbook* a chain length. Items are text, so they read without the scene.
+2. **Install and first commands**: a short block of text for each step with a Copy button: `git clone https://github.com/Miguel-Shinyenyi/umwayi-os.git`, `cd umwayi-os`, `pip install -e .`, then `umwayi memory bundle`, `umwayi queue add --kind task "Write the spec"`, `umwayi check '{"type": "payment", "amount": 5}'` (it answers No), `umwayi logbook verify`. The Copy button writes to the clipboard on its click only (`navigator.clipboard.writeText`); where that is not allowed it selects the text and says "Press Ctrl+C". The button says "Copied" for a moment, with no motion.
+3. **Links**: Repo, Docs (the repo's docs folder), Devpost and Demo video. The last two are text with "link to come" and are not links until the owner supplies the addresses (one line in `home.js` each).
+4. A footer line: "A sample world." until UI.2 and UI.3 are built; after that it says how to load your own snapshot.
+
+The scene and the home content share the page's Calm mode and the 4.5 to 1 contrast. The canvas lives in the hero and scrolls away with it; nothing is drawn while it is off screen. The panel and the pose buttons stay in the hero. A vertical swipe over the scene scrolls the page; a horizontal drag orbits.
 
 ### `umwayi view snapshot`
 
@@ -2619,12 +2753,12 @@ Layer 13 has no requirements, design or tasks in this repo. What follows is from
 ### Tests (12.R10)
 
 - **Snapshot:** `tests/test_view.py`, listed in 12.R10.1. All of it real child processes, with the planted sentinel words and the structural leaf test.
-- **Package and page:** `tests/test_ui_package.py`, 12.R10.2 and 12.R10.3. The allowed `http://` strings are a short named list (the XML namespace addresses three.js carries; today `http://www.w3.org/1999/xhtml`); anything else fails. This is a static check, so UI.5's browser pass also blocks every request and counts the attempts, which must be zero.
-- **`build.json`:** the test recomputes the SHA-256 of every file under `ui/src/`, of `ui/package-lock.json` and of `ui/dist/index.html` and compares. A changed source with no rebuild, or an edited page, fails, with no npm in the test.
-- **Node:** `ui/test/*.test.mjs` with `node --test`; run by the owner and recorded in the pull request, not by the Python suite.
-- **Browser:** by hand, in a headless browser outside the repo (12.R10.5).
-- **CI:** the CI workflow runs only the Python suite today. A Node job is open (UI-Q10).
-- **Planted faults and mutation checks:** the list in 12.R10.6, counts in the pull requests.
+- **Package and page:** `tests/test_ui_package.py`, 12.R10.2 and 12.R10.3. The allowed addresses are a short named list: the XML namespace name three.js carries (`http://www.w3.org/1999/xhtml`) and the home links (the repo, its docs folder); anything else fails. The page is also checked for its size (under 2 MB). This is a static check, so UI.5's browser pass also blocks every request and counts the attempts, which must be zero.
+- **`build.json`:** the test recomputes the SHA-256 of every source and compares. A changed source with no rebuild, or an edited page, fails, with no npm in the test.
+- **Node:** `ui/test/*.test.mjs` with `node --test`, written before the code they test where the task says so: the layout table and the position function (defaults equal the table, no overlap at any reachable need, monotone in need, deterministic, river stations on the river, slope), the placement moves (3 s, 5 s in Calm, a jump with reduced motion, a new set of needs mid move), the detail mode (the choice and the steps), the home content (status strip, copy lines equal the commands, placeholders marked), and the unchanged engine, station and contrast tests.
+- **Browser:** by hand, in a headless browser outside the repo (12.R10.5), in high and in low detail.
+- **CI:** the CI workflow runs only the Python suite today (UI-Q10).
+- **Planted faults and mutation checks:** the list in 12.R10.6 plus: the need clamp removed, the slide outward removed, a station placed on the lantern, a name visible at rest, a clipboard write on page load, a placeholder link made a real address, a sample value without the word sample, the detail step skipped.
 
 ### KNOWN-LIMITS (written with UI.5, numbered from 138)
 
@@ -2637,37 +2771,65 @@ Layer 13 has no requirements, design or tasks in this repo. What follows is from
 - The owner's notes in the checks panel are lost when the page closes.
 - The npm tree (three, esbuild and its platform binary) is outside the S.2 scan until the scan is run again on `ui/package-lock.json` (UI.5).
 - A browser that ignores `prefers-reduced-motion` shows the click motion.
+- The lower detail mode has two steps. A machine that cannot draw the page at the second step still sees the list view and the home content, but not a lighter picture (the owner cut the third step on Nov 11).
+- The picture is a first realism pass: simple cloud shapes, simple snow, one kind of rock strata and two kinds of tree (the owner cut the second pass on Nov 11).
 
 ### Hours and schedule effect
 
-| task | hours |
-| --- | --- |
-| UI.0 spec | 5 |
-| UI.1 the static world | 16 |
-| UI.2 `umwayi view snapshot` | 9 |
-| UI.3 the page reads the snapshot | 6 |
-| UI.4 the owner checks panel | 6 |
-| UI.5 polish, docs, the scan of `ui/`, the owner's interface check | 8 (and 1 of the owner's) |
+Re-estimated on Nov 11 for the highlands rework, honestly, then cut by the owner the same day. The first scene took about 16 hours of work for what it was; the new brief is a different order of work: real relief, a valley, Mount Kenya, plants, rock, water and light made from code, eleven stations that are each a natural feature, a layout and a position function, trails, a detail mode, and a home page.
 
-About 50 hours, plus 1 hour of the owner's. The plan is Nov 13 to Nov 22: UI.1 Nov 13 to Nov 14, UI.2 Nov 15 to Nov 16, UI.3 Nov 17, UI.4 Nov 18 to Nov 19, UI.5 Nov 20 to Nov 22, in separate pull requests, UI.1 first, with its screenshots shown to the owner at the end of UI.1 (UI.2 is Python only and does not wait for them). Nothing else on the schedule moves: README, demo and Devpost Nov 23 to Nov 28, the freeze Nov 29 to Dec 2, submit Dec 3. If the spec is approved after Nov 13 the dates move by the days lost, and anything not done by Nov 22 is cut by the owner's choice, never by moving the freeze. UI.2 does not depend on UI.1, so the two can run in either order.
+| task | hours before the cuts | hours now |
+| --- | --- | --- |
+| UI.0 spec | 5 (done) | 5 (done) |
+| UI.0b the Nov 11 spec change | 3 | 3 |
+| UI.1 the static world, as the highlands scene | 56 | 42 |
+| UI.2 `umwayi view snapshot` | 9 | 9 |
+| UI.3 the page reads the snapshot and feeds the position function | 8 | 8 |
+| UI.4 the owner checks panel | 6 | 6 |
+| UI.5 polish, docs, the scan of `ui/`, the owner's interface check | 10 (and 1 of the owner's) | 7 (and 1 of the owner's) |
+
+Before the cuts: about 92 hours still to do (97 with UI.0). **After the cuts: about 75 hours still to do (80 with UI.0), plus 1 of the owner's.** The window is Nov 11 to Nov 22, about 12 days; at 5 to 6 hours a day that is 60 to 72 hours. README, demo and Devpost stay Nov 23 to Nov 28, the freeze Nov 29 to Dec 2 and submit Dec 3.
+
+**The owner's decision (Nov 11): all four proposed cuts are accepted, and nothing else is cut.**
+1. **The second realism pass** (6 h of UI.1) is cut: no more work on soft cloud shapes, snow detail, rock strata detail or a third kind of plant. The first pass stays: the relief, the light, the haze, the river, the acacia, the cedar, the grass and the rock.
+2. **Station detail** (6 h of UI.1) is cut: the Adapters feature keeps the ford and one bridge, not three crossings; the Workflows stream has three pools, not four; the Automation wheel has no sluice.
+3. **The low detail mode's last step** (2 h of UI.1.10) is cut: the mode has two steps (a lower pixel ratio, then no bloom and no multisampling), not three. A very weak machine gets no further relief; this is a known limit.
+4. **UI.5 extras** (3 h) are cut: the contrast check of the glass panel over every part of the sky, and the second device pass.
+
+**Round 2 (Nov 11, UI-Q22): the owner keeps the timeline. No scope is cut and no question about hours is asked.** The estimates below are for planning only: UI.1b about 30 h, UI.6 about 24 h, UI.7 about 30 h.
+
+**UI.4, the owner checks panel, is not cut** (6 h), and **the drift of UI.3 is not fixed to the default numbers** (the position function is fed real numbers from the snapshot). Both stay in scope. **No further cut is made unless the owner agrees.** What is left is about 75 hours against 60 to 72, which is 3 to 15 hours over the window. That gap is stated, not hidden: if it shows by Nov 17, I ask the owner what to do rather than cut on my own.
 
 ### Risks (layer 12)
 
 | risk | what happens | what we do |
 | --- | --- | --- |
 | a count leaks text | a title or path appears in the page or the file | the structural leaf test, sentinel words, and a view module that reads through the layers' readers only |
-| the page makes a request | the no network rule is broken | the static test, the zero attempt browser pass, no `fetch` in the source, no file loader bundled, and a Content-Security-Policy tag with `default-src 'none'` |
+| the page makes a request | the no network rule is broken | the static test, the zero attempt browser pass, no `fetch` in the source, no file loader bundled, and a Content-Security-Policy tag with `default-src 'none'`; links are anchors and nothing is prefetched |
+| the real life look is heavy | a weak machine stutters or fails | the detail mode (start low from what it can tell, step down twice on slow frames), draw only on demand, a pixel ratio cap, the list view; a machine too weak for the low step still has the list view |
+| the real life look is bright or busy | it stops being calm | luminance and white area limits kept, nothing moves by itself, trails only for the station in focus, no labels at rest |
+| realism from code is not a photograph | the owner expects more than it can give | said plainly in the PR with screenshots; there is only a first pass (the second was cut), so what the owner sees is what is built |
+| the page is large | over 2 MB | a size test; all realism is generated, nothing embedded |
+| stations overlap or hide when they move | a feature is lost | the position function pushes apart, tested for thousands of random needs and the extremes |
+| a station on the river cannot move like the others | it jumps or leaves the bank | river stations slide along the river; tested to stay on the bank |
+| names only on hover | a visitor cannot find the features | a short hint, real buttons for the keyboard and screen readers, the list view, and the panel on a click |
+| a Copy button reads or writes without a click | a surprise | it writes only in its click handler; a test fails a clipboard call anywhere else |
+| a placeholder link looks real | a visitor clicks nothing | placeholders are text marked "link to come" and are not anchors |
 | the built page differs from its source | the reviewed code is not the shipped code | `build.json` checked in the suite; the owner rebuilds with a pinned lockfile |
 | an npm package is hijacked or runs a script | the owner's machine runs foreign code | exact versions, a lockfile with sha512, `npm ci --ignore-scripts`, esbuild's binary from its platform package, the S.2 scan repeated on `ui/` |
-| the page looks busy or flashes | the owner is uncomfortable | no loop at rest, one ease out per input, the luminance and overlap tests, the owner's screenshots at the end of UI.1 |
 | a planned thing looks built | the owner is misled | a station has a state; Budget is built and B.10 is said in words; nothing of layer 13 is drawn |
 | a checks panel result reads as proof | the owner trusts the page for a test it cannot run | "not done" until every step is ticked, "ticked by you" and never "passed", and the closing line of the export |
-| WebGL missing or slow | a blank page | the list view and the checks panel work without it; the pixel ratio drops |
-| the snapshot is stale | the page shows yesterday | the date next to the scene; KNOWN-LIMITS |
+| WebGL missing or slow | a blank page | the list view and the home content work without it; the detail mode steps down |
+| the public site leaks device facts | a visitor is tracked | the hints are read in the browser only; no analytics, cookie or storage; the only signal is which files are asked for, stated as a known limit |
+| flowing water breaks calm | the scene feels busy or uses power at rest | slow drift, no flashing; still with reduced motion, in Calm mode, off screen and hidden; at most 30 frames a second |
+| a Maasai figure becomes a costume | disrespect | a plain silhouette, beads only as shape, no face detail, no exaggeration; the owner reviews the screenshot |
+| High assets are heavy or fail | a long blank page | Standard draws first; High replaces it when ready and falls back on any failure |
+| the scene code is copied into the site | two versions drift | one module, a test that finds no copy |
+| the snapshot is stale | the page shows yesterday | the date next to the scene and the status strip; KNOWN-LIMITS |
 
 ### Open questions for the owner (layer 12)
 
-UI-Q1 to UI-Q5 are answered. UI-Q6 to UI-Q11 are open, each with the answer proposed.
+UI-Q1 to UI-Q22 are answered (UI-Q6 to UI-Q11 accepted as proposed on Nov 10; UI-Q12 to UI-Q16 on Nov 11; UI-Q17 to UI-Q22 on Nov 11, round 2).
 
 1. **UI-Q1. Where the code lives.** `ui/` at the repo root, outside the `umwayi` package; the core stays standard library only (answered).
 2. **UI-Q2. The toolchain.** three.js 0.187.0 and esbuild 0.28.2 pinned with a lockfile; the owner runs `npm ci --ignore-scripts`; umwayi never runs npm; the built page is committed and makes no network request (answered).
@@ -2681,7 +2843,23 @@ UI-Q1 to UI-Q5 are answered. UI-Q6 to UI-Q11 are open, each with the answer prop
 10. **UI-Q10. How the page is checked.** The Python suite checks the package, the lockfile and the built page; `node --test` and the headless browser pass are run by hand and recorded (proposed, like the scan of S.2). Or add a CI job that runs `npm ci --ignore-scripts`, builds, and fails if `ui/dist` differs, which needs `actions/setup-node` and the registry.
 11. **UI-Q11. The liberal society view.** The design above is only a sketch (proposed: nothing is built, only the extension points of 12.R8.3, and the sketch is checked again when the layer 13 spec exists). Or the owner describes layer 13 first and this section is rewritten before UI.1.
 
-Answers (owner, Nov 10): UI-Q1 to UI-Q5 as recorded above. UI-Q6 to UI-Q11 are open.
+12. **UI-Q12. The look** (answered Nov 11). Imagery that resembles real life, more detail, not less; photoreal leaning; one self contained page under about 2 MB; no network request; no downloaded images; realism from generated terrain, lighting and textures; an automatic lower detail mode for weak machines.
+13. **UI-Q13. The place and the features** (answered Nov 11). The Kenyan highlands at dusk: rolling hills with real height, a river valley, acacia and cedar, grass and rock, Mount Kenya on the horizon, low warm light. A hanging lantern on a shepherd's staff at the centre, with a plain silhouette shepherd and a dog; the brightest point. No podiums, no paths, no label boards: stations are natural features named only on hover or focus (and in the list view). Memory a spring pool; Rules a drystone wall with gates; Queue a sheepfold; Archive a cave in a rock face; Logbook a standing stone with growth rings; Automation a river with a water wheel; AI helpers a sheepdog and herd; Workflows a stream through connected pools; Adapters a ford or bridge over the river; Kill switch a lone gate and latch with a red lamp; Budget a rain water tank with a level.
+14. **UI-Q14. The layout and the connections** (answered Nov 11). Not a circle, no even angles: the eleven scattered on different ground (hillsides, the valley, the river bank), some close to the lantern and some far, by how closely each works with the shepherd; default distances fixed in the design with a seeded layout; no overlap; each reachable by keyboard. Streams and trails of light link stations that work together; no drawn paths.
+15. **UI-Q15. Distance follows need** (answered Nov 11). With a snapshot (UI.3) a station moves closer to the lantern when it needs the owner now (open queue items, an Ask me first, a budget warning) and drifts out when quiet; slow, eased, ends within 3 seconds, off under reduced motion; the position function is designed now so UI.3 only feeds it numbers.
+16. **UI-Q16. The home page** (answered Nov 11). The scene is the hero of the umwayi-os home page. One page, two modes: visitors see the sample world plus home content; loading a snapshot makes it the owner's live view. Home content: title and one line promise; a status strip (kill switch, budget used, queue open, logbook chain, shown as sample until a snapshot is loaded); install and first commands with copy buttons (clipboard write only on a click, no network); links (repo, docs, Devpost, demo video; placeholders marked until the owner supplies the URLs). Links are plain anchors the owner clicks; the page itself still makes no request.
+
+17. **UI-Q17. Three tiers** (answered Nov 11, round 2). Chosen on the public site by querying the device first (cores, device memory, the Network Information API where present, GPU renderer hints, screen size, `prefers-reduced-motion`, Save-Data), with a visible switch so the owner can override. Tier 1, List: for slow networks, no WebGL or no JavaScript; the plain list of the eleven with the full home content. Tier 2, Standard: the current scene, light on data (about 1 to 2 MB), with the fixes of UI-Q20. Tier 3, High: much closer to photorealism, heavier assets, only for fast networks and capable GPUs.
+18. **UI-Q18. The public site** (answered Nov 11, round 2). Its own folder `site/`, Next.js with pinned versions and a lockfile, on the Vercel free tier, no analytics, no tracking; device hints are read in the browser and never sent. The server renders the home text, the status strip, the install steps and the links so they show at once and work without JavaScript, and serves the tier that fits; it may fetch its own assets from its own host (the public site only). The 3D draws in the browser from the shared scene code.
+19. **UI-Q19. The owner's live view** (answered Nov 11, round 2). It stays the static one file page: no network request, CSP `default-src 'none'`, loaded from disk, the tier 2 look, a snapshot through the file picker. The scene code is one module both use. umwayi never runs npm or node.
+20. **UI-Q20. Fixes to tier 2** (answered Nov 11, round 2). The rest of the page visibly present at the bottom of the first screen; the list view is tier 1, not a mode of the page; the outer stations further out, some really far; the river and the trails clearly visible from the default view; the phone overlap fixed; rocks, walls and ground less like low poly forms.
+21. **UI-Q21. Scene additions** (answered Nov 11, round 2), in all scene tiers with detail rising by tier: a dense forest across the river, the river cutting through it; water over rocks (rapids, foam, moving highlights, still under reduced motion); a Maasai silhouette shepherd (shuka, staff, beads only as shape, respectful); a mixed flock of sheep and goats and a herding dog that look real; wildlife at the edge in High only (distant birds, an antelope on the ridge, nothing near the stations).
+22. **UI-Q22. Schedule** (answered Nov 11, round 2). The owner handles the timelines; no scope is cut; no question about hours. One pull request per step, in order: (1) the tier 2 fixes and the home page layout in PR 39; (2) the shared scene module and the Next.js site with tiers 1 and 2 and the device query; (3) tier 3 High.
+
+All the rules stay: calm by default, nothing flashes, motion only after a click or cursor move, reduced motion with still poses, Calm mode, 4.5 to 1 text contrast, no large white areas, the WebGL fallback list view.
+
+Answers (owner): UI-Q1 to UI-Q5 on Nov 10 as recorded above; UI-Q6 to UI-Q11 accepted as proposed on Nov 10; UI-Q12 to UI-Q16 on Nov 11; UI-Q17 to UI-Q22 on Nov 11, round 2. PR 39 stays open and is reworked on its branch; it is not merged.
+
 
 ## Testing
 

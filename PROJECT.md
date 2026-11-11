@@ -22,7 +22,7 @@ umwayi-os/
   PROJECT.md                this file: what to read first
   umwayi/                   the core package, standard library only
   adapters/                 layer 9 hooks and the pinned Claude Code ACP adapter, outside the core
-  ui/                       layer 12, planned: the web interface build tools and the built page, outside the core
+  ui/                       layer 12: the web interface (sources, pinned build tools, the built page), outside the core
   tests/                    every test; python -m unittest discover -s tests -t .
   docs/
     DOCS_MAINTENANCE.md     how the docs are written and kept current
@@ -39,7 +39,7 @@ umwayi-os/
     agent-front-door.md     layer 10: umwayi agent
     scheduled-runs.md       layer 11: systemd user timers
     budget-governor.md      UU, the ledger, the telemetry receiver
-    interface.md            layer 12: the view, a web page that only looks (the snapshot command is built, the page is not)
+    interface.md            layer 12: the view, a web page that only looks (the snapshot command, the highlands scene and home page are built)
     exit-codes.md           every exit code and which command gives it
     testing.md              how everything is tested
     security.md             what is protected and how it is checked

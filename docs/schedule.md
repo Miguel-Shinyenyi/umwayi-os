@@ -11,7 +11,7 @@ The plan of work up to the submission on Dec 3. It exists so the order of the re
 | Nov 7 to Nov 10 | Layers 1 to 11, logbook crash safety, the hash chain and the budget governor, all built (see [status-log.md](status-log.md)) |
 | Nov 10 | Documentation layout (D.1): a short README and one doc per layer under `docs/` |
 | Nov 10 to Nov 12 | Whole-system test and security scan (S.1, then S.2), moved up by the owner from Nov 23 to Nov 26 |
-| Nov 13 to Nov 22 | Layer 12, the web interface (UI.1 to UI.5, about 50 hours), after the owner approves the UI.0 spec; see [interface.md](interface.md). It is no longer a non goal (the owner, Nov 10) |
+| Nov 11 to Nov 22 | Layer 12, the web interface (UI.1 to UI.5), re-estimated on Nov 11 at about 92 hours, cut by the owner the same day to about 75 (four cuts accepted, UI.4 and the drift of UI.3 stay); that is 3 to 15 hours over the window and is stated, see [interface.md](interface.md). It is no longer a non goal (the owner, Nov 10) |
 | Nov 23 to Nov 28 | README, demo, Devpost text |
 | Nov 29 to Dec 2 | Freeze: only fixes for defects that tests find, no new features |
 | Dec 3 | Submit |
@@ -38,6 +38,8 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | Layer 12, round 2 (UI-Q17 to UI-Q22): three tiers, a public site in `site/` beside the static live view, one shared scene module, tier 2 fixes and scene additions; order UI.1b (PR 39), UI.6, UI.7 | The owner, Nov 11. The owner keeps the timeline; no scope is cut. |
+| 2026-11-11 | The look of layer 12 changed (UI-Q12 to UI-Q16: the Kenyan highlands, natural features, a scattered layout, the home page); UI.1 (PR 39) is reworked, not merged; hours re-estimated | The owner, Nov 11. |
 | 2026-11-10 | The web interface is layer 12 and in scope before Dec 3, planned Nov 13 to Nov 22 (UI-Q1 to UI-Q5 answered) | The owner, Nov 10. The freeze and the submission do not move. |
 | 2026-11-10 | S-Q16: the scan is built right after approval, Nov 10 to Nov 12; the web interface follows it | The owner's order. |
 | 2026-11-10 | L11-Q14: layer 11 built right after its spec, not Nov 14 to Nov 15 | The owner's order. |

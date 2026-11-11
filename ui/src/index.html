@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-tier="list">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>umwayi-os</title>
+<!--@csp-->
+<style><!--@style--></style>
+</head>
+<body>
+<header class="bar">
+  <span class="mark">umwayi-os</span>
+  <div class="actions">
+    <div class="tiers" id="tiers" role="group" aria-label="View">
+      <button type="button" class="btn" data-tier="list" aria-pressed="true">List</button>
+      <button type="button" class="btn" data-tier="standard" aria-pressed="false">Standard</button>
+    </div>
+    <button type="button" class="btn" id="calm-toggle" aria-pressed="false">Calm mode</button>
+  </div>
+</header>
+<main>
+<section id="hero" aria-label="The valley">
+  <canvas id="scene" role="img" aria-label="The Kenyan highlands at dusk. A shepherd with a lantern stands at the centre of a river valley, with Mount Kenya on the horizon. Eleven features of the land stand round him: a spring pool, a drystone wall with gates, a sheepfold, a cave in a rock face, a standing stone, a river with a water wheel, a sheepdog and herd, a stream through pools, a ford and bridge, a lone gate with a red lamp and a rain water tank. The List view has the same stations as text."></canvas>
+  <div class="intro">
+    <h1><!--@title--></h1>
+    <p class="promise"><!--@promise--></p>
+  </div>
+  <nav id="labels" aria-label="Stations">
+<!--@labels-->
+  </nav>
+  <p id="hint"><span class="wide">Drag to look around. Move over a feature, or press Tab, to see its name.</span><span class="narrow">Drag to look around. Touch a feature to open it.</span></p>
+  <p id="sample-tag">sample</p>
+  <aside id="panel" tabindex="-1" aria-labelledby="panel-title">
+    <p class="state" id="panel-state"></p>
+    <h2 id="panel-title"></h2>
+    <p id="panel-line1"></p>
+    <p id="panel-line2"></p>
+    <p class="cmd"><code id="panel-cmd"></code></p>
+    <p class="note" id="panel-note"></p>
+    <p class="counts" id="panel-counts"></p>
+    <p class="caption" id="pose-caption" role="status" aria-live="polite"></p>
+    <div class="row">
+      <button type="button" class="btn small" id="replay">Replay</button>
+      <button type="button" class="btn small" id="pose-prev">Previous pose</button>
+      <button type="button" class="btn small" id="pose-next">Next pose</button>
+    </div>
+    <div class="row">
+      <button type="button" class="btn small" id="station-prev">Previous station</button>
+      <button type="button" class="btn small" id="station-next">Next station</button>
+      <button type="button" class="btn small" id="back">Overview</button>
+    </div>
+  </aside>
+</section>
+<section class="home" id="status" aria-labelledby="status-title">
+  <div class="status-head"><h2 id="status-title">The state of this root</h2><p class="more">Scroll down for the install steps and the links.</p></div>
+  <ul class="strip">
+<!--@strip-->
+  </ul>
+</section>
+<section class="home" id="list-view" aria-labelledby="list-title">
+  <h2 id="list-title">The eleven stations</h2>
+  <p class="intro-text">The same stations as the picture, as text. This is the List view: it needs no WebGL and no script.</p>
+  <ul id="station-list">
+<!--@list-->
+  </ul>
+</section>
+<section class="home" id="start" aria-labelledby="start-title">
+  <h2 id="start-title">Start</h2>
+  <p>Python 3.10 or newer, no third party packages.</p>
+  <ol class="cmds">
+<!--@install-->
+  </ol>
+  <h3>First commands</h3>
+  <ol class="cmds">
+<!--@first-->
+  </ol>
+  <p class="copied" id="copy-status" role="status" aria-live="polite"></p>
+</section>
+<section class="home" id="links" aria-labelledby="links-title">
+  <h2 id="links-title">Links</h2>
+  <ul class="links">
+<!--@links-->
+  </ul>
+</section>
+<footer class="home foot"><p>A sample world. The picture shows made up counts until you load your own.</p></footer>
+</main>
+
+<p id="notice" role="status" hidden></p>
+<script><!--@script--></script>
+</body>
+</html>

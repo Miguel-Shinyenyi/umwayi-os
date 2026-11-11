@@ -34,8 +34,8 @@ Do not use em dashes in docs or user text. Use commas, colons or periods.
 6. No secrets in the repo.
 7. Every helper action passes `umwayi check` first.
 8. A crash blocks. Every unexpected error exits 2, never 0, 1 or 3. An adapter (layer 9) catches every error and blocks, because on Claude Code exit 1 blocks nothing.
-9. The core `umwayi` package stays standard library only. Only adapter packages (layer 9, and layer 10 adapter packages) may use third party packages, pinned and listed in their own README. The one other place is the `ui/` folder of layer 12, outside the package, under rule 10. The OpenCode plugin (`adapters/opencode/plugin/`, layer 10 part 8) is umwayi's only JavaScript in a gate: plain JavaScript that imports only Node built-ins (`node:`), with no npm package, and umwayi never runs npm, Bun or an OpenCode plugin install for it.
-10. The web interface (layer 12) only looks. It never writes to the repo, never runs a command and never calls a network. It gets state only from a snapshot of counts: no text from any file, no paths, no secrets. Its third party packages (three.js and esbuild, pinned, with a lockfile) are build tools in `ui/`, installed by the owner with `npm ci --ignore-scripts`; umwayi never runs npm. The built page is committed and makes no network request.
+9. The core `umwayi` package stays standard library only. Only adapter packages (layer 9, and layer 10 adapter packages) may use third party packages, pinned and listed in their own README. The one other place is the `ui/` folder of layer 12, outside the package, under rule 10. Since Nov 11 (round 2) the public site in `site/` of layer 12 is a second such place, outside the package, under rule 10. The OpenCode plugin (`adapters/opencode/plugin/`, layer 10 part 8) is umwayi's only JavaScript in a gate: plain JavaScript that imports only Node built-ins (`node:`), with no npm package, and umwayi never runs npm, Bun or an OpenCode plugin install for it.
+10. The web interface (layer 12) only looks. It never writes to the repo, never runs a command and never calls a network. It gets state only from a snapshot of counts: no text from any file, no paths, no secrets. Its third party packages (three.js and esbuild, pinned, with a lockfile) are build tools in `ui/`, installed by the owner with `npm ci --ignore-scripts`; umwayi never runs npm. The built page is committed, stays under about 2 MB and makes no network request. Its home links are plain anchors the owner clicks. The public site of layer 12 (`site/`, decided by the owner on Nov 11, round 2) is the one exception to "never calls a network": it is served from its own host and fetches only its own files from that host; it shows sample counts only, never reads a snapshot, and has no analytics or tracking. The owner's live view keeps every word of this rule.
 
 ## Exit codes (every command)
 
@@ -71,7 +71,7 @@ Not started, each only after the owner approves its requirements, design and tas
 
 11. Linux-like features: approved (PR 30), built now (PR 31). Scope for Dec 3: scheduled runs through systemd user timers that call the existing front doors; file watching and tmux cut, SQLite and a sandbox deferred to after Dec 3. No new scheduler, file system or shell.
 - The logbook hash chain (approved) and the budget governor (approved).
-12. Web interface, the view (layer 12): in scope before Dec 3 (it was a non goal until Nov 10). A 3D shepherd hillside with eleven stations that shows counts from a read only snapshot (`umwayi view snapshot`), and an owner checks panel. Calm by default. Spec in the UI.0 pull request; it is built (phases UI.1 to UI.5) only after the owner approves that spec. Nothing of layer 13 is built or planned here; the view is designed so that layer 13 can add stations later.
+12. Web interface, the view (layer 12): in scope before Dec 3 (it was a non goal until Nov 10). A realistic 3D scene of the Kenyan highlands at dusk (decided by the owner on Nov 11), generated in code with no downloaded image, with eleven natural features as the stations and a lantern on a shepherd's staff at the centre. It is also the hero of the umwayi-os home page. It shows counts from a read only snapshot (`umwayi view snapshot`), moves a station nearer when it needs the owner, and has an owner checks panel. Calm by default. Spec approved (UI.0, PR 38) and changed on Nov 11 (UI-Q12 to UI-Q16). Phases UI.1 to UI.5 are built one pull request each; the first UI.1 look (PR 39) was not accepted and is being reworked. On Nov 11 (round 2, UI-Q17 to UI-Q22) the owner added three tiers chosen in the browser (List, Standard, High), a public site in `site/` (Next.js on Vercel, no analytics, no tracking) beside the owner's live view, which stays one static file with no network request, one scene module shared by both, and a forest, flowing water, a Maasai shepherd and real looking animals. Rule 10 holds for the live view; the public site may fetch only its own files from its own host.
 
 ## Schedule to Dec 3
 
@@ -81,7 +81,7 @@ The schedule in `.kiro/specs/umwayi-os/tasks.md` ("Schedule to Dec 3") is the on
 - Nov 16: logbook hash chain
 - Nov 17 to Nov 22: budget governor
 - Nov 23 to Nov 26: whole-system test again and a security scan (moved up to Nov 10 to Nov 12)
-- Nov 13 to Nov 22: web interface, layer 12, phases UI.1 to UI.5, after the owner approves the UI.0 spec
+- Nov 11 to Nov 22: web interface, layer 12, phases UI.1 to UI.5 (re-estimated on Nov 11 at about 92 hours; the owner accepted four cuts, leaving about 75)
 - Nov 23 to Nov 28: README, demo, Devpost text
 - Nov 29 to Dec 2: freeze, only fixes for defects that tests find
 - Dec 3: submit
