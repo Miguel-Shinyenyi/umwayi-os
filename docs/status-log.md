@@ -18,7 +18,8 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
-| 2026-11-11 | NN | 10.43 and 10.44: an OpenCode agent in agents.yaml (`provider`, `model`, acp only; `agent run` and `agent login` refused) and the pure `opencode_env()` and `opencode_inline_config()`; nothing starts OpenCode yet | 1405 |
+| 2026-11-11 | 49 | 10.45: the OpenCode plugin (`adapters/opencode/plugin/index.js`, 85 lines, node: imports only), its starter rules and its tests under node | 1491 |
+| 2026-11-11 | 47 | 10.43 and 10.44: an OpenCode agent in agents.yaml (`provider`, `model`, acp only; `agent run` and `agent login` refused) and the pure `opencode_env()` and `opencode_inline_config()`; nothing starts OpenCode yet | 1405 |
 | 2026-11-11 | 46 | 10.42: the OpenCode facts confirmed on 2.2.7 in a throwaway sandbox, and the spec changed where they differed (OC9, OC10, OC15); docs only | |
 | 2026-11-11 | 45 | Layer 13 slice 2, Reversal: `umwayi decision reopen`, `queue answer --revisit-if`, `logbook.read_chained` | 1321 |
 | 2026-11-11 | 44 | spec: layer 10 part 8, OpenCode over ACP (10.41), and Muse Spark Open as an OpenCode model (10.40); docs only, waits for the owner's approval | |
