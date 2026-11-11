@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { heightAt, RIVER_HALF_WIDTH } from './height.js';
-import { nearestOnRiver } from './river.js';
-import { reachable, SHEPHERD_SPACE } from './layout.js';
+import { nearestOnRiver, SAMPLES as RIVER_SAMPLES } from './river.js';
+import { boulderGeometry } from './rockgeo.js';
+import { reachable, SHEPHERD_SPACE, stationPositions, TABLE } from './layout.js';
 import { mulberry32 } from './random.js';
 import { fbm } from './noise.js';
 import { grain } from './surface.js';
@@ -100,11 +101,8 @@ export function buildAcacia(count = 13) {
   return g;
 }
 
-// ---- African pencil cedar: a dark, narrow, layered cone
-export function buildCedar(count = 26) {
-  const g = new THREE.Group();
-  const list = spots({ seed: 41, count, rMin: 30, rMax: 110, tries: 6000, apart: 7, clearOf: 3,
-    ok: (x, z, y, s, rnd) => s < 0.7 && (y > 2.5 || nearestOnRiver({ x, z }).distance > 22) && fbm(x * 0.03, z * 0.03, 3) > 0.42 && !(z > 24 && Math.abs(x) < 30) });
+// a cedar's foliage: six layered, ragged cones, merged
+function cedarGeometry() {
   const tiers = [];
   for (let t = 0; t < 6; t++) {
     const c = new THREE.ConeGeometry(1.6 - t * 0.22, 2.0, 9, 1, true);
@@ -116,6 +114,15 @@ export function buildCedar(count = 26) {
   }
   const merged = mergeGeometries(tiers.map((t) => t.toNonIndexed()));
   merged.computeVertexNormals();
+  return merged;
+}
+
+// ---- African pencil cedar: a dark, narrow, layered cone
+export function buildCedar(count = 26) {
+  const g = new THREE.Group();
+  const list = spots({ seed: 41, count, rMin: 30, rMax: 110, tries: 6000, apart: 7, clearOf: 3,
+    ok: (x, z, y, s, rnd) => s < 0.7 && (y > 2.5 || nearestOnRiver({ x, z }).distance > 22) && fbm(x * 0.03, z * 0.03, 3) > 0.42 && !(z > 24 && Math.abs(x) < 30) });
+  const merged = cedarGeometry();
   const mesh = new THREE.InstancedMesh(merged, grain(new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide }), { freq: 1.6, bump: 0.8, vary: 0.4, seed: 12 }), list.length);
   const trunkMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.25, 2, 6).translate(0, 1, 0), new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 1 }), list.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), c = new THREE.Color();
@@ -143,4 +150,101 @@ export function buildBoulders(makeRock, count = 70) {
     g.add(rock);
   });
   return g;
+}
+
+// ---- the forest across the river (12.R20.1): pencil cedars and broadleaf trees, close together, the river cutting through.
+// spots come from forest.js; all instanced, three draws for the whole forest.
+export function buildForest(spots) {
+  const g = new THREE.Group();
+  const cedars = spots.filter((s) => s.kind === 'cedar'), broad = spots.filter((s) => s.kind === 'broadleaf');
+  const foliage = grain(new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide }), { freq: 1.4, bump: 0.8, vary: 0.45, seed: 14 });
+  const cedar = new THREE.InstancedMesh(cedarGeometry(), foliage, cedars.length);
+  const crownGeo = blob(2, 0.28, 1, 1, 1, 7);
+  const crowns = new THREE.InstancedMesh(crownGeo, grain(new THREE.MeshStandardMaterial({ roughness: 1 }), { freq: 1.2, bump: 0.9, vary: 0.4, seed: 15 }), broad.length * 4);
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.3, 4, 6).translate(0, 2, 0), new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 1 }), spots.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), c = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
+  cedars.forEach((s, i) => {
+    q.setFromAxisAngle(up, s.turn);
+    m.compose(new THREE.Vector3(s.x, s.y - 0.2, s.z), q, sc.set(s.k * 0.95, s.k * 1.15, s.k * 0.95));
+    cedar.setMatrixAt(i, m);
+    c.setHSL(0.36 + s.tone * 0.08, 0.26, 0.075 + s.tone * 0.045);
+    cedar.setColorAt(i, c);
+  });
+  broad.forEach((s, i) => {
+    q.setFromAxisAngle(up, s.turn);
+    const k = s.k * 1.1;
+    [[0, 5.6, 0, 2.6, 1.6], [1.5, 5.0, 0.6, 1.9, 1.3], [-1.3, 5.2, -0.7, 2.0, 1.4], [0.2, 6.6, -0.4, 1.7, 1.2]].forEach(([ox, oy, oz, r, h], j) => {
+      m.compose(new THREE.Vector3(s.x + (Math.cos(s.turn) * ox - Math.sin(s.turn) * oz) * k, s.y + oy * k, s.z + (Math.sin(s.turn) * ox + Math.cos(s.turn) * oz) * k), q, sc.set(r * k, h * k, r * k));
+      crowns.setMatrixAt(i * 4 + j, m);
+      c.setHSL(0.2 + s.tone * 0.07, 0.3, 0.075 + s.tone * 0.04 + j * 0.006);
+      crowns.setColorAt(i * 4 + j, c);
+    });
+  });
+  spots.forEach((s, i) => {
+    q.setFromAxisAngle(up, s.turn);
+    m.compose(new THREE.Vector3(s.x, s.y - 0.2, s.z), q, sc.set(s.k, s.k * (s.kind === 'cedar' ? 0.7 : 1.35), s.k));
+    trunks.setMatrixAt(i, m);
+  });
+  for (const o of [cedar, crowns, trunks]) { o.castShadow = true; o.receiveShadow = true; g.add(o); }
+  return g;
+}
+
+// ---- the ground at the stations (12.R19.6): small stones and tufts of grass round each station's default place and
+// along the river banks, so the ground is not a smooth sheet. Instanced; nothing inside a footprint.
+export function buildGroundDetail(stoneMat, perStation = 70) {
+  const g = new THREE.Group();
+  const rnd = mulberry32(88), pos = stationPositions({}), out = [];
+  for (const row of TABLE) {
+    const c = pos[row.id];
+    for (let i = 0; i < perStation; i++) {
+      const a = rnd() * Math.PI * 2, r = row.footprint + 0.5 + Math.pow(rnd(), 1.6) * 3.2;
+      out.push({ x: c.x + Math.cos(a) * r, z: c.z + Math.sin(a) * r, k: rnd() });
+    }
+  }
+  for (const s of SAMPLES_BANK()) out.push(s);
+  const keep = reachable().filter((k) => k.r > 0);
+  const free = out.filter((s) => !keep.some((k) => Math.hypot(s.x - k.x, s.z - k.z) < k.r - 0.5) && nearestOnRiver(s).distance > RIVER_HALF_WIDTH * 0.9);
+  const stones = free.filter((s) => s.k < 0.45), tufts = free.filter((s) => s.k >= 0.45);
+  const pebble = new THREE.InstancedMesh(boulderGeometry(31, 2), stoneMat, stones.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), e = new THREE.Euler();
+  stones.forEach((s, i) => {
+    const r = 0.05 + s.k * s.k * 0.5;
+    e.set((s.k - 0.2) * 0.6, s.k * 40, 0);
+    m.compose(new THREE.Vector3(s.x, heightAt(s.x, s.z) + r * 0.15, s.z), q.setFromEuler(e), sc.set(r * 1.2, r * 0.6, r));
+    pebble.setMatrixAt(i, m);
+  });
+  // a tuft: a dozen fine blades leaning out from one root, tapering to a point
+  const blades = [];
+  for (let b = 0; b < 12; b++) {
+    const hgt = 0.16 + (b % 4) * 0.035;
+    const bl = new THREE.PlaneGeometry(0.014, hgt, 1, 3).translate(0, hgt / 2, 0);
+    const bp = bl.attributes.position;
+    for (let i = 0; i < bp.count; i++) { const t = bp.getY(i) / hgt; bp.setX(i, bp.getX(i) * (1 - t * 0.9)); bp.setZ(i, bp.getZ(i) + t * t * 0.07); }
+    bl.rotateX(-0.2 - (b % 3) * 0.15).rotateY((b / 12) * Math.PI * 2 + (b % 2) * 0.3);
+    blades.push(bl.toNonIndexed());
+  }
+  const tuftGeo = mergeGeometries(blades);
+  tuftGeo.deleteAttribute('uv');
+  tuftGeo.computeVertexNormals();
+  const tuft = new THREE.InstancedMesh(tuftGeo, new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide }), tufts.length);
+  const c = new THREE.Color();
+  tufts.forEach((s, i) => {
+    const k = 0.7 + (s.k - 0.45) * 1.2;
+    m.compose(new THREE.Vector3(s.x, heightAt(s.x, s.z) - 0.02, s.z), q.setFromEuler(e.set(0, s.k * 31, 0)), sc.set(k, k, k));
+    tuft.setMatrixAt(i, m);
+    c.setHSL(s.k > 0.7 ? 0.115 : 0.2, s.k > 0.7 ? 0.5 : 0.34, 0.3 + (s.k - 0.45) * 0.1);
+    tuft.setColorAt(i, c);
+  });
+  for (const o of [pebble, tuft]) { o.castShadow = o === pebble; o.receiveShadow = true; g.add(o); }
+  return g;
+}
+
+// stones along both banks of the river
+function SAMPLES_BANK() {
+  const rnd = mulberry32(89), out = [];
+  for (const s of RIVER_SAMPLES) {
+    if (Math.hypot(s.x, s.z) > 75) continue;
+    for (const side of [-1, 1]) if (rnd() < 0.9) out.push({ x: s.x + side * (RIVER_HALF_WIDTH + 0.6 + rnd() * 1.6) * (rnd() < 0.5 ? 1 : 0.9), z: s.z + (rnd() - 0.5) * 2, k: rnd() * 0.6 });
+  }
+  return out;
 }

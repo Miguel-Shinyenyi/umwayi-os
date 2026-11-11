@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { grain } from '../world/surface.js';
+import { boulderGeometry, slabGeometry } from '../world/rockgeo.js';
 
 const fract = (x) => x - Math.floor(x);
 export const hash = (x, y = 0, z = 0) => fract(Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453);
@@ -117,31 +118,51 @@ export function makeKit() {
     m.lookAt(b);
     return m;
   };
-  // a craggy stone: one of six shared displaced icospheres, scaled and turned (so a wall costs little)
-  const ROCKS = Array.from({ length: 6 }, (_, i) => fluff(1, 3, 0.15, 1, 1, 1).rotateY(i * 1.3));
+  // a stone: one of six shared boulders (fine for the bigger ones, coarser for pebbles), scaled and turned
+  const ROCKS = Array.from({ length: 6 }, (_, i) => boulderGeometry(i + 1, 4));
+  const PEBBLES = Array.from({ length: 6 }, (_, i) => boulderGeometry(i + 21, 3));
   kit.rock = (r, mat, x, y, z, seed = 1, sx = 1.15, sy = 0.75, sz = 1) => {
-    const m = mesh(ROCKS[Math.abs(Math.floor(seed)) % 6], mat, x, y, z);
+    const set = r >= 0.3 ? ROCKS : PEBBLES;
+    const m = mesh(set[Math.abs(Math.floor(seed)) % 6], mat, x, y, z);
     m.scale.set(r * sx, r * sy, r * sz);
     m.rotation.y = seed * 2.1;
     return m;
   };
-  // a drystone wall along a polyline of [x, z] points: courses of stones, each a little different
+  // a drystone wall along a polyline of [x, z] points: courses of separate flat stones of different length and height,
+  // laid with broken joints, a little batter (narrower at the top), and a row of upright cope stones on top
+  const SLABS = Array.from({ length: 8 }, (_, i) => slabGeometry(i + 1));
   kit.wall = (pts, h = 0.9, t = 0.55, seed = 1) => {
     const g = new THREE.Group();
     for (let i = 0; i < pts.length - 1; i++) {
       const [x0, z0] = pts[i], [x1, z1] = pts[i + 1];
-      const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(len / 0.36));
-      const rows = Math.max(2, Math.round(h / 0.27));
-      for (let r = 0; r < rows; r++) {
-        for (let k = 0; k < n; k++) {
-          const f = (k + 0.5 * (r % 2) + hash(i, k, r + seed) * 0.2) / n;
-          if (f > 1) continue;
-          const x = x0 + (x1 - x0) * f, z = z0 + (z1 - z0) * f;
-          const s = 0.2 + hash(k, r, seed) * 0.08;
-          const st = kit.rock(s, hash(k + 1, r, seed) > 0.5 ? M.stone : M.stoneDark, x + (hash(r, k, 2) - 0.5) * 0.08, 0.12 + r * 0.26, z + (hash(k, r, 4) - 0.5) * 0.1, k + r * 7 + seed, 1.15, 0.78, t / 0.42);
-          st.rotation.y = Math.atan2(x1 - x0, z1 - z0) + Math.PI / 2;
-          g.add(st);
+      const len = Math.hypot(x1 - x0, z1 - z0), dir = Math.atan2(x1 - x0, z1 - z0);
+      const ux = (x1 - x0) / len, uz = (z1 - z0) / len;
+      const lay = (along, y, sl, sh, depth, k, upright = false) => {
+        const st = mesh(SLABS[Math.floor(hash(k, i, seed) * 8)], hash(k, seed, 3) > 0.45 ? M.stone : M.stoneDark);
+        const side = (hash(k, i, 7) - 0.5) * 0.05;
+        st.position.set(x0 + ux * along - uz * side, y, z0 + uz * along + ux * side);
+        st.scale.set(depth, sh, sl);
+        st.rotation.set((hash(k, 2, seed) - 0.5) * 0.12, dir + (hash(k, 5, seed) - 0.5) * 0.1, (hash(k, 9, seed) - 0.5) * (upright ? 0.3 : 0.08));
+        g.add(st);
+      };
+      let y = 0, row = 0, k = 0;
+      const courseTop = h - 0.2;
+      while (y < courseTop) {
+        const sh = Math.min(courseTop - y, 0.13 + hash(row, i, seed) * 0.11);
+        const depth = t * (1 - 0.25 * (y / h)); // the batter
+        let a = row % 2 ? -0.12 - hash(row, 1, seed) * 0.12 : 0;
+        while (a < len) {
+          const sl = 0.26 + hash(k, row, seed) * 0.34;
+          const c = Math.min(len - 0.02, a + sl / 2);
+          if (c > 0.02) lay(c, y + sh / 2, Math.min(sl, (len - a) * 2), sh * 1.05, depth * (0.9 + hash(k, 4, seed) * 0.15), k++);
+          a += sl * 0.96;
         }
+        y += sh * 0.96;
+        row++;
+      }
+      // the cope: stones on edge across the top
+      for (let a = 0.08; a < len - 0.04; a += 0.17 + hash(a * 10, i, seed) * 0.06) {
+        lay(a, y + 0.12, 0.13 + hash(a * 7, 3, seed) * 0.05, 0.26 + hash(a * 9, 1, seed) * 0.08, t * 0.72, k++, true);
       }
     }
     return g;
@@ -164,51 +185,89 @@ export function makeKit() {
     return { group: g, lamp };
   };
 
-  // Sheep: soft wool, a dark head on a pivot so it can bow.
-  const sheepGeo = (() => {
-    const wool = [
-      paint(place(fluff(0.4, 3, 0.07, 1, 0.82, 1.3), 0, 0.52, 0), COLORS.wool, 0.16),
-      paint(place(fluff(0.12, 2, 0.05), 0, 0.6, -0.52), COLORS.wool, 0.1),
-    ];
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      wool.push(paint(place(new THREE.CylinderGeometry(0.03, 0.036, 0.32, 8), sx * 0.15, 0.16, sz * 0.27), COLORS.skin));
-    }
-    const head = new THREE.SphereGeometry(0.17, 14, 10).scale(0.82, 0.95, 1.15);
-    const parts = [paint(place(head, 0, 0, 0.15), COLORS.skin, 0.1)];
+  // ---- Animals (12.R20.4): shaped like the real ones, still, made of smooth parts. A body is a lathe turned along z, legs
+  // have two parts and a hoof or paw, heads sit on a pivot so they can bow. The flock mixes the sheep kept in Kenya (the
+  // Dorper, white with a black head, and the Red Maasai, red brown and fat tailed) with goats (lean, horned, tail up).
+  const lathe = (profile, seg = 18) => new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+  const along = (geo) => geo.rotateX(Math.PI / 2); // a lathe made along y, laid along +z (the head end)
+  const ellip = (r, sx, sy, sz, ws = 14, hs = 10) => new THREE.SphereGeometry(r, ws, hs).scale(sx, sy, sz);
+  const leg = (parts, x, z, hip, len, top, bottom, hoof, col, hoofCol) => {
+    const upper = new THREE.CylinderGeometry(top * 0.8, top, len * 0.5, 8).translate(x, hip - len * 0.25, z);
+    const lower = new THREE.CylinderGeometry(bottom, top * 0.75, len * 0.5, 8).translate(x, hip - len * 0.75, z + 0.01);
+    parts.push(paint(upper, col, 0.05), paint(lower, col, 0.05), paint(new THREE.CylinderGeometry(bottom * 1.1, hoof, 0.05, 8).translate(x, 0.025, z + 0.01), hoofCol));
+  };
+  const ANIMAL = {
+    dorper: { body: 0xd6cdb8, head: 0x1c1b19, len: 0.95, girth: 0.3, hip: 0.4, legLen: 0.4, tail: 'short', ears: 'flat' },
+    redmaasai: { body: 0x6a3a22, head: 0x5a3220, len: 0.9, girth: 0.27, hip: 0.42, legLen: 0.42, tail: 'fat', ears: 'flat' },
+    goat: { body: 0x3d2f25, head: 0x3d2f25, patch: 0xb9ae98, len: 0.82, girth: 0.22, hip: 0.5, legLen: 0.5, tail: 'up', ears: 'down', horns: true, beard: true },
+  };
+  function animalGeo(kind) {
+    const A = ANIMAL[kind], L = A.len, G = A.girth, body = [], head = [];
+    const by = A.hip + G * 0.55; // the body's centre line
+    const b = along(lathe([[0.001, -L / 2], [G * 0.55, -L / 2 + 0.06], [G * 0.92, -L * 0.28], [G, 0], [G * 0.95, L * 0.25], [G * 0.7, L / 2 - 0.05], [0.001, L / 2]]));
+    b.scale(1, 1.08, 1).translate(0, by, 0);
+    body.push(paint(b, A.body, kind === 'dorper' ? 0.14 : 0.08));
+    if (A.patch) body.push(paint(ellip(G * 0.8, 1.05, 0.8, 1.2).translate(0.03, by - 0.02, -L * 0.12), A.patch, 0.08));
+    // the neck rises forward to the head pivot
+    const neck = new THREE.CylinderGeometry(G * 0.32, G * 0.5, 0.36, 10).rotateX(-0.75).translate(0, by + 0.14, L / 2 - 0.02);
+    body.push(paint(neck, kind === 'dorper' ? A.head : A.body, 0.06));
+    for (const sx of [-1, 1]) for (const [sz, k] of [[L * 0.32, 1], [-L * 0.32, 1.1]]) leg(body, sx * G * 0.5, sz, A.hip + 0.04, A.legLen + 0.04, 0.045 * k, 0.022, 0.026, kind === 'dorper' ? 0xcfc6b2 : A.body, 0x161412);
+    if (A.tail === 'fat') body.push(paint(ellip(0.1, 1.1, 1.3, 0.7).translate(0, by - 0.06, -L / 2 - 0.02), A.body, 0.05));
+    if (A.tail === 'short') body.push(paint(ellip(0.05, 1, 1.6, 0.8).translate(0, by - 0.05, -L / 2 - 0.01), A.body));
+    if (A.tail === 'up') body.push(paint(new THREE.ConeGeometry(0.03, 0.16, 6).rotateX(-0.5).translate(0, by + 0.1, -L / 2 + 0.01), A.body));
+    // the head, in the pivot's frame: the skull, a narrower muzzle, ears, and for the goat horns and a beard
+    head.push(paint(ellip(0.12, 0.8, 0.85, 1.0).translate(0, 0.02, 0.05), A.head, 0.06));
+    head.push(paint(ellip(0.08, 0.75, 0.75, 1.25).translate(0, -0.04, 0.17), A.head, 0.06));
+    head.push(paint(ellip(0.012, 1, 1, 1).translate(0, -0.05, 0.27), 0x0c0b0a));
     for (const sx of [-1, 1]) {
-      const ear = new THREE.SphereGeometry(0.07, 8, 6).scale(1.3, 0.3, 0.7);
-      ear.rotateZ(sx * 0.35);
-      parts.push(paint(place(ear, sx * 0.17, 0.08, 0.06), COLORS.skin));
+      const ear = ellip(0.06, 1.5, 0.28, 0.65).rotateZ(sx * (A.ears === 'down' ? 1.05 : 0.3)).translate(sx * 0.11, A.ears === 'down' ? -0.01 : 0.05, 0.02);
+      head.push(paint(ear, A.head));
+      head.push(paint(ellip(0.016, 1, 1, 0.6).translate(sx * 0.075, 0.04, 0.12), 0x0a0908)); // the eye, as shape
+      if (A.horns) {
+        const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(sx * 0.04, 0.09, 0.04), new THREE.Vector3(sx * 0.07, 0.19, -0.03), new THREE.Vector3(sx * 0.1, 0.22, -0.13), new THREE.Vector3(sx * 0.12, 0.17, -0.2)]);
+        head.push(paint(new THREE.TubeGeometry(curve, 10, 0.016, 6).toNonIndexed(), 0x6b604e, 0.1));
+      }
     }
-    return { body: mergeGeometries(wool), head: mergeGeometries(parts) };
-  })();
-  kit.sheep = (scale = 1) => {
-    const g = new THREE.Group();
-    g.add(mesh(sheepGeo.body, M.animal));
+    if (A.beard) head.push(paint(new THREE.ConeGeometry(0.025, 0.09, 6).rotateX(Math.PI).translate(0, -0.11, 0.2), 0x2a221b));
+    return { body: mergeGeometries(body.map((g) => (g.index ? g.toNonIndexed() : g))), head: mergeGeometries(head.map((g) => (g.index ? g.toNonIndexed() : g))), pivot: [0, by + 0.3, L / 2 + 0.1] };
+  }
+  const GEO = Object.fromEntries(Object.keys(ANIMAL).map((k) => [k, animalGeo(k)]));
+  const animal = (kind, scale) => {
+    const geo = GEO[kind], g = new THREE.Group();
+    g.add(mesh(geo.body, M.animal));
     const head = new THREE.Group();
-    head.position.set(0, 0.64, 0.42);
-    head.add(mesh(sheepGeo.head, M.animal));
+    head.position.set(...geo.pivot);
+    head.add(mesh(geo.head, M.animal));
     g.add(head);
     g.scale.setScalar(scale);
+    g.userData.kind = kind;
     return { group: g, head };
   };
+  // the flock: each call takes the next kind in a fixed, mixed order, so a station's group is a mixed flock
+  const FLOCK = ['dorper', 'goat', 'redmaasai', 'dorper', 'goat', 'redmaasai', 'goat'];
+  let flockIndex = 0;
+  kit.sheep = (scale = 1) => animal(FLOCK[flockIndex++ % FLOCK.length], scale);
+  kit.animal = animal;
 
-  // A sheepdog: dark coat, pale chest and legs.
+  // A herding dog with real proportions: a deep chest, a tucked waist, long legs, a long muzzle, ears half up, a low plumed
+  // tail. A dark coat with pale chest, muzzle and feet.
   const dogGeo = (() => {
-    const dark = 0x1f1f1d, pale = 0xaaa595;
-    const parts = [
-      paint(place(new THREE.SphereGeometry(0.3, 14, 10).scale(0.62, 0.62, 1.5), 0, 0.5, 0), dark, 0.08),
-      paint(place(new THREE.SphereGeometry(0.2, 12, 8).scale(0.7, 0.8, 0.9), 0, 0.5, 0.32), pale, 0.05),
-      paint(place(new THREE.SphereGeometry(0.14, 12, 8).scale(0.9, 0.95, 1.1), 0, 0.72, 0.58), dark),
-      paint(place(new THREE.SphereGeometry(0.07, 10, 8).scale(0.9, 0.8, 1.4), 0, 0.68, 0.74), pale),
-      paint(place(new THREE.ConeGeometry(0.035, 0.05, 6), 0, 0.69, 0.82).rotateX(Math.PI / 2), 0x151514),
-    ];
+    const dark = 0x1d1c1a, pale = 0xa29c8c, parts = [];
+    const b = along(lathe([[0.001, -0.38], [0.11, -0.34], [0.14, -0.15], [0.16, 0.06], [0.19, 0.22], [0.15, 0.36], [0.001, 0.42]]));
+    b.scale(0.9, 1.05, 1).translate(0, 0.52, 0);
+    parts.push(paint(b, dark, 0.06));
+    parts.push(paint(ellip(0.13, 0.85, 1.1, 0.8).translate(0, 0.47, 0.27), pale, 0.05)); // the chest
+    parts.push(paint(new THREE.CylinderGeometry(0.075, 0.11, 0.26, 10).rotateX(-0.6).translate(0, 0.68, 0.38), dark)); // the neck
+    parts.push(paint(ellip(0.1, 0.85, 0.85, 1.0).translate(0, 0.8, 0.47), dark, 0.05)); // the skull
+    parts.push(paint(ellip(0.055, 0.8, 0.7, 1.9).translate(0, 0.76, 0.6), pale, 0.04)); // the muzzle
+    parts.push(paint(ellip(0.022, 1, 0.8, 1).translate(0, 0.765, 0.7), 0x0d0c0b)); // the nose
     for (const sx of [-1, 1]) {
-      parts.push(paint(place(new THREE.ConeGeometry(0.05, 0.14, 6).rotateX(-0.4).rotateZ(sx * 0.4), sx * 0.1, 0.84, 0.55), dark));
-      for (const sz of [-1, 1]) parts.push(paint(place(new THREE.CylinderGeometry(0.036, 0.04, 0.36, 8), sx * 0.1, 0.18, sz * 0.26), pale));
+      parts.push(paint(new THREE.ConeGeometry(0.04, 0.11, 6).rotateX(-0.25).rotateZ(sx * 0.45).translate(sx * 0.065, 0.89, 0.44), dark));
+      for (const [sz, k] of [[0.22, 1], [-0.25, 1.15]]) leg(parts, sx * 0.075, sz, 0.48, 0.46, 0.04 * k, 0.022, 0.03, sz > 0 ? pale : dark, pale);
     }
-    parts.push(paint(place(new THREE.ConeGeometry(0.05, 0.42, 8).rotateX(-2.2), 0, 0.5, -0.55), dark));
-    return mergeGeometries(parts);
+    const tail = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.55, -0.36), new THREE.Vector3(0, 0.42, -0.5), new THREE.Vector3(0, 0.3, -0.56), new THREE.Vector3(0, 0.24, -0.5)]);
+    parts.push(paint(new THREE.TubeGeometry(tail, 10, 0.04, 7).toNonIndexed(), dark, 0.05));
+    return mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)));
   })();
   kit.dog = (scale = 1) => {
     const g = new THREE.Group();

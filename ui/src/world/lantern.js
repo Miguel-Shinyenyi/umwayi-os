@@ -1,22 +1,41 @@
 import * as THREE from 'three';
 import { heightAt } from './height.js';
 
-// The centre: a plain silhouette shepherd on the knoll, a staff with a hook, a lantern hanging from it, and a dog.
-// The lantern is the brightest point of the picture and the only strong light. makeDog gives the dog the sheepdog shape.
+// The centre: a Maasai shepherd in silhouette on the knoll (12.R20.3), the staff with a lantern hanging from its hook, and a
+// dog. Plain and respectful: a tall, slim standing figure, a shuka wrapped over the left shoulder and falling below the
+// knee, a beaded collar only as a shape, no face detail. The lantern is the brightest point of the picture.
 export function buildShepherd(makeDog) {
   const g = new THREE.Group();
   g.position.y = heightAt(0, 0);
-  const dark = new THREE.MeshStandardMaterial({ color: 0x07080b, roughness: 1 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0x120d0b, roughness: 0.85 });
+  const shuka = new THREE.MeshStandardMaterial({ color: 0x5c1610, roughness: 1 }); // the red cloth, deep in the dusk
+  const shuka2 = new THREE.MeshStandardMaterial({ color: 0x3a1d3a, roughness: 1 }); // a second cloth, darker
+  const beads = new THREE.MeshStandardMaterial({ color: 0x4a3a2a, roughness: 0.7 });
   const metal = new THREE.MeshStandardMaterial({ color: 0x1d2024, roughness: 0.5, metalness: 0.6 });
-  // a plain silhouette: a cloak, a head, a hood
-  const cloak = new THREE.Mesh(new THREE.LatheGeometry([[0.0, 0], [0.38, 0], [0.33, 0.45], [0.25, 1.05], [0.2, 1.36], [0.13, 1.5], [0.0, 1.52]].map(([r, y]) => new THREE.Vector2(r, y)), 20), dark);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), dark);
-  head.position.y = 1.65;
-  const hood = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.2, 12), dark);
-  hood.position.set(0, 1.74, -0.02);
-  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.62, 8), dark);
-  arm.position.set(0.28, 1.28, 0.08);
-  arm.rotation.z = -0.9;
+  const smooth = (pts, mat, seg = 22) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), mat);
+  // legs below the cloth
+  const legs = [-1, 1].map((sx) => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.5, 10), skin); l.position.set(sx * 0.08, 0.27, 0); return l; });
+  // the shuka: from the chest to below the knee, a little fuller at the hem, and a second cloth over the shoulders
+  const cloth = smooth([[0.0, 0.42], [0.2, 0.42], [0.21, 0.5], [0.19, 0.8], [0.17, 1.1], [0.16, 1.3], [0.12, 1.36], [0.0, 1.37]], shuka);
+  cloth.scale.set(1, 1, 0.78);
+  const drape = smooth([[0.0, 1.0], [0.17, 1.02], [0.19, 1.25], [0.15, 1.44], [0.07, 1.49], [0.0, 1.5]], shuka2);
+  drape.scale.set(1.05, 1, 0.8);
+  drape.rotation.z = 0.12; // tied over one shoulder
+  // the bare right shoulder and arm, holding the staff
+  const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), skin);
+  shoulder.position.set(0.17, 1.43, 0.0);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.5, 8), skin);
+  arm.position.set(0.31, 1.3, 0.08);
+  arm.rotation.z = -1.0;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.14, 10), skin);
+  neck.position.y = 1.55;
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.025, 24), beads); // the beaded collar, as a shape
+  collar.position.y = 1.5;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12).scale(0.92, 1.12, 1.0), skin);
+  head.position.y = 1.7;
+  const cloak = new THREE.Group();
+  cloak.add(cloth, drape);
+  const hood = new THREE.Group();
   // the staff: a straight pole with a hook at the top
   const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 2.35, 8), new THREE.MeshStandardMaterial({ color: 0x1b140e, roughness: 0.9 }));
   staff.position.set(0.45, 1.175, 0.12);
@@ -38,12 +57,12 @@ export function buildShepherd(makeDog) {
   light.position.set(lx, ly, lz);
   const halo = makeHalo();
   halo.position.set(lx, ly, lz);
-  g.add(cloak, head, hood, arm, staff, hook, chain, frame, capTop, flame, light, halo);
+  g.add(...legs, cloak, shoulder, arm, neck, collar, head, hood, staff, hook, chain, frame, capTop, flame, light, halo);
   const dog = makeDog(0.95);
   dog.position.set(-0.85, 0, 0.5);
   dog.rotation.y = 0.9;
   g.add(dog);
-  for (const o of [cloak, head, hood, arm, staff, hook, dog]) o.traverse?.((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  for (const o of [...legs, cloak, shoulder, neck, collar, head, arm, staff, hook, dog]) o.traverse?.((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
   return { group: g, light, flameMat, halo, baseLight: 95, baseEmissive: 9, position: new THREE.Vector3(lx, g.position.y + ly, lz) };
 }
 

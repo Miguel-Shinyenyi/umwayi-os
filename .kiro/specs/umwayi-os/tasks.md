@@ -635,7 +635,7 @@ Requirements 12.R1 to 12.R11, design.md "Layer 12" (what is kept from the owner'
 - [ ] UI.1b (PR 39, about 30 h) The Standard tier fixes, the home page layout, the scene additions at Standard detail and the tier choice (12.R16.6, 12.R16.7 for List and Standard, 12.R19, 12.R20.1 to 12.R20.4). Stop at its end and show the owner screenshots at 1440 by 900 and 390 by 844.
   - [ ] UI.1b.1 The tier choice (**tests first**): `ui/src/engine/tier.js` (`chooseTier`) and `ui/src/engine/env.js` (`readEnv`); the switch in the top bar (List, Standard) replaces List view; `#tier=` kept in the address only; the page without JavaScript shows the list and the home content.
     - Acceptance tests (`node --test`, written first): every case of 12.R10.4 for the tier choice; (Python page test) the switch buttons exist, no List view button, the list is visible in the HTML before any script runs.
-  - [ ] UI.1b.2 The layout further out (**tests first**): new default places with at least three stations at 30 m or more; the overview shows all eleven.
+  - [ ] UI.1b.2 The layout further out (**tests first**): new default places with at least three stations at 30 m or more; the overview shows all eleven on a wide screen and the near ones on a phone.
     - Acceptance tests: the layout tests of UI.1.3 still pass on the new table, and at least three default distances are 30 m or more.
   - [ ] UI.1b.3 The home page layout and the names: the peek of the status strip and the still cue; no name pill over the hero text.
     - Acceptance tests (browser): at both sizes the top of the status strip is inside the first screen and not covered; for every station, hover, focus and selection give a name that does not cross the title or promise boxes.

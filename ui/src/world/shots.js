@@ -1,22 +1,27 @@
 // The camera shots: the overview, which fits every place a station can stand, and the view of one station.
 import * as THREE from 'three';
-import { reachable, TABLE, stationPositions } from './layout.js';
+import { TABLE, stationPositions } from './layout.js';
+import { WATER_LEVEL } from './height.js';
 
+export const FAR = 30; // metres: a station this far from the lantern is a far one
 const STATION_SHOT_DIST = (st) => 6.2 + st.footprint * 1.15;
 
-// The overview. On a wide screen it fits every place a station can stand, from the nearest to the furthest. A portrait screen
-// is too narrow for the whole sweep (the scene is about 45 m across), so there it fits the default places with a margin; a
-// station that has drifted out further than that is still reached with Next station and by dragging.
+// The overview: it fits the default place of every station, with the sky and the mountain above.
 export function overviewShot(aspect) {
   const narrow = aspect < 0.85;
   const shot = {
-    fov: narrow ? 62 : 42, pitch: narrow ? 0.3 : 0.22, dist: 40, yaw: 0, tx: 0, ty: narrow ? 2.5 : 2.0, tz: narrow ? -3 : -5, shiftX: 0, shiftY: 0,
+    fov: narrow ? 62 : 42, pitch: narrow ? 0.3 : 0.21, dist: 40, yaw: 0, tx: 0, ty: narrow ? 2.5 : 2.0, tz: narrow ? -3 : -11, shiftX: 0, shiftY: 0, // pitched high enough to see the river in its channel
   };
+  // Since Nov 11 (round 2) some stations are really far, so the overview fits the default places on every screen; a station
+  // that has drifted further out than that is still reached with Next station and by dragging.
   const defaults = stationPositions({});
-  const spots = narrow ? TABLE.map((r) => ({ x: defaults[r.id].x, z: defaults[r.id].z, r: r.footprint + 0.4 })) : reachable();
+  // On a phone the far stations (30 m or more) would make the rest too small to read, so there it fits the near ones; the far
+  // ones are at the edges or just beyond, and Next station or a drag reaches them.
+  const spots = TABLE.filter((r) => !narrow || Math.hypot(defaults[r.id].x, defaults[r.id].z) < FAR)
+    .map((r) => ({ x: defaults[r.id].x, z: defaults[r.id].z, r: r.footprint + 0.4 }));
   const cam = new THREE.PerspectiveCamera(shot.fov, aspect, 0.1, 900);
   const v = new THREE.Vector3();
-  const top = narrow ? 0.5 : 0.4; // the sky and the mountain keep the upper part of the picture
+  const top = narrow ? 0.5 : 0.5; // the sky and the mountain keep the upper part of the picture
   const ok = () => {
     cam.position.set(0, shot.ty + shot.dist * Math.sin(shot.pitch), shot.tz + shot.dist * Math.cos(shot.pitch));
     cam.lookAt(0, shot.ty, shot.tz);
@@ -59,7 +64,7 @@ export function stationShot(st, aspect, others = []) {
   const c = cameraPosition(st, aspect, others);
   return {
     fov: narrow ? 56 : 42, pitch: c.pitch, dist: c.dist, yaw: c.yaw,
-    tx: st.pos.x, ty: (st.river ? -0.4 : st.pos.y) + 1.2, tz: st.pos.z,
-    shiftX: narrow ? 0 : 0.17, shiftY: narrow ? 0.2 : 0,
+    tx: st.pos.x, ty: (st.river ? WATER_LEVEL : st.pos.y) + 1.2, tz: st.pos.z,
+    shiftX: narrow ? 0 : 0.17, shiftY: narrow ? 0.12 : 0, // on a phone the station sits below the title and above the panel
   };
 }

@@ -930,7 +930,7 @@ umwayi view snapshot [--out PATH] [--date D]    read the counts, write one JSON 
 
 1. **The rest of the page is visibly present at the bottom of the first screen**: at 1440 by 900 and 390 by 844 the top of the status strip shows above the bottom edge of the first screen, with a still cue that there is more below. The scene never covers it.
 2. **The list view is tier 1** (12.R16.1), not a button of the scene page.
-3. **The outer stations are further out**, so some are really far: at least three stations stand at 30 m or more from the lantern at their default places, and the overview still shows all eleven.
+3. **The outer stations are further out**, so some are really far: at least three stations stand at 30 m or more from the lantern at their default places. The overview shows all eleven on a wide screen; on a phone it shows the near ones large enough to read, and the far ones are at its edges or just beyond, reached with Next station or a drag.
 4. **The river and the trails of light are clearly visible from the default view**: the overview shows a long reach of the river, and every trail between related stations is drawn faintly and still at rest (brighter for the station in focus, fainter in Calm mode).
 5. **No name pill covers the hero text** (the title and the promise) at either size, on hover, focus or selection.
 6. **Rocks, walls and ground look less like low poly forms**: rocks are irregular, displaced shapes with strata and grain; a wall is many separate stones of different size laid in courses; the ground has small stones, tufts and soil at the stations. This brings back, for rocks, walls and ground only, part of the second realism pass the owner cut on Nov 11.

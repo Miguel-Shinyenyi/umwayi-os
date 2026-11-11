@@ -47,3 +47,14 @@ export function nearestOnRiver(p = { x: 0, z: 0 }) {
   const q = riverPoint(u);
   return { u, distance: Math.sqrt(bd), x: q.x, z: q.z };
 }
+
+// Which side of the river a point is on: +1 or -1 (the sign of the turn from the river's direction to the point), 0 on the line.
+export function sideOfRiver(p) {
+  const n = nearestOnRiver(p);
+  const a = riverPoint(Math.max(0, n.u - 0.05)), b = riverPoint(Math.min(RIVER.length - 1, n.u + 0.05));
+  const cross = (b.x - a.x) * (p.z - n.z) - (b.z - a.z) * (p.x - n.x);
+  return Math.abs(cross) < 1e-9 ? 0 : Math.sign(cross);
+}
+const LANTERN_SIDE = sideOfRiver({ x: 0, z: 0 });
+// true for a point on the far side of the river from the lantern, clear of the water
+export const acrossRiver = (p) => nearestOnRiver(p).distance > RIVER_HALF_WIDTH && sideOfRiver(p) === -LANTERN_SIDE;

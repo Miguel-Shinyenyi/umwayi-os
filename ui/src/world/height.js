@@ -32,5 +32,5 @@ export function heightAt(x, z) {
   const knoll = KNOLL * Math.exp(-(r * r) / (2 * 2.6 * 2.6));
   return hills + roll + knoll - channel(dRiver);
 }
-export const WATER_LEVEL = -0.4; // the river surface; it does not flow
+export const WATER_LEVEL = -0.25; // the river surface
 export { lerp };

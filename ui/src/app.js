@@ -13,7 +13,10 @@ import { chooseDetail, isPinned } from './engine/detail.js';
 import { lerp } from './engine/ease.js';
 import { createLabels } from './ui/labels.js';
 import { createPanel } from './ui/panel.js';
-import { trailOpacity, liftIntensity } from './world/trails.js';
+import { trailOpacity, restTrailOpacity, liftIntensity } from './world/trails.js';
+import { createFlow } from './engine/flow.js';
+import { WATER_LEVEL } from './world/height.js';
+import { waterShared } from './world/water.js';
 import { SAMPLE } from './data/sample.js';
 
 const FLY_MS = 1400;
@@ -30,7 +33,18 @@ export function createApp(win) {
   stage.world = world;
   const { camera } = stage;
   const rig = new Rig(overviewShot(1.7));
-  const loop = createLoop({ render, motion, follows: rig.follows, raf: win.requestAnimationFrame.bind(win), onFrameTime: (dt) => stage.noteFrame(dt) });
+  // the water flows by itself (the owner, Nov 11 round 2), but not with reduced motion, in Calm mode, hidden, off screen or in List
+  // the hero says in the DOM whether the picture is moving and whether the water flows (for the browser pass and for CSS)
+  const flow = createFlow({ wake: () => loop.wake(), onChange: (on) => hero.setAttribute('data-flow', on ? 'on' : 'off') });
+  hero.setAttribute('data-flow', 'on');
+  hero.setAttribute('data-motion', 'still');
+  const loop = createLoop({
+    render, motion, follows: rig.follows, flow, raf: win.requestAnimationFrame.bind(win), onFrameTime: (dt) => stage.noteFrame(dt),
+    onBusy: (b) => hero.setAttribute('data-motion', b ? 'moving' : 'still'),
+  });
+  flow.set({ reduced: settings.reduced, calm: settings.calm, hidden: doc.visibilityState === 'hidden', flat: true });
+  doc.addEventListener('visibilitychange', () => flow.set({ hidden: doc.visibilityState === 'hidden' }));
+  if (win.IntersectionObserver) new win.IntersectionObserver((es) => flow.set({ offscreen: !es[es.length - 1].isIntersecting })).observe(hero);
   const n = world.stations.length;
 
   let counts = SAMPLE;
@@ -81,7 +95,17 @@ export function createApp(win) {
     ids.sort((a, b) => Math.hypot(world.byId[a].pos.x - me.pos.x, world.byId[a].pos.z - me.pos.z) - Math.hypot(world.byId[b].pos.x - me.pos.x, world.byId[b].pos.z - me.pos.z));
     return ids.slice(0, 6).map((o) => [me, world.byId[o]]);
   };
-  const applyTrails = () => world.trails.setOpacity(trailOpacity(trailLevel, calm));
+  // every pair of stations that work together, once: drawn faintly at rest so the links show from the default view
+  const allPairs = () => {
+    const seen = new Set(), out = [];
+    for (const st of world.stations) for (const d of st.def.deps) {
+      const k = [st.id, d].sort().join('|');
+      if (world.byId[d] && d !== st.id && !seen.has(k)) { seen.add(k); out.push([st, world.byId[d]]); }
+    }
+    return out;
+  };
+  world.restTrails.set(allPairs());
+  const applyTrails = () => { world.trails.setOpacity(trailOpacity(trailLevel, calm)); world.restTrails.setOpacity(restTrailOpacity(calm)); };
   const applyLift = () => { world.lift.intensity = liftIntensity(liftLevel, calm); };
   function refreshFocus() {
     const id = selected || hovered || kbd;
@@ -90,7 +114,7 @@ export function createApp(win) {
       if (id) {
         const st = world.byId[id];
         world.trails.set(trailsFor(id));
-        world.lift.position.set(st.pos.x, (st.river ? -0.4 : st.pos.y) + 3.2, st.pos.z);
+        world.lift.position.set(st.pos.x, (st.river ? WATER_LEVEL : st.pos.y) + 3.2, st.pos.z);
       }
       shown = id;
     }
@@ -100,10 +124,11 @@ export function createApp(win) {
   }
   world.placement; // the placement is created by the world; its onMove keeps the trails and the camera on the stations
   function onMove() {
+    world.restTrails.refresh();
     if (shown) {
       const st = world.byId[shown];
       world.trails.refresh();
-      world.lift.position.set(st.pos.x, (st.river ? -0.4 : st.pos.y) + 3.2, st.pos.z);
+      world.lift.position.set(st.pos.x, (st.river ? WATER_LEVEL : st.pos.y) + 3.2, st.pos.z);
     }
     if (selected && !motion.tweens.some((t) => t.tag === 'camera')) rig.set(shotFor(selected));
   }
@@ -157,6 +182,7 @@ export function createApp(win) {
     doc.documentElement.setAttribute('data-calm', on ? '1' : '0');
     $('calm-toggle').setAttribute('aria-pressed', String(on));
     motion.setSlow(on ? 1.6 : 1);
+    flow.set({ calm: on });
     rig.setTau(on ? 224 : 140);
     const to = on ? 1 : 0;
     if (!animate) setLook(to);
@@ -167,6 +193,7 @@ export function createApp(win) {
     if (key === 'calm') setCalm(value);
     if (key === 'reduced') {
       motion.setReduced(value);
+      flow.set({ reduced: value });
       rig.setReduced(value);
       panel.setMode(value);
       loop.invalidate();
@@ -179,15 +206,28 @@ export function createApp(win) {
   function render() {
     const { w, h } = stage.size;
     rig.apply(camera, w, h);
+    waterShared.flowTime.value = flow.time;
     stage.render();
     for (const st of world.stations) {
       v.copy(st.anchor).project(camera);
       const sz = labels.size(st.id);
-      labels.place(st.id, ((v.x + 1) / 2) * w - sz.w / 2, ((1 - v.y) / 2) * h - sz.h - 6);
+      const x = ((v.x + 1) / 2) * w - sz.w / 2;
+      let y = ((1 - v.y) / 2) * h - sz.h - 6;
+      // a name never covers the title or the promise: it goes just below them
+      if (introBox && x < introBox.x1 && x + sz.w > introBox.x0 && y < introBox.y1 && y + sz.h > introBox.y0) y = introBox.y1 + 4;
+      labels.place(st.id, x, y);
     }
+  }
+  let introBox = null;
+  function measureIntro() {
+    const el = doc.querySelector('#hero .intro');
+    if (!el || !el.getBoundingClientRect) return;
+    const a = el.getBoundingClientRect(), b = hero.getBoundingClientRect();
+    introBox = { x0: a.left - b.left - 6, y0: a.top - b.top - 6, x1: a.right - b.left + 6, y1: a.bottom - b.top + 6 };
   }
   function resize() {
     const w = hero.clientWidth || win.innerWidth, h = hero.clientHeight || win.innerHeight;
+    measureIntro();
     stage.resize(w, h);
     overview = null;
     if (!motion.active) rig.set(shotFor(selected));
@@ -253,7 +293,7 @@ export function createApp(win) {
     if (ev.defaultPrevented || ev.altKey || ev.ctrlKey || ev.metaKey) return;
     const tag = ev.target && ev.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (!$('list-view').hidden) return;
+    if (doc.documentElement.getAttribute('data-tier') === 'list') return;
     if (ev.key === 'Escape' && selected) { ev.preventDefault(); deselect(); }
     else if (selected && (ev.key === 'ArrowRight' || ev.key === 'ArrowDown')) { ev.preventDefault(); step(1); }
     else if (selected && (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp')) { ev.preventDefault(); step(-1); }
@@ -275,6 +315,12 @@ export function createApp(win) {
     // UI.3 feeds numbers here and nothing else: { id: 0..1 }
     setNeeds: (needs) => world.placement.setNeeds(needs),
     isSample: () => sample,
+    flow,
+    // List (true) or the picture (false): in List nothing is drawn and the water is still
+    setFlat(flat) {
+      flow.set({ flat });
+      if (!flat) resize();
+    },
     start() {
       panel.setMode(settings.reduced);
       rig.setReduced(settings.reduced);

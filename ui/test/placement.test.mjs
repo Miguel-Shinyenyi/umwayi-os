@@ -7,6 +7,7 @@ import { createPlacement } from '../src/engine/placement.js';
 import { Motion } from '../src/engine/motion.js';
 import { IDS } from '../src/stations/meta.js';
 import { mulberry32 } from '../src/world/random.js';
+import { acrossRiver } from '../src/world/river.js';
 
 const GAP = 0.8; // margin kept between two footprints
 const byId = Object.fromEntries(TABLE.map((s) => [s.id, s]));
@@ -21,7 +22,7 @@ test('the table has the eleven stations in the order of the list view', () => {
 test('the default positions equal the table of the design', () => {
   const want = {
     helpers: [1.95, 4.4], rules: [-6.4, 7.1], queue: [10.3, 2.2], killswitch: [5.8, -6.9], logbook: [-10.9, -6.3], memory: [-2.1, 15.3],
-    workflows: [-15.5, 0.5], budget: [12.6, 9.9], adapters: [19.0, -7.8], automation: [-11.0, -20.1], archive: [-22.3, -9.0],
+    workflows: [-15.5, 0.5], budget: [12.6, 9.9], adapters: [29.1, 11.2], automation: [-23.3, -25.3], archive: [-8.3, -47.3],
   };
   const pos = stationPositions({});
   for (const id of IDS) {
@@ -41,6 +42,19 @@ test('the default distances are in the order of how closely each works with the 
   const angles = IDS.map((id) => Math.atan2(pos[id].x, pos[id].z)).sort((a, b) => a - b);
   const gaps = angles.map((a, i) => (i ? a - angles[i - 1] : 0)).slice(1);
   assert.ok(Math.max(...gaps) - Math.min(...gaps) > 0.25, 'angles are uneven');
+});
+
+test('some stations are really far: at least three stand 30 m or more from the lantern at their default places (12.R19.3)', () => {
+  const pos = stationPositions({});
+  const far = IDS.filter((id) => Math.hypot(pos[id].x, pos[id].z) >= 30);
+  assert.ok(far.length >= 3, `far: ${far.join(', ')}`);
+  assert.ok(far.includes('archive'), 'the Archive is the furthest kind of work from the shepherd');
+});
+
+test('the Archive stands across the river from the lantern, at the edge of the forest', () => {
+  const p = stationPositions({}).archive;
+  assert.ok(acrossRiver(p), 'across the river');
+  assert.equal(acrossRiver({ x: 0, z: 0 }), false, 'the lantern is on its own side');
 });
 
 test('the default gap between any two stations is at least 2.0 m', () => {

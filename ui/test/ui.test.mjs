@@ -1,40 +1,32 @@
 // UI.1.4: the list view and the fallback, with a stub document (no browser).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { showList, toggleList } from '../src/ui/fallback.js';
+import { setTier } from '../src/ui/fallback.js';
 import { createLabels } from '../src/ui/labels.js';
 import { describe, NO_COUNT } from '../src/data/counts.js';
 
 function stubDoc() {
   const els = {};
-  for (const id of ['list-view', 'list-toggle', 'calm-toggle', 'labels', 'hint', 'panel', 'sample-tag', 'scene', 'notice', 'hero']) {
-    els[id] = { hidden: id === 'list-view' || id === 'notice', attrs: {}, textContent: '', setAttribute(k, v) { this.attrs[k] = v; } };
-  }
-  return { els, getElementById: (id) => els[id] };
+  const attrs = (o) => ({ ...o, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } });
+  for (const id of ['scene', 'notice']) els[id] = attrs({ hidden: id === 'notice', textContent: '' });
+  const buttons = ['list', 'standard'].map((t) => attrs({ dataset: { tier: t } }));
+  const root = attrs({});
+  return { els, buttons, documentElement: root, getElementById: (id) => els[id], querySelectorAll: () => buttons };
 }
 
-test('when the 3D view cannot start the list view is shown by itself, with a notice, and the 3D controls are hidden', () => {
+test('List is tier 1: the page says which tier it shows, presses its switch button and hides the picture from screen readers', () => {
   const doc = stubDoc();
-  showList(doc, 'The 3D view could not start in this browser.');
-  assert.equal(doc.els['list-view'].hidden, false);
+  setTier(doc, 'list', 'This browser cannot draw the picture (no WebGL). The List view shows the same stations.');
+  assert.equal(doc.documentElement.attrs['data-tier'], 'list');
+  assert.deepEqual(doc.buttons.map((b) => b.attrs['aria-pressed']), ['true', 'false']);
+  assert.equal(doc.els.scene.attrs['aria-hidden'], 'true');
   assert.equal(doc.els.notice.hidden, false);
-  assert.match(doc.els.notice.textContent, /could not start/);
-  for (const id of ['list-toggle', 'calm-toggle', 'labels', 'hint', 'panel', 'sample-tag']) assert.equal(doc.els[id].hidden, true, id);
-  assert.equal(doc.els.scene.attrs['aria-hidden'], 'true');
-  assert.equal(doc.els.scene.hidden, true, 'the empty picture goes');
-  assert.ok('data-flat' in doc.els.hero.attrs, 'the title and promise stay');
-});
-
-test('the list view toggles, keeps aria-pressed true to its state, and hides the picture from screen readers while open', () => {
-  const doc = stubDoc();
-  toggleList(doc, true);
-  assert.equal(doc.els['list-view'].hidden, false);
-  assert.equal(doc.els['list-toggle'].attrs['aria-pressed'], 'true');
-  assert.equal(doc.els.scene.attrs['aria-hidden'], 'true');
-  toggleList(doc, false);
-  assert.equal(doc.els['list-view'].hidden, true);
-  assert.equal(doc.els['list-toggle'].textContent, 'List view');
+  assert.match(doc.els.notice.textContent, /no WebGL/);
+  setTier(doc, 'standard');
+  assert.equal(doc.documentElement.attrs['data-tier'], 'standard');
+  assert.deepEqual(doc.buttons.map((b) => b.attrs['aria-pressed']), ['false', 'true']);
   assert.equal(doc.els.scene.attrs['aria-hidden'], 'false');
+  assert.equal(doc.els.notice.hidden, true, 'no message, no notice');
 });
 
 test('a label click selects its station, and only the selected label is shown while one is selected', () => {

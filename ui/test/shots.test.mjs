@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { overviewShot, stationShot, cameraPosition, KEEP_FROM_SHEPHERD } from '../src/world/shots.js';
-import { reachable, stationPositions } from '../src/world/layout.js';
+import { stationPositions } from '../src/world/layout.js';
 import { facingAt } from '../src/engine/placement.js';
 import { Rig } from '../src/engine/rig.js';
 import { TABLE } from '../src/world/layout.js';
@@ -16,11 +16,12 @@ const project = (shot, w, h, x, y, z) => {
 };
 const fakeStation = (row, p) => { const st = { id: row.id, river: !!row.river, footprint: row.footprint, pos: { ...p } }; st.facing = facingAt(st, p.x, p.z); return st; };
 
-test('the overview shows every place a station can stand on a wide screen, and every default place on a phone, with the sky above', () => {
+test('the overview shows every default place on a wide screen, and the near ones on a phone, with the sky above', () => {
   const defaults = stationPositions({});
   for (const [w, h] of [[1440, 900], [1440, 844], [1024, 768], [390, 844]]) {
     const shot = overviewShot(w / h);
-    const spots = w < 600 ? TABLE.map((r) => ({ x: defaults[r.id].x, z: defaults[r.id].z, r: r.footprint })) : reachable();
+    const spots = TABLE.filter((r) => w > 600 || Math.hypot(defaults[r.id].x, defaults[r.id].z) < 30).map((r) => ({ x: defaults[r.id].x, z: defaults[r.id].z, r: r.footprint }));
+    assert.ok(spots.length >= 8);
     for (const s of spots) {
       for (const [dx, dz] of [[s.r, 0], [-s.r, 0], [0, s.r], [0, -s.r]]) {
         const p = project(shot, w, h, s.x + dx, 0, s.z + dz);
@@ -57,12 +58,13 @@ test('a free station faces the lantern; a river station lies along the river wit
   }
 });
 
-import { trailOpacity, liftIntensity } from '../src/world/trails.js';
-test('trails of light are shown for the feature in focus only, and Calm mode hides them', () => {
-  assert.equal(trailOpacity(0, 0), 0, 'no focus, no trails');
+import { trailOpacity, restTrailOpacity, liftIntensity } from '../src/world/trails.js';
+test('every trail is drawn faintly at rest, the trails of the feature in focus are brighter, and Calm mode makes both fainter, not hidden', () => {
+  assert.equal(trailOpacity(0, 0), 0, 'no focus, no focus trails');
   assert.ok(trailOpacity(1, 0) > 0.5 && trailOpacity(1, 0) < 1, 'soft, not bright');
-  assert.equal(trailOpacity(1, 1), 0, 'Calm mode hides them');
-  assert.ok(trailOpacity(1, 0.5) < trailOpacity(1, 0));
+  assert.ok(trailOpacity(1, 1) > 0 && trailOpacity(1, 1) < trailOpacity(1, 0), 'Calm mode makes them fainter');
+  assert.ok(restTrailOpacity(0) >= 0.2 && restTrailOpacity(0) < trailOpacity(1, 0) * 0.6, 'fainter at rest than in focus, but there');
+  assert.ok(restTrailOpacity(1) > 0 && restTrailOpacity(1) < restTrailOpacity(0), 'fainter in Calm mode');
   assert.equal(liftIntensity(0, 0), 0);
   assert.ok(liftIntensity(1, 1) < liftIntensity(1, 0) && liftIntensity(1, 1) > 0, 'Calm lowers the lift, it does not remove it');
 });

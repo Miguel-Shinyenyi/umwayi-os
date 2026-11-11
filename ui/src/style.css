@@ -1,5 +1,6 @@
 /* The nightwatch palette. Dark, low brightness. Red, mint and amber mean something only at Rules, Kill switch and Logbook. */
 :root {
+  --peek: 150px; /* the top of the status strip shows below the first screen's picture */
   --base: #0e1310;
   --ink: #eee8db;
   --muted: #b3ada0;
@@ -41,11 +42,20 @@ html[data-calm="1"] :focus-visible { outline-color: #d3a370; }
 .btn.small { padding: 5px 11px; font-size: 12.5px; }
 .btn[hidden] { display: none; }
 
-#hero { position: relative; height: 100vh; min-height: 560px; overflow: hidden; }
+#hero { position: relative; height: calc(100vh - var(--peek)); height: calc(100svh - var(--peek)); min-height: 460px; overflow: hidden; }
 #scene { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
 #scene.is-over { cursor: pointer; }
-#hero[data-flat] { height: auto; min-height: 0; padding: 70px 0 8px; }
-#hero[data-flat] .intro { position: static; padding: 0 32px; max-width: 760px; }
+/* Tier 1, List: the title, the promise, the status strip, the list and the rest; no picture. Also what shows with no script. */
+html[data-tier="list"] #hero { height: auto; min-height: 0; padding: 70px 0 8px; }
+html[data-tier="list"] #hero .intro { position: static; padding: 0 32px; max-width: 760px; }
+html[data-tier="list"] :is(#scene, #labels, #hint, #panel, #sample-tag, #calm-toggle) { display: none; }
+html:not([data-tier="list"]) #list-view { display: none; }
+html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status) { display: none; }
+.tiers { display: flex; gap: 0; }
+.tiers .btn { border-radius: 0; }
+.tiers .btn:first-child { border-radius: 999px 0 0 999px; }
+.tiers .btn:last-child { border-radius: 0 999px 999px 0; margin-left: -1px; }
+.tiers .btn[aria-pressed="true"] { background: rgba(60, 52, 40, 0.8); }
 .intro { position: absolute; left: 32px; top: 70px; max-width: min(520px, 62vw); pointer-events: none; }
 .intro h1 { margin: 0 0 8px; font: 400 clamp(34px, 5vw, 60px)/1.02 var(--serif); letter-spacing: 0.005em; text-shadow: 0 2px 24px rgba(5, 8, 12, 0.8); }
 .promise { margin: 0; font-size: clamp(14px, 1.6vw, 17px); color: var(--ink); text-shadow: 0 1px 14px rgba(5, 8, 12, 0.9); }
@@ -74,8 +84,7 @@ html[data-calm="1"] :focus-visible { outline-color: #d3a370; }
 #panel:focus { outline: none; }
 #panel:focus-visible { outline: 2px solid var(--amber); }
 
-#list-view { position: fixed; inset: 0; z-index: 4; overflow: auto; background: var(--base); padding: 78px 22px 40px; }
-#list-view h2 { margin: 0 0 4px; font: 400 28px/1.2 var(--serif); }
+#list-view h2 { margin: 0 0 4px; }
 #list-view .intro-text { margin: 0 0 20px; color: var(--muted); }
 #station-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); max-width: 1100px; }
 #station-list li { background: var(--glass-solid); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
@@ -92,13 +101,12 @@ html[data-calm="1"] :focus-visible { outline-color: #d3a370; }
   .tag { display: none; }
   .btn { padding: 6px 11px; font-size: 12.5px; }
   .label { padding: 3px 8px; font-size: 11.5px; }
-  #panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 52vh; border-radius: 18px 18px 0 0; padding: 16px 18px 14px; transform: translateY(14px); }
+  #panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 46%; border-radius: 18px 18px 0 0; padding: 16px 18px 14px; transform: translateY(14px); }
   #panel h2 { font-size: 22px; }
   #hint { bottom: 14px; font-size: 12px; }
   #sample-tag { left: 16px; bottom: 56px; }
   #hint .wide { display: none; }
   #hint .narrow { display: inline; }
-  #list-view { padding: 64px 14px 30px; }
 }
 /* With reduced motion nothing slides or fades: panels and labels simply appear. */
 @media (prefers-reduced-motion: reduce) {
@@ -107,6 +115,12 @@ html[data-calm="1"] :focus-visible { outline-color: #d3a370; }
 
 /* The home content, below the picture */
 .home { max-width: 920px; margin: 0 auto; padding: 56px 24px 8px; }
+#status { padding-top: 20px; }
+.status-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.status-head h2 { margin: 0; }
+.status-head .more { margin: 0; font-size: 13.5px; color: var(--muted); }
+.status-head .more::after { content: " \2193"; }
+html[data-tier="list"] .status-head .more { display: none; }
 .home h2 { margin: 0 0 14px; font: 400 28px/1.2 var(--serif); }
 .home h3 { margin: 26px 0 10px; font: 400 20px/1.2 var(--serif); }
 .home p { margin: 0 0 10px; color: var(--muted); }
@@ -131,4 +145,7 @@ html[data-calm="1"] :focus-visible { outline-color: #d3a370; }
   .intro { left: 16px; top: 52px; max-width: calc(100vw - 32px); }
   .strip { grid-template-columns: repeat(2, 1fr); }
   .home { padding: 40px 16px 4px; }
+  #status { padding-top: 14px; }
+  :root { --peek: 170px; }
+  .status-head h2 { font-size: 23px; }
 }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-tier="list">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,13 +12,16 @@
 <header class="bar">
   <span class="mark">umwayi-os</span>
   <div class="actions">
-    <button type="button" class="btn" id="list-toggle" aria-pressed="false" aria-controls="list-view">List view</button>
+    <div class="tiers" id="tiers" role="group" aria-label="View">
+      <button type="button" class="btn" data-tier="list" aria-pressed="true">List</button>
+      <button type="button" class="btn" data-tier="standard" aria-pressed="false">Standard</button>
+    </div>
     <button type="button" class="btn" id="calm-toggle" aria-pressed="false">Calm mode</button>
   </div>
 </header>
 <main>
 <section id="hero" aria-label="The valley">
-  <canvas id="scene" role="img" aria-label="The Kenyan highlands at dusk. A shepherd with a lantern stands at the centre of a river valley, with Mount Kenya on the horizon. Eleven features of the land stand round him: a spring pool, a drystone wall with gates, a sheepfold, a cave in a rock face, a standing stone, a river with a water wheel, a sheepdog and herd, a stream through pools, a ford and bridge, a lone gate with a red lamp and a rain water tank. The list view has the same stations as text."></canvas>
+  <canvas id="scene" role="img" aria-label="The Kenyan highlands at dusk. A shepherd with a lantern stands at the centre of a river valley, with Mount Kenya on the horizon. Eleven features of the land stand round him: a spring pool, a drystone wall with gates, a sheepfold, a cave in a rock face, a standing stone, a river with a water wheel, a sheepdog and herd, a stream through pools, a ford and bridge, a lone gate with a red lamp and a rain water tank. The List view has the same stations as text."></canvas>
   <div class="intro">
     <h1><!--@title--></h1>
     <p class="promise"><!--@promise--></p>
@@ -50,9 +53,16 @@
   </aside>
 </section>
 <section class="home" id="status" aria-labelledby="status-title">
-  <h2 id="status-title">The state of this root</h2>
+  <div class="status-head"><h2 id="status-title">The state of this root</h2><p class="more">Scroll down for the install steps and the links.</p></div>
   <ul class="strip">
 <!--@strip-->
+  </ul>
+</section>
+<section class="home" id="list-view" aria-labelledby="list-title">
+  <h2 id="list-title">The eleven stations</h2>
+  <p class="intro-text">The same stations as the picture, as text. This is the List view: it needs no WebGL and no script.</p>
+  <ul id="station-list">
+<!--@list-->
   </ul>
 </section>
 <section class="home" id="start" aria-labelledby="start-title">
@@ -75,13 +85,7 @@
 </section>
 <footer class="home foot"><p>A sample world. The picture shows made up counts until you load your own.</p></footer>
 </main>
-<section id="list-view" hidden aria-labelledby="list-title">
-  <h2 id="list-title">The eleven stations</h2>
-  <p class="intro-text">The same stations as the picture, as text.</p>
-  <ul id="station-list">
-<!--@list-->
-  </ul>
-</section>
+
 <p id="notice" role="status" hidden></p>
 <script><!--@script--></script>
 </body>

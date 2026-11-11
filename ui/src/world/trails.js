@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { heightAt, WATER_LEVEL } from './height.js';
 
 // Trails of light: a row of small soft lights that follows the ground between two stations that work together.
-// Not a path: nothing is drawn on the ground. Shown only for the station in focus; they ease in and out and never move.
-export function buildTrails(maxTrails = 6, perTrail = 56) {
+// Not a path: nothing is drawn on the ground. Since Nov 11 (round 2) every trail is drawn faintly at rest, so the links
+// show from the default view; the trails of the station in focus are drawn again, brighter. They never move.
+// spacing: metres between two lights; a long trail gets more lights, up to perTrail.
+export function buildTrails(maxTrails = 6, perTrail = 90, { size = 0.36, spacing = 0.75 } = {}) {
   const group = new THREE.Group();
   group.visible = false;
   const c = document.createElement('canvas');
@@ -17,7 +19,7 @@ export function buildTrails(maxTrails = 6, perTrail = 56) {
   x.fillRect(0, 0, 64, 64);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.PointsMaterial({ map: tex, size: 0.36, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, color: 0xffc58a });
+  const mat = new THREE.PointsMaterial({ map: tex, size, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, color: 0xffc58a });
   const lines = [];
   for (let i = 0; i < maxTrails; i++) {
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(perTrail * 3), 3));
@@ -37,7 +39,9 @@ export function buildTrails(maxTrails = 6, perTrail = 56) {
         const pair = pairs[i];
         ln.visible = !!pair;
         if (!pair) return;
-        const [a, b] = pair, arr = ln.geometry.attributes.position.array, n = perTrail;
+        const [a, b] = pair, arr = ln.geometry.attributes.position.array;
+        const n = Math.max(8, Math.min(perTrail, Math.round(Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z) / spacing)));
+        ln.geometry.setDrawRange(0, n);
         for (let k = 0; k < n; k++) {
           const t = k / (n - 1);
           const px = a.pos.x + (b.pos.x - a.pos.x) * t, pz = a.pos.z + (b.pos.z - a.pos.z) * t;
@@ -58,6 +62,8 @@ export function buildTrails(maxTrails = 6, perTrail = 56) {
   return trails;
 }
 
-// How bright the trails and the lift light are for a focus level (0 to 1) and a Calm amount (0 to 1). Calm mode hides the trails.
-export const trailOpacity = (level, calm) => level * 0.7 * (1 - calm);
+// How bright the trails and the lift light are for a focus level (0 to 1) and a Calm amount (0 to 1). Calm mode makes them
+// fainter; it no longer hides them (round 2).
+export const trailOpacity = (level, calm) => level * 0.7 * (1 - 0.45 * calm);
+export const restTrailOpacity = (calm) => 0.4 * (1 - 0.45 * calm);
 export const liftIntensity = (level, calm) => level * 26 * (1 - 0.4 * calm);

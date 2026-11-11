@@ -8,7 +8,10 @@ import { lerp } from '../engine/ease.js';
 import { buildSky } from './sky.js';
 import { buildTerrain, buildFarHills } from './terrain.js';
 import { buildRiver } from './water.js';
-import { buildGrass, buildAcacia, buildCedar, buildBoulders } from './plants.js';
+import { buildGrass, buildAcacia, buildCedar, buildBoulders, buildForest, buildGroundDetail } from './plants.js';
+import { forestSpots } from './forest.js';
+import { rapidRocks } from './water.js';
+import { WATER_LEVEL } from './height.js';
 import { buildShepherd } from './lantern.js';
 import { buildTrails } from './trails.js';
 import { SUN_DIR, FOG, CALM } from './palette.js';
@@ -30,10 +33,15 @@ export function buildWorld(motion) {
   const grass = buildGrass(9000);
   const acacia = buildAcacia(), cedar = buildCedar();
   const boulders = buildBoulders((r, seed, x, y, z) => kit.rock(r, seed % 2 ? kit.M.stone : kit.M.stoneDark, x, y, z, seed, 1.2, 0.8, 1), 70);
+  const forest = buildForest(forestSpots());
+  const ground = buildGroundDetail(kit.M.stoneDark);
+  const rapids = new THREE.Group(); // the rocks the river runs over
+  rapidRocks().forEach((r, i) => rapids.add(kit.rock(r.r, i % 3 ? kit.M.stoneDark : kit.M.stone, r.x, WATER_LEVEL + r.r * 0.12, r.z, i + 90, 1.25, 0.6, 1)));
   const shepherd = buildShepherd((s) => kit.dog(s));
   const trails = buildTrails();
+  const restTrails = buildTrails(24, 90, { size: 0.34, spacing: 0.9 });
   for (const o of [terrain.mesh, grass]) o.receiveShadow = true;
-  scene.add(sky.group, hills, terrain.mesh, river, grass, acacia, cedar, boulders, shepherd.group, trails.group);
+  scene.add(sky.group, hills, terrain.mesh, river, grass, acacia, cedar, boulders, forest, rapids, ground, shepherd.group, trails.group, restTrails.group);
 
   const defs = stationDefs();
   const stations = defs.map((def) => {
@@ -61,7 +69,7 @@ export function buildWorld(motion) {
 
   const base = { hemi: hemi.intensity, glow: glow.intensity, lantern: shepherd.baseLight, bloom: 0.5, exposure: 1.15, fog: scene.fog.density };
   const world = {
-    scene, kit, stations, byId, sky, terrain, river, grass, acacia, cedar, boulders, shepherd, trails, lift, glow, hemi, placement, base, calm: 0,
+    scene, kit, stations, byId, sky, terrain, river, grass, acacia, cedar, boulders, forest, rapids, shepherd, trails, restTrails, lift, glow, hemi, placement, base, calm: 0,
     // c goes 0 (normal) to 1 (Calm mode): the same hues at lower strength. Returns what the stage needs.
     look(c) {
       kit.setGlowScale(lerp(1, CALM.glow, c));

@@ -229,6 +229,18 @@ def check_page(root: Path) -> list:
         problems.append("the page has no hero with the title")
     if not re.search(r"<button[^>]*id=\"calm-toggle\"[^>]*aria-pressed=", html):
         problems.append("the page has no Calm mode button with aria-pressed")
+    # the tiers (12.R16, Nov 11 round 2): the page is List in its HTML, so with no script it shows the list; the switch has
+    # List and Standard and no High (the live view has no High, 12.R18.2); there is no List view button any more
+    if not re.search(r"<html[^>]*\bdata-tier=\"list\"", html):
+        problems.append("the page is not List (tier 1) in its HTML, so it would show nothing without a script")
+    switch = re.search(r"<div[^>]*id=\"tiers\"[^>]*>(.*?)</div>", html, re.S)
+    tiers = re.findall(r"<button[^>]*\bdata-tier=\"([a-z]+)\"[^>]*aria-pressed=", switch.group(1)) if switch else []
+    if tiers != ["list", "standard"]:
+        problems.append(f"the tier switch is {tiers}, not List and Standard")
+    if 'id="list-toggle"' in html:
+        problems.append("the page still has a List view button; List is a tier now")
+    if re.search(r"<section[^>]*id=\"list-view\"[^>]*\bhidden\b", html):
+        problems.append("the list is hidden in the HTML, so it would not show without a script")
     # no name is written in the picture at rest (12.R3.3): the buttons over the features are invisible until hover, focus or selection
     label_css = re.search(r"\.label\{([^}]*)\}", STYLE.search(html).group(2)) if STYLE.search(html) else None
     if not label_css or not re.search(r"opacity:0(;|$)", label_css.group(1)):
@@ -383,6 +395,16 @@ class PlantedFaultTests(unittest.TestCase):
     def test_a_missing_label_button(self):
         self.edit("ui/dist/index.html", lambda t: re.sub(r"<button[^>]*data-station=\"budget\"[^>]*>.*?</button>", "", t, count=1, flags=re.S))
         self.assert_found("the label buttons are")
+
+    def test_the_tiers(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('data-tier="list">', 'data-tier="standard">', 1))
+        self.assert_found("is not List (tier 1) in its HTML")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<button type="button" class="btn" data-tier="standard"', '<button type="button" class="btn" data-tier="high" aria-pressed="false"></button><button type="button" class="btn" data-tier="standard"', 1))
+        self.assert_found("the tier switch is")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<section class="home" id="list-view"', '<section class="home" id="list-view" hidden', 1))
+        self.assert_found("the list is hidden in the HTML")
 
     def test_a_missing_calm_button_and_reduced_motion_rule(self):
         self.edit("ui/dist/index.html", lambda t: t.replace('id="calm-toggle"', 'id="x"'))

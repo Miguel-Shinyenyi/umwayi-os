@@ -16,12 +16,12 @@ const ROWS = {
   memory:     { d0: 15.4, bearing: -8,   footprint: 2.8, maxSlope: 0.4 },
   rules:      { d0: 9.6,  bearing: -42,  footprint: 3.9, maxSlope: 0.3 },
   queue:      { d0: 10.5, bearing: 78,   footprint: 3.7, maxSlope: 0.3 },
-  archive:    { d0: 24.0, bearing: -112, footprint: 4.2, maxSlope: 0.65 },
+  archive:    { d0: 48.0, bearing: 190,  footprint: 4.2, maxSlope: 0.9 }, // across the river, a rock face at the edge of the forest
   logbook:    { d0: 12.6, bearing: -120, footprint: 2.4, maxSlope: 0.3 },
-  automation: { d0: 22.5, river: true, side: -1, footprint: 3.6, maxSlope: 0.9 },
+  automation: { d0: 34.0, river: true, side: -1, footprint: 3.6, maxSlope: 0.9 }, // far up the river
   helpers:    { d0: 4.8,  bearing: 24,   footprint: 2.6, maxSlope: 0.3 },
   workflows:  { d0: 15.5, bearing: -88,  footprint: 3.6, maxSlope: 0.5 },
-  adapters:   { d0: 20.5, river: true, side: 1, footprint: 3.6, maxSlope: 0.9 },
+  adapters:   { d0: 31.0, river: true, side: 1, footprint: 3.6, maxSlope: 0.9 }, // far down the river
   killswitch: { d0: 9.0,  bearing: 140,  footprint: 2.4, maxSlope: 0.3 },
   budget:     { d0: 16.0, bearing: 52,   footprint: 2.3, maxSlope: 0.4 },
 };

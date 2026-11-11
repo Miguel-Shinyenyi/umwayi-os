@@ -1,22 +1,12 @@
-// The list view: a plain list of the same stations, as text. It is shown on request, and by itself when the 3D view
-// cannot start. Functions take the document so they can be tested without a browser.
-export function showList(doc, message) {
+// The tier on the page (12.R16): List is tier 1, the plain list of the eleven stations with the home content, and the
+// picture is tier 2. The page starts as List in the HTML itself, so with no script, no WebGL or a failed start it stays List.
+// Functions take the document so they can be tested without a browser.
+export function setTier(doc, name, message = '') {
   const $ = (id) => doc.getElementById(id);
-  $('list-view').hidden = false;
-  for (const id of ['list-toggle', 'calm-toggle', 'labels', 'hint', 'panel', 'sample-tag']) $(id).hidden = true;
-  $('hero').setAttribute('data-flat', ''); // the title and the promise stay; the empty picture goes
-  $('scene').hidden = true;
-  $('scene').setAttribute('aria-hidden', 'true');
-  if (message) {
-    $('notice').textContent = message;
-    $('notice').hidden = false;
-  }
-}
-
-export function toggleList(doc, on) {
-  const $ = (id) => doc.getElementById(id);
-  $('list-view').hidden = !on;
-  $('list-toggle').setAttribute('aria-pressed', String(on));
-  $('list-toggle').textContent = on ? 'Back to the picture' : 'List view';
-  $('scene').setAttribute('aria-hidden', String(on));
+  const list = name === 'list';
+  doc.documentElement.setAttribute('data-tier', name);
+  doc.querySelectorAll('#tiers button[data-tier]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tier === name)));
+  $('scene').setAttribute('aria-hidden', String(list));
+  $('notice').textContent = message;
+  $('notice').hidden = !message;
 }
