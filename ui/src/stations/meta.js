@@ -1,17 +1,17 @@
 // The words of the eleven stations, as plain data: no three.js here. The page, the list view and the build read this.
-// Order is the order on the ring (UI-Q8): neighbours that depend on each other sit next to each other.
+// Order is the order of the list view and of the keyboard. The places are in world/layout.js (not a ring).
 // Words are the product's own: rules, queue, archive, logbook, AI helper, Yes, No, Ask me first.
 // state is "built" or "planned". Every station is built today, because every layer in it is built.
 // deps are the stations this one leans on; the arcs in the sky are drawn from the selected station to these.
 export const STATIONS = [
   {
     id: 'memory', name: 'Memory', layer: '1', state: 'built',
-    lines: ['Plain files hold what your AI helpers need to know.', 'Private paths are left out of every context bundle.'],
+    lines: ['A spring pool collects what your AI helpers need to know.', 'Private paths are left out of every context bundle.'],
     command: 'umwayi memory bundle', deps: ['logbook'],
     poses: [
-      { id: 'graze', caption: 'Sheep graze in the pasture.' },
-      { id: 'pebbles', caption: 'Pebbles in the walled plot stand for private paths.' },
-      { id: 'closed', caption: 'The lid is closed. Private paths stay out.' },
+      { id: 'low', caption: 'A spring feeds a small pool among mossy stones.' },
+      { id: 'full', caption: 'The pool fills. Flat pebbles lie at its edge.' },
+      { id: 'covered', caption: 'A flat stone covers the pebbles. Private paths stay out.' },
     ],
   },
   {
@@ -30,9 +30,9 @@ export const STATIONS = [
     lines: ['Tasks and decisions wait here for you.', 'Ask me first puts a decision in the queue.'],
     command: 'umwayi queue list', deps: ['logbook'],
     poses: [
-      { id: 'line', caption: 'Sheep wait in single file.' },
-      { id: 'door', caption: 'The front sheep reaches the door.' },
-      { id: 'moved', caption: 'The door closes and the line moves up.' },
+      { id: 'line', caption: 'Sheep wait in single file outside the fold.' },
+      { id: 'gap', caption: 'The front sheep reaches the gap and the hurdle is lifted.' },
+      { id: 'moved', caption: 'The hurdle goes back and the line moves up.' },
     ],
   },
   {
@@ -40,9 +40,9 @@ export const STATIONS = [
     lines: ['Text you move out leaves a pointer and a fingerprint.', 'The fingerprint shows if the text changes later.'],
     command: 'umwayi archive verify', deps: ['logbook'],
     poses: [
-      { id: 'slab', caption: 'The text sits at the slab.' },
-      { id: 'lifted', caption: 'It is lifted toward the cairn.' },
-      { id: 'sealed', caption: 'A stone with a seal joins the cairn. A flag stays at the slab.' },
+      { id: 'slab', caption: 'The text lies on the slab, outside the cave.' },
+      { id: 'lifted', caption: 'It is carried towards the cave.' },
+      { id: 'sealed', caption: 'It is inside. A stone with a seal joins the cairn and a flag stays at the slab.' },
     ],
   },
   {
@@ -60,9 +60,9 @@ export const STATIONS = [
     lines: ['Jobs run on a schedule you set, through systemd timers.', 'Each run still passes the kill switch, the rules and the logbook.'],
     command: 'umwayi schedule check', deps: ['rules', 'killswitch', 'logbook'],
     poses: [
-      { id: 'morning', caption: 'Morning. The shadow falls long.' },
-      { id: 'noon', caption: 'Noon. The shadow is short.' },
-      { id: 'evening', caption: 'Evening. The shadow has turned.' },
+      { id: 'morning', caption: 'Morning. The wheel turns a little.' },
+      { id: 'noon', caption: 'Noon. The wheel has turned further.' },
+      { id: 'evening', caption: 'Evening. The wheel has come round.' },
     ],
   },
   {
@@ -70,9 +70,9 @@ export const STATIONS = [
     lines: ['AI helpers draft. They never publish.', 'You read the draft and you post it.'],
     command: 'umwayi steward', deps: ['rules', 'queue', 'logbook'],
     poses: [
-      { id: 'draft', caption: 'The helper carries the draft.' },
-      { id: 'line', caption: 'The helper stops at the white line.' },
-      { id: 'stool', caption: 'The draft waits on the stool for you to publish.' },
+      { id: 'draft', caption: 'The dog carries the draft.' },
+      { id: 'line', caption: 'The dog stops at the white stones.' },
+      { id: 'stone', caption: 'The draft waits on the flat stone for you to publish.' },
     ],
   },
   {
@@ -80,9 +80,9 @@ export const STATIONS = [
     lines: ['Steps run in a fixed order: collect, brief, draft, approve.', 'The approve step waits for you.'],
     command: 'umwayi workflow run', deps: ['rules', 'killswitch', 'queue', 'logbook'],
     poses: [
-      { id: 'start', caption: 'The first step is done.' },
-      { id: 'middle', caption: 'The steps go on in order.' },
-      { id: 'approve', caption: 'At the last step a token waits for your approval.' },
+      { id: 'start', caption: 'The first pool is lit.' },
+      { id: 'middle', caption: 'The water goes on down, pool by pool.' },
+      { id: 'approve', caption: 'At the last pool a token waits for your approval.' },
     ],
   },
   {
@@ -90,10 +90,9 @@ export const STATIONS = [
     lines: ['Hooks and the front door put your rules before Claude Code and Kiro.', 'Every tool call is checked before it runs.'],
     command: 'umwayi agent check', deps: ['rules', 'logbook'],
     poses: [
-      { id: 'fences', caption: 'Three kinds of fence, one latch.' },
-      { id: 'claude', caption: 'Claude Code reaches the latch.' },
-      { id: 'kiro', caption: 'Kiro reaches it too.' },
-      { id: 'stdio', caption: 'So does any stdin and stdout tool.' },
+      { id: 'crossings', caption: 'Two ways over the river: stepping stones and a bridge.' },
+      { id: 'claude', caption: 'Claude Code crosses the ford and reaches the gate post.' },
+      { id: 'kiro', caption: 'Kiro crosses the bridge. Any stdin and stdout tool can reach the post too.' },
     ],
   },
   {
@@ -101,9 +100,9 @@ export const STATIONS = [
     lines: ['One flag stops every AI helper, job and workflow.', 'If umwayi cannot tell, it stops.'],
     command: 'umwayi kill status', deps: ['logbook'],
     poses: [
-      { id: 'open', caption: 'The lane is open.' },
+      { id: 'open', caption: 'The gate stands open.' },
       { id: 'passes', caption: 'A sheep passes.' },
-      { id: 'on', caption: 'The switch is on. The hurdle is up and the next sheep halts.' },
+      { id: 'on', caption: 'The switch is on. The gate is shut, the lamp is red and the next sheep halts.' },
     ],
   },
   {
@@ -112,8 +111,8 @@ export const STATIONS = [
     note: 'B.10, the capture of one real export, is not done.',
     command: 'umwayi budget status', deps: ['logbook', 'rules'],
     poses: [
-      { id: 'low', caption: 'The trough is low. There is room.' },
-      { id: 'mark', caption: 'Today\u2019s use reaches the mark.' },
+      { id: 'low', caption: 'The tank is low. There is room.' },
+      { id: 'mark', caption: 'Today’s use reaches the mark.' },
       { id: 'limit', caption: 'At the limit. A run that would pass it does not start.' },
     ],
   },

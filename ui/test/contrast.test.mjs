@@ -38,3 +38,13 @@ test('Calm mode really is lower contrast than normal', () => {
 test('there is no large pure white in the palette: the brightest colour is the ink', () => {
   for (const hex of Object.values(normal)) assert.ok(lum(hex) < 0.9, hex);
 });
+
+test('no name is written in the picture at rest: the buttons over the features are invisible until hover, focus or selection', () => {
+  const rule = (sel) => { const i = css.indexOf(sel); return css.slice(css.indexOf('{', i) + 1, css.indexOf('}', i)); };
+  const base = rule('.label {');
+  assert.match(base, /opacity:\s*0\s*;/, 'a button over a feature starts invisible');
+  assert.match(base, /pointer-events:\s*none/, 'and does not catch the pointer: the picture does');
+  const shown = rule('.label:focus-visible, .label.is-hover, .label.is-selected');
+  assert.match(shown, /opacity:\s*1\s*;/, 'hover, focus and selection show the name');
+  assert.ok(!/opacity:\s*1/.test(base));
+});

@@ -10,7 +10,9 @@ Checks, on the repo and on temporary copies with a planted fault each:
   would make one, no storage, and every http:// or https:// string is a named XML namespace, not an address;
 - the page carries a Content-Security-Policy that denies everything except its own inline script and style, and the
   hashes in it are the hashes of the page's inline script and style;
-- the page holds the 11 label buttons, the list view, the Calm mode button and the reduced motion rule;
+- the page is under about 2 MB; its only addresses are the XML namespace name and the listed home links; the Devpost and
+  demo video entries are marked placeholders and are not anchors; every Copy button has its command;
+- the page holds the 11 buttons over the features, the list view, the home sections, the Calm mode button and the reduced motion rule;
 - no em dash in anything under ui/.
 Standard library only; no npm, no node, no browser, no network. The repo is never changed by the planted faults.
 """
@@ -29,7 +31,10 @@ EM_DASH = "\u2014"
 PINS = {"three": "0.187.0", "esbuild": "0.28.2"}
 EXACT = re.compile(r"^\d+\.\d+\.\d+$")
 # XML namespace names three.js carries. They name a vocabulary and are never fetched.
-ALLOWED_URLS = {"http://www.w3.org/1999/xhtml"}
+# The home page links (12.R15): the repo and its docs folder, plain anchors the owner clicks, and the clone command's address.
+REPO_URL = "https://github.com/Miguel-Shinyenyi/umwayi-os"
+ALLOWED_URLS = {"http://www.w3.org/1999/xhtml", REPO_URL, REPO_URL + ".git", REPO_URL + "/tree/main/docs"}
+MAX_PAGE_BYTES = 2_000_000  # 12.R1.6: under about 2 MB
 STATIONS = ("memory", "rules", "queue", "archive", "logbook", "automation", "helpers", "workflows", "adapters",
             "killswitch", "budget")
 # calls and names that would make a request, load a file or keep something; none may be in the built page
@@ -164,6 +169,8 @@ def check_page(root: Path) -> list:
         problems.append("the page contains '@import'")
     if URL_FN.search(html):
         problems.append("the page has a url() that is not a data: address")
+    if len(html.encode("utf-8")) >= MAX_PAGE_BYTES:
+        problems.append(f"the page is {len(html.encode('utf-8'))} bytes, not under {MAX_PAGE_BYTES}")
     for url in sorted(set(ANY_URL.findall(html))):
         if url not in ALLOWED_URLS:
             problems.append(f"the page contains the address {url}, which is not a named XML namespace")
@@ -196,8 +203,36 @@ def check_page(root: Path) -> list:
     list_names = re.findall(r"<h3>([^<]*)</h3>", ul.group(1)) if ul else []
     if label_names != list_names:
         problems.append(f"the label names {label_names} are not the list view names {list_names}")
+    # the home content (12.R15)
+    strip = re.findall(r"<li data-strip=\"([a-z]+)\"", html)
+    if strip != ["killswitch", "budget", "queue", "logbook"]:
+        problems.append(f"the status strip is {strip}")
+    if "sample" not in (re.search(r"<li data-strip=\"killswitch\">.*?</li>", html, re.S) or re.match("", "")).group(0):
+        problems.append("the status strip shows a value without the word sample")
+    copies = re.findall(r"data-copy=\"(cmd-[a-z]+)\"", html)
+    if len(copies) != 7 or any(f'id="{c}"' not in html for c in copies):
+        problems.append(f"the Copy buttons are {copies}, not seven with their commands")
+    markup = STYLE.sub("", SCRIPT.sub("", html))  # the markup only: a "<a" inside the minified script is not a link
+    anchors = re.findall(r"<a\b[^>]*href=\"([^\"]*)\"[^>]*>([^<]*)</a>", markup)
+    if sorted(n for _h, n in anchors) != ["Docs", "Repo"]:
+        problems.append(f"the links are {[n for _h, n in anchors]}, not Repo and Docs only")
+    for h, n in anchors:
+        if h not in ALLOWED_URLS:
+            problems.append(f"the link {n} goes to {h}, which is not listed")
+    for a in re.findall(r"<a\b[^>]*>", markup):
+        if 'rel="noopener noreferrer"' not in a:
+            problems.append("a link has no rel noopener noreferrer")
+    holds = re.findall(r"<li data-placeholder><span class=\"name\">([^<]*)</span><span class=\"note\">([^<]*)</span>", html)
+    if holds != [("Devpost", "link to come"), ("Demo video", "link to come")]:
+        problems.append(f"the placeholders are {holds}, not Devpost and Demo video marked link to come")
+    if not re.search(r"<h1>umwayi-os</h1>", html) or "id=\"hero\"" not in html:
+        problems.append("the page has no hero with the title")
     if not re.search(r"<button[^>]*id=\"calm-toggle\"[^>]*aria-pressed=", html):
         problems.append("the page has no Calm mode button with aria-pressed")
+    # no name is written in the picture at rest (12.R3.3): the buttons over the features are invisible until hover, focus or selection
+    label_css = re.search(r"\.label\{([^}]*)\}", STYLE.search(html).group(2)) if STYLE.search(html) else None
+    if not label_css or not re.search(r"opacity:0(;|$)", label_css.group(1)):
+        problems.append("the buttons over the features are not invisible at rest (.label has no opacity:0)")
     if "prefers-reduced-motion" not in html:
         problems.append("the page has no prefers-reduced-motion rule")
     if re.search(r"<html[^>]*\blang=\"[a-z]", html) is None:
@@ -356,9 +391,36 @@ class PlantedFaultTests(unittest.TestCase):
         self.edit("ui/dist/index.html", lambda t: t.replace("prefers-reduced-motion", "prefers-nothing"))
         self.assert_found("no prefers-reduced-motion rule")
 
+    def test_an_address_in_a_link_that_is_not_listed(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('href="' + REPO_URL + '"', 'href="https://example.invalid/x"', 1))
+        self.assert_found("not listed")
+
+    def test_a_placeholder_made_into_a_real_link(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('<li data-placeholder><span class="name">Devpost</span>', '<li><a href="' + REPO_URL + '" rel="noopener noreferrer">Devpost</a>', 1).replace('<span class="note">link to come</span></li>', '</li>', 1))
+        self.assert_found("not Repo and Docs only")
+
+    def test_a_missing_copy_button_and_a_strip_without_sample(self):
+        self.edit("ui/dist/index.html", lambda t: re.sub(r"<button[^>]*data-copy=\"cmd-verify\"[^>]*>Copy</button>", "", t, count=1))
+        self.assert_found("not seven")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<span class="t">sample</span>', '<span class="t"></span>', 1))
+        self.assert_found("without the word sample")
+
+    def test_a_page_over_two_megabytes(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace("</body>", "<!--" + "x" * 2_100_000 + "-->\n</body>"))
+        self.assert_found("not under 2000000")
+
+    def test_a_link_without_noopener(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(' rel="noopener noreferrer"', "", 1))
+        self.assert_found("rel noopener noreferrer")
+
     def test_a_label_and_a_list_item_with_different_words(self):
         self.edit("ui/dist/index.html", lambda t: t.replace("<h3>Memory</h3>", "<h3>Remembering</h3>", 1))
         self.assert_found("are not the list view names")
+
+    def test_a_name_visible_at_rest(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(".label{position:absolute;left:0;top:0;display:block;white-space:nowrap;opacity:0;", ".label{position:absolute;left:0;top:0;display:block;white-space:nowrap;opacity:1;", 1))
+        self.assert_found("not invisible at rest")
 
     def test_an_em_dash(self):
         self.edit("ui/README.md", lambda t: t + "\nA line " + EM_DASH + " here.\n", rebuild=False)

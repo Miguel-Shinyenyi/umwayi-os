@@ -4,6 +4,8 @@ export function showList(doc, message) {
   const $ = (id) => doc.getElementById(id);
   $('list-view').hidden = false;
   for (const id of ['list-toggle', 'calm-toggle', 'labels', 'hint', 'panel', 'sample-tag']) $(id).hidden = true;
+  $('hero').setAttribute('data-flat', ''); // the title and the promise stay; the empty picture goes
+  $('scene').hidden = true;
   $('scene').setAttribute('aria-hidden', 'true');
   if (message) {
     $('notice').textContent = message;

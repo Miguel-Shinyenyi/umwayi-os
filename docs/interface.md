@@ -6,7 +6,16 @@ The view is a calm 3D hillside in a web page. Eleven stations stand around a lan
 
 ## Current state
 
-**Being reworked (PR 39, not merged).** UI.1 was built as a stylised dusk meadow with eleven podiums in a ring. The owner reviewed it on Nov 11 and asked for a different look: **real life, the Kenyan highlands at dusk**. The engine, Calm mode, reduced motion, the build, the tests of those and the page rules are kept; the scene, the stations, the layout and the labels are rebuilt, and the home page content is added. This page describes what is decided; it says what is built once the rework is done. Requirements: [12.R1 to 12.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 12](../.kiro/specs/umwayi-os/design.md), tasks: [UI.0 to UI.5](../.kiro/specs/umwayi-os/tasks.md), dated facts and the owner's interface check: [adapters/NOTES-layer12.md](../adapters/NOTES-layer12.md), how to build it: [ui/README.md](../ui/README.md).
+**UI.1 is built, as the Kenyan highlands scene (PR 39, reworked on Nov 11, not merged).** The first build was a stylised meadow with podiums; the owner reviewed it on Nov 11 and asked for a different look. The engine, Calm mode, reduced motion, the build, the page rules and their tests were kept; the scene, the stations, the layout and the labels were rebuilt, and the home content was added. `umwayi view snapshot` (UI.2), reading a snapshot and feeding the position function real numbers (UI.3), the owner checks panel (UI.4) and the polish and scan (UI.5) are not built. Requirements: [12.R1 to 12.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 12](../.kiro/specs/umwayi-os/design.md), tasks: [UI.0 to UI.5](../.kiro/specs/umwayi-os/tasks.md), dated facts and the owner's interface check: [adapters/NOTES-layer12.md](../adapters/NOTES-layer12.md), how to build it: [ui/README.md](../ui/README.md).
+
+What the page does now, on made up counts that it marks "sample":
+
+- **A real life look made from code.** Rolling hills with real height, a river valley with a still, sky-reflecting river, umbrella thorn acacia, African pencil cedar, gold and green grass, rock, a low warm light with long shadows, haze, soft cloud and Mount Kenya with snow on the horizon. A shepherd's silhouette with a staff, a hanging lantern and a dog stand at the centre; the lantern is the brightest point. No photograph, texture file, model or font; the page is about 680 KB.
+- **Eleven natural features, scattered.** A spring pool, a drystone wall with gates, a sheepfold, a cave in a rock face, a standing stone, a water wheel on the river, a sheepdog and herd, a stream through three pools, a ford and bridge, a lone gate with a red lamp, a rain water tank. No podium, path or board. Their places are a fixed table by how closely each works with the shepherd (`ui/src/world/layout.js`); `stationPositions(needs)` takes only numbers and moves a feature nearer when it needs the owner (UI.3 will feed it). Names show only on hover or keyboard focus.
+- **Trails of light** to the features that work together, for the one in focus only; hidden in Calm mode.
+- **Calm by default.** Nothing flashes, and nothing in the scene moves by itself. At rest the page asks for no animation frame. A click, a key or the cursor starts a move; every move eases out and ends within 3 seconds (5 in Calm mode). With reduced motion the camera jumps and each feature shows still poses. Calm mode lowers brightness, glow and haze.
+- **The home content** below the picture: the title and promise, a status strip (all four values say "sample"), install and first commands with a Copy button each (written to the clipboard only on a click), and links (the repo and the docs; Devpost and the demo video are text marked "link to come").
+- **A lower detail mode** that starts on weak machines and steps down twice on slow frames; `#detail=high` or `#detail=low` forces and keeps one. **Access:** a real button over every feature, arrows and Escape, and a plain list view that shows by itself when WebGL is missing.
 
 What is decided:
 
@@ -21,15 +30,35 @@ What is decided:
 - **The owner checks panel** (UI.4) lists 10.21, 10.31, 11.6, the B.10 capture, 10.37 and the interface check, with steps and a place to tick and type. The page cannot tell whether a check passed.
 - **Access.** Every feature has a real button over it; arrow keys and Escape work; a plain list view of the stations is the fallback when WebGL is missing.
 
-What is not in layer 12: any button that acts, a server, live updates, text from the owner's files, saved notes, photographs or downloaded images, anything that moves by itself, and everything of layer 13.
+What is not in layer 12 (and what the owner's cuts of Nov 11 left out): a second realism pass, a rope crossing at the ford, a fourth pool, a sluice at the wheel, the last step of the lower detail mode; any button that acts, a server, live updates, text from the owner's files, saved notes, photographs or downloaded images, anything that moves by itself, and everything of layer 13.
 
 The plan and the hours are in the design. The rework does not fit the window (about 92 hours against 60 to 72); what I propose to cut, in order, is there for the owner to decide.
 
 ### How it is checked
 
-- `tests/test_ui_package.py` (Python, standard library): exact versions, the lockfile, `.gitignore`, `build.json`, the built page (no request, no storage, no file loader, the Content-Security-Policy, the size, the allowed addresses). It runs in the normal suite and needs no npm, node or browser.
-- `node --test` in `ui/`: the engine, the layout and the position function, the stations, the home content, the detail mode, the list view fallback, the text contrast.
-- The browser pass, by hand, with a headless browser outside the repo. Its results are written here after the rework, with the date, the browser and its version, and what could not be verified.
+- `tests/test_ui_package.py` (Python, standard library, 31 tests): exact versions, the lockfile, `.gitignore`, `build.json`, and the built page: no request, no storage, no file loader, the Content-Security-Policy and its hashes, the size (under 2 MB), the only addresses, the home sections, the placeholders, the buttons that are invisible at rest. It runs in the normal suite and needs no npm, node or browser.
+- `node --test` in `ui/` (69 tests, no package): the engine, the layout and the position function (5000 random need sets, the extremes, the river, the slope), the eased move, the camera shots, the 11 features built with every pose applied, the home content, the detail mode, the list view fallback, the text contrast. Seventeen planted faults (the push apart removed, a bad need accepted, the wrong distance formula, a slow move, a name visible at rest, a clipboard write on load, a placeholder made a link, a sample value without the word sample, a third detail step, a file loader, the camera in the shepherd, trails left on in Calm mode, reduced motion ignored, a river feature off the river, and others) were each caught by a named test; the one survivor was an equivalent mutant (the same guard stood twice).
+- **The browser pass**, by hand, on Nov 11 2026: Chrome for Testing 151.0.7922.10 (chrome-headless-shell of Playwright's chromium-1232) on Linux, drawing with SwiftShader (software WebGL2), driven over the DevTools protocol by a script kept outside the repo; every request blocked and counted. High detail was forced and kept with `#detail=high` for the screenshots; the other checks ran at `#detail=low`. Results:
+
+| check | result |
+| --- | --- |
+| console messages (errors, warnings, Content-Security-Policy violations) | none, in every run |
+| requests attempted | 0, also after clicking Copy and opening the list view |
+| animation frames requested at rest over 4 s; two screenshots 2.5 s apart | 0; identical |
+| names visible at rest | 0 of 11 |
+| hover over a feature; cursor leaves; focus on a button | its name only; none; its name only |
+| click each of the 11 buttons: panel opens, focus in the panel, one name shown | yes, all 11 |
+| time to rest after a click, on the page's own clock | 2900 to 2933 ms (limit 3000); back to the overview 1400 to 1417 ms |
+| Calm mode: switch on, select Kill switch, back | 983, 4633 and 2233 ms (limit 5000) |
+| reduced motion | 0 ms, one frame per step, the stepper walks the poses |
+| keyboard | Tab order is the list button, Calm mode, then the 11 buttons in list order; Enter, arrows and Escape work; focus returns to the button |
+| Copy: before any click; after the click on the check command | 0 writes; exactly `umwayi check '{"type": "payment", "amount": 5}'` |
+| links | Repo and Docs are links; Devpost and Demo video are text, not links |
+| no WebGL | the list view and the home content show by themselves, no console error |
+| mean luminance (0 black, 1 white), high detail | 0.032 to 0.072 in all twelve views at 1440 by 900 and 390 by 844; no area near white |
+| page size | about 680 KB |
+
+**Not verified:** the 30 frames a second on an integrated GPU (the sandbox draws in software at 1 to 3 frames a second, so frame times say nothing about a real GPU), Firefox, Safari, a real touch screen, a screen reader, and the owner's eyes. The look is judged on the screenshots in the pull request; it is a first realism pass, not a photograph.
 
 ## Decisions log
 

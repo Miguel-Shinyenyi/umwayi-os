@@ -1,9 +1,11 @@
 // Entry point. If the 3D view cannot start, the list view takes its place and says so.
 import { createApp } from './app.js';
 import { showList, toggleList } from './ui/fallback.js';
+import { initHome } from './ui/home.js';
 
 const doc = document;
 const $ = (id) => doc.getElementById(id);
+initHome(doc, window);
 
 $('list-toggle').addEventListener('click', () => toggleList(doc, $('list-view').hidden));
 doc.addEventListener('keydown', (ev) => {

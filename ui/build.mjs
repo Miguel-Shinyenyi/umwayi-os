@@ -13,8 +13,11 @@ const cspHash = (text) => `sha256-${createHash('sha256').update(text, 'utf8').di
 
 const walk = (dir) => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]));
 
-// the words of the stations make the label buttons and the list view, so both are in the page before any script runs
+// the words of the stations make the label buttons and the list view, and the home content makes its sections, so all of it is in
+// the page before any script runs
 const { STATIONS } = await import(pathToFileURL(join(root, 'src/stations/meta.js')).href);
+const home = await import(pathToFileURL(join(root, 'src/data/home.js')).href);
+const sample = (await import(pathToFileURL(join(root, 'src/data/sample.js')).href)).SAMPLE;
 const labels = STATIONS.map((s) => `    <button type="button" class="label" data-station="${s.id}">${escapeHtml(s.name)}</button>`).join('\n');
 const list = STATIONS.map((s) => {
   const note = s.note ? `\n      <p class="note">${escapeHtml(s.note)}</p>` : '';
@@ -26,6 +29,13 @@ const list = STATIONS.map((s) => {
       <p><code>${escapeHtml(s.command)}</code></p>
     </li>`;
 }).join('\n');
+const strip = home.statusStrip(sample, { sample: true, date: sample.date }).map((s) => `    <li data-strip="${s.id}"><span class="k">${escapeHtml(s.name)}</span><span class="v">${escapeHtml(s.value)}</span><span class="t">${escapeHtml(s.tag)}</span></li>`).join('\n');
+const cmd = (c) => `    <li><code id="cmd-${c.id}">${escapeHtml(c.text)}</code><button type="button" class="btn small" data-copy="cmd-${c.id}" aria-label="Copy: ${escapeHtml(c.text)}">Copy</button>${c.what ? `<p class="what">${escapeHtml(c.what)}</p>` : ''}</li>`;
+const install = home.INSTALL.map(cmd).join('\n');
+const first = home.FIRST.map(cmd).join('\n');
+const links = home.LINKS.map((l) => (l.href
+  ? `    <li><a href="${l.href}" rel="noopener noreferrer">${escapeHtml(l.name)}</a><span class="note">${escapeHtml(l.note)}</span></li>`
+  : `    <li data-placeholder><span class="name">${escapeHtml(l.name)}</span><span class="note">${escapeHtml(l.note)}</span></li>`)).join('\n');
 
 const bundle = await build({
   entryPoints: [join(root, 'src/main.js')], bundle: true, minify: true, format: 'iife', target: 'es2020',
@@ -45,6 +55,12 @@ html = html
   .replace('<!--@style-->', () => css)
   .replace('<!--@labels-->', () => labels)
   .replace('<!--@list-->', () => list)
+  .replace('<!--@title-->', () => home.TITLE)
+  .replace('<!--@promise-->', () => escapeHtml(home.PROMISE))
+  .replace('<!--@strip-->', () => strip)
+  .replace('<!--@install-->', () => install)
+  .replace('<!--@first-->', () => first)
+  .replace('<!--@links-->', () => links)
   .replace('<!--@script-->', () => script);
 if (/<!--@/.test(html)) throw new Error('a placeholder was not replaced');
 
