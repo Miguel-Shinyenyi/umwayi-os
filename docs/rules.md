@@ -87,12 +87,23 @@ Yes rules without review_by: 2
 
 It writes nothing (no file, no logbook entry) and prints no rule title, text or cause. Exit 0 when no rule has lapsed. Exit 3 when one has, or when `rules.yaml` is missing or broken (it says it cannot list). Exit 64 for a bad argument, 2 for an unexpected error. It never exits 1.
 
+### The rules change log (layer 13, courts)
+
+Before new rules are used, the change is logged. Every check, and every other command that asks the rules (`umwayi check`, the agent gates, the schedule, `umwayi run`, the AI helpers, `publish-draft` and the inner checks of a workflow), hashes the exact bytes of `rules.yaml` it read. When the SHA-256 is not the one of the newest `umwayi rules` entry, it first writes one entry with the hash, the number of rules before and after, the ids added and removed, and each changed verdict or `review_by`, for example `changed no-money verdict no to yes`. The first time, the entry is a baseline (`rules.yaml first logged`). An edit that changes no id, verdict or date (a comment, spacing, the order) is logged as `no rule changed`, because the bytes changed. The entry holds no rule title, text or cause. More than 200 rules are counted, not listed, and the next change is logged as a new baseline.
+
+- If the entry cannot be written (the logbook lock is held, the logbook was edited, the hash chain is broken), the new rules give No and Ask me first only: a Yes becomes Ask me first, and the reason says why. A No stays a No. The next check that can write logs the change.
+- A weakened rule is used at once: the entry makes the weakening visible and dated, it does not hold it (L13-Q11). A change of a rule's title, text or matchers is seen only through the hash ([KNOWN-LIMITS](KNOWN-LIMITS.md) items 193 and 194).
+- A dry run (`--no-log`) writes nothing, so it logs no change either, and it answers from the rules as they are (L13-Q19, proposal used). A dry run approves nothing.
+- The change is logged only when the rules are used: an action that is not readable JSON, or a `rules.yaml` that does not parse, gives Ask me first as before and logs no rules entry.
+- `rules due` and `view snapshot` only read the rules, so they log nothing.
+
 ## Decisions log
 
 Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | Every caller that asks the rules logs a changed `rules.yaml` before it uses it; if that cannot be written, a Yes becomes Ask me first; a dry run logs nothing and keeps its answer | Layer 13, L13.3 (13.R7; L13-Q11 and the new L13-Q19 as proposed). |
 | 2026-11-11 | The repo `rules.yaml` holds starter rules for the actions the three adapters send, taken from the example files, with the strictest verdict the examples give; `kiro-no-secrets` and `stdio-no-secrets` are added because the examples have no secret rule for those two; no starter rule has `review_by` (9.10) | Task 9.10, PR 43. |
 | 2026-11-11 | A Yes rule past its `review_by` counts as Ask me first, in every caller of the rules; a lapsed Yes beside a fresh Yes gives Ask me first (L13-Q16, proposal used); `rules due` exits 3 when a rule lapsed (L13-Q9, proposal used); a date more than 366 days ahead is listed as `far` (L13-Q10, proposal used) | L13.1, 13.R2 and 13.R3. |
 | 2026-11-10 | The rules file is read only as a regular file of at most 1 MB | The security scan (S.2, PR 37): a rules file that was a link to /dev/zero made `umwayi check` read forever. |

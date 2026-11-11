@@ -291,12 +291,12 @@ class LogbookTests(AdapterBase):
         payloads = [READ, RM, WRITE, MCP, READ, call("Bash", {"command": f"curl -H 'Authorization: {SECRET}' x"})]
         for n, p in enumerate(payloads, 1):
             self.hook(p)
-            self.assertEqual(len(self.entries()), n)
+            self.assertEqual(len(self.entries()), n + 1)  # L13.3 (13.R7.2): the rules entry before the first check
         self.hook("not json")  # blocked before umwayi check: no entry
-        self.assertEqual(len(self.entries()), len(payloads))
+        self.assertEqual(len(self.entries()), len(payloads) + 1)
         v = self.verify()
         self.assertEqual(v.returncode, 0, v.stdout)
-        self.assertIn(f"ok: {len(payloads)} entries", v.stdout)
+        self.assertIn(f"ok: {len(payloads) + 1} entries", v.stdout)
         text = self.log.read_text(encoding="utf-8")
         self.assertNotIn(SECRET, text)
         self.assertNotIn("rm -rf", text)  # only the action type is logged, never the command

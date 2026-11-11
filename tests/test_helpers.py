@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, without_run_lock, write_sealed_logbook
+from tests.helpers import after_rules, entry_text, without_run_lock, write_sealed_logbook
 from umwayi import logbook, publish, rules, taskqueue
 from umwayi.cli import main
 from umwayi.errors import UmwayiError
@@ -162,7 +162,7 @@ class BaseStepTests(Base):
         calls = []
         h.step("read_queue", lambda: calls.append(1) or self.ok_work())
         self.assertEqual(calls, [1])
-        e = self.entries()
+        e = after_rules(self.entries())  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(len(e), 1)
         self.assertEqual((e[0].source, e[0].added, e[0].checked, e[0].not_done), (
             "umwayi steward", "Step 1 (read_queue): did the thing",
@@ -185,7 +185,7 @@ class BaseStepTests(Base):
         self.assertEqual(calls, [])
         self.assertEqual(cm.exception.lines[:2], ["No", "Rule: helper-no-post"])
         self.assertIn("AI helper steward stopped at step 1 (post_update).", cm.exception.lines)
-        self.assertEqual([x.added for x in self.entries()], ["Step 1 (post_update) stopped: rule helper-no-post gave No"])
+        self.assertEqual([x.added for x in after_rules(self.entries())], ["Step 1 (post_update) stopped: rule helper-no-post gave No"])
         self.assertFalse(self.queue.exists())  # No adds no queue item
 
     def test_post_send_and_publish_types_are_no_for_helpers(self):
@@ -211,7 +211,7 @@ class BaseStepTests(Base):
         self.assertEqual(r.recommendation, base.ASK_RECOMMENDATION)
         self.assertIn("umwayi queue answer Q-0001 --answer TEXT", "\n".join(cm.exception.lines))
         # one queue entry (layer 3) and one step entry (the helper)
-        self.assertEqual([(x.source, x.added) for x in self.entries()], [
+        self.assertEqual([(x.source, x.added) for x in after_rules(self.entries())], [  # L13.3 (13.R7.2): the rules are logged before their first use
             ("umwayi queue add", "Q-0001 (decision) as open: AI helper steward asks first: may it do read_calendar?"),
             ("umwayi steward", "Step 1 (read_calendar) stopped: no rule gave Ask me first; queue item Q-0001 added"),
         ])
@@ -314,7 +314,7 @@ class BaseStepTests(Base):
         h = self.helper()
         h.step("read_queue", self.ok_work)
         h.step("read_logbook", self.ok_work)
-        self.assertEqual([x.added for x in self.entries()], ["Step 1 (read_queue): did the thing",
+        self.assertEqual([x.added for x in after_rules(self.entries())], ["Step 1 (read_queue): did the thing",
                                                              "Step 2 (read_logbook): did the thing"])
 
     # -- a helper cannot approve, or add anything to the action
@@ -432,10 +432,10 @@ class StewardTests(Base):
         self.assertEqual(out, "Wrote drafts/steward-0001.md.\nQueue rows read: 5, open: 3.\n"
                               "It is a draft. Steward changed nothing in the queue and answered nothing.\n")
         self.assertEqual(self.changed(before), [".umwayi/logbook.sha256", "LOGBOOK.md", "drafts/", "drafts/steward-0001.md"])
-        new = self.entries()[4:]
+        new = after_rules(self.entries()[4:])  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual([(e.source, e.added) for e in new], [
             ("umwayi steward", "Step 1 (read_queue): read queue.md (5 rows)"),
-            ("umwayi steward", "Step 2 (read_logbook): read LOGBOOK.md (5 entries)"),  # 4 earlier and step 1
+            ("umwayi steward", "Step 2 (read_logbook): read LOGBOOK.md (6 entries)"),  # 4 earlier, the rules entry and step 1
             ("umwayi steward", "Step 3 (write_draft): wrote drafts/steward-0001.md (a proposal from the queue)"),
         ])
 
@@ -670,7 +670,7 @@ class SocialTests(Base):
             self.assertLessEqual(len(text), 280)
         self.assertEqual(self.changed(before), [".umwayi/", ".umwayi/logbook.sha256", "LOGBOOK.md", "drafts/",
                                                 "drafts/post-linkedin-0001.md", "drafts/post-mastodon-0001.md"])
-        e = self.entries()
+        e = after_rules(self.entries())  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(len(e), 3)
         self.assertTrue(e[0].added.startswith("Step 1 (read_article): read articles/week.md ("))
         self.assertIn("SHA-256", e[0].added)

@@ -28,6 +28,7 @@ A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 | `umwayi rules due` | 0 no rule has lapsed, 3 a rule has lapsed or `rules.yaml` is missing or broken, 64 usage, 2 an unexpected error, never 1 |
 | `umwayi view snapshot` | 0 done, 1 the logbook failed its tamper check (nothing written), 2 an unexpected error, 64 usage (a bad `--out` or `--date`); never 3 |
 | `umwayi decision reopen` | 0 done, 1 refused (the record does not fit or is not intact; nothing changed), 2 an unexpected error, 64 usage (a bad id, hash, reason, name or date); never 3 |
+| `umwayi petition` | 0 added, or the same petition already open; 1 refused (not a No rule, a limit, a broken logbook or rules file; nothing written); 2 an unexpected error; 64 usage (a bad rule id, helper or reason); never 3 |
 | `umwayi queue answer` | as the other queue commands; 64 also for a decision without `--revisit-if` and a task with it |
 | any command given a path longer than the system allows | 64, a usage error that does not print the path |
 | the layer 9 adapters | never 1; any error blocks (Kiro 0 or 2, generic 0, 2 or 3) |
@@ -40,6 +41,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | `umwayi petition` uses 0, 1, 2 and 64; the same petition already open is 0 | Layer 13, L13.3 (13.R6.5, design.md "Commands and exit codes"). |
 | 2026-11-11 | `umwayi decision reopen` uses 0, 1, 2 and 64; `queue answer` gives 64 for a missing or misplaced `--revisit-if` | Layer 13, L13.2 (design.md, "Commands and exit codes"). |
 | 2026-11-11 | `umwayi rules due` uses 0, 3, 64 and 2, never 1; 3 when a rule lapsed so a scheduled job can notice (L13-Q9, proposal used) | L13.1, 13.R3.3. |
 | 2026-11-11 | `umwayi view snapshot` uses 0, 1, 2 and 64 and never 3: it asks the rules nothing and the kill switch does not stop it | 12.R4.8 (UI.2). Code 1 is its tamper check refusal, as for `logbook verify`; the owner needs the counts most when the switch is on. |

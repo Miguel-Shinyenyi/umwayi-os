@@ -52,6 +52,8 @@ rules:
       platform: kiro
       input_command__contains: ["rm -rf", "rm -fr", "mkfs", "dd if=", "remove-item -recurse"]
 
+  # umwayi petition (layer 13) is left to the owner: an AI helper may object to a No this way. To refuse it,
+  # add "umwayi petition" to the list below.
   - id: kiro-no-guard-shell
     title: Shell commands that touch the guard files
     text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .kiro/hooks, umwayi kill, umwayi decision or decision reopen are refused.

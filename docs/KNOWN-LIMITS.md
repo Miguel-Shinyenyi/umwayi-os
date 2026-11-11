@@ -763,3 +763,21 @@ On its first use in a fresh home folder, OpenCode 2.2.7 fetched `ripgrep` from t
 - umwayi cannot stop it or see it. It happens inside the `opencode` process, before or apart from any tool call, so neither the plugin nor a permission request is involved, and nothing about it reaches the logbook.
 - The policies in umwayi's inline config cover providers and integrations (`provider.use`, `integration.use`). They do not cover this download.
 - What would fix it later: a cache folder with `rg` already in place, inside a private `HOME` that umwayi gives OpenCode, so there is nothing to fetch; or a network sandbox around OpenCode, after Dec 3.
+
+## Layer 13: courts and the rules change log (found while building L13.3)
+
+### 192. Petition limits stop a flood, not a patient helper
+
+A helper name is a label the helper gives itself, so the per helper limits are bounded only by the totals (10 open, 10 a day). A refused petition writes nothing, so a flood leaves no trace in the logbook. The day of the daily limits is the date of the entry: a helper that passes a later `--date` gets a new day, and the logbook dates then move forward for every command. The reason is untrusted text in `queue.md` that an owner, or an AI helper that reads the queue, can still take as an order.
+
+### 193. The rules change log shows a weakening and does not hold it
+
+A rule weakened by an edit (`no-money` from no to yes) is used at the next check, after its entry is written. The entry makes it visible and dated; it does not stop it (L13-Q11). A process of the same user can also write a well formed `umwayi rules` entry with the new hash before the check, so the change is not listed (item 135 again).
+
+### 194. Only ids, verdicts and review dates are listed
+
+A change of a rule's matchers, title, text or cause shows as `no rule changed` with a new SHA-256. A No rule whose matchers were narrowed to match nothing is a weakening that the entry does not name (L13-Q20). Compare the file with an older copy (for example git) to see what changed.
+
+### 195. A dry run neither logs a rules change nor falls back
+
+`umwayi check --no-log` writes nothing, so changed rules are not logged by it and its answer comes from the new rules as they are (L13-Q19). A dry run approves nothing in umwayi, but a script that treats its Yes as a permission would use rules that are not logged yet.

@@ -236,7 +236,7 @@ def _run_locked(root: Path, jobfile: Path, name: str | None, today: str) -> Resu
 
     # --- 3. the rules
     action = {"type": "run_job", "job": job.name, "command": job.command}
-    decision = rules.check(json.dumps(action), root / "rules.yaml")
+    decision = rules.check_in_root(json.dumps(action), root / "rules.yaml", root, today)
     checked_base = (
         f"jobs file parsed with no errors; {job.command} is on the allow list; {gap_note}; "
         f"{'rule ' + decision.rule_id if decision.rule_id else 'no rule'} gave {decision.answer} for action type run_job"
@@ -278,7 +278,7 @@ def _run_locked(root: Path, jobfile: Path, name: str | None, today: str) -> Resu
         not_done = "queue.md was only read, nothing was changed. No shell and no network were used."
     else:  # check
         t = job.options["action_type"]
-        inner = rules.check(json.dumps({"type": t}), root / "rules.yaml")
+        inner = rules.check_in_root(json.dumps({"type": t}), root / "rules.yaml", root, today)
         code = inner.exit_code
         added = (
             f"Job {job.name} ran (command check): "

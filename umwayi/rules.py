@@ -6,6 +6,7 @@ Fail closed: anything unknown, missing or broken gives "Ask me first".
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field, replace
@@ -13,7 +14,7 @@ from datetime import date as _date
 from pathlib import Path
 from typing import Any, Callable
 
-from umwayi import logbook, miniyaml
+from umwayi import logbook, miniyaml, rulelog
 from umwayi.errors import UmwayiError
 from umwayi.fsutil import NotRegular, TooBig, read_regular
 
@@ -65,6 +66,8 @@ class Decision:
     stopped_by: str | None = None
     # layer 13.R2: (rule id, review_by) of every matching Yes rule that was past its date and counted as Ask me first
     lapsed: list[tuple[str, str]] = field(default_factory=list)
+    # layer 13.R7: the SHA-256 of the rules.yaml bytes this answer came from (never in the JSON or the entry)
+    rules_sha256: str | None = None
 
     @property
     def exit_code(self) -> int:
@@ -202,11 +205,19 @@ def parse_rules(text: str) -> list[Rule]:
     return rules
 
 
-def load_rules(path: Path) -> list[Rule]:
+class RuleList(list):
+    """The rules of one read of rules.yaml, with the SHA-256 of the exact bytes they were parsed from (13.R7)."""
+
+    sha256: str = ""
+
+
+def load_rules(path: Path) -> RuleList:
     """The rules of a regular file of at most MAX_RULES_BYTES (a link to one is followed). Anything else, /dev/zero
-    or a FIFO among them, is a broken rules file: Ask me first, never a hang (S.2)."""
+    or a FIFO among them, is a broken rules file: Ask me first, never a hang (S.2). The list also carries the
+    SHA-256 of the bytes it was parsed from, for the rules change log."""
     try:
-        text = read_regular(Path(path), MAX_RULES_BYTES).decode("utf-8")
+        data = read_regular(Path(path), MAX_RULES_BYTES)
+        text = data.decode("utf-8")
     except TooBig:
         raise UmwayiError(f"rules.yaml: the file is larger than {MAX_RULES_BYTES} bytes") from None
     except NotRegular:
@@ -215,7 +226,9 @@ def load_rules(path: Path) -> list[Rule]:
         raise UmwayiError("rules.yaml: cannot read the file") from None
     except UnicodeDecodeError:
         raise UmwayiError("rules.yaml: not valid UTF-8") from None
-    return parse_rules(text)
+    out = RuleList(parse_rules(text))
+    out.sha256 = hashlib.sha256(data).hexdigest()
+    return out
 
 
 # --------------------------------------------------------------- matching
@@ -361,7 +374,47 @@ def check(action_text: str | None, rules_path: Path, today: str | Callable[[], s
     decision.rules_ok = True
     decision.rules_count = len(rules)
     decision.action_type = action_type
+    decision.rules_sha256 = getattr(rules, "sha256", None)
     return decision
+
+
+# ------------------------------------------------------- the rules change log (layer 13.R7)
+
+
+def log_rules_change(action_text: str | None, rules_path: Path, root: Path, when: str) -> tuple[str | None, str | None]:
+    """Step 4 of the verdict order: log the rules before they are used. (the SHA-256 that is the logged version,
+    why it could not be logged). Both None when the action cannot be read or rules.yaml cannot be read: then the
+    rules are not used, so they are not logged, and the check gives Ask me first as before."""
+    if action_text is None:
+        return None, None
+    try:
+        parse_action(action_text)
+        loaded = load_rules(rules_path)
+    except UmwayiError:
+        return None, None
+    return loaded.sha256, rulelog.ensure_logged(Path(root), loaded.sha256, list(loaded), when)
+
+
+def only_if_logged(decision: Decision, logged_sha256: str | None, why: str | None) -> Decision:
+    """13.R7.3: rules that are not the logged version give No and Ask me first only; a Yes becomes Ask me first.
+    This also covers a file that changed again between the entry and the check."""
+    if decision.answer != YES or not decision.rules_ok:
+        return decision
+    if why is None and logged_sha256 is not None and logged_sha256 == decision.rules_sha256:
+        return decision
+    why = why or "rules.yaml changed again while its change was being logged"
+    return Decision(ASK, decision.rule_id, f"Rule {decision.rule_id} gave Yes, but rules.yaml changed and the change "
+                    f"could not be logged before use ({why}), so the answer is {ASK}.", list(decision.matched),
+                    action_ok=decision.action_ok, rules_ok=decision.rules_ok, rules_count=decision.rules_count,
+                    action_type=decision.action_type, lapsed=list(decision.lapsed),
+                    rules_sha256=decision.rules_sha256)
+
+
+def check_in_root(action_text: str | None, rules_path: Path, root: Path, when: str) -> Decision:
+    """`check` for a caller that asks the rules in a root without logging its own check (a job, an AI helper,
+    publish-draft, the inner check of a workflow): the rules change is logged first (13.R7.1)."""
+    logged, why = log_rules_change(action_text, rules_path, root, when)
+    return only_if_logged(check(action_text, rules_path), logged, why)
 
 
 def _fallback_text(lapsed: list[tuple[str, str]]) -> str:
@@ -413,7 +466,11 @@ def check_and_log(
     state is unknown) turns any answer into No, with no rule, before it is logged.
     """
     # the election clock (13.R2.4): the system date, `when` and the newest logbook date, read only if a rule needs it
+    # the rules change log (13.R7) comes before the rules are used; a dry run writes nothing (L13-Q19, proposal used)
+    logged, why = log_rules_change(action_text, rules_path, root, when) if log else (None, None)
     decision = check(action_text, rules_path, lambda: election_clock(root, when))
+    if log:
+        decision = only_if_logged(decision, logged, why)
     decision.kill_state = kill_state
     if stop_reason is not None:
         decision = replace(decision, answer=NO, rule_id=None, reason=stop_reason, matched=[], lapsed=[],
