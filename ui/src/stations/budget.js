@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { TOKENS } from '../world/palette.js';
 import { lerp } from '../engine/ease.js';
+import { sceneNumbers } from '../data/snapshot.js';
 
 export const poses = [{ level: 0.22 }, { level: 0.62 }, { level: 1 }];
 
@@ -51,21 +52,25 @@ export function build(kit) {
   for (let i = 0; i < 7; i++) {
     const m = kit.glow(TOKENS.amber, 1.1, i === 6 ? 1 : 0.55);
     const n = kit.mesh(new THREE.BoxGeometry(0.1, 1, 0.04).translate(0, 0.5, 0), m, -0.57 + i * 0.19, 0.12, 1.69);
+    n.userData.part = 'mark';
     g.add(n);
     notches.push(n);
   }
+  const unknownMark = kit.unknownMark(1.9, 1.1);
+  g.add(unknownMark);
   let restLevel = 0.22;
   return {
     group: g,
     apply(p) {
       column.scale.y = Math.max(0.001, p.level * tubeH * LIMIT * 1.12);
     },
-    // counts: { budget: { days: [{ date, used_uu } x 7] } }
+    // the mapping table (data/snapshot.js): seven marks, each day against the busiest, and the water level at today against the
+    // busiest day; a budget that cannot be read is the mark, flat marks and the lowest level
     setCounts(c) {
-      const days = c && c.budget ? c.budget.days.map((d) => d.used_uu) : new Array(7).fill(0);
-      const max = Math.max(1, ...days);
-      notches.forEach((n, i) => { n.scale.y = Math.max(0.03, (days[i] / max) * 0.6); });
-      restLevel = lerp(0.12, LIMIT * 0.8, days[6] / max);
+      const n = sceneNumbers(c).budget;
+      notches.forEach((m, i) => { m.scale.y = Math.max(0.03, n.marks[i] * 0.6); });
+      restLevel = lerp(0.12, LIMIT * 0.8, n.level);
+      unknownMark.visible = n.unknown;
     },
     rest: () => ({ level: restLevel }),
   };

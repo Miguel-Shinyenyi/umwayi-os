@@ -856,6 +856,70 @@ class ExitTests(Case):
         self.assertTrue(r.stdout.endswith("\n") and r.stdout[:-1].isprintable())
 
 
+class FixtureTests(unittest.TestCase):
+    """UI.3 (tasks.md UI.2.2): ui/test/fixtures/snapshot.json is the command's own output on the fixed root of
+    ContentTests, byte for byte. The page's tests read it as the real file, so it must not be written by hand."""
+
+    FIXTURE = REPO / "ui" / "test" / "fixtures" / "snapshot.json"
+
+    @staticmethod
+    def made(tmp: Path) -> bytes:
+        w = World(tmp, "one").build(install=True)
+        r = w.view("--date", DAY)
+        assert r.returncode == 0, r.stdout + r.stderr
+        return w.snap.read_bytes()
+
+    def problems(self, data: bytes, made: bytes) -> list:
+        out = []
+        if data != made:
+            out.append("the fixture is not what umwayi view snapshot writes on the fixed root")
+        try:
+            obj = json.loads(data.decode("ascii"))
+        except (UnicodeDecodeError, ValueError):
+            return out + ["the fixture is not JSON"]
+        from umwayi import view as view_module
+        if not view_module.valid(obj):
+            out.append("the fixture is not a valid snapshot (umwayi.view.valid)")
+        if len(data) > 4096:
+            out.append("the fixture is over 4096 bytes, the limit of the page")
+        return out
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="umwayi-fixture-")
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(os.path.realpath(self._tmp.name))
+
+    def test_the_fixture_equals_the_commands_output_on_the_fixed_root_byte_for_byte(self):
+        made = self.made(self.tmp)
+        self.assertEqual(self.problems(self.FIXTURE.read_bytes(), made), [])
+
+    def test_a_fixture_edited_by_hand_is_found(self):
+        made = self.made(self.tmp)
+        data = self.FIXTURE.read_bytes()
+        for name, bad in (("a number", data.replace(b'"open": 2', b'"open": 3', 1)), ("a final newline", data.rstrip(b"\n")),
+                          ("an indent", data.replace(b'  "schema"', b'    "schema"', 1)), ("a date", data.replace(b"2026-11-11", b"2026-11-12", 1)),
+                          ("a key", data.replace(b'"schema"', b'"schemas"', 1))):
+            self.assertTrue(self.problems(bad, made), name)
+
+    def test_a_fixture_that_is_not_a_valid_snapshot_or_is_too_big_is_found(self):
+        made = self.made(self.tmp)
+        extra = json.dumps({**json.loads(made), "extra": 1}, indent=2).encode() + b"\n"
+        self.assertIn("the fixture is not a valid snapshot (umwayi.view.valid)", self.problems(extra, extra))
+        big = made + b" " * 4096
+        self.assertIn("the fixture is over 4096 bytes, the limit of the page", self.problems(big, big))
+        self.assertIn("the fixture is not JSON", self.problems(b"nope", b"nope"))
+
+    def test_the_fixture_holds_counts_only(self):
+        obj = json.loads(self.FIXTURE.read_text(encoding="ascii"))
+        for path, leaf in leaves(obj):
+            ok = (type(leaf) is int and 0 <= leaf <= 1_000_000_000) or leaf is None or leaf in WORDS or (
+                isinstance(leaf, str) and real_date(leaf))
+            self.assertTrue(ok, (path, leaf))
+        text = self.FIXTURE.read_text(encoding="ascii").lower()
+        for word in SENTINELS:
+            self.assertNotIn(word.lower(), text)
+
+
 class CodeGuardTests(unittest.TestCase):
     BANNED = {"subprocess", "socket", "urllib", "http", "ctypes", "ssl", "requests", "asyncio", "multiprocessing",
               "webbrowser", "ftplib", "smtplib", "xmlrpc"}

@@ -57,6 +57,12 @@
   <ul class="strip">
 <!--@strip-->
   </ul>
+  <div class="snapshot" id="snapshot">
+    <button type="button" class="btn small" id="snapshot-open">Open a snapshot file</button>
+    <input type="file" id="snapshot-file" accept=".json,application/json" tabindex="-1" hidden>
+    <p class="snapshot-help">Run <code>umwayi view snapshot</code>, then open the file it wrote, or drop it on this page. The file is read in this browser. It is not uploaded, sent or kept.</p>
+    <p class="snapshot-msg" id="snapshot-msg" role="status" aria-live="polite"></p>
+  </div>
 </section>
 <section class="home" id="list-view" aria-labelledby="list-title">
   <h2 id="list-title">The eleven stations</h2>
@@ -83,7 +89,7 @@
 <!--@links-->
   </ul>
 </section>
-<footer class="home foot"><p>A sample world. The picture shows made up counts until you load your own.</p></footer>
+<footer class="home foot"><p id="foot-note">A sample world. The picture shows made up counts until you load your own.</p></footer>
 </main>
 
 <p id="notice" role="status" hidden></p>

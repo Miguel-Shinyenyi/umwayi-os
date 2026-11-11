@@ -118,6 +118,19 @@ export function makeKit() {
     m.lookAt(b);
     return m;
   };
+  // A part the snapshot could not read (12.R9.2): an unlit lantern on a post, hidden until a station needs it. It is not a count, not a
+  // signal colour and not a zero. userData.part lets the tests find it.
+  const unlit = kit.std(0x59626a, { roughness: 0.5, metalness: 0.3 });
+  kit.unknownMark = (x = 0, z = 0) => {
+    const g = new THREE.Group();
+    g.userData.part = 'unknown';
+    g.add(kit.post(1.05, 0.045, M.woodDark));
+    g.add(kit.box(0.26, 0.34, 0.26, unlit, 0, 1.22, 0));
+    g.add(kit.mesh(new THREE.ConeGeometry(0.2, 0.14, 4), M.iron, 0, 1.46, 0));
+    g.position.set(x, 0, z);
+    g.visible = false;
+    return g;
+  };
   // a stone: one of six shared boulders (fine for the bigger ones, coarser for pebbles), scaled and turned
   const ROCKS = Array.from({ length: 6 }, (_, i) => boulderGeometry(i + 1, 4));
   const PEBBLES = Array.from({ length: 6 }, (_, i) => boulderGeometry(i + 21, 3));

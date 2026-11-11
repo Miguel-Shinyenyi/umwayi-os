@@ -3,6 +3,7 @@
 // The group stands at the water level (the river bed is 1.2 m below it).
 import * as THREE from 'three';
 import { TOKENS } from '../world/palette.js';
+import { sceneNumbers } from '../data/snapshot.js';
 
 export const poses = [{ t: 0 }, { t: 0.5 }, { t: 1 }];
 
@@ -22,6 +23,8 @@ export function build(kit) {
   hub.rotation.x = Math.PI / 2;
   wheel.add(hub);
   const lamps = [];
+  const unknownMark = kit.unknownMark(0.4, 3.0);
+  g.add(unknownMark);
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
     for (const z of [-0.42, 0.42]) {
@@ -35,6 +38,8 @@ export function build(kit) {
     const m = kit.glow(TOKENS.amber, 1.7, 0);
     const bead = kit.ball(0.06, m, c * 1.45, s * 1.45, 0.5, 10, 8);
     bead.userData.noShadow = true;
+    bead.userData.part = 'lamp';
+    bead.userData.mat = m;
     bead.visible = false;
     wheel.add(bead);
     lamps.push({ bead, m });
@@ -51,13 +56,16 @@ export function build(kit) {
     apply(p) {
       wheel.rotation.z = -p.t * (Math.PI / 6);
     },
-    // counts: { schedule: { entries, installed, enabled } }
+    // the mapping table (data/snapshot.js): a lamp for each schedule, brighter if installed, brightest if enabled (12 at most);
+    // a schedule that cannot be read is the mark and no lamp
     setCounts(c) {
-      const s = c && c.schedule ? c.schedule : { entries: 0, installed: 0, enabled: 0 };
+      const n = sceneNumbers(c).automation;
       lamps.forEach((l, i) => {
-        l.bead.visible = i < s.entries;
-        kit.level(l.m, i < s.enabled ? 1.9 : i < s.installed ? 1.0 : 0.4);
+        const v = n.lamps[i];
+        l.bead.visible = v > 0;
+        kit.level(l.m, v === 3 ? 1.9 : v === 2 ? 1.0 : 0.4);
       });
+      unknownMark.visible = n.unknown;
     },
   };
 }

@@ -2,6 +2,7 @@
 // and the next sheep halts. Unknown is drawn as on, because if umwayi cannot tell, it stops.
 import * as THREE from 'three';
 import { TOKENS } from '../world/palette.js';
+import { sceneNumbers } from '../data/snapshot.js';
 
 export const poses = [
   { shut: 0, red: 0, a: 2.0, b: 4.6 },
@@ -30,6 +31,8 @@ export function build(kit) {
   g.add(latch);
   const a = kit.sheep(0.9), b = kit.sheep(0.9);
   g.add(a.group, b.group);
+  const unknownMark = kit.unknownMark(-1.9, 0.9);
+  g.add(unknownMark);
   let on = true;
   return {
     group: g,
@@ -39,9 +42,11 @@ export function build(kit) {
       a.group.position.set(0, 0, p.a); a.group.rotation.y = Math.PI;
       b.group.position.set(0.05, 0, p.b); b.group.rotation.y = Math.PI;
     },
-    // counts: { kill_switch: 'on' | 'off' | 'unknown' }; anything but off is drawn as on
+    // the mapping table (data/snapshot.js): on and unknown are drawn as on (shut and lit), only off is open; unknown also shows the mark
     setCounts(c) {
-      on = !(c && c.kill_switch === 'off');
+      const n = sceneNumbers(c).killswitch;
+      on = n.shut;
+      unknownMark.visible = n.unknown;
     },
     rest: () => (on ? { shut: 1, red: 1, a: -2.2, b: 1.25 } : { shut: 0, red: 0, a: -2.2, b: 4.6 }),
   };

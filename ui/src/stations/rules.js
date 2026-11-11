@@ -2,6 +2,7 @@
 // Small lamps on the wall top show how many rules give each answer. Unknown is drawn as Ask me first.
 import * as THREE from 'three';
 import { TOKENS } from '../world/palette.js';
+import { sceneNumbers } from '../data/snapshot.js';
 
 export const poses = [
   { gate: 1, lamp: 0, z: -1.5, yaw: Math.PI },
@@ -36,6 +37,7 @@ export function build(kit) {
     const x = i < 6 ? -3.4 + i * 0.5 : 1.15 + (i - 6) * 0.5;
     const b = kit.ball(0.055, mats[2], x, 1.02, 0.02, 10, 8);
     b.userData.noShadow = true;
+    b.userData.part = 'lantern';
     g.add(b);
     beads.push(b);
   }
@@ -51,15 +53,13 @@ export function build(kit) {
       hang.lamp.emissive.copy(col);
       hang.lamp.color.copy(col).multiplyScalar(0.3);
     },
-    // counts: { rules: { yes, no, ask } | null }
+    // the mapping table (data/snapshot.js): lanterns by verdict, 12 at most; a part that cannot be read is 12 of Ask me first
     setCounts(c) {
-      const k = c && c.rules ? c.rules : null;
-      const n = k ? [k.yes, k.no, k.ask] : [0, 0, 12];
-      const total = Math.max(1, n[0] + n[1] + n[2]);
-      const shown = n.map((v) => (v > 0 ? Math.max(1, Math.round((v / total) * 12)) : 0));
-      while (shown[0] + shown[1] + shown[2] > 12) shown[shown.indexOf(Math.max(...shown))]--;
+      const { lanterns } = sceneNumbers(c).rules;
       let i = 0;
-      shown.forEach((count, which) => { for (let j = 0; j < count; j++, i++) { beads[i].material = mats[which]; beads[i].visible = true; } });
+      lanterns.forEach((count, which) => {
+        for (let j = 0; j < count; j++, i++) { beads[i].material = mats[which]; beads[i].userData.verdict = which; beads[i].visible = true; }
+      });
       for (; i < 12; i++) beads[i].visible = false;
     },
   };

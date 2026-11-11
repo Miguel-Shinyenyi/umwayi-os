@@ -5,6 +5,8 @@ and the list of the eleven stations, all written into the HTML by the server, an
 Next.js app. It is not part of the `umwayi` package: nothing here imports `umwayi`, and umwayi never runs npm, node or this
 site. The owner builds it and the owner deploys it (nothing here deploys anything or touches Vercel).
 
+Status (UI.3): a visitor can open a snapshot file of their own with the button in the status section, or drop it on the page. It is read in the browser with `FileReader` and checked strictly (`ui/src/data/snapshot.js`); nothing is uploaded, no request carries it, and nothing is stored. A file that is not a snapshot of this version gives one message and loads nothing. Without a file the page shows the sample world and says "sample". The only change in `site/` is the picker markup and the footer id in `app/home.js`, so it matches `ui/src/index.html`.
+
 Status (UI.6): List and Standard. The 3D scene and the page behaviour are the ones in `ui/src`, used through the shared modules
 (`ui/src/boot.js`, which builds the picture with `ui/src/scene.js`). High (tier 3) is UI.7. Requirements: 12.R16 to 12.R18 in
 `.kiro/specs/umwayi-os/requirements.md`. Design: "The public site" in `design.md`. The doc: `docs/interface.md`.
@@ -40,7 +42,7 @@ built again on the host that serves it.
 
 ## What the server sends
 
-`/` is built once and sent as static HTML: the home text, the status strip (every value says "sample"), the install and first
+`/` is built once and sent as static HTML: the home text, the status strip (every value says "sample" until a visitor opens a snapshot), the install and first
 commands, the links and the list of the eleven stations, with `data-tier="list"` on the html element. With JavaScript off the
 page is List and stays readable. The Copy buttons and the List and Standard switch appear only when the script has run.
 
@@ -61,8 +63,7 @@ exists, the graphics renderer hint, the screen size, reduced motion, and whether
 Standard. **These hints are read in the page and never sent anywhere, stored or written to the address.** The List and Standard
 switch keeps its choice in the address fragment only (`#tier=list`, `#tier=standard`), which a browser never sends to a server.
 The site's host sees which files a browser asks for, so its logs can tell whether the scene script was loaded; that is a
-property of serving files, not tracking, and nothing else about the device is sent. The site shows sample counts only and never
-reads a snapshot.
+property of serving files, not tracking, and nothing else about the device is sent. The site shows sample counts until a visitor opens a snapshot file of their own, which is read in the browser only.
 
 ## No copy of the scene
 

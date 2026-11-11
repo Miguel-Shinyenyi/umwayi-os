@@ -4,8 +4,10 @@
 import { createScene } from './scene.js';
 import { createLabels } from './ui/labels.js';
 import { createPanel } from './ui/panel.js';
+import { feedScene, viewOf } from './data/snapshot.js';
 
-export function createApp(win) {
+// view: what the page shows (data/snapshot.js, viewOf): the sample world, or the snapshot the owner loaded before the picture started
+export function createApp(win, view = viewOf(null)) {
   const doc = win.document;
   const $ = (id) => doc.getElementById(id);
   const canvas = $('scene'), hero = $('hero');
@@ -32,7 +34,7 @@ export function createApp(win) {
   }
 
   scene = createScene(canvas, {
-    win, host: hero,
+    win, host: hero, counts: view.counts, sample: view.sample,
     onSelect(id, info) {
       if (id) {
         labels.setSelected(id);
@@ -69,6 +71,7 @@ export function createApp(win) {
     },
     onLost: () => app.onLost && app.onLost(),
   });
+  if (!view.sample) scene.world.placement.place(view.needs); // a snapshot loaded before the picture started: the stations start in their places
   const { settings } = scene;
   settings.onChange((key, value) => { if (key === 'reduced') panel.setMode(value); });
   $('calm-toggle').addEventListener('click', () => settings.setCalm(!settings.calm));
@@ -90,6 +93,12 @@ export function createApp(win) {
     settings, stage: scene.stage, world: scene.world, loop: scene.loop, select: scene.select, deselect: scene.deselect, detail: scene.detail,
     // UI.3 feeds numbers here and nothing else: { id: 0..1 }
     setNeeds: scene.setNeeds,
+    // a snapshot was loaded after the picture started: the counts, then the needs; an open panel shows the new counts
+    setData(next) {
+      feedScene(scene, next);
+      const open = scene.selected();
+      if (open) panel.show(scene.world.byId[open].def, next.counts, next.sample);
+    },
     isSample: scene.isSample,
     flow: scene.flow,
     setFlat: scene.setFlat,

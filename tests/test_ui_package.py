@@ -13,6 +13,9 @@ Checks, on the repo and on temporary copies with a planted fault each:
 - the page is under about 2 MB; its only addresses are the XML namespace name and the listed home links; the Devpost and
   demo video entries are marked placeholders and are not anchors; every Copy button has its command;
 - the page holds the 11 buttons over the features, the list view, the home sections, the Calm mode button and the reduced motion rule;
+- the snapshot reader (UI.3, 12.R4.9, 12.R9.1): one file picker for json and no other input or form, the one refusal message
+  in the script, the file read with readAsText only, no call in the script that sets text as markup, runs it or turns the
+  file into an address, the page says "sample" before any file, and the picker is hidden without a script;
 - no em dash in anything under ui/.
 Standard library only; no npm, no node, no browser, no network. The repo is never changed by the planted faults.
 """
@@ -47,6 +50,12 @@ STYLE = re.compile(r"<style\b([^>]*)>(.*?)</style>", re.S | re.I)
 # a CSS url(...) that is not a data: address; "getDataURL(" in a script is a method name and is not matched
 URL_FN = re.compile(r"(?<![\w$])url\(\s*(?!['\"]?data:)", re.I)
 ANY_URL = re.compile(r"https?://[^\s\"'<>)\\]*")
+INPUT = re.compile(r"<input\b([^>]*)>", re.I)
+# the one refusal message of 12.R9.1, and the calls that would turn a file's text into markup, code or an address (12.R9, UI.3)
+NOT_A_SNAPSHOT = "This file is not a snapshot of this version"
+MARKUP_SINKS = (".innerHTML", "outerHTML", "insertAdjacentHTML", "insertAdjacentElement", "document.write", "DOMParser",
+                "createContextualFragment", "srcdoc", "eval(", "new Function", "createObjectURL", "readAsDataURL",
+                "readAsArrayBuffer", "readAsBinaryString")
 
 
 def sha256(data: bytes) -> str:
@@ -222,6 +231,35 @@ def check_page(root: Path) -> list:
     for a in re.findall(r"<a\b[^>]*>", markup):
         if 'rel="noopener noreferrer"' not in a:
             problems.append("a link has no rel noopener noreferrer")
+    # the snapshot reader (UI.3): the page takes a file the owner picks or drops, reads it in the browser and keeps no text of it
+    inputs = INPUT.findall(markup)
+    if len(inputs) != 1:
+        problems.append(f"the page has {len(inputs)} inputs, not one file picker")
+    else:
+        attrs = inputs[0]
+        if not re.search(r"\btype=\"file\"", attrs) or 'id="snapshot-file"' not in attrs:
+            problems.append("the one input is not the snapshot file picker (type file, id snapshot-file)")
+        if 'accept=".json,application/json"' not in attrs:
+            problems.append("the file picker does not accept json only")
+        if re.search(r"\b(multiple|webkitdirectory|capture)\b|\bname=", attrs):
+            problems.append("the file picker takes more than one json file, a folder or a camera, or names a field")
+    if re.search(r"<form\b|\bformaction=|\baction=", markup, re.I):
+        problems.append("the page has a form or an action, so something could be submitted")
+    if 'id="snapshot-open"' not in markup or not re.search(r"id=\"snapshot-msg\"[^>]*role=\"status\"", markup):
+        problems.append("the page has no open button or no status line for the snapshot message")
+    if "It is not uploaded, sent or kept." not in markup:
+        problems.append("the page does not say that the snapshot is not uploaded, sent or kept")
+    if html.count(NOT_A_SNAPSHOT) != 1:
+        problems.append(f"the one message {NOT_A_SNAPSHOT!r} is in the page {html.count(NOT_A_SNAPSHOT)} times, not once")
+    if "readAsText(" not in html or "FileReader" not in html:
+        problems.append("the page does not read the file with FileReader.readAsText")
+    for sink in MARKUP_SINKS:
+        if sink in html:
+            problems.append(f"the page contains {sink!r}, which would set text of a file as markup or code, or make it an address")
+    if '<p id="sample-tag">sample</p>' not in markup or '<p id="foot-note">A sample world.' not in markup:
+        problems.append("the page does not say sample before a snapshot is opened")
+    if not re.search(r"html:not\(\[data-js\]\) :is\([^)]*#snapshot[^)]*\)\{display:none", STYLE.search(html).group(2) if STYLE.search(html) else ""):
+        problems.append("the snapshot picker is not hidden when there is no script")
     holds = re.findall(r"<li data-placeholder><span class=\"name\">([^<]*)</span><span class=\"note\">([^<]*)</span>", html)
     if holds != [("Devpost", "link to come"), ("Demo video", "link to come")]:
         problems.append(f"the placeholders are {holds}, not Devpost and Demo video marked link to come")
@@ -443,6 +481,67 @@ class PlantedFaultTests(unittest.TestCase):
     def test_a_name_visible_at_rest(self):
         self.edit("ui/dist/index.html", lambda t: t.replace(".label{position:absolute;left:0;top:0;display:block;white-space:nowrap;opacity:0;", ".label{position:absolute;left:0;top:0;display:block;white-space:nowrap;opacity:1;", 1))
         self.assert_found("not invisible at rest")
+
+    # ---- the snapshot reader (UI.3)
+    def test_a_second_input_in_the_page(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('<p class="snapshot-msg"', '<input type="text" id="q"><p class="snapshot-msg"', 1))
+        self.assert_found("inputs, not one file picker")
+
+    def test_a_file_picker_that_takes_any_file_or_many_or_a_folder(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(' accept=".json,application/json"', "", 1))
+        self.assert_found("does not accept json only")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<input type="file"', '<input type="file" multiple', 1))
+        self.assert_found("more than one json file")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<input type="file"', '<input type="file" webkitdirectory', 1))
+        self.assert_found("more than one json file")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<input type="file"', '<input type="text"', 1).replace('type="text" id="snapshot-file"', 'type="text" id="snapshot-file"', 1))
+        self.assert_found("not the snapshot file picker")
+
+    def test_a_form_around_the_picker(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('<div class="snapshot" id="snapshot">', '<div class="snapshot" id="snapshot" action="https://example.invalid">', 1))
+        self.assert_found("a form or an action")
+
+    def test_a_page_without_the_open_button_or_the_status_line(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('id="snapshot-open"', 'id="x"', 1))
+        self.assert_found("no open button")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace(' role="status" aria-live="polite"></p>\n  </div>', "></p>\n  </div>", 1))
+        self.assert_found("no open button or no status line")
+
+    def test_a_page_that_does_not_say_the_file_stays_in_the_browser(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace("It is not uploaded, sent or kept.", "", 1))
+        self.assert_found("not uploaded, sent or kept")
+
+    def test_a_changed_or_a_second_refusal_message(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(NOT_A_SNAPSHOT, "That did not work", 1))
+        self.assert_found("is in the page 0 times")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("</body>", "<!-- " + NOT_A_SNAPSHOT + " -->\n</body>", 1))
+        self.assert_found("is in the page 2 times")
+
+    def test_a_file_read_another_way_than_as_text(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace("readAsText(", "readAsDataURL(", 1))
+        self.assert_found("does not read the file with FileReader.readAsText")
+        self.assert_found("readAsDataURL")
+
+    def test_text_of_a_file_set_as_markup_or_run(self):
+        for sink in MARKUP_SINKS:
+            self.setUp()
+            self.edit("ui/dist/index.html", lambda t, k=sink: t.replace("</script>", f"var q = x{k}y;</script>", 1))
+            self.assert_found(repr(sink))
+
+    def test_a_page_that_says_sample_nowhere_before_a_file_or_that_keeps_the_picker_without_a_script(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('<p id="sample-tag">sample</p>', '<p id="sample-tag"></p>', 1))
+        self.assert_found("does not say sample before a snapshot")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<p id="foot-note">A sample world.', '<p id="foot-note">A world.', 1))
+        self.assert_found("does not say sample before a snapshot")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace(",#snapshot){display:none", "){display:none", 1))
+        self.assert_found("not hidden when there is no script")
 
     def test_an_em_dash(self):
         self.edit("ui/README.md", lambda t: t + "\nA line " + EM_DASH + " here.\n", rebuild=False)

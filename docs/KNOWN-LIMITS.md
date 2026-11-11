@@ -697,6 +697,24 @@ Next.js writes three small inline scripts into every page (its start-up and the 
 
 The device hints are read in the browser and never sent, but the host that serves `site/` logs which files are requested, so its logs can tell whether the scene script was fetched (Standard) or not (List). That is a property of serving files, not tracking, and nothing else about the device is in a request. The pass that showed this ran in one browser (Chrome for Testing 158 with software drawing); Firefox, Safari, a real GPU and a screen reader are not checked, and a browser that offers no Network Information API gets Standard by the rule of 12.R16.6.
 
+## Layer 12: reading the snapshot (found while building UI.3)
+
+### 142. A snapshot is true only as far as the last command and the owner's hands
+
+The page checks the shape of the file, not that it is true. A file edited by hand with a correct shape (a queue of 3 where there are 30) loads and is drawn. The date shows how old it is; nothing makes the page refresh it. The reader is also stricter than JSON: it accepts only the command's own text, so a file re-saved by a program that writes `2.0` for 2 or reorders nothing but changes a number's form is refused with the one message, and the message does not say why.
+
+### 143. Unknown has one look for four stations, and two are fixed by the spec
+
+A queue, logbook, schedule or budget that is null shows an unlit lantern on a post beside the feature, no count and "unknown" in the panel. Rules draws unknown as 12 lanterns of Ask me first and the kill switch as on (12.R3.9), so a rules file that really has 12 Ask me first rules looks the same as one that could not be read; the panel and the strip say which. The look was seen in software drawing at one size only.
+
+### 144. The public site now reads a file a visitor opens
+
+12.R17.6 and rule 10 said the site never reads a snapshot; the owner's task for UI.3 changed that. The file is read with `FileReader` in the browser and the page makes no request with it, but the site's host cannot prove that to a visitor: only the source and the request log of the browser pass do. A visitor who opens someone else's real snapshot sees counts of that root, and nothing in the file is text from a file of theirs (12.R4.2).
+
+### 145. A quiet station stays at its default place
+
+The design proposed that a quiet station drifts out past its default place. The acceptance test says a quiet snapshot gives the defaults, so a quiet need is 0.4 and a station only comes nearer. One constant (`QUIET`) changes it. Open question in the pull request.
+
 ## Layer 13: elections (found while building L13.1)
 
 ### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses
