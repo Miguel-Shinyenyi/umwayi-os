@@ -1586,7 +1586,7 @@ Effort, if approved: about 14 hours (tasks.md 10.33 to 10.39: 9 for the check, t
 | Kiro `whoami` exits 0 when signed out | the Kiro check proves nothing | the start then fails at Kiro's own sign-in error (exit 2); KNOWN-LIMITS; the owner's real check |
 | a headless Kiro run needs `KIRO_API_KEY` | Kiro `agent run` fails with `KIRO_API_KEY` removed | fail closed; open question 10 |
 
-### OpenCode as a platform (spec only, written Nov 9, waiting for owner approval)
+### OpenCode as a platform (written Nov 9; answered by the owner Nov 11; the adapter is designed in "Part 8: OpenCode over ACP" below)
 
 The owner asked on Nov 9 to include OpenCode (opencode.ai, `anomalyco/opencode`, formerly `sst/opencode`) as a platform, subscription or free first. Facts with links: `adapters/NOTES-layer10.md`, section "OpenCode as a platform". **Nothing is built.** Task 10.41 writes the adapter's spec once the open questions below are answered.
 
@@ -1626,7 +1626,13 @@ The owner asked on Nov 9 to include OpenCode (opencode.ai, `anomalyco/opencode`,
 - **OC5. Version.** Pin a minimum OpenCode version and refuse V1 (proposed: the V2 `permissions` and `policies` keys are what the gate relies on), or support both?
 - **OC6. When.** Spec only now (task 10.41), build after Dec 3 (proposed: four parts of Schedule A are already full), or build before Dec 3 in place of part of layer 11?
 
-### Muse Spark Open as a platform (spec only, written Nov 9, waiting for owner approval)
+#### The owner's answers (Nov 11)
+
+- **OC1 to OC5: as proposed above**, as written: the umwayi plugin as the first gate with a canary; the inline config through `OPENCODE_CONFIG_CONTENT`; free and local first, then ChatGPT, Copilot and Go sign-ins, never pay as you go; refuse when a managed config exists; pin a minimum version and refuse V1.
+- **OC6: changed.** OpenCode is built before Dec 3. tasks.md part 8 (10.42 to 10.51) gives the hours, the order, the tests and what can be cut if time runs short. The owner sets the dates and decides any cut; the spec cuts nothing.
+- The facts checked on Nov 11 changed how some answers are built (the V2 plugin API, the place of the inline config among policies). That is in "Part 8: OpenCode over ACP" below, and it raises new questions OC7 to OC14.
+
+### Muse Spark Open as a platform (written Nov 9; answered by the owner Nov 11; designed in "Muse Spark Open as an OpenCode model" below)
 
 The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, released Oct 15 2026, 816B total and 42B active parameters, Muse Model License), subscription or free first, pay-as-you-go only later. Facts with links: `adapters/NOTES-layer10.md`, section "Muse Spark Open as a platform". **Nothing is built.** Task 10.40 writes the adapter's spec once the open questions below are answered.
 
@@ -1666,6 +1672,11 @@ The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, releas
 - **MS4. The licence notice.** Put "Built with Muse Spark Open" in the README when the adapter ships (proposed), after the owner has read `LICENSE.md` on Hugging Face.
 - **MS5. When.** Spec only now (task 10.40), build after Dec 3 and after OpenCode (proposed).
 
+#### The owner's answers (Nov 11)
+
+- **MS1 to MS4: as proposed above**, as written: a model behind OpenCode; local only for now; Muse Code as its own platform after Dec 3; the licence notice in the README when the adapter ships, after the owner reads `LICENSE.md`.
+- **MS5 stands:** spec only (10.40), built after OpenCode. Its design is "Muse Spark Open as an OpenCode model" below, and its tasks (10.52 to 10.55) are not scheduled before Dec 3.
+
 #### Risks (OpenCode and Muse Spark Open)
 
 | risk | what happens | what we do |
@@ -1678,6 +1689,206 @@ The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, releas
 | OpenCode V1 and V2 differ | the config keys umwayi relies on do not exist | pin a minimum version (OC5) |
 | Muse Spark Open has no confirmed free hosted route | free first is local only | MS2 |
 | the licence file was read only through summaries | a duty is missed | the owner reads `LICENSE.md` (MS4) |
+
+### Part 8: OpenCode over ACP (10.R13, task 10.41, written Nov 11, waiting for the owner's approval)
+
+Requirement 10.R13. Tasks 10.42 to 10.51. Facts: `adapters/NOTES-layer10.md`, "OpenCode V2: the facts checked for the adapter spec" (Nov 11). The owner answered OC1 to OC5 as proposed and asked for the build before Dec 3 (OC6). Nothing is built before the owner approves this section.
+
+#### What the facts of Nov 11 change
+
+| Nov 9 proposal | Nov 11 fact | what part 8 does |
+| --- | --- | --- |
+| a plain JS plugin with `tool.execute.before` | V2 drops the V1 hook object. Hooks are registered in `setup(ctx)` with `ctx.tool.hook("execute.before")`, and a throw stops the call. A local plugin must be a directory. The loader needs only `{id, setup}`, not the npm SDK (source) | `adapters/opencode/plugin/index.js`, `export default {id, setup}`, `node:` imports only |
+| a `session.created` canary | the event exists in V2 (`ctx.event.subscribe`) | kept; its timing before the first prompt is not confirmed, and the 30 s wait covers it |
+| every action `ask` in the inline config | V2 runs `ctx.permission.hook("evaluate")` for `allow` and `ask`, and a plugin may raise `allow` to `ask` | the plugin also raises every `allow` to `ask` (OC8), so a lost or overridden `ask` rule does not remove the second gate |
+| `provider.use` and `integration.use` in the inline config | the inline content is the **weakest** source for policies (source): a global, project, Console or managed `allow` outranks umwayi's `deny` | umwayi refuses to start when any other source could hold policies (gate check 5, OC7), and states the Console case as a known limit (OC12) |
+| a round trip through `opencode debug config` | in V2 it asks the shared background service, whose environment is not umwayi's | not used. The canary is the proof that the inline config was applied: the plugin is named only there (OC11) |
+| a minimum V2 version, to be read | 2.0.0 on Sep 11; `integration.use` in its current meaning and `plugin.use` from 2.2.3; latest 2.2.7 | 2.2.3 or newer (OC14) |
+| permission requests answered by the rules | the `toolCall` has `name`, `kind`, `title`, `status`, `locations`, `rawInput`, `content` and `_meta`, but not the permission's action or resources | `permission_action` unchanged: `kind` and `tool` only, never the title or input |
+
+#### Files
+
+| file | what | new or changed |
+| --- | --- | --- |
+| `umwayi/agents.py` | the `opencode` platform, the keys `provider` and `model`, `opencode_env()`, `opencode_inline_config()`, the gate checks, the canary folder, the model compare | changed |
+| `umwayi/acp.py` | nothing new: `gate_ready` (7b) and the permission callback already exist; one option, `expect_model`, for the compare in `session/new` (10.R13.11) | changed (about 15 lines) |
+| `adapters/opencode/plugin/index.js` | the plugin: two hooks and the canary | new, about 120 lines |
+| `adapters/opencode/README.md` | what the owner installs (`npm i -g @opencode/cli`, 2.2.3 or newer), the agents.yaml lines for each route, what is refused and why | new |
+| `adapters/opencode/rules.example.yaml` | starter rules for `platform: opencode` (tool calls and `acp_permission`), including a No for any edit or shell command that names `opencode.json`, `opencode.jsonc`, `.opencode`, `rules.yaml`, `LOGBOOK.md` or `.umwayi`, because OpenCode reloads a changed config during a chat (KNOWN-LIMITS 181) | new |
+| `tests/agents/fake_opencode.py` | a fake `opencode` that speaks ACP, reads its environment and runs the plugin's canary step | new |
+| `tests/agents/test_agents_opencode_*.py` | the tests of 10.R13.14 | new |
+| `tests/adapters/opencode_plugin_harness.mjs` | a small fake `ctx` that loads `index.js` under `node` | new |
+
+No file under `umwayi/` gains a third-party import, and umwayi never runs npm, Bun or `opencode plugin add`.
+
+#### The start, step by step
+
+1. Validation (10.R13.2) and the start steps of every chat (kill switch, rules, run lock).
+2. The gate checks (below).
+3. A private folder `umwayi-opencode-XXXX` in the temporary directory (0700), a fresh 32-byte token, and the inline config.
+4. `subprocess.Popen([OPENCODE, "acp"], cwd=WORKDIR, env=opencode_env(...), start_new_session=True)`, stdin and stdout as pipes, stderr discarded.
+5. `initialize` with `clientCapabilities: {}`, then `session/new` with `cwd` (absolute) and `mcpServers: []`.
+6. The answer's `model` config option is compared with the agent's `model` (OC10).
+7. The canary wait (30 s): the file `canary` in the folder must hold exactly the token.
+8. Only then the queue summary and the first owner line. From here it is the Kiro ACP chat (part 6) with the 7b stop.
+
+#### The inline config
+
+For an agent with `provider: ollama` and `model: ollama/qwen3-coder`:
+
+```json
+{
+  "permissions": [{"action": "*", "resource": "*", "effect": "ask"}],
+  "policies": [
+    {"action": "provider.use", "resource": "*", "effect": "deny"},
+    {"action": "provider.use", "resource": "ollama", "effect": "allow"},
+    {"action": "integration.use", "resource": "*", "effect": "deny"},
+    {"action": "integration.use", "resource": "ollama", "effect": "allow"}
+  ],
+  "model": "ollama/qwen3-coder",
+  "providers": {"ollama": {"settings": {"baseURL": "http://127.0.0.1:11434/v1"}}},
+  "plugins": [{
+    "package": "/home/me/umwayi-os/adapters/opencode/plugin",
+    "options": {
+      "hook": ["/usr/bin/python3", "/home/me/umwayi-os/adapters/stdio/hook.py", "--root", "/home/me/umwayi", "--platform", "opencode"],
+      "canary": "/tmp/umwayi-opencode-abcd/canary",
+      "token": "TOKEN"
+    }
+  }]
+}
+```
+
+- `opencode`: `integration.use` allows the bare `opencode`, so only the signed-out free tier is used. No `providers` entry.
+- `openai` and `github-copilot`: `integration.use` allows `openai#*` or `github-copilot#*`, the connected-account form, and never the bare name, which is an environment key. No `providers` entry.
+- Local routes: the provider entry names the documented default loopback URL (Ollama `127.0.0.1:11434`, LM Studio `127.0.0.1:1234/v1`, vLLM `127.0.0.1:8000/v1`). The exact V2 settings key for a built-in local provider's URL is confirmed in 10.42. Until then umwayi writes no `providers` entry and relies on OpenCode's own discovery of the default port.
+- The JSON is written with sorted keys, no spaces and ASCII only, so the same agent and token give the same bytes.
+
+#### The plugin
+
+```js
+import { spawnSync } from "node:child_process"
+import { openSync, writeSync, closeSync, constants } from "node:fs"
+
+const ASKED = new Set(["read", "write", "edit", "patch", "shell", "glob", "grep", "list",
+                       "webfetch", "websearch", "subagent", "skill"])   // confirmed in 10.42
+
+export default {
+  id: "umwayi.gate",
+  async setup(ctx) {
+    const { hook, canary, token } = ctx.options            // only umwayi writes these
+    await ctx.tool.hook("execute.before", (event) => {
+      let code = 2
+      try {
+        const r = spawnSync(hook[0], hook.slice(1), {
+          input: JSON.stringify({ tool_name: String(event.tool), tool_input: event.input ?? {} }),
+          timeout: 10000, stdio: ["pipe", "ignore", "ignore"], shell: false })
+        code = r.error ? 2 : r.status
+      } catch { code = 2 }
+      if (code === 0) return
+      if (code === 3 && ASKED.has(String(event.tool))) return   // the permission request asks the owner
+      throw new Error("umwayi: this tool call was not allowed by the rules")
+    })
+    await ctx.permission.hook("evaluate", (event) => {
+      if (event.effect === "allow") event.effect = "ask"
+    })
+    let written = false
+    void (async () => {
+      for await (const _ of ctx.event.subscribe({ types: ["session.created"] })) {
+        if (written) continue
+        written = true
+        try {
+          const fd = openSync(canary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600)
+          writeSync(fd, token); closeSync(fd)
+        } catch { /* no canary: umwayi refuses the chat */ }
+      }
+    })()
+  },
+}
+```
+
+- **Fail closed:** every path except exit 0, or exit 3 for an asked tool, throws. A missing option makes `spawnSync` fail, and that throws too. A plugin that does not load writes no canary, so the chat is refused.
+- **The error text is fixed.** It never holds the tool input or the hook's output, so nothing the agent wrote comes back through it.
+- The real `index.js` validates `ctx.options` first. If `hook` is not an array of strings, or `canary` or `token` is not a string, `setup` throws, so the plugin does not load and the canary is never written.
+
+#### The gate checks (10.R13.8)
+
+| order | check | refused when | the line names |
+| --- | --- | --- | --- |
+| 1 | command | `opencode` not on PATH | install `@opencode/cli` 2.2.3 or newer |
+| 2 | version | no `N.N.N` in the output, or older than 2.2.3, or a 1.x | the version found and the minimum |
+| 3 | files | the hook or `index.js` missing, a link, or outside the source tree | the file |
+| 4 | managed config | `/etc/opencode` (Linux), `/Library/Application Support/opencode` or a managed plist (macOS) exists | the path; "a managed config outranks umwayi's" |
+| 5 | other config | a project `opencode.json(c)` or `.opencode` from the workdir up to `/`; a global config file holding a listed key; a global `plugins` or `agents` directory | the path and the key, never the file's text |
+| 6 | route | a `provider` that is not allowed now (pay as you go, Go before 10.42 confirms it) | the provider and "pay as you go is not offered" |
+
+Checks 4 and 5 read only names and, in check 5, the bytes of at most two small files, searched for fixed words. They never print the content.
+
+#### The permission answers (10.R13.9)
+
+The existing `permission_action(agent, tool_call, "opencode")` makes `{"type": "acp_permission", "agent", "platform": "opencode", "kind", "tool"}`. A plain V2 tool name such as `shell` or `read` passes `_PLAIN_TOOL`; an MCP tool name with `__` or `:` does not, so it is left out and the rules see only `kind`. `permission_verdict` is unchanged. Ask me first asks the owner on the terminal, as in a Kiro ACP chat. With the starter rules, a Yes in the first gate is often followed by a request that the rules answer Yes too (`acp_permission` with `kind: read`), so the owner is asked only for what the rules say Ask me first.
+
+#### Failure table
+
+| what goes wrong | what happens | exit |
+| --- | --- | --- |
+| `opencode` missing, V1, older than 2.2.3, or a version that cannot be read | refused before the start | 2 |
+| a managed config, a project config, or a global config with a listed key | refused before the start | 2 |
+| a route that is not free or a subscription | refused before the start | 2 |
+| the plugin does not load (a later OpenCode ignores the inline config, a `plugin.use` deny elsewhere, a JS error) | no canary within 30 s, the agent stopped, nothing of the owner sent | 2 |
+| a wrong token in the canary file | refused like no canary | 2 |
+| `session/new` reports another model | refused before the first prompt | 2 |
+| the hook times out, crashes or cannot start | that tool call throws and does not run; the chat goes on | |
+| a tool OpenCode does not ask permission for gets Ask me first | that tool call throws; one `umwayi check` entry says Ask me first | |
+| a permission request with no `name` | Ask me first at most | |
+| `auth_required` from a prompt | the chat ends with "run `opencode auth login` first" | 2 |
+| the kill switch turns on | the 7b stop: process group and every seen descendant | 3 |
+| a connected Console workspace allows more than umwayi's policies | not detected (KNOWN-LIMITS 182) | |
+
+#### New open questions (OC7 to OC14), each with the proposal the spec uses
+
+- **OC7. Other config sources.** Refuse when a project config exists or the global config holds a listed key (proposed, gate check 5). The other way is to set `OPENCODE_DISABLE_PROJECT_CONFIG=1` and point `OPENCODE_CONFIG_DIR` at an empty private folder. Both variables are read in the V2 source but are on no V2 docs page, and the second hides the owner's own global settings too.
+- **OC8. The evaluate hook.** Raise every `allow` to `ask` in the plugin as well (proposed), or rely on the inline `ask` rule alone.
+- **OC9. Ask me first in the first gate.** Let the call go on to the permission request for tools OpenCode asks permission for, and throw for any other (proposed). The other way is to throw on every Ask me first, so the owner is never asked during the chat and each Ask me first becomes a refused call, as on Kiro.
+- **OC10. The model compare** at `session/new` (proposed), or trust the inline config.
+- **OC11. `opencode debug config`.** Not used, because the canary proves the inline config was applied (proposed). The other way is to use it with `--standalone` once that is confirmed to show a private server's view.
+- **OC12. A connected Console workspace.** Its policies rank right below managed ones and umwayi cannot read the database. Accept this as a known limit (proposed), or refuse when `opencode auth list` shows a Console account. That command's output format is not documented.
+- **OC13. OpenCode Go.** Refused until 10.42 confirms its provider ID and integration resource (proposed), or left out of the first build.
+- **OC14. The minimum version.** 2.2.3 (proposed: the first release that honours every policy the design uses), or the latest release on the day of the build.
+
+#### Build order, hours and what can be cut
+
+The tasks are in tasks.md, part 8 (10.42 to 10.51): about 21.5 hours of build and 1.5 hours of the owner's, in that order. tasks.md lists what could be cut and what each cut costs. **The owner decides any cut; the spec cuts nothing.**
+
+### Muse Spark Open as an OpenCode model (10.R14, task 10.40, written Nov 11; built after OpenCode, not before Dec 3)
+
+Requirement 10.R14. Tasks 10.52 to 10.55, not scheduled before Dec 3 (MS5). Facts: NOTES-layer10.md "Muse Spark Open as a platform" (read Nov 9; not read again on Nov 11, so the hosted routes, the licence summary and the hardware figures are as of Nov 9).
+
+#### What it adds to part 8
+
+- **One route:** `provider: umwayi-local`, a custom OpenAI-compatible provider. Its URL comes from `base_url` in agents.yaml, a loopback or private address only (MS2).
+- **The provider entry** in the inline config:
+
+  ```json
+  "providers": {"umwayi-local": {
+    "package": "@opencode/ai/providers/openai-compatible",
+    "settings": {"baseURL": "http://127.0.0.1:8000/v1"},
+    "models": {"muse-spark-open": {"capabilities": {"tools": true},
+                                   "settings": {"temperature": 1.0, "top_p": 1.0, "reasoning_effort": "medium"}}}
+  }}
+  ```
+
+  `package` and `settings.baseURL` are on the V2 Policies page. `capabilities.tools` is seen in the V2 plugin docs (`model.capabilities.tools`). The `settings` keys for temperature, top_p and the reasoning effort are **not confirmed**: 10.52 confirms them on a real install, and until then the route is refused (MS6).
+- **Policies:** `provider.use` and `integration.use` allow `umwayi-local` only.
+- **The model ID** in `model` is `umwayi-local/NAME`, where NAME is what the owner's server serves (for example `muse-spark-open`). umwayi does not check that the served model really is Muse Spark Open; the owner's server decides.
+- **Refused:** every hosted provider, as every pay-as-you-go route in part 8. The refusal line names OpenRouter's prepaid credits as the first paid candidate once the budget governor can cap a route.
+- **The notice:** "Built with Muse Spark Open" in the README, written in 10.55 only after the owner has read `LICENSE.md` and said so (MS4).
+- **Muse Code** (MS3): its own platform after Dec 3, with its own spec. Nothing here.
+
+#### New open questions (MS6 to MS8)
+
+- **MS6. Unconfirmed field names.** Refuse the `umwayi-local` route until a real install confirms the V2 field names for tools and settings on a custom provider (proposed).
+- **MS7. Plain `http` to a private address.** MS2 allows loopback or private addresses. Proposed: allow `http` for both, because it is the owner's own network, and state that prompts and code then cross the LAN unencrypted (KNOWN-LIMITS 188). The other way is to require `https` for any address that is not loopback.
+- **MS8. The default reasoning effort.** `medium` when `reasoning_effort` is not set (proposed), or require the key.
 
 
 ## Layer 11: Linux-like features (approved, tasks.md 11.0; built now, L11-Q14)
