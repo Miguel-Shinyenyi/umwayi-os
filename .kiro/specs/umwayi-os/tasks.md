@@ -688,6 +688,6 @@ The dates run in parallel with layer 12 (round 2, about 75 hours until Nov 22) a
 
 | part | status | pull request | tests on main after it |
 | --- | --- | --- | --- |
-| 13 Correction and graded autonomy | spec merged (L13.0, PR 40); L13.2 Reversal built; L13.1 in its own pull request; L13.3 to L13.6 not started | spec: PR 40; L13.2: the L13.2 pull request | |
+| 13 Correction and graded autonomy | spec merged (L13.0, PR 40); L13.2 Reversal built (PR 45); L13.1 in its own pull request; L13.3 to L13.6 not started | spec: PR 40; L13.2: PR 45 | |
 
 When layer 12 and this pull request are both merged, this row moves into the main status table as its last row.
