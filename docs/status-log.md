@@ -12,6 +12,8 @@ Status: all eight layers are built: memory, rules, queue, archive, logbook, auto
 
 The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-os/tasks.md), section "Status".
 
+Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified in the L13.0 pull request (docs and specs only, written 2026-11-11) and waits for the owner's approval; nothing of it is built. Its status is the small table at the end of tasks.md until the layer 12 branches merge, see [corrections](corrections.md) and [autonomy](autonomy.md). Its pull request row is added here when the number is known and the layer 12 rows are in.
+
 ### Pull requests
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
