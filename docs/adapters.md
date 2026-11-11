@@ -27,7 +27,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-11 | 9.10 done: the repo `rules.yaml` holds the starter rules for the three adapters, taken from their example files (see [rules](rules.md)) | PR NN. |
+| 2026-11-11 | 9.10 done: the repo `rules.yaml` holds the starter rules for the three adapters, taken from their example files (see [rules](rules.md)) | PR 43. |
 | 2026-11-10 | 9.11 done: the whole-system test calls the three hooks as each platform runs them, and sends every agent start's tool calls through them | S.1, PR 36. |
 | 2026-11-08 | Every adapter denies every tool call while the kill switch is on or unknown (9.12) | Layer 9, PR 12: the owner answered yes. |
 | 2026-11-08 | Where a platform has no ask, Ask me first is a deny plus one queue item (9.6) | Layer 9, PR 12: Kiro has no ask. |

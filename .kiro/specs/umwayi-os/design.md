@@ -828,7 +828,7 @@ It is separate from `.umwayi/logbook.lock`, which guards one logbook append.
 
 ## Layer 9: Adapters (built)
 
-Planned for Nov 8 to Nov 9. Part 1 (PR 11): the notes, the shared code and the Claude Code adapter. Part 2 (PR 12): the Kiro adapter, the generic stdin and stdout adapter, and the kill switch in all three adapters. The whole-system test with the adapters (9.11) was added in PR 36 and the starter rules in the repo rules.yaml (9.10) in PR NN.
+Planned for Nov 8 to Nov 9. Part 1 (PR 11): the notes, the shared code and the Claude Code adapter. Part 2 (PR 12): the Kiro adapter, the generic stdin and stdout adapter, and the kill switch in all three adapters. The whole-system test with the adapters (9.11) was added in PR 36 and the starter rules in the repo rules.yaml (9.10) in PR 43.
 
 ### What the platforms say
 
