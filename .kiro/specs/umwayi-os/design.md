@@ -1706,6 +1706,23 @@ Requirement 10.R13. Tasks 10.42 to 10.51. Facts: `adapters/NOTES-layer10.md`, "O
 | a minimum V2 version, to be read | 2.0.0 on Sep 11; `integration.use` in its current meaning and `plugin.use` from 2.2.3; latest 2.2.7 | 2.2.3 or newer (OC14) |
 | permission requests answered by the rules | the `toolCall` has `name`, `kind`, `title`, `status`, `locations`, `rawInput`, `content` and `_meta`, but not the permission's action or resources | `permission_action` unchanged: `kind` and `tool` only, never the title or input |
 
+#### What the real install showed (10.42, OpenCode 2.2.7, Nov 11)
+
+Facts: NOTES-layer10.md, "OpenCode 2.2.7 on a real install". Each change below was made to this spec before any code.
+
+| fact | what changed | open question |
+| --- | --- | --- |
+| A plugin named only in the inline config loads; it runs in Bun 1.4.4 inside the binary; `spawnSync` and an `O_EXCL` write with mode 0600 work; a throw in `execute.before` fails the call with the thrown text | nothing; the design holds | OC1 confirmed |
+| `session.created` reaches the plugin 2 ms before the answer to `session/new` | nothing; the 30 s wait stays as the limit | |
+| the tools that ask permission are `read`, `glob`, `grep`, `write`, `edit`, `shell`, `webfetch`, `question` and `subagent`; `execute` (Code Mode) does not ask by itself | the plugin's `ASKED` list is exactly those nine; `patch`, `list`, `websearch` and `skill` left out until seen asking, so their Ask me first throws | OC9 |
+| Code Mode (`execute`) runs JavaScript with `fetch` and inner tools. Each inner tool passes `execute.before` under its own name (`opencode_worktree_list`) and asks no permission. A `fetch` asks as the `execute` tool call, with the code as `rawInput` and no URL | the starter rules say Ask me first for `tool_execute` and every `tool_opencode_*`, so the first gate throws for them unless the owner writes a Yes; KNOWN-LIMITS 190 | new OC15 |
+| `settings.baseURL` sets the URL of `vllm`, `ollama` and `lmstudio`; a `models` entry under a built-in local provider breaks the route | the local provider entry is written (it waited for 10.42), with `settings.baseURL` only | |
+| a configured model that is not found is replaced silently by another one, which `session/new` reports as `currentValue` (seen with `lmstudio`) | the model compare is the only place this is caught | OC10 |
+| Go's provider ID is `opencode-go` in the binary's code, and its integration looks like the Console's own (`opencode#ACCOUNT`); not seen on the wire | Go stays refused; if it is allowed later, only `provider.use` can keep Console credits out | OC13 |
+| `opencode --version` prints `opencode v2.2.7` | nothing; the first `N.N.N` is read | OC14 |
+| `opencode debug config --standalone` shows the inline config as a document with no path | nothing; the canary is still the proof | OC11 |
+| `tool_input` keys are `path`, `command`, `pattern`, `url`, `code` and so on; `kind` is `read`, `search`, `edit`, `execute`, `fetch`, `other` or `think` | the starter rules and the tests use these names | |
+
 #### Files
 
 | file | what | new or changed |
@@ -1714,7 +1731,7 @@ Requirement 10.R13. Tasks 10.42 to 10.51. Facts: `adapters/NOTES-layer10.md`, "O
 | `umwayi/acp.py` | nothing new: `gate_ready` (7b) and the permission callback already exist; one option, `expect_model`, for the compare in `session/new` (10.R13.11) | changed (about 15 lines) |
 | `adapters/opencode/plugin/index.js` | the plugin: two hooks and the canary | new, about 120 lines |
 | `adapters/opencode/README.md` | what the owner installs (`npm i -g @opencode/cli`, 2.2.3 or newer), the agents.yaml lines for each route, what is refused and why | new |
-| `adapters/opencode/rules.example.yaml` | starter rules for `platform: opencode` (tool calls and `acp_permission`), including a No for any edit or shell command that names `opencode.json`, `opencode.jsonc`, `.opencode`, `rules.yaml`, `LOGBOOK.md` or `.umwayi`, because OpenCode reloads a changed config during a chat (KNOWN-LIMITS 181) | new |
+| `adapters/opencode/rules.example.yaml` | starter rules for `platform: opencode` (tool calls and `acp_permission`), including a No for any edit or shell command that names `opencode.json`, `opencode.jsonc`, `.opencode`, `rules.yaml`, `LOGBOOK.md` or `.umwayi`, because OpenCode reloads a changed config during a chat (KNOWN-LIMITS 181); Ask me first for `tool_execute` and every `tool_opencode_*` (Code Mode, OC15); the `kind` values seen in 10.42 for `acp_permission` | new |
 | `tests/agents/fake_opencode.py` | a fake `opencode` that speaks ACP, reads its environment and runs the plugin's canary step | new |
 | `tests/agents/test_agents_opencode_*.py` | the tests of 10.R13.14 | new |
 | `tests/adapters/opencode_plugin_harness.mjs` | a small fake `ctx` that loads `index.js` under `node` | new |
@@ -1760,7 +1777,7 @@ For an agent with `provider: ollama` and `model: ollama/qwen3-coder`:
 
 - `opencode`: `integration.use` allows the bare `opencode`, so only the signed-out free tier is used. No `providers` entry.
 - `openai` and `github-copilot`: `integration.use` allows `openai#*` or `github-copilot#*`, the connected-account form, and never the bare name, which is an environment key. No `providers` entry.
-- Local routes: the provider entry names the documented default loopback URL (Ollama `127.0.0.1:11434`, LM Studio `127.0.0.1:1234/v1`, vLLM `127.0.0.1:8000/v1`). The exact V2 settings key for a built-in local provider's URL is confirmed in 10.42. Until then umwayi writes no `providers` entry and relies on OpenCode's own discovery of the default port.
+- Local routes: the provider entry is `{"ID": {"settings": {"baseURL": URL}}}` with the documented default loopback URL (Ollama `http://127.0.0.1:11434/v1`, LM Studio `http://127.0.0.1:1234/v1`, vLLM `http://127.0.0.1:8000/v1`). 10.42 confirmed on 2.2.7 that `settings.baseURL` sets where all three look. It also showed that a `models` entry under a built-in local provider breaks the route (`provider.no-route`), so umwayi never writes one.
 - The JSON is written with sorted keys, no spaces and ASCII only, so the same agent and token give the same bytes.
 
 #### The plugin
@@ -1769,8 +1786,8 @@ For an agent with `provider: ollama` and `model: ollama/qwen3-coder`:
 import { spawnSync } from "node:child_process"
 import { openSync, writeSync, closeSync, constants } from "node:fs"
 
-const ASKED = new Set(["read", "write", "edit", "patch", "shell", "glob", "grep", "list",
-                       "webfetch", "websearch", "subagent", "skill"])   // confirmed in 10.42
+// the tools seen asking permission on 2.2.7 (10.42); any other tool's Ask me first throws
+const ASKED = new Set(["read", "write", "edit", "shell", "glob", "grep", "webfetch", "question", "subagent"])
 
 export default {
   id: "umwayi.gate",
@@ -1843,17 +1860,20 @@ The existing `permission_action(agent, tool_call, "opencode")` makes `{"type": "
 | `auth_required` from a prompt | the chat ends with "run `opencode auth login` first" | 2 |
 | the kill switch turns on | the 7b stop: process group and every seen descendant | 3 |
 | a connected Console workspace allows more than umwayi's policies | not detected (KNOWN-LIMITS 182) | |
+| the configured model is not served, and OpenCode picks another one | the model compare at `session/new` refuses (10.42 saw this with `lmstudio`) | 2 |
+| the model uses Code Mode (`execute`) | the first gate checks `execute` and each inner tool; Ask me first throws, because they ask no permission (KNOWN-LIMITS 190) | |
 
-#### New open questions (OC7 to OC14), each with the proposal the spec uses
+#### New open questions (OC7 to OC15), each with the proposal the spec uses
 
 - **OC7. Other config sources.** Refuse when a project config exists or the global config holds a listed key (proposed, gate check 5). The other way is to set `OPENCODE_DISABLE_PROJECT_CONFIG=1` and point `OPENCODE_CONFIG_DIR` at an empty private folder. Both variables are read in the V2 source but are on no V2 docs page, and the second hides the owner's own global settings too.
 - **OC8. The evaluate hook.** Raise every `allow` to `ask` in the plugin as well (proposed), or rely on the inline `ask` rule alone.
-- **OC9. Ask me first in the first gate.** Let the call go on to the permission request for tools OpenCode asks permission for, and throw for any other (proposed). The other way is to throw on every Ask me first, so the owner is never asked during the chat and each Ask me first becomes a refused call, as on Kiro.
-- **OC10. The model compare** at `session/new` (proposed), or trust the inline config.
-- **OC11. `opencode debug config`.** Not used, because the canary proves the inline config was applied (proposed). The other way is to use it with `--standalone` once that is confirmed to show a private server's view.
+- **OC9. Ask me first in the first gate.** Let the call go on to the permission request for tools OpenCode asks permission for, and throw for any other (proposed). The other way is to throw on every Ask me first, so the owner is never asked during the chat and each Ask me first becomes a refused call, as on Kiro. *10.42:* the list of tools that ask is now the nine seen on 2.2.7. A tool left out fails closed (it throws), so a short list only costs the owner a question they could have answered.
+- **OC10. The model compare** at `session/new` (proposed), or trust the inline config. *10.42:* OpenCode replaced a model it could not find with another one without any error, so trusting the inline config would let a chat run on a model the owner did not choose.
+- **OC11. `opencode debug config`.** Not used, because the canary proves the inline config was applied (proposed). The other way is to use it with `--standalone` once that is confirmed to show a private server's view. *10.42:* `--standalone` does show the inline config, as a document with no path. The proposal is unchanged: that view comes from a second process, while the canary comes from the chat's own server.
 - **OC12. A connected Console workspace.** Its policies rank right below managed ones and umwayi cannot read the database. Accept this as a known limit (proposed), or refuse when `opencode auth list` shows a Console account. That command's output format is not documented.
-- **OC13. OpenCode Go.** Refused until 10.42 confirms its provider ID and integration resource (proposed), or left out of the first build.
-- **OC14. The minimum version.** 2.2.3 (proposed: the first release that honours every policy the design uses), or the latest release on the day of the build.
+- **OC13. OpenCode Go.** Refused until 10.42 confirms its provider ID and integration resource (proposed), or left out of the first build. *10.42:* the provider ID is `opencode-go` in the binary's code. Its integration looks like the Console's own, so `integration.use` cannot keep Console credits out, and only `provider.use` (allow `opencode-go`, deny `opencode`) could. This was not seen with a real Go sign-in, so Go stays refused.
+- **OC14. The minimum version.** 2.2.3 (proposed: the first release that honours every policy the design uses), or the latest release on the day of the build. *10.42:* only 2.2.7 was run. 2.2.3 to 2.2.6 are allowed by the proposal, but none of the 10.42 results was seen on them.
+- **OC15. Code Mode** (new, from 10.42). The `execute` tool runs JavaScript that can `fetch` and call OpenCode's own tools, among them `worktree_remove`; those inner tools ask no permission. Proposed: no new mechanism. The first gate sees `execute` and each inner tool by name, and the starter rules say Ask me first for them, so they throw unless the owner writes a Yes. The other way is to refuse the start unless Code Mode can be turned off by config. No switch for it was found in 10.42.
 
 #### Build order, hours and what can be cut
 
