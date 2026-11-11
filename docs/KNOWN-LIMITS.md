@@ -791,3 +791,25 @@ A change of a rule's matchers, title, text or cause shows as `no rule changed` w
 ### 195. A dry run neither logs a rules change nor falls back
 
 `umwayi check --no-log` writes nothing, so changed rules are not logged by it and its answer comes from the new rules as they are (L13-Q19). A dry run approves nothing in umwayi, but a script that treats its Yes as a permission would use rules that are not logged yet.
+
+## Layer 13: graded autonomy (found while building L13.5)
+
+### 166. A process of the same user can write well formed, chained score inputs
+
+The record is chained and read line by line in fixed shapes, so a hand edit, a deleted entry, a forged line or an unchained entry makes the whole record invalid and nothing moves. A process that runs as the owner can still call the same append umwayi uses and add well formed `umwayi autonomy record` entries, chained and recorded like the owner's own. Graded autonomy would then move on a record the owner did not write. This is item 135 again: nothing here protects against a process of the same user. The anchor of the chain (`umwayi logbook anchor`, kept outside the machine) shows that entries were added, not who added them.
+
+### 167. The score is a statistic of the past, and a class that is too wide mixes histories
+
+The score counts what the owner did with earlier proposals of one class. It cannot see that today's action differs from the last eighty, that the context changed, or that one rule's matchers catch more than the owner meant. A class is only as narrow as the matchers of the rules that name it; `umwayi autonomy status` shows the counts, so a class that grew is visible, not prevented.
+
+### 168. Reversibility and cost are the owner's declaration
+
+`reversible` and `cost_uu` are written by the owner in the rule. umwayi does not check that an action of the class can really be undone or what it really costs. A rule that says `reversible: true` for something that cannot be undone lets the score move it. The never list keeps money, publishing, an install, a spending approval and the start or permission of an agent out, by action type only.
+
+### 169. Careless approving builds a high score
+
+The owner's record is the input. Approving without a look counts as approved as proposed, and the score rises. The bound is cautious (a lower bound, z 2.58 suggested, a revert weighs 3 and starts a cooldown), and nothing here checks whether the owner's record is wise.
+
+### 170. The moves of one day are capped, but a wrong move is still a wrong move
+
+`max_moves_per_day` caps the moves of one class on one logbook day, and a `rejected` or `reverted` outcome stops the class for the cooldown. A move that was wrong has still happened: turning graded autonomy off takes effect at the next check and undoes nothing. The owner records `reverted`, which holds the class for the cooldown and lowers its score. A move is also made only in a check that logs; a script that reads the answer of a dry run never sees a move.

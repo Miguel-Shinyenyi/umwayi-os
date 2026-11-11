@@ -1,0 +1,13 @@
+# Graded autonomy (layer 13): copy this file to autonomy.yaml to set it up. Every setting is required; there is no
+# hidden default. It stays off until you write enabled: true, and the values below are only suggestions.
+# Check the file with: umwayi autonomy validate
+version: 1
+enabled: false          # the one setting; no file, or false, means off
+window_days: 90         # outcomes older than this are not counted (1 to 3650)
+min_decisions: 30       # n must be at least this (1 to 1000000)
+min_lower_bound: 850    # the score in per mille, 1 to 1000
+confidence_z: 258       # hundredths: 258 is 2.58, about 99 percent (100 to 400)
+revert_weight: 3        # one revert counts as this many failures (1 to 100)
+max_cost_uu: 10         # a class declared above this is never moved (0 to 1000000)
+cooldown_days: 30       # after a rejected or reverted outcome (1 to 3650)
+max_moves_per_day: 5    # moves of one class on one logbook day (1 to 1000)

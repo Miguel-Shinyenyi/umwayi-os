@@ -12,7 +12,7 @@ Status: all eight layers are built: memory, rules, queue, archive, logbook, auto
 
 The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-os/tasks.md), section "Status".
 
-Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Slice 2, reversal (L13.2: `umwayi decision reopen` and `queue answer --revisit-if`), is built. Slice 3, courts and the rules change log (L13.3: `umwayi petition`, the `umwayi rules` entries), is built. Slice 4, honest tension (L13.4: the stop criteria, the plain note and the words test), is built. Graded autonomy is not built. See [corrections](corrections.md) and [autonomy](autonomy.md).
+Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Slice 2, reversal (L13.2: `umwayi decision reopen` and `queue answer --revisit-if`), is built. Slice 3, courts and the rules change log (L13.3: `umwayi petition`, the `umwayi rules` entries), is built. Slice 4, honest tension (L13.4: the stop criteria, the plain note and the words test), is built. Slice 5, graded autonomy (L13.5: `umwayi autonomy record`, `status` and `validate`, the opt-in and the thirteen gates), is built and off by default. See [corrections](corrections.md) and [autonomy](autonomy.md).
 
 ### Pull requests
 
@@ -27,7 +27,7 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 | 2026-11-11 | 43 | 9.10: starter rules for the adapter actions in the repo `rules.yaml`, and `tests/test_starter_rules.py` | 1265 |
 | 2026-11-11 | 42 | L13.1: elections, `review_by` on Yes rules and `umwayi rules due` (layer 13, slice 1) | 1254 |
 | 2026-11-11 | 41 | UI.2: `umwayi view snapshot`, the read only snapshot of counts for the web interface | 1200 |
-| 2026-11-11 | 39 | UI.1 (open, not merged): the first build was a stylised meadow; the owner asked for a different look on Nov 11 and it was reworked as the Kenyan highlands scene with the home content | see the pull request |
+| 2026-11-11 | 39 | UI.1 and UI.1b (merged): the first build was a stylised meadow; the owner asked for a different look on Nov 11 and it was reworked as the Kenyan highlands scene with the home content | see the pull request |
 | 2026-11-10 | 38 | spec: layer 12, the web interface (UI.0); docs only, waits for the owner's approval | |
 | 2026-11-10 | 37 | S.2: the security scan; 10 defects it found fixed | 1155 |
 | 2026-11-10 | 36 | S.1: the whole-system test; a gap rule refusal now writes its entry | 1135 |

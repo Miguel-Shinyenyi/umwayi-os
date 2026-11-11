@@ -50,25 +50,25 @@ rules:
   # --- never: the files that guard the AI helper (rules, logbook, kill switch, hook settings)
   - id: cc-no-guard-edits
     title: Claude Code never edits the files that guard it
-    text: rules.yaml, LOGBOOK.md, .umwayi/ and .claude/settings files are changed by the owner only.
+    text: rules.yaml, autonomy.yaml, LOGBOOK.md, .umwayi/ and .claude/settings files are changed by the owner only.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: claude-code
       type: [tool_write, tool_edit, tool_multiedit, tool_notebookedit]
-      path__contains: ["rules.yaml", "logbook.md", "/.umwayi/", "/.claude/settings", "/.git/"]
+      path__contains: ["rules.yaml", "logbook.md", "/.umwayi/", "/.claude/settings", "/.git/", "autonomy.yaml", "autonomy.example.yaml"]
 
   # umwayi petition (layer 13) is left to the owner: an AI helper may object to a No this way. To refuse it,
   # add "umwayi petition" to the list below.
   - id: cc-no-guard-shell
     title: Shell commands that touch the guard files
-    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .claude/settings, umwayi kill, umwayi decision or decision reopen are refused.
+    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .claude/settings, umwayi kill, umwayi decision, decision reopen, umwayi autonomy, autonomy record or autonomy.yaml are refused.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: claude-code
       type: [tool_bash, tool_powershell]
-      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill", "umwayi decision", "decision reopen"]
+      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
 
   - id: cc-no-secrets
     title: No reading of secret files

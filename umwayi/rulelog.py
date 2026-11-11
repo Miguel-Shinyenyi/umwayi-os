@@ -38,19 +38,20 @@ NEW_BASELINE = "the earlier state was not listed, so this entry is a new baselin
 TOO_MANY_CHANGES = f"the rules are not listed (more than {MAX_LISTED})"
 
 _WORDS = {"Yes": "yes", "No": "no", "Ask me first": "ask"}
-_ITEM = r"[a-z0-9][a-z0-9_-]* (?:yes|no|ask)(?: review_by \d{4}-\d{2}-\d{2})?"
+_AUTO = r"[a-z][a-z0-9_-]{0,39} reversible (?:yes|no) cost \d{1,7}"  # layer 13, slice 5: the opt-in of a rule
+_ITEM = rf"[a-z0-9][a-z0-9_-]* (?:yes|no|ask)(?: review_by \d{{4}}-\d{{2}}-\d{{2}})?(?: autonomy {_AUTO})?"
 _FIRST = re.compile(r"rules\.yaml first logged \(sha256 ([0-9a-f]{64})\); rules (\d{1,9})")
 _CHANGED = re.compile(r"rules\.yaml changed \(sha256 ([0-9a-f]{64})\); rules \d{1,9} to (\d{1,9}); "
                       r"[a-z0-9][a-z0-9 ,;_()-]*")
 _CHECKED = re.compile(re.escape(CHECKED_HEAD) + rf"({re.escape(NO_RULES)}|{re.escape(NOT_LISTED)}|{_ITEM}(?:; {_ITEM})*)")
-_ONE = re.compile(r"([a-z0-9][a-z0-9_-]*) (yes|no|ask)(?: review_by (\d{4}-\d{2}-\d{2}))?")
+_ONE = re.compile(rf"([a-z0-9][a-z0-9_-]*) (yes|no|ask)(?: review_by (\d{{4}}-\d{{2}}-\d{{2}}))?(?: autonomy ({_AUTO}))?")
 
 
 @dataclass(frozen=True)
 class Logged:
     sha256: str
     count: int
-    state: tuple | None  # ((id, verdict word, review_by or None), ...), or None when it was not listed
+    state: tuple | None  # ((id, verdict word, review_by or None, opt-in or None), ...), or None when not listed
 
 
 def _read(entry) -> Logged | None:
@@ -67,7 +68,7 @@ def _read(entry) -> Logged | None:
     elif body == NO_RULES:
         state = ()
     else:
-        state = tuple((x.group(1), x.group(2), x.group(3)) for x in map(_ONE.fullmatch, body.split("; ")))
+        state = tuple((x.group(1), x.group(2), x.group(3), x.group(4)) for x in map(_ONE.fullmatch, body.split("; ")))
     return Logged(m.group(1), int(m.group(2)), state)
 
 
@@ -80,8 +81,15 @@ def newest(entries: list) -> Logged | None:
     return None
 
 
+def _opt_in(rule) -> str | None:
+    a = getattr(rule, "autonomy", None)
+    if a is None:
+        return None
+    return f"{a.cls} reversible {'yes' if a.reversible else 'no'} cost {a.cost_uu}"
+
+
 def _state(rules: list) -> tuple:
-    return tuple((r.id, _WORDS[r.verdict], r.review_by) for r in rules)
+    return tuple((r.id, _WORDS[r.verdict], r.review_by, _opt_in(r)) for r in rules)
 
 
 def _state_text(state: tuple) -> str:
@@ -89,23 +97,26 @@ def _state_text(state: tuple) -> str:
         return NOT_LISTED
     if not state:
         return NO_RULES
-    return "; ".join(f"{rid} {word}" + (f" review_by {day}" if day else "") for rid, word, day in state)
+    return "; ".join(f"{rid} {word}" + (f" review_by {day}" if day else "") + (f" autonomy {auto}" if auto else "")
+                     for rid, word, day, auto in state)
 
 
 def _changes(old: tuple, new: tuple) -> str:
-    before = {rid: (word, day) for rid, word, day in old}
-    after = {rid: (word, day) for rid, word, day in new}
-    added = [rid for rid, _w, _d in new if rid not in before]
-    removed = [rid for rid, _w, _d in old if rid not in after]
+    before = {rid: (word, day, auto) for rid, word, day, auto in old}
+    after = {rid: (word, day, auto) for rid, word, day, auto in new}
+    added = [rid for rid, _w, _d, _a in new if rid not in before]
+    removed = [rid for rid, _w, _d, _a in old if rid not in after]
     changed = []
-    for rid, word, day in new:
+    for rid, word, day, auto in new:
         if rid not in before:
             continue
-        old_word, old_day = before[rid]
+        old_word, old_day, old_auto = before[rid]
         if old_word != word:
             changed.append(f"{rid} verdict {old_word} to {word}")
         if old_day != day:
             changed.append(f"{rid} review_by {old_day or 'none'} to {day or 'none'}")
+        if old_auto != auto:
+            changed.append(f"{rid} autonomy {old_auto or 'none'} to {auto or 'none'}")
     parts = ([f"added {', '.join(added)}"] if added else []) + ([f"removed {', '.join(removed)}"] if removed else []) \
         + ([f"changed {', '.join(changed)}"] if changed else [])
     return "; ".join(parts) or NO_CHANGE

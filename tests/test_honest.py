@@ -49,6 +49,10 @@ HELP = [
     (["decision", "reopen", "--help"], "--reason"),
     (["queue", "answer", "--help"], "--revisit-if"),
     (["petition", "--help"], "--helper"),
+    (["autonomy", "--help"], "status"),
+    (["autonomy", "status", "--help"], "--class"),
+    (["autonomy", "validate", "--help"], "usage"),
+    (["autonomy", "record", "--help"], "--outcome"),
 ]
 
 # 13.R8.3 (the build) and 13.R8.4 (run time): the rows of the stop criteria table of docs/corrections.md, each with
@@ -73,7 +77,8 @@ DEPARTURE = ("L13.3 changed the counts of 43 earlier tests for the baseline rule
              "and this is a known departure from row (d), for the owner to judge.")
 
 # KNOWN-LIMITS items of the slices built so far: the number and a word its title must hold
-BUILT_ITEMS = {160: "review_by", 161: "clock", 162: "hash", 163: "revisit", 192: "etition", 193: "weakening",
+BUILT_ITEMS = {160: "review_by", 161: "clock", 162: "hash", 163: "revisit", 166: "same user", 167: "statistic",
+               168: "declaration", 169: "careless", 170: "wrong move", 192: "etition", 193: "weakening",
                194: "listed", 195: "dry run"}
 # planned in design.md for the petition and rules log limits, but written as 192 and 193: not used
 UNUSED_ITEMS = (164, 165)
@@ -307,7 +312,8 @@ class StopCriteriaTests(unittest.TestCase):
         self.assertIn("Honest tension (L13.4", text)
         self.assertNotIn("Honest tension and graded autonomy are specified, not built", text)
         self.assertIn("graded autonomy", AUTONOMY.read_text(encoding="utf-8").lower())
-        self.assertIn("Specified, not built", AUTONOMY.read_text(encoding="utf-8"))
+        self.assertIn("Built (L13.5), off by default", AUTONOMY.read_text(encoding="utf-8"))
+        self.assertNotIn("specified, not built", AUTONOMY.read_text(encoding="utf-8").lower())
 
 
 class KnownLimitsTests(unittest.TestCase):
@@ -346,8 +352,10 @@ class KnownLimitsTests(unittest.TestCase):
             self.assertIn(needle, text)
 
     def test_the_numbers_after_the_built_ones_are_free_for_the_next_slice(self):
+        # L13.5 wrote 166 to 170 (graded autonomy); 171 to 179 stay free
         numbers = {int(n) for n, _ in self.items}
-        self.assertFalse(numbers & set(range(166, 180)), "166 to 179 are left for L13.5 and later")
+        self.assertFalse(numbers & set(range(171, 180)), "171 to 179 are left free")
+        self.assertLessEqual(set(range(166, 171)), numbers)
 
     def test_the_corrections_page_names_the_items_of_each_slice(self):
         text = " ".join(section(CORRECTIONS.read_text(encoding="utf-8"), "### No state is perfect").split())
@@ -408,6 +416,14 @@ class OutputTests(CourtsCase):
         u("petition", "ok-yes", "--helper", "steward", "--reason", "A Yes.", code=1)
         u("petition", "no-money", "--helper", "Bad Name", "--reason", "x", code=64)
         u("queue", "list", code=0)
+        u("autonomy", "record", "--class", "git-commit", "--outcome", "approved", "--by", "Owner", code=0)
+        u("autonomy", "record", "--class", "Bad", "--outcome", "approved", "--by", "Owner", code=64)
+        u("autonomy", "status", code=0)
+        u("autonomy", "validate", code=0)
+        (self.root / "autonomy.yaml").write_text("version: 1\nenabled: maybe\n", encoding="utf-8")
+        u("autonomy", "validate", code=64)
+        u("autonomy", "status", code=0)
+        (self.root / "autonomy.yaml").unlink()
         u("logbook", "verify", code=0)
         # a changed rules file: the rules change log writes its entry
         self.write_rules(self.RULES.replace("    verdict: no\n", "    verdict: yes\n", 1))
@@ -416,14 +432,15 @@ class OutputTests(CourtsCase):
 
     def test_the_output_and_the_logbook_of_a_real_run_hold_no_claim(self):
         self.acceptance_run()
-        self.assertGreaterEqual(len(self.captured), 24)
+        self.assertGreaterEqual(len(self.captured), 30)
         for args, code, out, err in self.captured:
             with self.subTest(command=" ".join(args[:3]), code=code):
                 self.assertEqual(find_banned(out + "\n" + err), [], out + err)
         log = self.logtext()
         self.assertEqual(find_banned(log), [])
         sources = {b["source"] for b in self.entries()}
-        for s in ("umwayi rules", "umwayi check", "umwayi decision reopen", "umwayi petition", "umwayi queue answer"):
+        for s in ("umwayi rules", "umwayi check", "umwayi decision reopen", "umwayi petition", "umwayi queue answer",
+                  "umwayi autonomy record"):
             self.assertIn(s, sources)
         self.assertGreaterEqual(len(self.entries()), 10)
 
@@ -484,16 +501,16 @@ class HelpTests(CourtsCase):
         for name in ("petition", "decision", "rules"):
             self.assertIn(name, r.stdout)
         built = {" ".join(argv[:-1]) for argv, _o in HELP}
-        self.assertEqual(built, {"rules", "rules due", "decision", "decision reopen", "queue answer", "petition"})
-        # no layer 13 command that is not built yet answers --help
-        for name in ("autonomy",):
-            self.assertNotEqual(self.u(name, "--help").returncode, 0, name)
+        self.assertEqual(built, {"rules", "rules due", "decision", "decision reopen", "queue answer", "petition",
+                                 "autonomy", "autonomy status", "autonomy validate", "autonomy record"})
+        # every layer 13 command is built (L13.5 was the last slice); none of a later slice answers --help
+        self.assertIn("autonomy", r.stdout)
 
 
 class SourceTests(unittest.TestCase):
     """The messages in the modules of layer 13 are text too."""
 
-    MODULES = ("elections.py", "decisions.py", "rulelog.py", "petition.py")
+    MODULES = ("elections.py", "decisions.py", "rulelog.py", "petition.py", "autonomy.py")
 
     def test_no_claim_in_the_layer_13_modules(self):
         for name in self.MODULES:
