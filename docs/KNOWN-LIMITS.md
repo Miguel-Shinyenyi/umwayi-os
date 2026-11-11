@@ -687,6 +687,16 @@ umwayi writes in place only to `LOGBOOK.md` (an append) and the logbook lock (it
 
 A layer reader that raises (even for a bug) gives null for its part and the command still exits 0, as 12.R4.3 says; only an error in the command itself exits 2. A missing `queue.md` is null, not 0, because only `schedule.yaml` is allowed to be absent. The `--out` target is checked (regular, one name, an earlier snapshot) and then replaced through a new file: another process of the same user that swaps the file in between would have its file replaced, never written through (see 135). `used_uu` counts a reservation without a settle in full, so a lost run raises it until `umwayi budget settle-lost`.
 
+## Layer 12: the public site (found while building UI.6, not fixed)
+
+### 140. The public site's policy lets inline scripts run
+
+Next.js writes three small inline scripts into every page (its start-up and the page data), and a policy of `script-src 'self'` stops the page from starting, so `site/next.config.mjs` sends `script-src 'self' 'unsafe-inline'`. A script from another host is still refused, and so are a remote style, font, image or connection, but a script injected into the page itself would not be refused by the policy. The site takes no input, keeps nothing and has no cookie, so there is nothing today to inject; a nonce would close this and would make every page render on each visit instead of being sent as a static file. The choice is left open in the pull request for the owner.
+
+### 141. The site's host sees which files a browser asks for, and the browser pass is one browser
+
+The device hints are read in the browser and never sent, but the host that serves `site/` logs which files are requested, so its logs can tell whether the scene script was fetched (Standard) or not (List). That is a property of serving files, not tracking, and nothing else about the device is in a request. The pass that showed this ran in one browser (Chrome for Testing 158 with software drawing); Firefox, Safari, a real GPU and a screen reader are not checked, and a browser that offers no Network Information API gets Standard by the rule of 12.R16.6.
+
 ## Layer 13: elections (found while building L13.1)
 
 ### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses

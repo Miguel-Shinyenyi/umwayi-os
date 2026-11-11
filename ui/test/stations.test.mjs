@@ -78,8 +78,8 @@ test('no module loads a file, keeps a timer or draws by itself', () => {
   for (const f of files(ROOT).filter((n) => n.endsWith('.js'))) {
     const text = readFileSync(f, 'utf8');
     for (const re of banned) assert.ok(!re.test(text), `${f}: ${re}`);
-    // only app.js names it, to hand it to the on demand loop; no other module asks for a frame
-    if (!f.endsWith(join('src', 'app.js'))) assert.ok(!/requestAnimationFrame/.test(text), `${f} asks for frames by itself`);
+    // only scene.js names it, to hand it to the on demand loop (it was app.js before the scene moved to a module of its own); no other module asks for a frame
+    if (!f.endsWith(join('src', 'scene.js'))) assert.ok(!/requestAnimationFrame/.test(text), `${f} asks for frames by itself`);
   }
 });
 

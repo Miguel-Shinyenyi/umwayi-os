@@ -19,6 +19,7 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
 | 2026-11-11 | 51 | L13.5: graded autonomy, off by default: the opt-in, `umwayi autonomy record`, `status` and `validate`, the thirteen gates and the move (layer 13, slice 5) | 1635 |
+| 2026-11-11 | 50 | UI.6: the shared scene module (`ui/src/scene.js`) and the public site in `site/` (List and Standard, Next.js 16.4.6), `node --test` in the CI workflow; KNOWN-LIMITS 140 and 141 | see the pull request |
 | 2026-11-11 | 49 | L13.4: honest tension, the stop criteria, the plain note and `tests/test_honest.py` (layer 13, slice 4) | 1500 |
 | 2026-11-11 | 48 | L13.3: courts and the rules change log, `umwayi petition` and the `umwayi rules` entry (layer 13, slice 3) | 1465 |
 | 2026-11-11 | NN | 10.43 and 10.44: an OpenCode agent in agents.yaml (`provider`, `model`, acp only; `agent run` and `agent login` refused) and the pure `opencode_env()` and `opencode_inline_config()`; nothing starts OpenCode yet | 1405 |
@@ -28,7 +29,7 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 | 2026-11-11 | 43 | 9.10: starter rules for the adapter actions in the repo `rules.yaml`, and `tests/test_starter_rules.py` | 1265 |
 | 2026-11-11 | 42 | L13.1: elections, `review_by` on Yes rules and `umwayi rules due` (layer 13, slice 1) | 1254 |
 | 2026-11-11 | 41 | UI.2: `umwayi view snapshot`, the read only snapshot of counts for the web interface | 1200 |
-| 2026-11-11 | 39 | UI.1 and UI.1b (merged): the first build was a stylised meadow; the owner asked for a different look on Nov 11 and it was reworked as the Kenyan highlands scene with the home content | see the pull request |
+| 2026-11-11 | 39 | UI.1 and UI.1b (merged): the first build was a stylised meadow; the owner asked for a different look on Nov 11 and it was reworked as the Kenyan highlands scene with the home content, the List and Standard tiers and the scene additions | see the pull request |
 | 2026-11-10 | 38 | spec: layer 12, the web interface (UI.0); docs only, waits for the owner's approval | |
 | 2026-11-10 | 37 | S.2: the security scan; 10 defects it found fixed | 1155 |
 | 2026-11-10 | 36 | S.1: the whole-system test; a gap rule refusal now writes its entry | 1135 |
