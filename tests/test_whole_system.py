@@ -123,7 +123,7 @@ class WholeSystemTests(unittest.TestCase):
         self.assertNotIn("bank.md", r.stdout)
         self.u("queue", "add", "--kind", "task", "Write the week 46 post", code=0)
         self.u("queue", "add", "--kind", "decision", "Ship the scan first?", code=0)
-        self.u("queue", "answer", "Q-0002", "--answer", "Yes, the scan first", code=0)
+        self.u("queue", "answer", "Q-0002", "--answer", "Yes, the scan first", "--revisit-if", "none", code=0)
         r = self.u("archive", "move", "notes.md", "--lines", "4-5", "--reason", "old plan", code=0)
         self.assertIn("A-0001", r.stdout)
         self.assertIn("[archived A-0001: archive/A-0001.txt]", (w.root / "notes.md").read_text(encoding="utf-8"))

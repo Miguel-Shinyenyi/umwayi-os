@@ -554,7 +554,7 @@ class ApproveTests(Base):
 
     def test_publishing_stays_ask_me_first_even_after_the_owner_answers(self):
         self.run_loop()
-        self.cli("queue", "answer", "Q-0002", "--answer", "Yes, publish them")
+        self.cli("queue", "answer", "Q-0002", "--answer", "Yes, publish them", "--revisit-if", "none")
         code, out, _ = self.cli("publish-draft", "drafts/post-linkedin-0001.md")
         self.assertEqual(code, 3)
         self.assertTrue(out.startswith("Ask me first\nRule: publish-ask\n"))
@@ -569,7 +569,7 @@ class ApproveTests(Base):
         changed = [c for c in self.changed(before) if c not in LOG_FILES]
         self.assertEqual(changed, [])
         self.assertEqual(self.entries()[-1].added, "Workflow content-loop did not start: queue item Q-0002 still waits for the owner")
-        self.cli("queue", "answer", "Q-0002", "--answer", "seen")
+        self.cli("queue", "answer", "Q-0002", "--answer", "seen", "--revisit-if", "none")
         self.assertEqual(self.run_loop()[0], 3)  # a new loop ran and stopped at its own approve
         self.assertEqual(taskqueue.list_rows(self.root)[-1].id, "Q-0003")
 

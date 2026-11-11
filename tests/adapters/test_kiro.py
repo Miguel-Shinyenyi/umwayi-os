@@ -67,7 +67,7 @@ class AnswerTests(KiroCase):
         self.assertEqual(len(self.queue_rows()), 1)
         self.hook(MCP)  # another type: its own item
         self.assertEqual(len(self.queue_rows()), 2)
-        self.assertEqual(self.umwayi("queue", "answer", "Q-0001", "--answer", "seen").returncode, 0)
+        self.assertEqual(self.umwayi("queue", "answer", "Q-0001", "--answer", "seen", "--revisit-if", "none").returncode, 0)
         self.hook(WRITE)  # once answered, the next ask adds a new item
         self.assertEqual(len(self.queue_rows()), 3)
 

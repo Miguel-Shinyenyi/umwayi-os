@@ -26,3 +26,13 @@ rules:
     matchers:
       platform: stdio
       input_target__contains: [prod]
+
+  # Layer 13: reopening a decision is the owner's act (13.R14.3).
+  - id: stdio-no-owner-commands
+    title: Owner commands of layer 13
+    text: Shell commands that run umwayi decision (or name decision reopen) are refused.
+    cause: Only the owner reopens a decision.
+    verdict: no
+    matchers:
+      platform: stdio
+      input_command__contains: ["umwayi decision", "decision reopen"]

@@ -26,6 +26,8 @@ A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 | `logbook verify`, `archive verify` | 0 ok, 1 a problem found |
 | `umwayi agent`, `umwayi schedule`, `umwayi budget` | 0, 2, 3 or 64, never 1 |
 | `umwayi view snapshot` | 0 done, 1 the logbook failed its tamper check (nothing written), 2 an unexpected error, 64 usage (a bad `--out` or `--date`); never 3 |
+| `umwayi decision reopen` | 0 done, 1 refused (the record does not fit or is not intact; nothing changed), 2 an unexpected error, 64 usage (a bad id, hash, reason, name or date); never 3 |
+| `umwayi queue answer` | as the other queue commands; 64 also for a decision without `--revisit-if` and a task with it |
 | any command given a path longer than the system allows | 64, a usage error that does not print the path |
 | the layer 9 adapters | never 1; any error blocks (Kiro 0 or 2, generic 0, 2 or 3) |
 
@@ -37,6 +39,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | `umwayi decision reopen` uses 0, 1, 2 and 64; `queue answer` gives 64 for a missing or misplaced `--revisit-if` | Layer 13, L13.2 (design.md, "Commands and exit codes"). |
 | 2026-11-11 | `umwayi view snapshot` uses 0, 1, 2 and 64 and never 3: it asks the rules nothing and the kill switch does not stop it | 12.R4.8 (UI.2). Code 1 is its tamper check refusal, as for `logbook verify`; the owner needs the counts most when the switch is on. |
 | 2026-11-10 | A path longer than the system allows is a usage error (64), not an unexpected error (2) | The security scan (S.2, PR 37). |
 | 2026-11-10 | Layer 11 and the budget governor follow the layer 10 codes: 0, 2, 3, 64, never 1 | 11.R6 and B.R3; the steering file's older code 1 for refusals is not used by new commands. |

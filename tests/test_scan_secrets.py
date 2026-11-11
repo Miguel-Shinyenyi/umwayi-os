@@ -65,7 +65,7 @@ class SecretSweepTests(unittest.TestCase):
         self.plant_files()
         self.assertEqual(u("memory", "bundle").returncode, 0)
         u("queue", "add", "--kind", "decision", "Ship it?")
-        self.assertEqual(u("queue", "answer", "Q-0001", "--answer", f"Yes {PLANTED['queue answer']}").returncode, 0)
+        self.assertEqual(u("queue", "answer", "Q-0001", "--answer", f"Yes {PLANTED['queue answer']}", "--revisit-if", "none").returncode, 0)
         u("logbook", "seal", "--chain", "--by", "Owner")
         u("check", json.dumps({"type": "read_memory", "note": PLANTED["tool input"]}))
         u("run", str(w.root / "jobs.yaml"), "--job", "open-queue")

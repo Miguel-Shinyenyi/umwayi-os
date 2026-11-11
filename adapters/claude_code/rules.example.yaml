@@ -55,13 +55,13 @@ rules:
 
   - id: cc-no-guard-shell
     title: Shell commands that touch the guard files
-    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi or .claude/settings are refused.
+    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .claude/settings, umwayi kill, umwayi decision or decision reopen are refused.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: claude-code
       type: [tool_bash, tool_powershell]
-      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill"]
+      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill", "umwayi decision", "decision reopen"]
 
   - id: cc-no-secrets
     title: No reading of secret files

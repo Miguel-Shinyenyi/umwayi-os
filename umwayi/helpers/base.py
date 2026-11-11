@@ -278,7 +278,7 @@ class Helper:
         except UmwayiError as e:
             return (f"The queue item could not be added ({_why(e)}).", "the queue item could not be added")
         return (f"Added queue item {row.id} (decision) for the owner. Answer it with: "
-                f"umwayi queue answer {row.id} --answer TEXT", f"queue item {row.id} added")
+                f"umwayi queue answer {row.id} --answer TEXT --revisit-if TEXT", f"queue item {row.id} added")
 
     # ------------------------------------------------------------- drafts
 

@@ -49,12 +49,27 @@ umwayi logbook verify --anchor COUNT:HEX
 - `anchor` prints `COUNT:HEX` (the number of chained entries and the newest value) and changes nothing. Keep it outside this machine, weekly and before each submission: in the hub repository's sync log and on the Kiro Notion page (umwayi never writes there). `verify --anchor COUNT:HEX` then also finds a rewritten chain or a cut tail. `anchor` exits 2 when the logbook does not verify or has no chain; a malformed anchor exits 64.
 - Limits: [KNOWN-LIMITS](KNOWN-LIMITS.md) items 3 and 104 to 109.
 
+### Entries of layer 13: a reopen is a new entry
+
+A reopen never edits, deletes or marks an entry. It appends one entry of source `umwayi decision reopen`, in a fixed shape, that names the old entry by its full `Chain` value:
+
+```text
+- Added: Reopen of entry HEX (Q-0007 answered on 2026-11-05); new decision Q-0012 opened by NAME; reason: TEXT
+- Checked: the hash chain was intact before this entry; HEX is a chained entry of source umwayi queue answer for Q-0007; Q-0007 is a decision that is not open; revisit if recorded then: TEXT
+- Not done: The old entry, the old row Q-0007 and the rules were not changed or marked. Nothing was decided again.
+```
+
+- The answer of a decision ends its `Added` line with `; revisit if: TEXT` (or `none`). The answer itself is still only counted, never copied.
+- `logbook.read_chained` gives every entry with its `Chain` value, under the same checks as the other checked readers. A reopen reads the record with it and needs the hash chain to have started.
+- The id of the row a reopen opens counts as used, like an id at the start of an `Added` line, so it is never given again.
+
 ## Decisions log
 
 Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-11 | A reopen is a new entry that links the old one by its hash; the old one is never marked | Layer 13, L13.2 (13.R4.3; L13-Q17 as proposed: the hash chain is needed). |
 | 2026-11-10 | `LOGBOOK.md` and its lock refuse a second name; the append never follows a link; the intent is 0600 | The security scan (S.2, PR 37): a hard link at the lock let its pid write reach an outside file, and a link swapped in before the append was written through (S-Q9 for the mode). |
 | 2026-11-10 | The hash chain (C.1 to C.4, PR 32): a seal entry starts it; `seal --chain` once (C-Q1); recompute the chain on every append (C-Q2); `verify` keeps exit codes 0 and 1 (C-Q3) | Approved Nov 9 in PR 24; built in PR 32. |
 | 2026-11-10 | A broken chain cannot be sealed; restore from a copy you trust | PR 32: sealing over it would hide the edit ([KNOWN-LIMITS](KNOWN-LIMITS.md) item 105). |

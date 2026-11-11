@@ -132,7 +132,7 @@ class WholeSystemTests(Base):
         steps = [
             ["queue", "add", "--kind", "task", "One"],
             ["queue", "add", "--kind", "decision", "Two", "--recommendation", "yes"],
-            ["queue", "answer", "Q-0002", "--answer", "go"],
+            ["queue", "answer", "Q-0002", "--answer", "go", "--revisit-if", "none"],
             ["queue", "close", "Q-0001"],
             ["archive", "move", "notes.md", "--lines", "3-3", "--reason", "old"],
             ["check", '{"type": "read", "secret": "sk-live-TOPSECRET"}'],
