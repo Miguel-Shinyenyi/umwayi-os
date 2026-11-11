@@ -4,6 +4,8 @@ A calm 3D hillside in one web page. Eleven stations stand around a lantern, one 
 only looks: it never writes to the repo, runs a command or calls a network (product.md, rule 10). The core `umwayi`
 package never imports anything from here, and nothing here imports `umwayi`.
 
+Status (UI.6, the shared scene): the scene code is one module, `src/scene.js` (`createScene`), used by `src/app.js` here and by the public site in `../site`, which imports it from this folder. The device query and the List and Standard switch are one module too, `src/boot.js`. This page behaves and looks as before (a screenshot at 1440 by 900 is pixel for pixel the same as before the move). See `../site/README.md`.
+
 Status (UI.1, PR 39, reworked on Nov 11 after the owner's review): the page is the Kenyan highlands at dusk, drawn to look
 like real life from code only, with eleven natural features, a shepherd with a lantern, Mount Kenya on the horizon, and the
 home content below the picture. It shows made up counts and says "sample". Reading a real snapshot and moving the features
@@ -57,7 +59,7 @@ down twice at most after slow frames: a lower pixel ratio, then no bloom and no 
 
 ```
 python -m unittest tests.test_ui_package       # the package, the lockfile, build.json, the built page (standard library)
-node --test                                    # in ui/: the engine, the layout and position function, the stations, the home content, the detail mode (no package needed)
+node --test                                    # in ui/ (95 tests): the engine, the layout and position function, the stations, the home content, the detail mode (no package needed)
 ```
 
 The Python suite needs no npm, node or browser. The browser pass (no console error, zero requests, still at rest, the
@@ -69,8 +71,10 @@ look and the labels) is run by hand with a headless browser kept outside the rep
 build.mjs          bundles src/ into dist/index.html and writes dist/build.json
 src/index.html     the page template (labels and the list view are made from stations/meta.js)
 src/style.css      the palette, Calm mode, reduced motion
-src/main.js        entry; picks the tier (List or Standard) from the device and the switch; List when the 3D view cannot start
-src/app.js         joins the world, camera, labels and panel; decides when to draw
+src/main.js        entry of the live view; calls boot with a highest tier of Standard and the network ignored
+src/boot.js        the device query, the List and Standard switch and the start of the picture; used by main.js and by the site
+src/scene.js       createScene: the world, camera, loop, pointer and Calm mode on a canvas; used by app.js and by the site
+src/app.js         the page's own parts: the buttons over the features, the panel, the keyboard; joined to the scene by hooks
 src/engine/        ease, tween (motion), follow, the on demand loop, settings, poses, camera rig, stage, detail, placement, tier (the tier choice), env (the device hints), flow (the water clock)
 src/world/         height (the ground), river, layout (the fixed table and the position function), shots, sky and Mount Kenya, terrain, water, plants, lantern (shepherd), trails, palette, noise, glsl
 src/stations/      meta.js (the words), kit.js (shared parts), one module per natural feature, index.js

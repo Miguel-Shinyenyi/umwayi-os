@@ -112,3 +112,11 @@ Rules for this check:
 | 2.3 | hurdle up with the kill switch on | not done |
 | 2.4 | a non snapshot file refused | not done |
 | 3.1 to 3.4 | six checks, "ticked by you", the warning, the export text, notes gone after closing | not done |
+
+## Facts found while building UI.6 (Nov 11 2026, tried in the repo's own `site/` with Next.js 16.4.6)
+
+- With the Content-Security-Policy `script-src 'self'`, a production build of the site does not start in the browser: Next.js puts three small inline scripts in every prerendered page, the browser blocks each one with a console error, and the page stays as the server sent it (List). The Next.js guide offers a nonce, which needs every page to render per request, or experimental subresource integrity, which hashes the script files. Neither was used; `script-src 'self' 'unsafe-inline'` was (KNOWN-LIMITS 140). Source: [nextjs.org Content Security Policy guide](https://nextjs.org/docs/app/guides/content-security-policy).
+- `turbopack.resolveAlias` takes a wildcard key (`'three/addons/*'` to `./node_modules/three/examples/jsm/*`). With only the plain `three/addons` key, a build with no `ui/node_modules` failed with "Module not found"; it had passed on a machine where `ui/` was installed, because the import walked up to `ui/node_modules`. The test of this is to build with `ui/node_modules` moved away.
+- `Permissions-Policy: bluetooth=()` gives a Chromium console warning (unrecognized feature), so the site does not send it.
+- `next build` for this site is static for `/` (prerendered); `next start` applies the `headers()` of `next.config.mjs`. A static export would not send them, so the site is not exported.
+- Headless Chromium 158.0.8127.18 (Playwright 1.65 headless shell, SwiftShader) was used for the pass; the Playwright browser tool of this sandbox could reach only the sandbox's second address, not 127.0.0.1, so the pass was driven from a script outside the repo.
