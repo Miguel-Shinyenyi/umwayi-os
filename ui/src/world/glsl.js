@@ -8,19 +8,19 @@ float vn(vec2 p){
   vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y);
 }
-float fbm(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * vn(p); p = p * 2.03 + 11.7; a *= 0.5; } return s; }
-float fbm3(vec3 p){ return fbm(p.xz + p.y * 1.7) * 0.6 + fbm(p.xy * 1.3 + p.z) * 0.4; }
+float fbmN(vec2 p, int n){ float s = 0.0, a = 0.5, w = 0.0; for (int i = 0; i < 5; i++) { if (i >= n) break; s += a * vn(p); w += a; p = p * 2.03 + 11.7; a *= 0.5; } return s / w; }
+float fbm(vec2 p){ return fbmN(p, 5); }
+// three octaves for surfaces seen close up: the finest octaves of fbm are smaller than a pixel and alias into blocks
+float fbm3(vec3 p){ return fbmN(p.xz + p.y * 1.7, 3) * 0.6 + fbmN(p.xy * 1.3 + p.z, 3) * 0.4; }
 `;
 
-// A bump with no texture: perturb the normal by the screen space change of a noise value (as three.js does for bump maps).
+// A bump with no texture. The caller gives the world space gradient of a noise height (by finite differences of the noise
+// itself, not by dFdx/dFdy, which are computed per 2x2 pixel block and show up as blocks on close surfaces).
 export const BUMP = /* glsl */ `
-vec3 bumpNormal(vec3 n, vec3 viewPos, float h, float scale){
-  vec3 sx = dFdx(viewPos), sy = dFdy(viewPos);
-  vec3 r1 = cross(sy, n), r2 = cross(n, sx);
-  float det = dot(sx, r1);
-  vec2 d = vec2(dFdx(h), dFdy(h));
-  vec3 grad = sign(det) * (d.x * r1 + d.y * r2);
-  return normalize(abs(det) * n - scale * grad);
+vec3 bumpWorld(vec3 n, vec3 gradWorld, float scale){
+  vec3 g = mat3(viewMatrix) * gradWorld;
+  g -= n * dot(g, n);
+  return normalize(n - scale * g);
 }
 `;
 

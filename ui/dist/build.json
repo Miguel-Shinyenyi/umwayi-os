@@ -38,7 +38,7 @@
     "src/ui/home.js": "d6854c026ebf51dfaca3f473a0810ba7c86e22d2095781211a49efc4c6bb23c9",
     "src/ui/labels.js": "61ad0eec0ca196afa58a9aff602334f024f095054f5dcea900e7dfb949371f98",
     "src/ui/panel.js": "88a6cc6dd6fffdb44697dfdaeb1430c4447fe5da5e0c29006156cfb058824d75",
-    "src/world/glsl.js": "bf5d19eddc12a07840e80c635cd478e23bcf26b4f95d7d419919db2e531a2ab7",
+    "src/world/glsl.js": "992ab2625972a73223dd715b5e12a373f599021c4065320e3e4ce35f1d4bf021",
     "src/world/height.js": "70b37548faba922882b0ee1723db985b650c17ec5fed91b4e360a6fd4370ca4b",
     "src/world/index.js": "ba61f2d7e0e17b54af92aaf4178f9525131dba6b32a31097ca73426ce211525e",
     "src/world/lantern.js": "4d686fbfb0ff3a5566d4b8f09f6138f804f84a7262bf8db230f509d7df472e4a",
@@ -51,10 +51,10 @@
     "src/world/shots.js": "f13a935cb35ab7017588511708821dc955ddbc2f6c258f1f60a6226aab45d8e1",
     "src/world/sky.js": "19a8c06e5da10ab48f33b35374761a03c8f93587725bf66b4da3e631b86392c3",
     "src/world/skyuniforms.js": "9bfa761f59de1aa55e13efde37dc38d25aa689f6839d449b97e8709ebfd1581e",
-    "src/world/surface.js": "3d5e40358f494e6582e8744cc718211d101e61275a4b9061ca206ed38dbc4c53",
-    "src/world/terrain.js": "604650a1529ffc2c9afdba3d02ca69bbcdc9b81c22c02327986b8149d4dab391",
+    "src/world/surface.js": "e1bd23afde26b0db49be62652531a5d4b6096f50c26809cd41b7273d6dd8900a",
+    "src/world/terrain.js": "fd0781901498917ce62e175cb2193ddf910b84ba9c1d0f0929983e9cd2a46823",
     "src/world/trails.js": "dbf05526a709b27c021089c5bdc53cef43ef2afb099e470d0b31d4065931296b",
     "src/world/water.js": "f99afe2382a25ad9c4ceff9303be4cf87e3d0d7fa8d0ea68ac679c25dcbc37ed"
   },
-  "page": "a4e12193102ad78c1e1b961388458af57db62ff31f095fdabdd39c9664fec48a"
+  "page": "1106a6dc65ae3604e6ba1896595ece46f3ea911aa1c8da5172d808ed0ba6a59e"
 }

@@ -41,8 +41,11 @@ export function buildTerrain() {
         diffuseColor.rgb = col;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         float nk = 1.0 - smoothstep(8.0, 45.0, length(vViewPosition));
-        float bh = fbm(xz * 1.9);
-        normal = bumpNormal(normal, -vViewPosition, bh, 0.28 * nk);`);
+        vec2 bq = xz * 1.9;
+        float bh = fbmN(bq, 4);
+        const float be = 0.05;
+        vec3 bg = vec3(fbmN(bq + vec2(be, 0.0), 4) - bh, 0.0, fbmN(bq + vec2(0.0, be), 4) - bh) * (1.9 / be);
+        normal = bumpWorld(normal, bg, 0.28 * nk);`);
   };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
