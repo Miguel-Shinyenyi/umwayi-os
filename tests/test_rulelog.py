@@ -182,6 +182,22 @@ class ChangeTests(Base):
         self.assertTrue(self.rule_entries()[-1]["added"].endswith("; changed no-money verdict yes to no"))
         self.assertEqual(len(self.rule_entries()), 3)
 
+    def test_a_forged_rules_entry_with_one_line_out_of_shape_is_not_read(self):
+        """Each forged entry names the right hash and has two lines in the fixed shape; one line is not. None of them
+        counts as the logged version, so the check still writes its own baseline."""
+        from umwayi import logbook
+        digest = sha(self.rules_path.read_bytes())
+        good = (f"rules.yaml first logged (sha256 {digest}); rules 3", RULES_CHECKED_HEAD + STATE, RULES_NOT_DONE)
+        forged = [(good[0] + " by hand", good[1], good[2]), (good[0], good[1] + "; extra", good[2]),
+                  (good[0], good[1], good[2] + " Really."), ("x " + good[0], good[1], good[2])]
+        for added, checked, not_done in forged:
+            logbook.append(self.root, logbook.Entry(TODAY, RULES_SOURCE, added, checked, not_done))
+        self.check(READ)
+        self.assertEqual(len(self.rule_entries()), len(forged) + 1)
+        self.assertEqual(self.rule_entries()[-1]["added"], good[0])
+        self.check(READ)
+        self.assertEqual(len(self.rule_entries()), len(forged) + 1)
+
     def test_a_rules_entry_in_another_shape_is_not_read(self):
         """A forged entry with the right hash but the wrong shape does not count as the logged version."""
         from umwayi import logbook
@@ -269,6 +285,19 @@ class CannotLogTests(Base):
         code, data = self.check_json({"type": "transfer"}, fault="umwayi.logbook:append_with:error")
         self.assertEqual((code, data["answer"]), (2, "No"))
 
+    def test_rules_that_change_again_after_their_entry_give_no_yes(self):
+        """A writer replaces rules.yaml between the entry and the check: the rules used are not the logged ones."""
+        self.logged_base()
+        weak = BASE.replace("    verdict: no\n", "    verdict: yes\n", 1)
+        code, data = self.check_json(PAY, fault="umwayi.rules:log_rules_change:then_write",
+                                     extra={"UMWAYI_FAULT_WRITE_PATH": str(self.rules_path),
+                                            "UMWAYI_FAULT_WRITE_TEXT": weak})
+        self.assertEqual((code, data["answer"], data["rule_id"]), (3, "Ask me first", "no-money"))
+        self.assertIn("changed again while its change was being logged", data["reason"])
+        self.assertEqual(len(self.rule_entries()), 1)
+        self.assertEqual(self.check(PAY).returncode, 0)  # the next check logs the weakening, then uses it
+        self.assertEqual(self.sources()[-2:], [RULES_SOURCE, "umwayi check"])
+
     def test_a_crash_in_the_write_exits_2(self):
         self.changed()
         before = snapshot(self.root)
@@ -311,25 +340,33 @@ class DryRunTests(Base):
 
 
 class CallerTests(Base):
+    """A queue-list job asks the rules once (for run_job) and has no inner check, so its own ask must log."""
+
+    JOB = "jobs:\n  - name: probe\n    command: queue-list\n    min_gap_days: 1\n"
+
+    def job_root(self):
+        self.write_rules(rules_file(rule("run-list", "yes", "run_job"), rule("ok-read", "yes", "read")))
+        (self.root / "jobs.yaml").write_text(self.JOB, encoding="utf-8")
+        self.q.write_text("# Queue\n\n| id | kind | title | status | recommendation | answer | answered |\n"
+                          "| --- | --- | --- | --- | --- | --- | --- |\n", encoding="utf-8")
+
     def test_a_job_logs_a_rules_change_before_its_own_entry(self):
-        self.write_rules(rules_file(rule("run-check", "yes", "run_job"), rule("ok-read", "yes", "read")))
-        (self.root / "jobs.yaml").write_text("jobs:\n  - name: probe\n    command: check\n    action_type: read\n"
-                                             "    min_gap_days: 1\n", encoding="utf-8")
+        self.job_root()
         r = self.u("run", str(self.root / "jobs.yaml"), "--job", "probe")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.sources(), [RULES_SOURCE, "umwayi run"])
 
     def test_a_job_gives_no_yes_when_the_change_cannot_be_logged(self):
-        self.write_rules(rules_file(rule("run-check", "yes", "run_job"), rule("ok-read", "yes", "read")))
-        (self.root / "jobs.yaml").write_text("jobs:\n  - name: probe\n    command: check\n    action_type: read\n"
-                                             "    min_gap_days: 1\n", encoding="utf-8")
+        self.job_root()
         release = hold_logbook_lock(self.root)
         try:
             r = self.u("run", str(self.root / "jobs.yaml"), "--job", "probe")
         finally:
             release()
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
-        self.assertTrue(r.stdout.startswith("Ask me first\n"), r.stdout)
+        self.assertTrue(r.stdout.startswith("Ask me first\nRule: run-list\n"), r.stdout)
+        self.assertIn("could not be logged before use", r.stdout)
+        self.assertNotIn("Job probe ran.", r.stdout)
 
     def test_an_agent_gate_and_the_schedule_go_through_the_same_check(self):
         """check_and_log is the one path of `umwayi check`, the agent gates and the schedule (design.md, Facts)."""

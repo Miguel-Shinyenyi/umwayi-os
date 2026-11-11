@@ -43,6 +43,11 @@ if fault:
             raise UmwayiError("planted: this write fails")
         if effect == "pause":
             time.sleep(float(os.environ.get("UMWAYI_FAULT_PAUSE", "1")))
+        if effect == "then_write":  # the real call, then a file is replaced (a writer racing with the command)
+            out = real(*a, **k)
+            with open(os.environ["UMWAYI_FAULT_WRITE_PATH"], "w", encoding="utf-8") as f:
+                f.write(os.environ["UMWAYI_FAULT_WRITE_TEXT"])
+            return out
         return real(*a, **k)
     setattr(mod, name, patched)
 '''

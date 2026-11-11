@@ -225,6 +225,14 @@ class LimitTests(Base):
         before = snapshot(self.root)
         self.assert_nothing_changed(before, self.petition("no-r00", reason=SECRET), 1, "3 open petitions for one AI")
 
+    def test_a_row_whose_title_only_contains_the_template_is_not_a_petition(self):
+        for n in range(1, 4):
+            for title in (f"Re: Petition against rule no-r0{n} by steward", f"Petition against rule no-r0{n} by steward ok"):
+                self.assertEqual(self.u("queue", "add", "--kind", "decision", title).returncode, 0)
+        r = self.petition("no-r00")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("open for this helper 1 of 3", self.entries()[-1]["checked"])
+
     def test_five_accepted_today_for_one_helper(self):
         for n in range(5):
             self.assertEqual(self.petition("no-r00").returncode, 0)
