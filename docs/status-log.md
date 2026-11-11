@@ -18,7 +18,7 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
-| 2026-11-11 | 52 (UI.3, number to confirm) | UI.3: the page reads the snapshot (`ui/src/data/snapshot.js`, the strict reader, the needs, the mapping table), the picker and drop on the live view and the site, unknown drawn as unknown; 12.R17.6 and rule 10 changed; KNOWN-LIMITS 142 to 145 | see the pull request |
+| 2026-11-11 | 52 | UI.3: the page reads the snapshot (`ui/src/data/snapshot.js`, the strict reader, the needs, the mapping table), the picker and drop on the live view and the site, unknown drawn as unknown; 12.R17.6 and rule 10 changed; KNOWN-LIMITS 142 to 145 | see the pull request |
 | 2026-11-11 | 51 | L13.5: graded autonomy, off by default: the opt-in, `umwayi autonomy record`, `status` and `validate`, the thirteen gates and the move (layer 13, slice 5) | 1635 |
 | 2026-11-11 | 50 | UI.6: the shared scene module (`ui/src/scene.js`) and the public site in `site/` (List and Standard, Next.js 16.4.6), `node --test` in the CI workflow; KNOWN-LIMITS 140 and 141 | see the pull request |
 | 2026-11-11 | 49 | L13.4: honest tension, the stop criteria, the plain note and `tests/test_honest.py` (layer 13, slice 4) | 1500 |
