@@ -36,6 +36,8 @@ STATUSES = ("open", "answered", "closed")
 MAX_TITLE = 200
 MAX_RECOMMENDATION = 500
 MAX_ANSWER = MAX_RECOMMENDATION  # same limits as a recommendation
+MAX_REVISIT = 200  # layer 13 (13.R5): what would change my mind, kept in the logbook entry of the answer
+REVISIT_NONE = "none"
 # Old answered rows have no answer text, but a new answered row must have one.
 MIGRATED_ANSWER = "not recorded before migration"
 
@@ -295,7 +297,8 @@ def list_rows(root: Path, status: str | None = None, kind: str | None = None) ->
     return [r for r in doc.rows if (status is None or r.status == status) and (kind is None or r.kind == kind)]
 
 
-def add(root: Path, kind: str, title: str, recommendation: str, when: str) -> Row:
+def _plan_add(root: Path, kind: str, title: str, recommendation: str, when: str) -> tuple:
+    """Everything `add` checks and builds before it writes: (path, old text, new text, row, the parsed doc, created)."""
     when = _require_date(when)
     if kind not in KINDS:
         raise UsageError(f"kind must be one of: {', '.join(KINDS)}")
@@ -332,7 +335,11 @@ def add(root: Path, kind: str, title: str, recommendation: str, when: str) -> Ro
         raise UmwayiError("internal check failed, nothing was changed")
     if check.lines[:insert_at] + check.lines[insert_at + 1 :] != doc.lines:
         raise UmwayiError("internal check failed, nothing was changed")
+    return path, old_text, new_text, row, doc, created
 
+
+def add(root: Path, kind: str, title: str, recommendation: str, when: str) -> Row:
+    path, old_text, new_text, row, doc, created = _plan_add(root, kind, title, recommendation, when)
     before = "queue.md did not exist, so it was created from the template" if created else (
         f"queue.md parsed with no errors ({len(doc.rows)} rows before)"
     )
@@ -346,6 +353,20 @@ def add(root: Path, kind: str, title: str, recommendation: str, when: str) -> Ro
         ),
         not_done="No other row was changed. Nothing was sent or published.",
     )
+    _commit(root, path, old_text, new_text, entry)
+    return row
+
+
+def add_with_entry(root: Path, kind: str, title: str, recommendation: str, when: str, entry_for) -> Row:
+    """Add one open row and write the entry `entry_for(row)` in the same queue commit: both, or neither.
+
+    The row is checked and numbered exactly as `add` does it. The caller's entry replaces the `queue add` entry
+    (layer 13: the reopen entry is the record of the new row). The entry's date must be `when`.
+    """
+    path, old_text, new_text, row, _doc, _created = _plan_add(root, kind, title, recommendation, when)
+    entry = entry_for(row)
+    if not isinstance(entry, logbook.Entry) or entry.date != when:
+        raise UmwayiError("internal check failed, nothing was changed")
     _commit(root, path, old_text, new_text, entry)
     return row
 
@@ -373,11 +394,14 @@ def add_once(root: Path, kind: str, title: str, recommendation: str, when: str) 
     return add(root, kind, title, recommendation, when), True
 
 
-def _transition(root: Path, row_id: str, new_status: str, when: str, command: str, answer_text: str = "") -> Row:
+def _transition(root: Path, row_id: str, new_status: str, when: str, command: str, answer_text: str = "",
+                revisit_if: str | None = None) -> Row:
     when = _require_date(when)
     row_id = _check_id(row_id)
     if new_status == "answered":
         answer_text = _check_text(answer_text, "answer", MAX_ANSWER, required=True)
+        if revisit_if is not None:
+            revisit_if = _check_text(revisit_if, "--revisit-if", MAX_REVISIT, required=True)
     path = _queue_path(root)
     old_text = _read(path)
     doc = parse(old_text)
@@ -388,8 +412,17 @@ def _transition(root: Path, row_id: str, new_status: str, when: str, command: st
     if new_status == "answered":
         if old.status != "open":
             raise UmwayiError(f"{row_id} is {old.status}, only an open row can be answered")
+        # layer 13 (13.R5.1, 13.R5.2): a decision records what would change my mind, a task does not
+        if old.kind == "decision" and revisit_if is None:
+            raise UsageError(f"{row_id} is a decision: answer it with --revisit-if TEXT (what would change your mind, "
+                             f"one line, up to {MAX_REVISIT} characters) or --revisit-if {REVISIT_NONE}. "
+                             "Nothing was changed.")
+        if old.kind != "decision" and revisit_if is not None:
+            raise UsageError(f"--revisit-if is only for a decision, and {row_id} is a {old.kind}. Nothing was changed.")
         new = Row(old.id, old.kind, old.title, "answered", old.recommendation, answer_text, when)
         added = f"{row_id} marked answered on {when} (status open to answered, {len(answer_text)} characters of answer)"
+        if revisit_if is not None:
+            added += f"; revisit if: {revisit_if}"  # in the logbook only, never in queue.md (L13-Q2)
         not_done = "No other row was changed. The answer text is stored in queue.md and not copied here."
     else:
         if old.status == "closed":
@@ -425,8 +458,9 @@ def _transition(root: Path, row_id: str, new_status: str, when: str, command: st
     return new
 
 
-def answer(root: Path, row_id: str, answer_text: str, when: str) -> Row:
-    return _transition(root, row_id, "answered", when, "answer", answer_text)
+def answer(root: Path, row_id: str, answer_text: str, when: str, revisit_if: str | None = None) -> Row:
+    """Answer an open row. A decision needs `revisit_if` (text or "none"); a task refuses it (both exit 64)."""
+    return _transition(root, row_id, "answered", when, "answer", answer_text, revisit_if)
 
 
 def close(root: Path, row_id: str, when: str) -> Row:

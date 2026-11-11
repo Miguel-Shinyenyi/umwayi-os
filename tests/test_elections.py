@@ -612,7 +612,8 @@ class CodeGuardTests(unittest.TestCase):
                 self.assertNotIn(top, self.NETWORK, f"{name} imports {imp}")
 
     def test_nothing_of_a_later_slice_exists_yet(self):
-        for name in ("decisions", "rulelog", "petition", "autonomy"):
+        # decisions.py is slice 2 (L13.2, built); slice 1 still imports nothing of it (the test above)
+        for name in ("rulelog", "petition", "autonomy"):
             self.assertFalse((REPO / "umwayi" / f"{name}.py").exists(), name)
 
 

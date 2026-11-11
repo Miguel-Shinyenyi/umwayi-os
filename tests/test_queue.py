@@ -719,7 +719,7 @@ class LogbookCouplingTests(QueueBase):
         steps = [
             ("add", "--kind", "task", "one"),
             ("add", "--kind", "decision", "two"),
-            ("answer", "Q-0002", "--answer", "yes"),
+            ("answer", "Q-0002", "--answer", "yes", "--revisit-if", "none"),
             ("close", "Q-0001"),
             ("close", "Q-0002"),
         ]

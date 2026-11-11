@@ -169,7 +169,7 @@ class ScriptedRunTests(SystemBase):
         self.expect(["social", "draft", "articles/example.md", "--date", D2], 0, "Wrote drafts/post-linkedin-0003.md")
         self.expect(["run", "jobs.yaml", "--job", "open-queue", "--date", D2], 0, "Job open-queue ran.")
         self.expect(["workflow", "run", "content-loop", "--date", D2], 3, "still waits for the owner")  # Q-0002 is open
-        self.expect(["queue", "answer", "Q-0002", "--answer", "Seen, I publish by hand", "--date", D2], 0)
+        self.expect(["queue", "answer", "Q-0002", "--answer", "Seen, I publish by hand", "--revisit-if", "none", "--date", D2], 0)
         self.expect(["workflow", "run", "content-loop", "--date", D2], 3, "added queue item Q-0003 (decision)",
                     lacks="kill switch")
 

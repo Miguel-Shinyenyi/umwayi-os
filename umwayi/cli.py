@@ -8,6 +8,7 @@ Exit codes:
   umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
   umwayi budget: 0, 2, 3 or 64 only, never 1 (budget governor)
   umwayi view:   0, 1 (the tamper check failed), 2 or 64 only, never 3 (layer 12)
+  umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
 """
 
 from __future__ import annotations
@@ -20,8 +21,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, budget, elections, jobs, kill, logbook, publish, report, rules,
-                    schedule, taskqueue, units, view, workflow)
+from umwayi import (__version__, agents, archive, budget, decisions, elections, jobs, kill, logbook, publish, report,
+                    rules, schedule, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -93,11 +94,27 @@ def build_parser() -> argparse.ArgumentParser:
     qn = qsub.add_parser("answer", help="mark an open row as answered")
     qn.add_argument("id", help="row id, for example Q-0001")
     qn.add_argument("--answer", required=True, help="the answer text (one line, no | character, up to 500 characters)")
+    qn.add_argument("--revisit-if", dest="revisit_if",
+                    help="what would change your mind (one line, no | character, up to 200 characters) or none; "
+                         "required for a decision, refused for a task; kept in the logbook entry, not in queue.md")
     qc = qsub.add_parser("close", help="close a row")
     qc.add_argument("id", help="row id, for example Q-0001")
     qm = qsub.add_parser("migrate", help="convert an old six column queue.md to the current layout (once)")
     for sp in (qa, qn, qc, qm):
         sp.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    dc = sub.add_parser("decision", help="decision commands (layer 13): reopen a closed decision as a new question")
+    dcsub = dc.add_subparsers(dest="decision_command", parser_class=_Parser)
+    dcr = dcsub.add_parser("reopen", help="reopen an answered or closed decision: one new logbook entry that links "
+                                          "the old entry by its hash, and one new open decision in the queue; the "
+                                          "old entry and the old row are not changed")
+    dcr.add_argument("target", help="the queue id (Q-0007) or the hash of its closing entry (64 lowercase hex "
+                                    "characters, the Chain value)")
+    dcr.add_argument("--reason", required=True, help="why it is reopened (one line, no | character, up to 300 "
+                                                     "characters)")
+    dcr.add_argument("--by", required=True, help="who reopens it (one line, no | or ; character, up to 40 "
+                                                 "characters)")
+    dcr.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
 
     ar = sub.add_parser("archive", help="archive commands")
     arsub = ar.add_subparsers(dest="archive_command", parser_class=_Parser)
@@ -396,7 +413,7 @@ def _cmd_queue(args, out) -> int:
         row = taskqueue.add(root, args.kind, args.title, args.recommendation, when)
         out.write(f"Added {row.id} ({row.kind}): {row.title}\n")
     elif cmd == "answer":
-        row = taskqueue.answer(root, args.id, args.answer, when)
+        row = taskqueue.answer(root, args.id, args.answer, when, revisit_if=args.revisit_if)
         out.write(f"Answered {row.id} on {row.answered}\n")
     elif cmd == "close":
         row = taskqueue.close(root, args.id, when)
@@ -569,6 +586,10 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_view(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "decision" and getattr(args, "decision_command", None) == "reopen":
+            r = decisions.reopen(Path(args.root), args.target, args.reason, args.by, args.date or _today())
+            out.write("\n".join(decisions.render(r)) + "\n")
+            return 0
         if args.command == "workflow" and getattr(args, "workflow_command", None) == "validate":
             return _cmd_helper(workflow.validate_file(Path(args.root), args.name), out)
         if args.command == "workflow" and getattr(args, "workflow_command", None) == "run":
