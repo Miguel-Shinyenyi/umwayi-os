@@ -8,17 +8,20 @@ This page says where each part of umwayi-os stands and logs every pull request w
 
 ### Status
 
-Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](adapters.md). Layer 10 (one front door for agents) is in progress: agents.yaml, the gate checks, `umwayi agent run` and `umwayi agent chat` (on your terminal, or over ACP for Kiro) for Claude Code and Kiro are built; for Claude Code over ACP (part 7, approved) the pinned adapter package, its gate checks (part 7a) and the chat (part 7b) are built, see [Layer 10](agent-front-door.md). Layer 11 (scheduled runs through systemd user timers) is built, see [Layer 11](scheduled-runs.md). Known limits are listed in [docs/KNOWN-LIMITS.md](KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
+Status: all eight layers are built: memory, rules, queue, archive, logbook, automation, helpers and workflows. Layer 9 (adapters for Claude Code, Kiro and any stdin and stdout tool) is built, see [Layer 9](adapters.md). Layer 10 (one front door for agents) is in progress: agents.yaml, the gate checks, `umwayi agent run` and `umwayi agent chat` (on your terminal, or over ACP for Kiro) for Claude Code and Kiro are built; for Claude Code over ACP (part 7, approved) the pinned adapter package, its gate checks (part 7a) and the chat (part 7b) are built, see [Layer 10](agent-front-door.md). Part 8 of layer 10 (OpenCode over ACP) and Muse Spark Open as an OpenCode model are specified, not built; the owner asked for OpenCode to be built before Dec 3. Layer 11 (scheduled runs through systemd user timers) is built, see [Layer 11](scheduled-runs.md). Known limits are listed in [docs/KNOWN-LIMITS.md](KNOWN-LIMITS.md). See `.kiro/specs/umwayi-os/` for requirements, design and tasks, and `.kiro/steering/product.md` for the product rules.
 
 The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-os/tasks.md), section "Status".
 
-Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified in the L13.0 pull request (docs and specs only, written 2026-11-11) and waits for the owner's approval; nothing of it is built. Its status is the small table at the end of tasks.md until the layer 12 branches merge, see [corrections](corrections.md) and [autonomy](autonomy.md). Its pull request row is added here when the number is known and the layer 12 rows are in.
+Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Slice 2, reversal (L13.2: `umwayi decision reopen` and `queue answer --revisit-if`), is built. Courts, honest tension and graded autonomy are not built. See [corrections](corrections.md) and [autonomy](autonomy.md).
 
 ### Pull requests
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
 | 2026-11-11 | 45 | Layer 13 slice 2, Reversal: `umwayi decision reopen`, `queue answer --revisit-if`, `logbook.read_chained` | 1256 |
+| 2026-11-11 | 44 | spec: layer 10 part 8, OpenCode over ACP (10.41), and Muse Spark Open as an OpenCode model (10.40); docs only, waits for the owner's approval | |
+| 2026-11-11 | 43 | 9.10: starter rules for the adapter actions in the repo `rules.yaml`, and `tests/test_starter_rules.py` | 1265 |
+| 2026-11-11 | 42 | L13.1: elections, `review_by` on Yes rules and `umwayi rules due` (layer 13, slice 1) | 1254 |
 | 2026-11-11 | 41 | UI.2: `umwayi view snapshot`, the read only snapshot of counts for the web interface | 1200 |
 | 2026-11-10 | 38 | spec: layer 12, the web interface (UI.0); docs only, waits for the owner's approval | |
 | 2026-11-10 | 37 | S.2: the security scan; 10 defects it found fixed | 1155 |

@@ -2,6 +2,11 @@
 # The platform name is what you pass with --platform (default: stdio).
 # The adapter sends {"type": "tool_" + tool_name, "platform": NAME, "tool": tool_name,
 # "input_<key>": value for every top level string field of tool_input}.
+# A Yes rule here may carry "review_by: YYYY-MM-DD" (layer 13, elections). The rule is
+# in force through that day and counts as Ask me first from the next day. It is allowed
+# on Yes rules only, and only once the version with elections is installed: older code
+# calls it an unknown field and every check gives Ask me first. "umwayi rules due"
+# lists the rules that lapsed or are due.
 rules:
   - id: stdio-read
     title: Reading is fine

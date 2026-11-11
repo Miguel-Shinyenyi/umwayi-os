@@ -25,6 +25,7 @@ umwayi logbook seal --by "Your name" [--date 2026-11-07]
 umwayi logbook recover --torn-tail --by "Your name" [--date 2026-11-07]
 ```
 
+- A `umwayi check` entry ends its Checked line with `; election fallbacks: ID (review_by DATE), ...` only when a Yes rule was past its `review_by` date for that check (see [rules.md](rules.md)). Without a fallback the entry is the same as before.
 - After every write the SHA-256 of the whole file is recorded in `.umwayi/logbook.sha256`. Before every write it is checked. If you edit, delete or add a line by hand, every umwayi write is refused (and `umwayi check` answers Ask me first) until you look at the file and run `umwayi logbook seal`.
 - An existing logbook with no record is refused the same way. Nothing is sealed automatically.
 - `verify` prints `ok` or each problem with a line number (never the line text) and exits 0 only when the format is valid and the hash matches. It never changes a file.

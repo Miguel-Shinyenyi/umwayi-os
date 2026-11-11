@@ -34,7 +34,7 @@ Do not use em dashes in docs or user text. Use commas, colons or periods.
 6. No secrets in the repo.
 7. Every helper action passes `umwayi check` first.
 8. A crash blocks. Every unexpected error exits 2, never 0, 1 or 3. An adapter (layer 9) catches every error and blocks, because on Claude Code exit 1 blocks nothing.
-9. The core `umwayi` package stays standard library only. Only adapter packages (layer 9, and layer 10 adapter packages) may use third party packages, pinned and listed in their own README. The one other place is the `ui/` folder of layer 12, outside the package, under rule 10.
+9. The core `umwayi` package stays standard library only. Only adapter packages (layer 9, and layer 10 adapter packages) may use third party packages, pinned and listed in their own README. The one other place is the `ui/` folder of layer 12, outside the package, under rule 10. The OpenCode plugin (`adapters/opencode/plugin/`, layer 10 part 8) is umwayi's only JavaScript in a gate: plain JavaScript that imports only Node built-ins (`node:`), with no npm package, and umwayi never runs npm, Bun or an OpenCode plugin install for it.
 10. The web interface (layer 12) only looks. It never writes to the repo, never runs a command and never calls a network. It gets state only from a snapshot of counts: no text from any file, no paths, no secrets. Its third party packages (three.js and esbuild, pinned, with a lockfile) are build tools in `ui/`, installed by the owner with `npm ci --ignore-scripts`; umwayi never runs npm. The built page is committed and makes no network request.
 
 ## Exit codes (every command)
@@ -64,7 +64,7 @@ Done (PRs 1 to 8, then hardening and the whole-system test in PR 9, 556 tests, P
 Built since (tasks.md has the status of every task):
 
 9. Adapters (PRs 11 and 12): a thin adapter per AI platform (Claude Code PreToolUse hooks, Kiro hooks, a generic stdin and stdout adapter) turns hook input into `umwayi check` input and the answer back into allow, deny or ask.
-10. Own command line and chat (PRs 13 to 29): one front door that starts Claude Code and Kiro through their own CLI or the Agent Client Protocol, with the queue, rules and logbook in front, subscription first. No model client. Open: the owner's first real run (10.31).
+10. Own command line and chat (PRs 13 to 29): one front door that starts Claude Code and Kiro through their own CLI or the Agent Client Protocol, with the queue, rules and logbook in front, subscription first. No model client. Open: the owner's first real run (10.31). Part 8, OpenCode over ACP (10.R13), is specified (PR 44) and, once the owner approves it, is built before Dec 3 (the owner, Nov 11; the owner sets its dates). Muse Spark Open as an OpenCode model (10.R14) is spec only and follows OpenCode.
 - Logbook crash safety (PR 27).
 
 Not started, each only after the owner approves its requirements, design and tasks:

@@ -686,3 +686,64 @@ umwayi writes in place only to `LOGBOOK.md` (an append) and the logbook lock (it
 ### 139. A reader that fails shows as null, and a check before the write can race
 
 A layer reader that raises (even for a bug) gives null for its part and the command still exits 0, as 12.R4.3 says; only an error in the command itself exits 2. A missing `queue.md` is null, not 0, because only `schedule.yaml` is allowed to be absent. The `--out` target is checked (regular, one name, an earlier snapshot) and then replaced through a new file: another process of the same user that swaps the file in between would have its file replaced, never written through (see 135). `used_uu` counts a reservation without a settle in full, so a lost run raises it until `umwayi budget settle-lost`.
+
+## Layer 13: elections (found while building L13.1)
+
+### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses
+
+A Yes rule runs out only if it has a `review_by` date. A rule with no date, or a date the owner moves forward without looking, stays in force. `umwayi rules due` lists what needs a look, but nothing makes the owner run it, and a date more than 366 days ahead is only flagged as `far`, not refused (L13-Q10). The owner may put `review_by` in `rules.yaml` only after the version with elections is installed: older code calls it an unknown field and every check gives Ask me first.
+
+### 161. A clock set far ahead lapses every dated rule, and the election clock never goes back
+
+The date of a check is the latest of the system date, `--date` and the newest logbook date. A system clock set far ahead, or one entry with a far date, makes every dated Yes rule give Ask me first until the owner edits the dates; that is a safe error, not a Yes. A clock set back changes nothing, because the newest logbook date still counts. If the logbook cannot be read, only the system date and `--date` are used, and the entry of that check cannot be written either, so no Yes comes out.
+
+## Layer 10 part 8: OpenCode over ACP, and Muse Spark Open (known from the spec, Nov 11; nothing is built)
+
+These come from the spec (10.R13 and 10.R14, PR 44), not from a build. They are numbered from 180 so they do not collide with the items other open work adds. Task 10.51 (10.55 for 188 and 189) makes them true to what is built. Facts with links: `adapters/NOTES-layer10.md`, "OpenCode V2: the facts checked for the adapter spec".
+
+### 180. umwayi's inline config is the weakest place for a policy, and V2 does not document it
+
+umwayi passes its strict config in `OPENCODE_CONFIG_CONTENT`. The V2 source reads that variable, but no V2 docs page names it, so a release could drop it. In the source, policies from earlier-loaded documents win, and the inline content loads late. So a `provider.use` or `integration.use` statement with `allow` in the global file, a project file, a connected Console workspace or a managed file outranks umwayi's `deny`.
+
+- What protects you: the plugin is named only in the inline config, so if OpenCode ignores it, no canary is written and the chat is refused. Gate checks 4 and 5 refuse when a managed, project or suspect global config exists.
+- What it does not protect against: a Console workspace (182), and a config written after the start (181).
+
+### 181. Other config is found by name and by text, and only at the start
+
+Gate check 5 looks for project config by file name, and searches the global config files for fixed key names as quoted text. It does not run OpenCode's merge.
+
+- `{file:PATH}` substitution in the global file can pull in keys from a file umwayi never reads.
+- A remote `.well-known` config from a connected integration is not seen.
+- OpenCode reloads a changed config during a chat. An AI helper that writes `.opencode/opencode.json` in the workdir could add a plugin or a policy after the check. The starter rules say No to edits and shell commands that name these files, but a shell command can be written to get past a text match.
+
+### 182. A connected Console workspace or a saved account is invisible
+
+Saved accounts live in OpenCode's database, which umwayi does not read. A connected Console workspace delivers policies that rank right below managed ones, so it can allow what umwayi denies. A ChatGPT sign-in and a saved OpenAI API-key account are both `openai`. umwayi allows only the connected-account form `openai#*`, but whether an API-key account also takes that form was not confirmed.
+
+### 183. The permission request does not say what OpenCode's rules matched
+
+An OpenCode `toolCall` carries the tool's `name`, `kind`, `title` and `rawInput`, not the permission's action and resources. umwayi answers by `kind` and `tool` only, as for Kiro and Claude Code. An MCP tool name that is not a short plain word is left out, so its rules see only `kind`. When OpenCode has no tool for a request, `name` and `rawInput` are absent, and the answer is Ask me first at most.
+
+### 184. The first gate is JavaScript inside OpenCode
+
+The plugin is umwayi's only JavaScript in a gate. It runs in the `opencode` binary's own runtime, which was not confirmed to support `node:child_process`; the tests run it under `node`. It starts one Python process per tool call, so every call waits for `umwayi check` (up to 10 s). It works only while OpenCode keeps calling `execute.before` for every tool and lets a throw stop the call. Built-in plugins (the policy plugin, the Console plugin) cannot be turned off, and their order among the `evaluate` hooks is not documented. A later hook could lower umwayi's `ask` back to `allow`; the first gate still runs.
+
+### 185. One tool call can write two logbook entries and ask twice
+
+The plugin's check writes one `umwayi check` entry. The permission request that follows writes another. With rules that say Yes in the first gate but have no `acp_permission` rule for OpenCode, the owner is still asked at the permission request. The starter rules cover the common cases.
+
+### 186. The canary token and the inline config are in OpenCode's environment
+
+Every shell command OpenCode runs inherits `OPENCODE_CONFIG_CONTENT`, with the hook command, the canary path and the token. An AI helper can read them, and could write the canary file itself. The canary is checked before the first prompt, before the model has run any tool, so this matters only if OpenCode ran a tool before then. The same was accepted for the Claude Code canary (7b).
+
+### 187. OpenCode changes fast, and the version is read as text
+
+There were 46 stable 2.x releases between Sep 11 and Nov 10 2026, and several facts the design uses are from the source, not the docs. The version check takes the first `N.N.N` in `opencode --version` and compares it with 2.2.3, and its exact output was not confirmed. A newer release may rename a hook or change the config order. The canary and the gate checks fail closed when that happens, but they cannot catch a change that keeps the names and loosens the behaviour.
+
+### 188. Muse Spark Open: the local server is trusted as it is
+
+umwayi checks that `base_url` is a loopback or private address, not what is behind it. It does not check that the served model really is Muse Spark Open. Plain `http` to a private address sends prompts and code across the owner's network unencrypted (MS7). The licence was read only through summaries; the owner reads `LICENSE.md` before the notice is added (MS4).
+
+### 189. Muse Spark Open: free means local only, on large hardware
+
+No free hosted route was confirmed on Nov 9 and none was looked for again on Nov 11. The local route needs about 300 GB of memory or more. The V2 field names for tool calls and settings on a custom provider are not confirmed, so the route stays refused until a real install confirms them (10.52).

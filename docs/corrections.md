@@ -6,7 +6,7 @@ Layer 13 lets the owner correct umwayi without rewriting its record: a standing 
 
 ## Current state
 
-**Reversal is built (L13.2); the other parts are specified, not built.** The spec was merged in the L13.0 pull request (PR 40). `umwayi decision reopen` and `umwayi queue answer --revisit-if` exist; the other commands on this page do not yet, and no `rules.yaml` may use `review_by` before the Elections slice is merged (the current code calls a rules file with an unknown field malformed, so every check would give Ask me first). Requirements: [13.R1 to 13.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 13](../.kiro/specs/umwayi-os/design.md), tasks: [L13.0 to L13.6](../.kiro/specs/umwayi-os/tasks.md).
+**Elections (L13.1) and Reversal (L13.2) are built. Courts and the rules change log are specified, not built.** The spec is in the L13.0 pull request (PR 40). The commands of the parts not built yet do not exist. Requirements: [13.R1 to 13.R15](../.kiro/specs/umwayi-os/requirements.md), design: [Layer 13](../.kiro/specs/umwayi-os/design.md), tasks: [L13.0 to L13.6](../.kiro/specs/umwayi-os/tasks.md).
 
 The parts are built in this order, each one shipping alone. The owner stops the build where Dec 3 finds us, and the last day a slice can be merged is Nov 28.
 
@@ -17,13 +17,13 @@ The parts are built in this order, each one shipping alone. The owner stops the 
 - Any input that is missing, malformed or unreadable gives Ask me first, or a refusal with nothing changed.
 - Every change is one logbook entry. No part edits, deletes or marks an existing entry.
 
-### Elections (L13.1)
+### Elections (L13.1, built)
 
-- A Yes rule may carry `review_by: YYYY-MM-DD`. The rule is in force through that day. From the next day it counts as an Ask me first rule for every check. The file is not edited.
+- A Yes rule may carry `review_by: YYYY-MM-DD`. The rule is in force through that day. From the next day it counts as an Ask me first rule for every check, in every caller of the rules. The file is not edited. `review_by` is allowed on Yes rules only; on a No rule, an Ask rule or with a date that is not real, `rules.yaml` is malformed and every check gives Ask me first. Do not write `review_by` into a rules file before the version that has this slice is installed.
 - The date of a check is the latest of the system date, `--date` and the newest date in the logbook, so a clock set back does not bring a rule back.
-- The fallback is logged in the check's own logbook entry, with the rule id and its date.
-- `umwayi rules due [--within DAYS]` lists the rules that lapsed and the ones due soon. It changes nothing. It exits 0 when no rule lapsed and 3 when one did.
-- `review_by` is not allowed on a No rule. A rule without it never lapses; that is the owner's choice.
+- The fallback is logged in the check's own logbook entry (`election fallbacks: report-yes (review_by 2026-11-20)`), printed as `Election fallbacks:` and put in the JSON as `election_fallbacks`. With no fallback the entry, the JSON and the text are the same bytes as before.
+- `umwayi rules due [--within DAYS] [--date D]` lists the rules that lapsed, the ones due soon and any date more than 366 days ahead (`far`). It changes nothing. It exits 0 when no rule lapsed, 3 when one did or `rules.yaml` cannot be read, 64 for a bad argument. Details and an example: [rules.md](rules.md).
+- A rule without `review_by` never lapses; that is the owner's choice. There is no queue item for a lapsed rule: `rules due` is the list, and a scheduled job can run it and notice exit 3.
 
 ### Reversal (L13.2, built)
 
@@ -53,7 +53,7 @@ umwayi queue answer Q-0007 --answer TEXT --revisit-if TEXT|none [--date D]
 | --- | --- | --- |
 | the build of a slice | an acceptance test or a planted fault fails, or it is not merged by Nov 28 | the slice is not merged; it stays specified, not built |
 | the layer | the owner says stop, or Dec 3 | the slices before it stay |
-| an election | a rule without `review_by` never lapses | the owner adds the date |
+| an election | a rule without `review_by` never lapses | the owner adds the date (built) |
 | a reopen | it is a question, not a change | the owner answers |
 | a petition | a limit is reached | the command refuses |
 
@@ -61,7 +61,7 @@ umwayi queue answer Q-0007 --answer TEXT --revisit-if TEXT|none [--date D]
 
 The owner wants umwayi to correct itself and to be safe. Each way to correct something is also a way to be wrong: a date can be set too far ahead, a reopen can be forgotten, a petition can be a bad idea, a score can be built on careless approvals. umwayi makes each state visible and dated, and falls back to Ask me first when it is not sure. It does not make any state perfect, and nothing in these pages says it does.
 
-Known limits of this layer are numbered from 160 in [KNOWN-LIMITS.md](KNOWN-LIMITS.md) when each slice is built.
+Known limits of this layer are numbered from 160 in [KNOWN-LIMITS.md](KNOWN-LIMITS.md) when each slice is built. Elections added 160 and 161.
 
 ## Decisions log
 
@@ -70,6 +70,7 @@ Newest first. Each row names where it was decided.
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-11 | Reversal built (L13.2) with the proposals of L13-Q1 (a new row, the old one untouched), L13-Q2 (the revisit text in the answer entry) and L13-Q17 (the hash chain is needed) | The L13.2 pull request; the questions are open and the build uses their proposals. |
+| 2026-11-11 | L13.1 built with the proposals of L13-Q9 (`rules due` exits 3 when a rule lapsed), L13-Q10 (a date more than 366 days ahead is listed as `far` and still in force), L13-Q14 (a standing approval is a Yes rule), L13-Q15 (no queue item for a lapsed rule) and L13-Q16 (a lapsed Yes beside a fresh Yes gives Ask me first) | The spec says to use the proposal while a question is open. |
 | 2026-11-11 | Build the four correction mechanisms and the graded autonomy score in order (elections, reversal, courts, honest tension, graded autonomy); stop where Dec 3 finds us; each slice ships alone | The owner, Nov 11. |
 | 2026-11-11 | A reopen writes a new logbook entry that states it is a reopen and links the old entry by its hash; the old entry is never changed or marked; each decision records what would change my mind | The owner, Nov 11. |
 | 2026-11-11 | A petition becomes a queue item and never changes the verdict; rule changes are logged before use | The owner, Nov 11. |
@@ -82,6 +83,6 @@ L13-Q1 to L13-Q18 are open, each with a proposed answer in [design.md](../.kiro/
 
 - L13-Q1: a reopen adds a new row and leaves the old row as it was.
 - L13-Q2: the revisit text is stored in the logbook entry, not in a new `queue.md` column.
-- L13-Q9, L13-Q10, L13-Q15, L13-Q16: the exit codes of `rules due`, how far ahead `review_by` may be, no queue item for a lapsed rule, and a lapsed Yes beside a fresh Yes gives Ask me first.
+- L13-Q9, L13-Q10, L13-Q15, L13-Q16: the exit codes of `rules due`, how far ahead `review_by` may be, no queue item for a lapsed rule, and a lapsed Yes beside a fresh Yes gives Ask me first. Built with the proposals (see the Decisions log); still open for the owner to change.
 - L13-Q11, L13-Q12: a weakened rule is logged and used at once; the petition limits and a free text reason.
 - L13-Q14, L13-Q17: a standing approval is a Yes rule; reopen needs the hash chain.

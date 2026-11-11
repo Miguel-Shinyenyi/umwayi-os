@@ -11,15 +11,15 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | part | state | doc |
 | --- | --- | --- |
 | Layers 1 to 8 (memory, rules, queue, archive, logbook, automation, helpers, workflows) | built | [architecture](docs/architecture.md) |
-| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) | built; 9.10 open | [adapters](docs/adapters.md) |
-| Layer 10 front door for agents | built; the owner's real runs (10.21, 10.31) not done | [agent front door](docs/agent-front-door.md) |
+| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) | built | [adapters](docs/adapters.md) |
+| Layer 10 front door for agents | built; the owner's real runs (10.21, 10.31) not done; part 8 (OpenCode) specified, not built | [agent front door](docs/agent-front-door.md) |
 | Layer 11 scheduled runs | built; the owner's real check (11.6) not done | [scheduled runs](docs/scheduled-runs.md) |
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
 | Whole-system test (S.1) | built | [testing](docs/testing.md) |
 | Layer 12 web interface (the view) | `umwayi view snapshot` built (UI.2); the page is in progress | [interface](docs/interface.md) |
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
-| Layer 13 correction and graded autonomy | spec merged; Reversal built (L13.2), the other parts specified, not built | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
+| Layer 13 correction and graded autonomy | slices 1 (elections: `review_by` and `umwayi rules due`) and 2 (reversal: `umwayi decision reopen`, `--revisit-if`) built; the other slices specified, not built | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 
