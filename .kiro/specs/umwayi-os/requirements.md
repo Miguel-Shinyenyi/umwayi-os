@@ -496,11 +496,11 @@ Acceptance criteria:
    | `ollama`, `lmstudio`, `vllm` | a local server on its default loopback port | the provider ID | the server running |
    | `openai` | ChatGPT Plus or Pro sign-in | `openai#*` only, never the bare `openai` (an environment key) | `opencode auth login` by the owner beforehand |
    | `github-copilot` | GitHub Copilot sign-in | `github-copilot#*` only | `opencode auth login` by the owner beforehand |
-   | OpenCode Go | the Go subscription | refused until its provider ID and integration resource are confirmed (10.42) | the Go sign-in |
+   | OpenCode Go | the Go subscription | refused: 10.42 found the provider ID `opencode-go` in the binary, and an integration that looks shared with Console credits; not seen with a sign-in (OC13) | the Go sign-in |
 
-   Console credits, provider API keys and every other provider are refused with exit 2 and a line that says pay as you go is not offered (it waits for the budget governor). For `ollama`, `lmstudio` and `vllm` the provider entry names the documented default loopback URL and nothing else.
+   Console credits, provider API keys and every other provider are refused with exit 2 and a line that says pay as you go is not offered (it waits for the budget governor). For `ollama`, `lmstudio` and `vllm` the provider entry is `settings.baseURL` with the documented default loopback URL and nothing else. In particular it has no `models` entry, which breaks the route (10.42).
 7. **The first gate: the plugin** (OC1 as proposed, with the V2 API). `adapters/opencode/plugin/index.js` is plain JavaScript with a default export `{id: "umwayi.gate", setup}` and no import other than `node:` built-ins. Its options, set only by umwayi in the inline config, are the hook command (an argv list), the canary file and the canary token. In `setup` it registers:
-   - `ctx.tool.hook("execute.before")`: for every tool call it runs the layer 9 generic adapter (`adapters/stdio/hook.py --root ROOT --platform opencode`) in exec form with `{"tool_name", "tool_input"}` on stdin and a timeout of 10 s. Exit 0 (Yes): the call goes on. Exit 3 (Ask me first): the call goes on to the permission request (item 9) only when the tool is one OpenCode asks permission for (a fixed list in the plugin); for any other tool it throws. Exit 2, any other code, a timeout, a start error or any exception: it throws, so the call does not run.
+   - `ctx.tool.hook("execute.before")`: for every tool call it runs the layer 9 generic adapter (`adapters/stdio/hook.py --root ROOT --platform opencode`) in exec form with `{"tool_name", "tool_input"}` on stdin and a timeout of 10 s. Exit 0 (Yes): the call goes on. Exit 3 (Ask me first): the call goes on to the permission request (item 9) only when the tool is one OpenCode asks permission for. That is a fixed list in the plugin: `read`, `glob`, `grep`, `write`, `edit`, `shell`, `webfetch`, `question` and `subagent`, the tools seen asking on 2.2.7 (10.42). For any other tool it throws, including `execute` (Code Mode) and the Code Mode tools named `opencode_*` (OC15). Exit 2, any other code, a timeout, a start error or any exception: it throws, so the call does not run.
    - `ctx.permission.hook("evaluate")`: an `allow` becomes `ask`; `ask` and `deny` stay. So a permission request reaches umwayi even if the `ask` rule of item 5 is lost.
    - `ctx.event.subscribe` for `session.created`: it writes the canary token to the canary file, once, with `O_EXCL`.
    - The plugin never reads or writes anything else, opens no network connection and prints nothing to stdout.
@@ -525,7 +525,7 @@ Acceptance criteria:
    - the chat end to end: canary seen and not seen, a wrong token, the model compare, permission answers for each verdict, a child-session request, `always` never chosen, `auth_required`;
    - planted faults and mutation checks with counts in the pull request.
    The plugin tests need `node` on PATH. Without it they fail with a message, they do not skip.
-15. **Known limits** are in `docs/KNOWN-LIMITS.md` items 180 to 187, written with the spec and made true to the build in 10.51.
+15. **Known limits** are in `docs/KNOWN-LIMITS.md` items 180 to 187 and 190 (190 from 10.42), written with the spec and made true to the build in 10.51.
 
 ### 10.R14 Muse Spark Open as an OpenCode model (spec only, written Nov 11 (tasks.md 10.40); built after OpenCode and not before Dec 3 (MS5))
 

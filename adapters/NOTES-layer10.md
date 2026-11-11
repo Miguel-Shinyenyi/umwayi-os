@@ -863,6 +863,235 @@ Read on Nov 11 2026 for task 10.41, the five facts tasks.md asked for first. Not
 - The provider ID of OpenCode Go in a policy, and the `integration.use` resource of a saved API-key account compared with a ChatGPT sign-in (both are `openai`).
 - Everything here on a real install: no OpenCode was run. The owner's real check (tasks.md 10.51) records it.
 
+Most of these were checked on a real install the same day (task 10.42); see the next section.
+
+## OpenCode 2.2.7 on a real install (task 10.42, run Nov 11 2026)
+
+Run on Nov 11 2026 between 10:57 and 11:10 UTC for task 10.42. Nothing here is umwayi code, and umwayi installed nothing: the probes below are throwaway files outside the repository, deleted afterwards.
+
+### Where it ran
+
+- **A throwaway sandbox, not the owner's machine:** a Linux x86_64 container with open internet, Node v22.23.4, npm 11.4.2, Python 3.11. Everything lived in one folder outside the repository (`/projects/sandbox/.oc-sbx`), with `HOME` and the four `XDG_*` folders pointing inside it, and was removed at the end.
+- **Every OpenCode command** ran with `env -i` and only `HOME`, `PATH=/usr/bin:/bin`, `LANG`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME` set (all inside the folder), plus `OPENCODE_CONFIG_CONTENT` where a run needed it. No provider key, no account and no sign-in were used.
+- **The model was a fake:** a small Python OpenAI-compatible server on `127.0.0.1` that logged every request and answered with a scripted tool call or text. No hosted model was called. A custom provider pointed at it (`"package": "@opencode/ai/providers/openai-compatible"`, `settings.baseURL`).
+- **The ACP client was a throwaway Python script.** It started `opencode acp` in the work folder, sent `initialize` (`clientCapabilities: {}`), `session/new` and one `session/prompt`, and answered every permission request with `once`. It logged every message with its time.
+- **The plugin was a throwaway probe**, `probe/plugin/index.js`, with `node:` imports only. It logged `setup`, one `spawnSync`, one `O_EXCL` file write, every `execute.before`, every `evaluate`, and every `session.created`.
+
+### The install
+
+```
+$ npm view @opencode/cli dist-tags --json
+{ "reserved": "0.0.0-reserved", "beta": "0.0.0-beta-19507", "latest": "2.2.7", "dev": "0.0.0-dev-1169" }
+$ npm view @opencode/cli versions --json      (the last 2.2.x entries)
+"2.2.5" "2.2.6" "2.2.7"
+$ HOME=$S/home npm install --prefix $S/prefix --ignore-scripts --no-audit --no-fund @opencode/cli@2.2.7
+added 13 packages in 7s                          (exit 0)
+```
+
+- `--ignore-scripts` worked. With it, `bin/opencode.exe` is a 229-byte shell placeholder that prints "@opencode/cli's postinstall script was not run." and exits 1.
+- The postinstall script (`postinstall.mjs`) only picks the platform package and copies its binary into `bin/`, so it was not run. The platform binary was run directly: `node_modules/@opencode/cli-linux-x64/bin/opencode`, 258848944 bytes, SHA-256 `589253d36810f21217edd51545cd435b328cdc3cf4f451fbe0cce6f88afcf5e1`, from `https://registry.npmjs.org/@opencode/cli-linux-x64/-/cli-linux-x64-2.2.7.tgz`.
+
+### 1. `opencode --version`
+
+```
+$ env -i HOME=... XDG_...=... PATH=/usr/bin:/bin opencode --version
+opencode v2.2.7                                  (exit 0)
+$ ... opencode --version | od -c
+o p e n c o d e   v 2 . 2 . 7 \n
+```
+
+One line, `opencode v` and the version, then a newline. It opened no server: no process was left, and no file was written for it.
+
+### 2. A plugin named only in `OPENCODE_CONFIG_CONTENT`
+
+The inline config of the first run (`cfg1.json`, passed as the bytes of `OPENCODE_CONFIG_CONTENT`):
+
+```json
+{"permissions":[{"action":"*","resource":"*","effect":"ask"}],
+ "policies":[{"action":"provider.use","resource":"*","effect":"deny"},{"action":"provider.use","resource":"probe","effect":"allow"},
+             {"action":"integration.use","resource":"*","effect":"deny"},{"action":"integration.use","resource":"probe","effect":"allow"}],
+ "model":"probe/probe-model",
+ "providers":{"probe":{"package":"@opencode/ai/providers/openai-compatible","settings":{"baseURL":"http://127.0.0.1:18001/v1"},
+                      "models":{"probe-model":{"capabilities":{"tools":true}}}}},
+ "plugins":[{"package":"/projects/sandbox/.oc-sbx/probe/plugin","options":{"canary":"/projects/sandbox/.oc-sbx/probe/canary","token":"T","block":["glob"]}}]}
+```
+
+Command: `python3 acp_probe.py cfg1.json`, which ran `opencode acp` with that environment. The plugin log:
+
+```
+{"ev":"setup","options":{"canary":".../probe/canary","token":"T","block":["glob"]},"version":"2.2.7","runtime":"bun 1.4.4"}
+{"ev":"spawnSync","status":3,"error":null,"stdout":"spawn-ok\n"}
+{"ev":"fs-excl-ok"}
+{"ev":"session.created","keys":["id","created","type","durable","location","data"],"type":"session.created"}
+```
+
+- **Confirmed:** a plugin directory named only in the inline config loads, and its `options` arrive unchanged in `ctx.options`.
+- **The runtime is Bun 1.4.4**, inside the binary. `node:child_process` `spawnSync` works: `/bin/sh -c "echo spawn-ok; exit 3"` returned status 3 and its stdout. `node:fs` `openSync` with `O_WRONLY | O_CREAT | O_EXCL` and mode `0o600` works; the file was created `-rw-------`.
+- **`setup` runs at the first `session/new`,** not at the start of the process. It ran about 0.5 s after `initialize` was answered.
+- **Throwing in `execute.before` stops the call** (run 3, `"block":["glob"]`). The tool call ended `failed` with the thrown text, `probe: blocked`, as its content, and no permission request was sent for it. The model saw that text.
+- The inline config was parsed with no error on stderr (`--print-logs` was not used; stderr was empty).
+
+### 3. When `session.created` arrives
+
+Times from the same run (Unix seconds, from the client's log and the plugin's log):
+
+```
+out initialize            1794394746.462
+in  answer to initialize  1794394746.817
+out session/new           1794394746.817
+plugin setup              1794394747.313
+plugin session.created    1794394747.438
+in  answer to session/new 1794394747.440
+```
+
+`session.created` reached the plugin 2 ms **before** the client got the answer to `session/new`. The canary is written before umwayi could send a first prompt. The 30 s wait of the design is far more than needed; it stays as the limit.
+
+### 4. Which tools ask permission
+
+Run 2 (`"say hi"`, the fake answers text) logged the tools OpenCode sent the model, with their required parameters:
+
+```
+edit      ['path', 'oldString', 'newString']
+glob      ['pattern']
+grep      ['pattern']
+question  ['questions']
+read      ['path']
+shell     ['command']
+skill     ['id']
+subagent  ['agent', 'description', 'prompt']
+webfetch  ['url']
+write     ['path', 'content']
+execute   ['code']
+```
+
+Run 3 had the fake call each tool once, with the `ask` rule for everything, and every request answered `once`. The plugin's `glob` block was on. Results:
+
+| tool | `execute.before` | `evaluate` (action, resources) | permission request | result |
+| --- | --- | --- | --- | --- |
+| `read` | yes | `read`, `["a.txt"]` | yes | completed |
+| `glob` | yes | (blocked by the probe first) | no | failed: `probe: blocked` |
+| `grep` | yes | `grep`, `["hello"]` | yes | completed |
+| `write` | yes | `edit`, `["b.txt"]` | yes | completed |
+| `edit` | yes | `edit`, `["a.txt"]` | yes | completed |
+| `shell` | yes | `shell`, `["echo hi > c.txt"]` | yes | completed |
+| `webfetch` | yes | `webfetch`, `["http://127.0.0.1:18001/page"]` | yes | completed |
+| `skill` (an unknown id) | yes | none | no | failed: `Unable to load skill nope` |
+| `execute` (`1+1`) | yes | none | **no** | completed: `2` |
+| `question` | yes | `question`, `["*"]` | yes | failed: the client cannot show questions |
+| `subagent` | yes | `subagent`, `["general"]` | yes | completed |
+| `read` in the child session | yes | `read`, `["a.txt"]` | yes | completed |
+
+Run 4 had `glob` unblocked, and `execute` with code that calls `fetch` and an inner tool:
+
+```
+{"tool":"execute","args":{"code":"const r = await fetch('http://127.0.0.1:18001/egress-from-execute'); const w = await tools.opencode.worktree_list(); return [r.status, JSON.stringify(w)]"}}
+```
+
+```
+PLUGIN execute.before glob   -> evaluate glob ["*.txt"] -> PERM glob search
+PLUGIN execute.before execute
+PLUGIN evaluate webfetch ["http://127.0.0.1:18001/egress-from-execute"]   -> PERM name "execute", kind "other", rawInput {"code": "..."}
+PLUGIN execute.before opencode_worktree_list   (no evaluate, no permission request)
+DONE   execute completed: [200, "{\"worktrees\":[]}"]
+fake model log: {"get": "/egress-from-execute"}
+```
+
+- **Asked (confirmed):** `read`, `glob`, `grep`, `write`, `edit`, `shell`, `webfetch`, `question`, `subagent`.
+- **Not asked by itself:** `execute`. This is Code Mode: JavaScript with `fetch` and the Code Mode tools (`tools.opencode.session_move`, `worktree_create`, `worktree_list`, `worktree_remove`, `list_mcp_resources`, `models` and others).
+  - A `fetch` inside it is checked as a `webfetch` permission, but the request carries the `execute` tool call: `name: "execute"`, `kind: "other"`, and the code as `rawInput`. The URL is not in the `toolCall`.
+  - Each inner tool goes through `execute.before` under its own name (`opencode_worktree_list`), and asks no permission.
+- **Not confirmed:** `skill` with a real skill (an unknown id failed before any check); `patch`, `list` and `websearch` were not offered in this setup.
+- **`tool_input` field names in `execute.before`:** `path` (not `filePath`), `command`, `pattern`, `url`, `code`, `agent`, `description`, `prompt`, `content`, `oldString`, `newString`. Through the stdio adapter they become `input_path`, `input_command` and so on.
+- **Resources in `evaluate` are relative to the work folder** (`a.txt`), while `rawInput` and `locations` hold absolute paths.
+
+### 5. The URL setting of a built-in local provider
+
+Run 5 used the built-in `vllm` provider with `"providers":{"vllm":{"settings":{"baseURL":"http://127.0.0.1:18002/v1"}}}`, `model: vllm/probe-model`, and the fake on port 18002. The fake's log:
+
+```
+{"get": "/health"}
+{"get": "/v1/models"}
+```
+
+- With a plain `{"data":[{"id":"probe-model"}]}` model list, `session/new` failed: `"Internal error: No models are available"`, `CatalogNotReady`.
+- With a vLLM-shaped list (`owned_by: "vllm"`, `max_model_len`), the whole turn worked. The chat completions went to port 18002 with `model: "probe-model"` and the full tool list.
+- Adding a `models` entry for `probe-model` under `vllm` made `session/new` succeed but the prompt fail: `"No model is available for session ..."`, `provider.no-route`.
+
+Run 6 did the same for `ollama` (port 18003) and `lmstudio` (port 18004):
+
+```
+ollama:   {"get": "/api/tags"}        then "No models are available" (the fake does not speak Ollama's list)
+lmstudio: {"get": "/api/v1/models"}   then a turn with "model": "openai/gpt-oss-20b"
+```
+
+- **Confirmed:** `providers.<id>.settings.baseURL` sets where `vllm`, `ollama` and `lmstudio` look. Discovery used the configured port for all three. For `ollama` and `lmstudio`, discovery drops the `/v1` path.
+- **A built-in local provider must not get a `models` entry:** with one, the route breaks.
+- **A model that is not found is replaced silently.** With `model: lmstudio/probe-model`, which the server did not list, OpenCode chose `lmstudio/openai/gpt-oss-20b` from its own catalogue. It reported that as `currentValue` of the `model` config option in the `session/new` answer, and sent that model ID to the server. No error was given.
+- A discovered vLLM model was sent tools. The Nov 9 note says discovered vLLM models start with tools disabled; that was not seen on 2.2.7.
+
+### 6. OpenCode Go
+
+- **Not checked on the wire:** that needs a Go sign-in, and none was used.
+- `opencode models --standalone` with no account listed 12 models, all `opencode/...` free models (`opencode/big-pickle`, `opencode/glm-5.3-flash-free` and others). `opencode auth list --standalone` printed `No authenticated integrations`.
+- **From the 2.2.7 binary's own code** (`strings` on the binary, not documentation):
+  - the provider ID is `opencode-go`;
+  - `opencode auth login` sorts integrations with the order `opencode-go`, `opencode`, `openai`, `github-copilot`, `anthropic`, `google`;
+  - a check reads `integrationID==="opencode"&&t.id!=="opencode-go"`, which suggests that Go's provider comes through the `opencode` integration, the same as the Console. If so, its `integration.use` resource is `opencode#ACCOUNT`, the same as Console pay-as-you-go credits, and only `provider.use` can tell them apart.
+  - **Not confirmed.**
+
+### 7. Permission requests on the wire
+
+From run 3. The `content` diffs are shortened to their types:
+
+```
+read:     {"toolCallId":"call_0","name":"read","title":"/.../work/a.txt","kind":"read","status":"pending",
+           "locations":[{"path":"/.../work/a.txt"}],"rawInput":{"path":"/.../work/a.txt"}}
+write:    {"toolCallId":"call_3","name":"write","title":"/.../work/b.txt","kind":"edit","status":"pending",
+           "locations":[{"path":"/.../work/b.txt"}],"rawInput":{"path":"/.../work/b.txt","content":"new"}}   content: ["diff"]
+edit:     {"toolCallId":"call_4","name":"edit","title":"/.../work/a.txt","kind":"edit","status":"pending",
+           "locations":[{"path":"/.../work/a.txt"}],"rawInput":{"path":"...","oldString":"hello","newString":"bye"}}   content: ["diff"]
+shell:    {"toolCallId":"call_5","name":"shell","title":"echo hi > c.txt","kind":"execute","status":"pending",
+           "locations":[{"path":"/.../work"}],"rawInput":{"command":"echo hi > c.txt","cwd":"/.../work"}}
+subagent: {"toolCallId":"call_10","name":"subagent","title":"subagent","kind":"think","status":"pending",
+           "locations":[],"rawInput":{"agent":"general","description":"look","prompt":"read a.txt"}}
+child:    {"toolCallId":"ses_e35bc5959fferrPLlDQh8JrdYK:call_11","name":"read","title":"look: /.../work/a.txt","kind":"read",
+           "status":"pending","locations":[{"path":"/.../work/a.txt"}],"rawInput":{"path":"/.../work/a.txt"},
+           "_meta":{"opencode/child-session":{"id":"ses_e35bc5959fferrPLlDQh8JrdYK","parentID":"ses_e35bc5bb8fferyD0KwIiAVi7V5","depth":1,"title":"look"}}}
+options every time: ["once", "always", "reject"]
+```
+
+- **Confirmed:** the fields match the Nov 11 source reading. `rawInput` was filled on every request seen. `shell` gets `cwd` added.
+- **`kind` per tool:**
+
+  | tool | `kind` |
+  | --- | --- |
+  | `read` | `read` |
+  | `glob`, `grep` | `search` |
+  | `write`, `edit` | `edit` |
+  | `shell` | `execute` |
+  | `webfetch` | `fetch` |
+  | `question`, and `execute` (for a `fetch` inside it) | `other` |
+  | `subagent` | `think` |
+
+- `write` asks under the permission action `edit`.
+- In a child session, the child request has the child session prefix on the ID, the child's title in front of the title, and the `_meta` key.
+
+### Also seen
+
+- **`opencode debug config --standalone` shows the inline config.** With `OPENCODE_CONFIG_CONTENT='{"model":"opencode/big-pickle","policies":[...]}'` it printed an array: the global config directory as `{"type":"directory","path":...}`, then the inline content as `{"type":"document","info":{...}}` with no `path`. The model was shown as `{"providerID":"opencode","model":"big-pickle"}`. Exit 0.
+- **What OpenCode wrote in `HOME`:**
+  - an empty `~/.config/opencode/` (no file in it);
+  - `~/.local/share/opencode/opencode.db`, a log, a `repos` folder and a shell output folder;
+  - `~/.cache/opencode/bin/rg`: it fetched `ripgrep` from the network on first use.
+- **No OpenCode process was left** after each run. `opencode acp` exited 0 when stdin closed, and the `--standalone` commands left nothing running.
+
+### What 10.42 could not confirm
+
+- The Go route: the provider ID `opencode-go` comes only from the binary's code, and its integration resource and billing were not seen.
+- `skill` with a real skill, and whether `patch`, `list` and `websearch` ask (they were not offered).
+- The plugin's `evaluate` raising `allow` to `ask` when the config has no `ask` rule: the probe raised it, but every run had the `ask` rule as well.
+- Behaviour with a real model, a real sign-in, or on macOS or Windows. The owner's real check (tasks.md 10.51) covers the owner's own machine.
+
 ## Budget governor: Claude Code telemetry (B.10, the owner's capture)
 
 Built in PR 33. What the receiver expects, from design.md "Budget governor", Facts (read Nov 9 2026, [Claude Code, Monitoring](https://code.claude.com/docs/en/monitoring-usage)):
