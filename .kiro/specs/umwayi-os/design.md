@@ -2827,7 +2827,7 @@ The owner's decisions of Nov 11 are above and are not asked again. Each question
 5. **L13-Q5. Defaults for the thresholds.** None: every setting is required and `autonomy.example.yaml` carries suggested values (proposed: "owner defined" means no hidden default). Or defaults in the code.
 6. **L13-Q6. How outcomes are recorded.** With `umwayi autonomy record` (proposed: explicit, one chained entry each). Or as a flag on `queue answer` (`--outcome approved`), which is easier to use and is a later addition.
 7. **L13-Q7. The weights.** Only `approved` is a success; `edited` and `rejected` are one failure each; a revert is `revert_weight` (3) failures on top of its approval (proposed, cautious). Or an edit counts as half.
-8. **L13-Q8. Confidence and suggested thresholds.** z 2.58 (about 99 percent), `min_decisions` 30, `min_lower_bound` 850 per mille, so a class needs about 60 clean approvals to pass (proposed: cautious). Or z 1.96, which needs fewer.
+8. **L13-Q8. Confidence and suggested thresholds.** z 2.58 (about 99 percent), `min_decisions` 30, `min_lower_bound` 850 per mille, so a class needs 38 clean approvals, or 60 with two failures among them, to pass (proposed: cautious). Or z 1.96, which needs fewer.
 9. **L13-Q9. `rules due` exit codes.** 3 when a rule lapsed (proposed: a scheduled job can notice), else 0. Or always 0.
 10. **L13-Q10. How far ahead `review_by` may be.** No limit, but a date more than 366 days ahead is listed as `far` (proposed). Or a date that far makes the rules malformed.
 11. **L13-Q11. A weakened rule.** Logged before use and used at once (proposed, as the owner decided for Courts). Or held at Ask me first until the owner runs `umwayi rules accept --by NAME`, which is a stricter design for after Dec 3.
