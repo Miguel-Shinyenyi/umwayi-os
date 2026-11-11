@@ -69,9 +69,9 @@ look and the labels) is run by hand with a headless browser kept outside the rep
 build.mjs          bundles src/ into dist/index.html and writes dist/build.json
 src/index.html     the page template (labels and the list view are made from stations/meta.js)
 src/style.css      the palette, Calm mode, reduced motion
-src/main.js        entry; falls back to the list view when the 3D view cannot start; starts the home content
+src/main.js        entry; picks the tier (List or Standard) from the device and the switch; List when the 3D view cannot start
 src/app.js         joins the world, camera, labels and panel; decides when to draw
-src/engine/        ease, tween (motion), follow, the on demand loop, settings, poses, camera rig, stage, detail, placement
+src/engine/        ease, tween (motion), follow, the on demand loop, settings, poses, camera rig, stage, detail, placement, tier (the tier choice), env (the device hints), flow (the water clock)
 src/world/         height (the ground), river, layout (the fixed table and the position function), shots, sky and Mount Kenya, terrain, water, plants, lantern (shepherd), trails, palette, noise, glsl
 src/stations/      meta.js (the words), kit.js (shared parts), one module per natural feature, index.js
 src/data/          sample.js (made up counts), counts.js (counts to text), home.js (the home content)
