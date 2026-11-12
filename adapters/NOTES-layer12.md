@@ -153,3 +153,11 @@ The High tier of the public site uses five photographs from Poly Haven, at 1k (1
 The CC0 deed is at [creativecommons.org/publicdomain/zero/1.0](https://creativecommons.org/publicdomain/zero/1.0/). The grass and the rock photographs are not of Laikipia; they were chosen for colour and grain, and the High shader tints them towards the Standard palette. Not checked: whether an asset was ever under another licence before Poly Haven published it (the page and the licence page are the only sources). Poly Haven's API has its own terms; it was read by hand for these five assets, and nothing in the repo calls it.
 
 Content was rephrased for compliance with licensing restrictions.
+
+## Facts found while building W1, mobile first (Nov 12 2026)
+
+- **The defect, measured on main (6ca291b), `ui/dist/index.html`, headless Chromium 158 with a mobile viewport:** the fixed top bar left the title at 52 pixels from the top of the page, and the button row sat from 37 to 70 pixels (to 89 at 360 wide, where "Owner checks" and "Calm mode" wrapped onto two lines), so the buttons covered the title (at 360 by 640 the List, Standard and Owner checks buttons overlapped it by up to 77 by 43 pixels). `body` has `overflow-x: hidden`, so the page never reported a sideways scroll; the right edge was found by the position of each box, not by `scrollWidth`.
+- **How the check measures:** line boxes of text (`Range.getClientRects`) and the border boxes of buttons, fields and links, cut to what shows inside parents that scroll or hide overflow, compared two by two; a box that holds another (a button and its label) is skipped. A pointer-events none name tag is not a touch target.
+- **Chromium on this machine:** `/usr/local/bin/chrome` is a link that crashes on start here (crashpad needs `--database`); the Playwright headless shell (`npx playwright-core install chromium-headless-shell`) works with `--headless --no-sandbox`. The driver does not look for a bare `chrome` for that reason.
+- **`:has()`** is in Chrome 105, Safari 15.4 and Firefox 121, which made it work in all major engines ([web.dev, Dec 2023](https://web.dev/blog/web-platform-12-2023)); used to hide the "sample" tag behind an open panel.
+- **Not run:** a real phone, a real touch, a real GPU, Safari or Firefox, a screen reader.

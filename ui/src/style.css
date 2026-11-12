@@ -1,6 +1,9 @@
 /* The nightwatch palette. Dark, low brightness. Red, mint and amber mean something only at Rules, Kill switch and Logbook. */
 :root {
   --peek: 150px; /* the top of the status strip shows below the first screen's picture */
+  --bar-h: 0px; /* the height of the top bar when it takes room in the page (phones and touch screens, below) */
+  --intro-top: 70px; /* the title starts below the fixed top bar; in the flow it starts near the top of the picture */
+  --panel-top: 76px;
   --base: #0e1310;
   --ink: #eee8db;
   --muted: #b3ada0;
@@ -44,11 +47,11 @@ html[data-calm="1"] :focus-visible { outline-color: #d3a370; }
 .btn.small { padding: 5px 11px; font-size: 12.5px; }
 .btn[hidden] { display: none; }
 
-#hero { position: relative; height: calc(100vh - var(--peek)); height: calc(100svh - var(--peek)); min-height: 460px; overflow: hidden; }
+#hero { position: relative; height: calc(100vh - var(--bar-h) - var(--peek)); height: calc(100svh - var(--bar-h) - var(--peek)); min-height: 460px; overflow: hidden; }
 #scene { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
 #scene.is-over { cursor: pointer; }
 /* Tier 1, List: the title, the promise, the status strip, the list and the rest; no picture. Also what shows with no script. */
-html[data-tier="list"] #hero { height: auto; min-height: 0; padding: 70px 0 8px; }
+html[data-tier="list"] #hero { height: auto; min-height: 0; padding: var(--intro-top) 0 8px; }
 html[data-tier="list"] #hero .intro { position: static; padding: 0 32px; max-width: 760px; }
 html[data-tier="list"] :is(#scene, #labels, #hint, #panel, #sample-tag, #calm-toggle) { display: none; }
 html:not([data-tier="list"]) #list-view { display: none; }
@@ -58,7 +61,7 @@ html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status, #
 .tiers .btn:first-child { border-radius: 999px 0 0 999px; }
 .tiers .btn:last-child { border-radius: 0 999px 999px 0; margin-left: -1px; }
 .tiers .btn[aria-pressed="true"] { background: rgba(60, 52, 40, 0.8); }
-.intro { position: absolute; left: 32px; top: 70px; max-width: min(520px, 62vw); pointer-events: none; }
+.intro { position: absolute; left: 32px; top: var(--intro-top); max-width: min(520px, 62vw); pointer-events: none; }
 .intro h1 { margin: 0 0 8px; font: 400 clamp(34px, 5vw, 60px)/1.02 var(--serif); letter-spacing: 0.005em; text-shadow: 0 2px 24px rgba(5, 8, 12, 0.8); }
 .promise { margin: 0; font-size: clamp(14px, 1.6vw, 17px); color: var(--ink); text-shadow: 0 1px 14px rgba(5, 8, 12, 0.9); }
 #labels { position: absolute; inset: 0; pointer-events: none; }
@@ -67,13 +70,14 @@ html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status, #
 .label:focus-visible, .label.is-hover, .label.is-selected { opacity: 1; }
 .label.is-selected { border-color: var(--amber); }
 .label[data-away] { visibility: hidden; }
+.label[data-pending] { opacity: 0; } /* the selected name appears once the frame has placed it (ui/src/ui/labels.js) */
 #hint, #sample-tag { position: absolute; margin: 0; font-size: 12.5px; color: var(--muted); pointer-events: none; }
 #hint { left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--glass); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
 #sample-tag { left: 22px; bottom: 22px; letter-spacing: 0.1em; text-transform: uppercase; font-size: 11px; }
 #hint[data-away] { visibility: hidden; }
 #hint .narrow { display: none; }
 
-#panel { position: absolute; right: 24px; top: 76px; width: min(380px, calc(100% - 48px)); max-height: calc(100% - 110px); overflow: auto; background: var(--glass); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px 18px; visibility: hidden; opacity: 0; transform: translateX(12px); transition: opacity 0.22s ease-out, transform 0.22s ease-out, visibility 0s linear 0.22s; z-index: 5; }
+#panel { position: absolute; right: 24px; top: var(--panel-top); width: min(380px, calc(100% - 48px)); max-height: calc(100% - 110px); overflow: auto; background: var(--glass); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px 18px; visibility: hidden; opacity: 0; transform: translateX(12px); transition: opacity 0.22s ease-out, transform 0.22s ease-out, visibility 0s linear 0.22s; z-index: 5; }
 #panel[data-open] { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
 #panel p { margin: 0 0 8px; }
 #panel h2 { margin: 0 0 10px; font: 400 26px/1.15 var(--serif); }
@@ -88,7 +92,7 @@ html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status, #
 
 #list-view h2 { margin: 0 0 4px; }
 #list-view .intro-text { margin: 0 0 20px; color: var(--muted); }
-#station-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); max-width: 1100px; }
+#station-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); max-width: 1100px; }
 #station-list li { background: var(--glass-solid); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
 #station-list h3 { margin: 0 0 2px; font: 400 20px/1.2 var(--serif); }
 #station-list p { margin: 0 0 6px; }
@@ -97,18 +101,53 @@ html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status, #
 #station-list code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: rgba(0, 0, 0, 0.35); border-radius: 6px; padding: 2px 7px; }
 #notice { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 7; margin: 0; background: var(--glass-solid); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 13.5px; max-width: calc(100vw - 32px); }
 
-@media (max-width: 700px) {
-  .bar { padding: 10px 14px; gap: 8px; flex-wrap: wrap; }
-  .mark { font-size: 19px; }
+/* W1, mobile first. Where the screen is a phone, a touch screen or a short window, the top bar takes its room in the page instead of
+   floating over it, so it can never sit on the title; every control is at least 44 pixels; and the first screen is sized from the bar.
+   A wide screen with a mouse keeps the floating bar and every size it had. */
+@media (max-width: 700px), (max-height: 520px), (pointer: coarse) {
+  :root { --bar-h: 64px; --intro-top: 16px; --panel-top: 12px; --peek: 96px; }
+  .bar { position: relative; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; background: var(--base); }
+  .bar::before { display: none; }
+  .actions { flex-wrap: wrap; justify-content: flex-end; }
+  .btn { min-height: 44px; min-width: 44px; padding: 6px 14px; font-size: 13.5px; }
   .tag { display: none; }
-  .btn { padding: 6px 11px; font-size: 12.5px; }
+  #hero .intro, #labels, #hint, #sample-tag { z-index: 2; }
+  html:not([data-tier="list"]) #hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 150px; z-index: 1; pointer-events: none; background: linear-gradient(to bottom, rgba(14, 19, 16, 0.7), rgba(14, 19, 16, 0)); }
   .label { padding: 3px 8px; font-size: 11.5px; }
-  #panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 46%; border-radius: 18px 18px 0 0; padding: 16px 18px 14px; transform: translateY(14px); }
-  #panel h2 { font-size: 22px; }
-  #hint { bottom: 14px; font-size: 12px; }
-  #sample-tag { left: 16px; bottom: 56px; }
   #hint .wide { display: none; }
   #hint .narrow { display: inline; }
+  html[data-tier="list"] #hero .intro { padding: 0 16px; }
+  .links a { display: inline-block; padding: 10px 0; }
+}
+@media (hover: none) and (pointer: coarse) { #hint .wide { display: none; } #hint .narrow { display: inline; } }
+/* a phone held upright: the bar is two rows (the name and the View switch; Owner checks and Calm mode), the picture is tall */
+@media (max-width: 599px) {
+  :root { --bar-h: 116px; --peek: 112px; }
+  .bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; }
+  .actions { display: contents; }
+  .mark { font-size: 19px; }
+  .tiers { justify-self: end; }
+  .bar .actions > #checks-open, .bar .actions > #calm-toggle { justify-self: stretch; }
+  html[data-tier="list"] #checks-open { grid-column: 1 / -1; }
+  #hero { min-height: max(440px, 120vw); }
+  .intro { max-width: calc(100vw - 32px); }
+  #hint { left: 16px; right: 16px; bottom: 14px; transform: none; max-width: none; white-space: normal; text-align: center; border-radius: 16px; }
+  #sample-tag { left: 18px; bottom: 76px; }
+  #hero:has(#panel[data-open]) #sample-tag { visibility: hidden; }
+}
+@media (max-width: 700px) {
+  #panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 46%; border-radius: 18px 18px 0 0; padding: 16px 18px 14px; transform: translateY(14px); overscroll-behavior: contain; }
+  #panel h2 { font-size: 22px; }
+}
+/* a phone on its side, or any short window: the picture is the screen below the bar, and the panel of a station is a card at the side */
+@media (max-height: 520px) {
+  :root { --peek: 0px; }
+  #hero { min-height: 280px; }
+  #hint { bottom: 10px; }
+  #sample-tag { left: 18px; bottom: 14px; }
+  .intro { max-width: calc(100% - min(360px, 48vw) - 56px); }
+  #panel { left: auto; right: 8px; top: 8px; bottom: 8px; width: min(360px, 48vw); max-height: none; border-radius: 18px; padding: 14px 16px; transform: translateX(12px); }
+  #hero:has(#panel[data-open]) #sample-tag { visibility: hidden; }
 }
 /* With reduced motion nothing slides or fades: panels and labels simply appear. */
 @media (prefers-reduced-motion: reduce) {
@@ -184,13 +223,20 @@ pre.cmd code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, mon
 .links [data-placeholder] .note { font-style: italic; }
 .foot { padding-bottom: 56px; }
 @media (max-width: 700px) {
-  .intro { left: 16px; top: 52px; max-width: calc(100vw - 32px); }
+  .intro { left: 16px; }
   .strip { grid-template-columns: repeat(2, 1fr); }
   .home { padding: 40px 16px 4px; }
   #status { padding-top: 14px; }
-  :root { --peek: 170px; }
   .status-head h2 { font-size: 23px; }
   .check { padding: 12px; }
   pre.cmd, .step-record, .check-warning { margin-left: 0; max-width: 100%; }
   .steps input[type="text"] { margin-left: 0; width: 100%; }
+}
+/* the owner checks panel on a touch screen: a tick box and a result field of 44 pixels, drawn smaller inside, and a readable field text (16 px, so a phone does not zoom in) */
+@media (max-width: 700px), (pointer: coarse) {
+  .step-head input[type="checkbox"] { appearance: none; -webkit-appearance: none; display: grid; place-content: center; width: 44px; height: 44px; margin: -10px -8px -10px -10px; background: none; border: 0; border-radius: 12px; cursor: pointer; }
+  .step-head input[type="checkbox"]::before { content: ""; width: 24px; height: 24px; box-sizing: border-box; border: 2px solid var(--field-line); border-radius: 7px; background: rgba(0, 0, 0, 0.28); }
+  .step-head input[type="checkbox"]:checked::before { background: var(--ink); border-color: var(--ink); box-shadow: inset 0 0 0 4px var(--base); }
+  .steps input[type="text"] { min-height: 44px; font-size: 16px; }
+  .checks-tools { gap: 8px; }
 }

@@ -65,7 +65,7 @@ export const MAP = [
   ['a value-looking result not warned', ['ui/test/notes.test.mjs: warning: an email address', 'ui/test/checksview.test.mjs: typing an email, a URL, a token or a hex string in a result shows a warning on that field; a plain exit code does not']],
   ['no text alternative for the picture', ['ui/test/access.test.mjs: the picture has a text alternative that says what it shows and where the list view is']],
   ['no language, title or landmark', ['ui/test/access.test.mjs: the page has a language, a title, a viewport and one main landmark, one banner and one footer']],
-  ['a tick box under 24 pixels', ['ui/test/access.test.mjs: every control is at least 24 by 24 CSS pixels (WCAG 2.2, 2.5.8): buttons, the tick boxes and the text fields']],
+  ['a tick box under 24 pixels', ['ui/test/access.test.mjs: every control is at least 24 by 24 CSS pixels (WCAG 2.2, 2.5.8) on a mouse screen and 44 by 44 on a phone or touch screen (W1)']],
   ['the focus ring removed', ["ui/test/access.test.mjs: a visible focus on everything: a 2px outline, and the only outline removed is the panel\\'s own, which has its own focus-visible"]],
   ['the placeholder left to the browser default', ['ui/test/contrast.test.mjs: UI.5: the placeholder of a result field is coloured on purpose (the browser default is too faint) and keeps 4.5 to 1']],
   ['a faint field border', ['ui/test/contrast.test.mjs: UI.5: the border of a result field and of the notes box keeps 3 to 1 against what is inside and what is around it (WCAG 1.4.11)']],
@@ -78,6 +78,9 @@ export const MAP = [
   ['the checks panel wider than a phone', ['ui/test/access.test.mjs: the owner checks panel fits a phone: its grid may shrink, long words wrap, a code block scrolls inside its own box']],
   ['the station panel not a bottom sheet on a phone', ['ui/test/access.test.mjs: the station panel is a bottom sheet on a phone: full width at the bottom, scrolls inside itself and leaves the picture its top half']],
   ['the top bar over the checks title', ['ui/test/access.test.mjs: the fixed top bar does not cover the title of the owner checks panel when it is scrolled into view']],
+  ['the mode buttons over the page title (W1)', ['ui/test/phone.test.mjs: the live view on a phone in portrait: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order', 'site/test/phone.test.mjs: the public site on a phone in portrait: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order']],
+  ['a row of buttons past the right edge, or a page that scrolls sideways (W1)', ['ui/test/phone.test.mjs: the live view on a phone in landscape: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order', 'site/test/phone.test.mjs: the public site on a phone in landscape: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order']],
+  ['the name of the selected feature over the station panel (W1)', ['ui/test/phone.test.mjs: the name of the selected feature moves out from under the station panel, beside a side card and above a bottom sheet']],
   ['the list view order changed', ['ui/test/placement.test.mjs: the default positions equal the table of the design']],
 ];
 
@@ -92,5 +95,5 @@ test('every test the map names exists', () => {
       py[file] = true;
     }
   }
-  assert.ok(MAP.length >= 25);
+  assert.ok(MAP.length >= 28);
 });
