@@ -436,6 +436,17 @@ class InitTests(ChatCase):
         self.assertEqual(self.started(), [])
         self.assertEqual(list(inside.iterdir()), [])
 
+    def test_a_folder_path_that_opencode_would_substitute_is_refused_and_nothing_is_started(self):
+        odd = self.tmp / "t{env:HOME}"  # OpenCode replaces {env:NAME} in its config, so umwayi refuses such a path
+        odd.mkdir()
+        self.spec()
+        r = self.run_chat("hello\n", extra={"TMPDIR": str(odd)})
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("{env:", r.stdout)
+        self.assertEqual(self.started(), [])
+        self.assertEqual(list(odd.iterdir()), [])
+        self.assertEqual(len(self.refusals()), 1)
+
     def test_a_failing_gate_check_makes_no_folder_and_starts_nothing(self):
         (self.deep / "opencode.json").write_text("{}", encoding="utf-8")
         self.spec()
@@ -510,6 +521,20 @@ class StopTests(ChatCase):
         code, out, _ = self.finish(p)
         self.assertEqual(code, 3, out)
         self.assertIn("The kill switch stopped agent o (exit 3).", out)
+        self.assert_agent_gone()
+        self.assert_nothing_left()
+
+    def test_quit_stops_a_command_left_by_a_clean_exit(self):
+        self.spec({"turns": [[{"spawn": True}, {"chunk": "started it"}]]})
+        r = self.run_chat("hello\n:quit\n")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assert_agent_gone()
+        self.assert_nothing_left()
+
+    def test_quit_stops_a_command_in_its_own_session_left_by_a_clean_exit(self):
+        self.spec({"turns": [[{"spawn_setsid": True}, {"chunk": "started it"}]]})
+        r = self.run_chat("hello\n:quit\n")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assert_agent_gone()
         self.assert_nothing_left()
 
