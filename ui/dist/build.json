@@ -4,7 +4,7 @@
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
     "src/app.js": "d6693cf58c7d3ac0a124d159796e0b113c7f7502f316fb1a1130c3ae98a71faa",
-    "src/boot.js": "40b822a0132516cd21dfa1c12e2bcad5f54120840b069034d0f7f571de960039",
+    "src/boot.js": "a661bb40c632432af70767733b67bc4594dfc5b59d9ad9a0e0ae07cbaa906a62",
     "src/data/checks.js": "53ac4f145740baf00144ce4097b660a1101959b2976f9ba33eec7df4291f5321",
     "src/data/counts.js": "f76b331dd5957d53a0dafc05cd8a29ffd5128804286c49c86d40998c7cd9a6fb",
     "src/data/home.js": "ecd32380a6108b7648174e24dd339912df071d2e68d3f0ff372897951756c622",
@@ -24,6 +24,13 @@
     "src/engine/settings.js": "59425bcb2a419c4403686b21231bfdbacec2d0ef416b18cf0610a848ad1e1891",
     "src/engine/stage.js": "35e1c999b7ff735213ec79d7e179e724ad5fec6f6864a841f905508da2d5ab33",
     "src/engine/tier.js": "0c874c72777d288dd606a47b083690bb2d61f8f75d799c2a410aa27f16eebe08",
+    "src/high/assets.js": "c85a88b2ce1006e4fb8ebac19c1c3722e613788596c5b0e9a89f318ec97ddf1c",
+    "src/high/build.js": "8d7141f4bd21c982f98f82749a4ee3b6a44a7f1755309ae239f90baed4732c76",
+    "src/high/figures.js": "4f309d305155479dec89e04fa78b05a2a4229a426dc0a77b14bdeb5594c4da8c",
+    "src/high/ground.js": "30b6db4e5c41a1beeeb364fc1406392d26f93d3846fb38b25504f89ad7ede9de",
+    "src/high/index.js": "33fe15cafcec4b813f43ddf6e2ec122dbd4e2b1de495b300f62a8050b5cc4c06",
+    "src/high/plants.js": "9aeac2d2dc0ece6e4b063e548467d7c497990e42fc728775904b31e4285ded4d",
+    "src/high/wildlife.js": "36cc32eb054a0ec3a7a80cf0f30067b84d6e2fcd8c02439855f8fed085848c65",
     "src/index.html": "27d3314b1238ca5334d6d91ecda8426d6c52b5849b56ae9a7e949be2d4fd00d8",
     "src/main.js": "94e514fcbee0df432364c0a563805fa9e5b426de52465a7d7464b707d99a942b",
     "src/scene.js": "032b124fca50a4a5715e6c3060643e0416b0e728a33b0d5d43ad425ef81806a8",
@@ -68,5 +75,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "a7348cb4fb0c574c827589c9a959e0c7e060c9eef1a32b3b756ef91642813aca"
+  "page": "5468c30bc5fb3c0e75191c9e00393318931d924b4beff3c5286a8494a4bf0e63"
 }

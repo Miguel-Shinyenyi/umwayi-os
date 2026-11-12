@@ -88,3 +88,10 @@ src/data/          sample.js (made up counts), counts.js (counts to text), home.
 src/ui/            the buttons over the features, the panel, the list view fallback, the home behaviours (Copy), snapshot.js (the picker and the drop), checks.js (the owner checks panel)
 test/              node --test; test/fixtures/snapshot.json is a real snapshot; access.test.mjs, faults.test.mjs
 ```
+
+## High (tier 3, the public site only)
+
+`src/high/` is the High tier of the public site (UI.7). The live view never imports it (`test/high.test.mjs` walks the
+imports from `src/main.js`), so `dist/index.html` has no part of it. `src/high/assets.js` is the only module of `src/`
+that loads a file: five photographs, from the site's own host under `/high/`, as images. High may use only the
+three.js classes Standard already uses (`test/high.test.mjs`), so Standard visitors download no more of three.js.

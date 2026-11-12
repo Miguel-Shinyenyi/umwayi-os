@@ -6,7 +6,8 @@ Checks, on the repo and on temporary copies with a planted fault each:
 - no analytics, tracking, speed insights, error reporting or third party script package in the package file or the lockfile;
 - site/.gitignore keeps node_modules/ and .next/ out;
 - the source loads nothing from outside: no next/font, next/script, next/image, no remote script, font, image or style, no
-  address but the repo and its docs folder, no request call, no storage, no cookie, no API route, no server action;
+  address but the repo and its docs folder (site/high-assets.json, the High licence listing, is checked by
+  tests/test_site_assets.py instead), no request call, no storage, no cookie, no API route, no server action;
 - the site has no copy of ui/src: no file of it repeats a file of ui/src, and it reaches the scene only through the shared
   modules (site/app/scene.js -> ui/src/boot.js and ui/src/app.js -> ui/src/scene.js), which the live view's main.js uses too;
 - next.config.mjs sends a Content-Security-Policy for the site's own origin only, no referrer, no sniffing and no framing,
@@ -31,6 +32,9 @@ EXACT = re.compile(r"^\d+\.\d+\.\d+$")
 REPO_URL = "https://github.com/Miguel-Shinyenyi/umwayi-os"
 ALLOWED_URLS = {REPO_URL, REPO_URL + ".git", REPO_URL + "/tree/main/docs"}
 SKIP_DIRS = {"node_modules", ".next"}
+# the High asset listing names where each photograph came from and its licence; it is not served and loads nothing, and
+# tests/test_site_assets.py allows only the Poly Haven and Creative Commons addresses in it
+LISTING = "site/high-assets.json"
 LIFECYCLE = ("preinstall", "install", "postinstall", "prepublish", "preprepare", "prepare", "postprepare")
 # words in a package name that mean analytics, tracking, error reporting or a third party script
 TRACKERS = ("analytics", "speed-insights", "@vercel/", "third-parties", "gtag", "segment", "mixpanel", "amplitude", "posthog",
@@ -146,7 +150,7 @@ def check_source(root: Path) -> list:
                 problems.append(f"{rel} contains {token!r}")
         if REMOTE_TAG.search(text) or REMOTE_PROP.search(text):
             problems.append(f"{rel} loads a script, link, image or frame from an address")
-        if p.suffix != ".md":
+        if p.suffix != ".md" and rel != LISTING:
             for url in sorted(set(ANY_URL.findall(text))):
                 if url not in ALLOWED_URLS:
                     problems.append(f"{rel} contains the address {url}, which is not listed")
@@ -406,6 +410,11 @@ class PlantedFaultTests(unittest.TestCase):
     def test_an_address_that_is_not_listed(self):
         self.edit("site/app/home.js", lambda t: t + "\nexport const x = 'https://example.invalid/a';\n")
         self.assert_found("https://example.invalid/a")
+
+    def test_an_asset_address_outside_the_listing(self):
+        # the listing may name Poly Haven; the code may not
+        self.edit("site/app/home.js", lambda t: t + "\nexport const x = 'https://dl.polyhaven.org/file/a.jpg';\n")
+        self.assert_found("https://dl.polyhaven.org/file/a.jpg")
 
     def test_a_remote_url_function_and_an_import_rule(self):
         self.write("site/app/a.css", "@import 'b.css';\n")

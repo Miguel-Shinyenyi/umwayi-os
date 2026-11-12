@@ -1,0 +1,80 @@
+{
+  "about": "The asset files of the High tier (UI.7), served by the public site from its own host under /high/. This listing is not served. Each file was downloaded on Nov 11 2026 from Poly Haven, whose licence page (https://polyhaven.com/license) and the asset page give CC0 for every asset; the md5 of each download matched the md5 Poly Haven's file list gives. The site loads these files only when the device query or the visitor chooses High. tests/test_site_assets.py checks this listing against the files and the code.",
+  "assets": [
+    {
+      "file": "high/grass_ground_diff_1k.jpg",
+      "title": "Grass Ground",
+      "map": "colour (diffuse)",
+      "used_for": "the High ground: grass",
+      "author": "Charlotte Baglioni",
+      "published": "2026-09-18",
+      "licence": "CC0-1.0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://polyhaven.com/a/grass_ground",
+      "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grass_ground/grass_ground_diff_1k.jpg",
+      "bytes": 876584,
+      "sha256": "a79cc5ed65af0f80261b39a383b64a8c5272c5144d724deb43dbc29f0e4cd19b",
+      "md5": "299047258586c762735b7284d3c662c3"
+    },
+    {
+      "file": "high/grass_ground_nor_gl_1k.jpg",
+      "title": "Grass Ground",
+      "map": "normal map, OpenGL",
+      "used_for": "the High ground: grass relief",
+      "author": "Charlotte Baglioni",
+      "published": "2026-09-18",
+      "licence": "CC0-1.0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://polyhaven.com/a/grass_ground",
+      "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grass_ground/grass_ground_nor_gl_1k.jpg",
+      "bytes": 1310516,
+      "sha256": "7000e2ccd479bb7b66dcdf4faef7b47554324566886314ca620cbf03e274e826",
+      "md5": "d518c5b2af6f2c0297bc807b351f511f"
+    },
+    {
+      "file": "high/red_laterite_soil_stones_diff_1k.jpg",
+      "title": "Red Laterite Soil Stones",
+      "map": "colour (diffuse)",
+      "used_for": "the High ground: bare soil and the trodden ground by the lantern",
+      "author": "Amal Kumar",
+      "published": "2022-10-27",
+      "licence": "CC0-1.0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://polyhaven.com/a/red_laterite_soil_stones",
+      "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_laterite_soil_stones/red_laterite_soil_stones_diff_1k.jpg",
+      "bytes": 906764,
+      "sha256": "949cd648409b30e2267d89066965605d22dba4ce73d601673e155046c41e1219",
+      "md5": "f5d483e42da0c704f320b8c159ebca5e"
+    },
+    {
+      "file": "high/dark_rock_02_diff_1k.jpg",
+      "title": "Dark Rock 02",
+      "map": "colour (diffuse)",
+      "used_for": "the High rocks and drystone",
+      "author": "Amal Kumar",
+      "published": "2026-07-20",
+      "licence": "CC0-1.0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://polyhaven.com/a/dark_rock_02",
+      "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dark_rock_02/dark_rock_02_diff_1k.jpg",
+      "bytes": 592452,
+      "sha256": "09cf66947bfe49fa1278ff341159063a43d96aae0bdf9f21536ff94feddef322",
+      "md5": "92e53acc3f9878b525d0234d8c51fadf"
+    },
+    {
+      "file": "high/dark_rock_02_nor_gl_1k.jpg",
+      "title": "Dark Rock 02",
+      "map": "normal map, OpenGL",
+      "used_for": "the High rocks and drystone relief",
+      "author": "Amal Kumar",
+      "published": "2026-07-20",
+      "licence": "CC0-1.0",
+      "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://polyhaven.com/a/dark_rock_02",
+      "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dark_rock_02/dark_rock_02_nor_gl_1k.jpg",
+      "bytes": 1028835,
+      "sha256": "011bec5690fa6bba771e745603cbd400d4cbe21ae254af0330680b3a1a7d9a92",
+      "md5": "ddae04d066a75ff94b7dd34e8c0f9b74"
+    }
+  ]
+}

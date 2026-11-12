@@ -5,6 +5,14 @@ and the list of the eleven stations, all written into the HTML by the server, an
 Next.js app. It is not part of the `umwayi` package: nothing here imports `umwayi`, and umwayi never runs npm, node or this
 site. The owner builds it and the owner deploys it (nothing here deploys anything or touches Vercel).
 
+Status (UI.7): High, tier 3, on this site only. The switch offers List, Standard and High. Standard draws first; then
+`app/scene.js` loads the High code (`ui/src/high/index.js`, on demand, its own file) and `public/high/` holds the five
+photographs it loads from this site's own host. They are CC0 photographs from Poly Haven, each listed in
+`high-assets.json` with its source, author, licence, size and SHA-256. That file lists the photographs and is not served.
+A failed or slow High (15 s) leaves Standard with the words saying why. A visitor on List or Standard downloads no
+High file. Weight: the High code is 10 KB compressed and the photographs 4.72 MB. `tests/test_site_assets.py`
+checks the files, the listing and the code. Do not add a file to `public/` without listing it.
+
 Status (UI.5, first slice): the site shares the page's CSS, so the access and contrast fixes (a 24 pixel tick box, a readable placeholder and field border, the checks panel fitting a 390 pixel screen) apply to it. `site/` itself is unchanged; the site's HTML is checked for the same names and landmarks by `site/test/home.test.mjs`.
 
 Status (UI.4): the page has the owner checks panel, the same code as the live view (`ui/src/ui/checks.js`, started by `ui/src/boot.js`). It is built in the browser from `ui/src/data/checks.js`, keeps its notes in memory only, reads nothing of the visitor's device or files and sends nothing. The server sends its empty frame (hidden) in `app/home.js`. A visitor can use it as a checklist for their own machine; Copy and Download make a text file in the browser.
@@ -12,7 +20,7 @@ Status (UI.4): the page has the owner checks panel, the same code as the live vi
 Status (UI.3): a visitor can open a snapshot file of their own with the button in the status section, or drop it on the page. It is read in the browser with `FileReader` and checked strictly (`ui/src/data/snapshot.js`); nothing is uploaded, no request carries it, and nothing is stored. A file that is not a snapshot of this version gives one message and loads nothing. Without a file the page shows the sample world and says "sample". The only change in `site/` is the picker markup and the footer id in `app/home.js`, so it matches `ui/src/index.html`.
 
 Status (UI.6): List and Standard. The 3D scene and the page behaviour are the ones in `ui/src`, used through the shared modules
-(`ui/src/boot.js`, which builds the picture with `ui/src/scene.js`). High (tier 3) is UI.7. Requirements: 12.R16 to 12.R18 in
+(`ui/src/boot.js`, which builds the picture with `ui/src/scene.js`). High (tier 3) is UI.7, see below. Requirements: 12.R16 to 12.R18 in
 `.kiro/specs/umwayi-os/requirements.md`. Design: "The public site" in `design.md`. The doc: `docs/interface.md`.
 
 ## Packages
