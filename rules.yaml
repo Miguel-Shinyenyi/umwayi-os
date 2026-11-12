@@ -347,3 +347,154 @@ rules:
     matchers:
       platform: stdio
       input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]
+
+  # Starter rules for OpenCode (layer 10 part 8, task 10.45; added to this file in the pull request "OpenCode starter
+  # rules", the same job 9.10 did for the other three adapters). The source is adapters/opencode/rules.example.yaml:
+  # the 13 rules below have the same ids, verdicts, matchers and words as the example. Every rule names
+  # "platform: opencode", so a rule for OpenCode never answers for another platform, and none of the rules above is
+  # touched by them. An action that no rule names is Ask me first. See docs/rules.md and adapters/opencode/README.md.
+  # --- OpenCode: never. Money, pushing to main, destroying things.
+  - id: oc-no-money
+    title: OpenCode never moves money
+    text: An AI helper never moves money or uses bank or card details. A command that names a payment service is refused.
+    cause: Safety rule for all AI helpers.
+    verdict: no
+    matchers:
+      platform: opencode
+      input_command__contains: ["stripe ", paypal, "/payments", card_number]
+
+  - id: oc-no-push-main
+    title: OpenCode never pushes to main
+    text: Nothing is pushed to the main branch, and no push is forced. Work on a feature branch and open a pull request.
+    cause: Work happens on feature branches with pull requests.
+    verdict: no
+    matchers:
+      platform: opencode
+      type: tool_shell
+      input_command__contains: ["git push origin main", "git push origin master", "git push -f", "git push --force"]
+
+  - id: oc-no-destroy
+    title: OpenCode never runs commands that wipe things
+    text: Commands that delete whole folders, wipe a disk or open up permissions for everyone are refused.
+    cause: These cannot be undone.
+    verdict: no
+    matchers:
+      platform: opencode
+      type: tool_shell
+      input_command__contains: ["rm -rf", "rm -fr", "mkfs", "dd if=", "chmod -r 777"]
+
+  # --- OpenCode: never. The files that guard the AI helper (rules, logbook, kill switch, OpenCode's own configuration).
+  - id: oc-no-guard-edits
+    title: OpenCode never edits the files that guard it
+    text: Only the owner changes rules.yaml, autonomy.yaml, LOGBOOK.md, the .umwayi folder, the .git folder and OpenCode's own configuration (opencode.json, opencode.jsonc and the .opencode folder).
+    cause: An AI helper must not turn off its own rules, logbook or gate, or add a plugin or a policy while it runs.
+    verdict: no
+    matchers:
+      platform: opencode
+      type: [tool_write, tool_edit]
+      input_path__contains: ["rules.yaml", "logbook.md", ".umwayi/", "opencode.json", ".opencode", ".git/", "autonomy.yaml", "autonomy.example.yaml"]
+
+  # umwayi petition (layer 13) is left to the owner: an AI helper may object to a No this way. To refuse it,
+  # add "umwayi petition" to the list below.
+  - id: oc-no-guard-shell
+    title: OpenCode shell commands never touch the guard files
+    text: A shell command that names rules.yaml, autonomy.yaml, LOGBOOK.md, .umwayi, opencode.json, opencode.jsonc, .opencode, umwayi kill, umwayi decision, decision reopen, umwayi autonomy or autonomy record is refused.
+    cause: An AI helper must not turn off its own rules, logbook or gate, or add a plugin or a policy while it runs.
+    verdict: no
+    matchers:
+      platform: opencode
+      type: tool_shell
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", "opencode.json", ".opencode", "umwayi kill", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
+
+  - id: oc-no-secrets
+    title: OpenCode never touches secret files
+    text: Files that usually hold passwords or keys are not read or changed by an AI helper.
+    cause: A secret that is read can end up in a log or a reply.
+    verdict: no
+    matchers:
+      platform: opencode
+      input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]
+
+  # --- OpenCode: reading and listing is fine
+  - id: oc-read
+    title: OpenCode may read and search
+    text: Reading files and searching for files or text is allowed.
+    cause: Reading changes nothing.
+    verdict: yes
+    matchers:
+      platform: opencode
+      type: [tool_read, tool_glob, tool_grep]
+
+  # --- OpenCode: the owner decides. Writing, shell commands, the web, helpers that start helpers.
+  - id: oc-ask-write
+    title: OpenCode writing a file needs the owner
+    text: The owner confirms every file write or edit.
+    cause: A changed file is hard to take back without notice.
+    verdict: ask
+    matchers:
+      platform: opencode
+      type: [tool_write, tool_edit]
+
+  - id: oc-ask-shell
+    title: OpenCode shell commands need the owner
+    text: The owner confirms every shell command. This covers deleting, installing, publishing and sending.
+    cause: A shell command can do anything, so the owner looks first.
+    verdict: ask
+    matchers:
+      platform: opencode
+      type: tool_shell
+
+  - id: oc-ask-web
+    title: OpenCode using the web needs the owner
+    text: The owner confirms every web page fetch.
+    cause: A web request sends text out of this computer.
+    verdict: ask
+    matchers:
+      platform: opencode
+      type: tool_webfetch
+
+  - id: oc-ask-agent
+    title: OpenCode starting a helper or asking a question needs the owner
+    text: The owner confirms every sub agent and every question the model wants to put to someone.
+    cause: A sub agent runs its own tool calls, and a question can be answered by no one in this chat.
+    verdict: ask
+    matchers:
+      platform: opencode
+      type: [tool_subagent, tool_question]
+
+  # --- OpenCode: Code Mode has no rule here on purpose. It is JavaScript that OpenCode runs for the model: the "execute" tool,
+  # which can fetch web pages, and the "opencode_*" tools it can call (worktree_create, worktree_remove,
+  # session_move and others). None of them asks permission, so these rules are the only check. With no rule they are
+  # Ask me first, and the first gate stops them (the type is tool_execute, or tool_opencode_ and the name). Do not
+  # add an Ask rule for them: Ask me first beats Yes, so a Yes rule of yours could then never take effect. To allow
+  # one, write a Yes rule for its type, for example:
+  #
+  #   - id: owner-yes-worktree-list
+  #     title: Listing worktrees is fine
+  #     text: OpenCode may list the worktrees of a repository.
+  #     cause: Listing changes nothing.
+  #     verdict: yes
+  #     matchers:
+  #       platform: opencode
+  #       type: tool_opencode_worktree_list
+
+  # --- OpenCode: the permission request (the second gate). Only the kind is known here, never the path or the command.
+  - id: oc-perm-read
+    title: OpenCode permission requests to read or search are fine
+    text: A request to read a file or to search is answered with once. The first gate has already looked at the path.
+    cause: Reading changes nothing.
+    verdict: yes
+    matchers:
+      platform: opencode
+      type: acp_permission
+      kind: [read, search]
+
+  - id: oc-perm-ask
+    title: OpenCode permission requests to change, run, fetch or think need the owner
+    text: A request to edit, delete, move, run a command, fetch a page, think or switch mode is put to the owner.
+    cause: The owner confirms what changes things or sends text out.
+    verdict: ask
+    matchers:
+      platform: opencode
+      type: acp_permission
+      kind: [edit, delete, move, execute, think, fetch, switch_mode, other]
