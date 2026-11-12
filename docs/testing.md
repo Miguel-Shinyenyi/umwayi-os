@@ -159,6 +159,7 @@ Node test files that read a path outside their own package (the others read noth
 | `site/test/client.test.mjs` | `ui/src`, `ui/src/scene.js`, `ui/src/style.css` |
 | `site/test/home.test.mjs` | `ui/dist/index.html`, `ui/src/data/home.js`, `ui/src/index.html`, `ui/src/stations/meta.js` |
 | `site/test/phone.test.mjs` | `ui/tools/browser.mjs`, `ui/tools/phone-audit.mjs`, `ui/tools/phone-scenario.mjs` |
+| `ui/test/client.test.mjs` | `umwayi/serve.py`, `umwayi/servegate.py` |
 | `ui/test/faults.test.mjs` | `site/test/phone.test.mjs`, `tests/test_ui_package.py` |
 
 Which changed path runs which jobs (the longest matching prefix wins; a path matching none runs everything):
