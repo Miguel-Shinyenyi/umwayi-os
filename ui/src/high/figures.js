@@ -184,7 +184,7 @@ export function buildBird(mat) {
   return g;
 }
 
-// An impala, about 0.85 m at the shoulder: a red brown back, paler flanks and a white belly, lyre shaped horns, slim legs with
+// An impala at real size, about 0.85 m at the shoulder (applyHigh draws it larger, see ANTELOPE_SCALE in wildlife.js): a red brown back, paler flanks and a white belly, lyre shaped horns, slim legs with
 // a pivot at each hip and shoulder so they swing as it walks, and a neck pivot so it lowers its head to graze.
 export function buildAntelope() {
   const g = new THREE.Group();

@@ -6,7 +6,11 @@ import { heightAt } from '../world/height.js';
 
 export const KEEP_FROM_STATIONS = 25; // metres from the edge of a station to the edge of an animal
 export const BIRD_REACH = 0.9; // half the wingspan
-export const ANTELOPE_REACH = 1.0; // half the body length, nose to tail
+// The antelope stands on a crest about 130 m from the default camera, where a real impala would be a speck of 6 pixels. So it is
+// drawn ANTELOPE_SCALE times life size (the model is a real impala, ui/src/high/figures.js; the owner asked for it to show, PR 58).
+// The keep out reach, the sight line and the speed below are all in the drawn size.
+export const ANTELOPE_SCALE = 3.0;
+export const ANTELOPE_REACH = 1.4 * ANTELOPE_SCALE; // from the middle of the body to the nose with the head down (1.4 m for the real impala)
 
 // The birds: black kites, gliding in loops over the far hills behind the forest, right of the middle of the default view, low enough to be under the top bar.
 // cx, cz: the centre of the loop; r: its radius; y: the height of the glide; v: metres a second; dir: +1 or -1; phase: radians
@@ -40,15 +44,18 @@ export function birdPose(i, t) {
   return { x, y, z, heading, bank: -b.dir * 0.32, wing };
 }
 
-// The antelope's path: a few metres along a crest right of the middle of the default view, about 150 m off, where it stands on
-// the skyline and no tree of the forest is in front of it (ui/test/wildlife.test.mjs, ui/test/high.test.mjs).
-export const ANTELOPE_PATH = [{ x: 11, z: -90 }, { x: 12, z: -90.6 }, { x: 13, z: -91 }, { x: 14, z: -91 }];
+// The antelope's path: 8 m along a crest right of the middle of the default view, 130 to 135 m off and across the view, where
+// it stands on the skyline and no tree of the forest is in front of it (ui/test/wildlife.test.mjs, ui/test/high.test.mjs).
+// Found by a search that keeps every rule of those tests; the search is not part of the repo.
+export const ANTELOPE_PATH = [{ x: 25, z: -72 }, { x: 23.1, z: -73.9 }, { x: 21.3, z: -75.8 }, { x: 19.4, z: -77.8 }];
 const SEG = ANTELOPE_PATH.slice(1).map((p, i) => Math.hypot(p.x - ANTELOPE_PATH[i].x, p.z - ANTELOPE_PATH[i].z));
 const LENGTH = SEG.reduce((a, b) => a + b, 0);
-const SPEED = 0.45; // a slow walk, metres a second
-const WALK = LENGTH / SPEED, GRAZE = 14; // seconds walking one way, seconds grazing at each end
+export const ANTELOPE_SPEED = 1.0; // metres a second at the drawn size: a slow walk, 8 pixels a second at the default view
+export const ANTELOPE_GRAZE = 14; // seconds grazing at each end
+const SPEED = ANTELOPE_SPEED, GRAZE = ANTELOPE_GRAZE;
+const WALK = LENGTH / SPEED; // seconds walking one way
 const PERIOD = 2 * (WALK + GRAZE);
-const STEP = 1.1; // metres per stride
+const STEP = 2.0; // metres per stride at the drawn size
 
 function along(s) {
   let k = 0;

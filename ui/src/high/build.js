@@ -8,7 +8,7 @@ import { waterShared } from '../world/water.js';
 import { buildHighTerrain, highRockMaterial, highWaterMaterial } from './ground.js';
 import { buildHighGrass, buildHighForest, buildHighAcaciaCrowns, buildHighCedars, HIGH_GRASS } from './plants.js';
 import { buildHighShepherd, makeCoat, disposeCoats, buildBird, buildAntelope } from './figures.js';
-import { BIRDS, birdPose, antelopePose } from './wildlife.js';
+import { BIRDS, birdPose, antelopePose, ANTELOPE_SCALE } from './wildlife.js';
 
 export { HIGH_GRASS };
 const SHEPHERD_FIGURE = 8; // the first eight children of the Standard shepherd are the figure (legs, cloth, arm, neck, collar, head)
@@ -68,6 +68,7 @@ export function applyHigh(world, textures) {
     for (let i = 0; i < BIRDS.length; i++) birds.add(buildBird(birdMat));
     add(scene, birds);
     const antelope = add(scene, buildAntelope());
+    antelope.scale.setScalar(ANTELOPE_SCALE); // larger than life so that it shows at 130 m (wildlife.js)
     const step = () => {
       const t = waterShared.flowTime.value;
       birds.children.forEach((b, i) => {

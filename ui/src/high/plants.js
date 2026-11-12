@@ -9,7 +9,7 @@ import { reachable, SHEPHERD_SPACE, stationPositions, TABLE } from '../world/lay
 import { forestSpots, FOREST_COUNT, NEAR_SIDE_FROM } from '../world/forest.js';
 import { overviewShot, cameraPosition } from '../world/shots.js';
 import { facingAt } from '../engine/placement.js';
-import { ANTELOPE_PATH } from './wildlife.js';
+import { ANTELOPE_PATH, ANTELOPE_SCALE } from './wildlife.js';
 import { mulberry32 } from '../world/random.js';
 import { fbm } from '../world/noise.js';
 
@@ -121,7 +121,7 @@ function broadleafGeometry() {
 // below its top (t.r and t.top, or from the forest's size k). Used to keep the younger High trees out of that line (and by the tests).
 const VIEW = (() => { const s = overviewShot(1440 / 750); return { x: 0, y: s.ty + s.dist * Math.sin(s.pitch), z: s.tz + s.dist * Math.cos(s.pitch) }; })();
 export function blocksAntelope(t, p, cam = VIEW) {
-  const top = { x: p.x, y: heightAt(p.x, p.z) + 1.2, z: p.z }; // the head
+  const top = { x: p.x, y: heightAt(p.x, p.z) + 1.2 * ANTELOPE_SCALE, z: p.z }; // the head, at the drawn size
   const dx = top.x - cam.x, dz = top.z - cam.z, L2 = dx * dx + dz * dz;
   const u = ((t.x - cam.x) * dx + (t.z - cam.z) * dz) / L2;
   if (u <= 0 || u >= 0.98) return false;

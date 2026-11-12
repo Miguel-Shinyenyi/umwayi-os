@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { birdPose, antelopePose, BIRDS, ANTELOPE_PATH, ANTELOPE_REACH, BIRD_REACH, KEEP_FROM_STATIONS, wildlifeSamples } from '../src/high/wildlife.js';
+import { birdPose, antelopePose, BIRDS, ANTELOPE_PATH, ANTELOPE_REACH, ANTELOPE_SCALE, ANTELOPE_SPEED, ANTELOPE_GRAZE, BIRD_REACH, KEEP_FROM_STATIONS, wildlifeSamples } from '../src/high/wildlife.js';
 import { stationPositions, TABLE } from '../src/world/layout.js';
 import { heightAt } from '../src/world/height.js';
 import { overviewShot } from '../src/world/shots.js';
@@ -66,7 +66,7 @@ test('the antelope is on the skyline of the default view at 1440 by 900: in sigh
   const cam = { x: 0, y: s.ty + s.dist * Math.sin(s.pitch), z: s.tz + s.dist * Math.cos(s.pitch) };
   for (const p of ANTELOPE_PATH) {
     const dx = p.x - cam.x, dz = p.z - cam.z, d = Math.hypot(dx, dz);
-    const top = Math.atan2(heightAt(p.x, p.z) + 1.0 - cam.y, d);
+    const top = Math.atan2(heightAt(p.x, p.z) + 1.0 * ANTELOPE_SCALE - cam.y, d); // its back, at the size it is drawn
     let front = -9, back = -9;
     for (let t = 3; t < 300; t += 0.5) {
       const x = cam.x + (dx / d) * t, z = cam.z + (dz / d) * t;
@@ -78,6 +78,26 @@ test('the antelope is on the skyline of the default view at 1440 by 900: in sigh
     assert.ok(top > back, `the antelope at (${p.x}, ${p.z}) has the hill behind it, not the sky`);
     // inside the picture: the horizontal half angle of the overview at 1440 by 750 is about 36 degrees
     assert.ok(Math.abs(Math.atan2(dx, -dz)) < (32 * Math.PI) / 180, 'the antelope is outside the picture');
+  }
+});
+
+// Asked for by the owner on PR 58: the antelope must show in the default view. It stands about 100 m from the camera, so it is
+// drawn ANTELOPE_SCALE times life size (and the model is a real impala), which the docs and the pull request say in words.
+test('the antelope is drawn larger than life, by a stated number that is not more than 3', () => {
+  assert.ok(ANTELOPE_SCALE > 1 && ANTELOPE_SCALE <= 3, `${ANTELOPE_SCALE}`);
+  assert.ok(Number.isInteger(ANTELOPE_SCALE * 10), 'the scale is a number the docs can state in a few digits');
+  assert.equal(ANTELOPE_REACH, 1.4 * ANTELOPE_SCALE, 'the keep out reach is 1.4 m (the head down, from the middle of the body) times the scale');
+});
+
+test('the antelope shows in the default view at 1440 by 750: a back at least 18 pixels high and a body at least 30 pixels long, all along its path', () => {
+  const s = overviewShot(1440 / 750);
+  const cam = { x: 0, y: s.ty + s.dist * Math.sin(s.pitch), z: s.tz + s.dist * Math.cos(s.pitch) };
+  const focal = (750 / 2) / Math.tan((s.fov / 2) * Math.PI / 180); // pixels for a metre at a distance of a metre
+  for (const p of ANTELOPE_PATH) {
+    const d = Math.hypot(p.x - cam.x, p.z - cam.z);
+    const back = (0.95 * ANTELOPE_SCALE * focal) / d, length = (1.5 * ANTELOPE_SCALE * focal) / d; // an impala: 0.95 m to the back, 1.5 m nose to tail
+    assert.ok(back >= 18, `at (${p.x}, ${p.z}) the back is ${back.toFixed(1)} pixels`);
+    assert.ok(length >= 30, `at (${p.x}, ${p.z}) the body is ${length.toFixed(1)} pixels long`);
   }
 });
 
@@ -122,7 +142,7 @@ test('the wildlife has no clock of its own: it reads the flow clock of the water
 test('the antelope grazes still at each end of its path, head down in the middle of the pause, and walks the whole path between', () => {
   const end = ANTELOPE_PATH[ANTELOPE_PATH.length - 1], start = ANTELOPE_PATH[0];
   const length = ANTELOPE_PATH.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - ANTELOPE_PATH[i].x, p.z - ANTELOPE_PATH[i].z), 0);
-  const graze = 14, walk = length / 0.45;
+  const graze = ANTELOPE_GRAZE, walk = length / ANTELOPE_SPEED;
   const at = (t) => antelopePose(t);
   // the first pause: in place at the start, legs still, the head up at both ends of the pause and down in its middle
   for (let t = 0.2; t < graze; t += 0.7) {
@@ -140,6 +160,23 @@ test('the antelope grazes still at each end of its path, head down in the middle
   assert.ok(Math.hypot(before.x - end.x, before.z - end.z) > 0.3, 'the end of the path was reached too early');
   // the second pause, at the far end, still too
   for (let t = graze + walk + 0.2; t < 2 * graze + walk; t += 0.7) assert.equal(at(t).stride, 0);
+});
+
+// Found by the mutation pass of UI.7: it turns round at the far end, and it faces the way it walks.
+test('the antelope faces along its path going out and the opposite way coming back', () => {
+  const A = ANTELOPE_PATH[0], B = ANTELOPE_PATH[ANTELOPE_PATH.length - 1];
+  const length = ANTELOPE_PATH.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - ANTELOPE_PATH[i].x, p.z - ANTELOPE_PATH[i].z), 0);
+  const walk = length / ANTELOPE_SPEED;
+  const out = antelopePose(ANTELOPE_GRAZE + walk * 0.3), back = antelopePose(2 * ANTELOPE_GRAZE + walk * 1.5);
+  const along = Math.atan2(B.x - A.x, B.z - A.z); // the path is nearly straight; the segments differ by a few degrees
+  const diff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  assert.ok(diff(out.heading, along) < 0.2, `going out it faces ${out.heading.toFixed(2)}, the path runs ${along.toFixed(2)}`);
+  assert.ok(diff(back.heading, along + Math.PI) < 0.2, `coming back it faces ${back.heading.toFixed(2)}, against the path ${(along + Math.PI).toFixed(2)}`);
+  // and it is moving toward the end it faces
+  const a = antelopePose(ANTELOPE_GRAZE + walk * 0.3), b = antelopePose(ANTELOPE_GRAZE + walk * 0.3 + 0.5);
+  assert.ok(diff(Math.atan2(b.x - a.x, b.z - a.z), a.heading) < 0.2, 'it walks sideways or backwards going out');
+  const c = antelopePose(2 * ANTELOPE_GRAZE + walk * 1.5), d = antelopePose(2 * ANTELOPE_GRAZE + walk * 1.5 + 0.5);
+  assert.ok(diff(Math.atan2(d.x - c.x, d.z - c.z), c.heading) < 0.2, 'it walks sideways or backwards coming back');
 });
 
 test('the birds keep to their loops, face the way they fly, and mostly glide with short runs of wing beats', () => {

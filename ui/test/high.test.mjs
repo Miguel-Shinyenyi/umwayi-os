@@ -17,7 +17,7 @@ const { FOREST_COUNT } = await import('../src/world/forest.js');
 const { applyHigh, HIGH_GRASS } = await import('../src/high/build.js');
 const { ASSETS, loadTextures } = await import('../src/high/assets.js');
 const { upgrade } = await import('../src/high/index.js');
-const { birdPose, antelopePose, BIRDS } = await import('../src/high/wildlife.js');
+const { birdPose, antelopePose, BIRDS, ANTELOPE_SCALE, ANTELOPE_REACH, ANTELOPE_GRAZE } = await import('../src/high/wildlife.js');
 
 const src = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const walk = (dir) => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]));
@@ -39,6 +39,19 @@ test('High adds the wildlife: the birds and the antelope', () => {
   const birds = named('high:birds'), antelope = named('high:antelope');
   assert.ok(birds && antelope);
   assert.equal(birds.children.length, BIRDS.length);
+});
+
+test('the antelope is drawn at ANTELOPE_SCALE times the real model, and its keep out reach covers it at that size', async () => {
+  const { buildAntelope } = await import('../src/high/figures.js');
+  const antelope = named('high:antelope');
+  for (const k of ['x', 'y', 'z']) assert.equal(antelope.scale[k], ANTELOPE_SCALE, `scale ${k}`);
+  // the model itself is a real impala (see the size test below); the farthest a corner of its box is from its centre, on the ground, with the head down
+  const model = buildAntelope();
+  model.userData.neck.rotation.x = 1.15; // the head down to graze: the farthest it reaches
+  model.updateMatrixWorld(true);
+  const real = new THREE.Box3().setFromObject(model);
+  const radius = Math.max(...[real.min.x, real.max.x].flatMap((x) => [real.min.z, real.max.z].map((z) => Math.hypot(x, z))));
+  assert.ok(radius * ANTELOPE_SCALE <= ANTELOPE_REACH, `the antelope reaches ${(radius * ANTELOPE_SCALE).toFixed(2)} m, the keep out reach is ${ANTELOPE_REACH}`);
 });
 
 test('High draws more: a denser forest, much more grass, a finer ground', () => {
@@ -131,6 +144,19 @@ test('each bird faces the way it flies and is drawn there at once; the antelope 
   birds.onBeforeRender();
 });
 
+test('while it grazes the antelope puts its head all the way down and keeps its legs still; walking, the head is up', () => {
+  const antelope = named('high:antelope');
+  waterShared.flowTime.value = ANTELOPE_GRAZE / 2; // the middle of the first pause
+  antelope.onBeforeRender();
+  assert.ok(Math.abs(antelope.userData.neck.rotation.x - 1.15) < 1e-6, `the head is at ${antelope.userData.neck.rotation.x}`);
+  for (const l of antelope.userData.legs) assert.ok(l.rotation.x === 0, 'a leg swings while grazing'); // 0 and -0 are both still
+  waterShared.flowTime.value = ANTELOPE_GRAZE + 2; // walking
+  antelope.onBeforeRender();
+  assert.equal(antelope.userData.neck.rotation.x, 0, 'the head is down while walking');
+  waterShared.flowTime.value = 0;
+  antelope.onBeforeRender();
+});
+
 test('when High fails part way through its build, what it did is undone and the error goes on', () => {
   const mat = world.river.material, shader = mat.fragmentShader;
   const now = snapshot(world);
@@ -150,6 +176,21 @@ test('remove() puts the Standard world back exactly: the same objects, shown or 
   assert.equal(world.grass.count, grassStd);
   high.remove(); // a second remove changes nothing
   assert.deepEqual(snapshot(world), before);
+});
+
+// (placed after the remove() test above, so that the world is the Standard world again and this High is the only one)
+test('remove() frees the rock materials High made, and the geometry of the ground it added', () => {
+  const h = applyHigh(world, fakeTextures());
+  const used = new Set();
+  world.scene.traverse((o) => { if (o.isMesh && o.material && o.material.name !== 'high:water' && o.material.customProgramCacheKey?.() === 'high-rock') used.add(o.material); });
+  assert.ok(used.size >= 2, `${used.size} High rock materials`);
+  const freed = new Set();
+  for (const m of used) m.addEventListener('dispose', () => freed.add(m));
+  const ground = named('high:terrain'), disposedGeo = [];
+  ground.geometry.addEventListener('dispose', () => disposedGeo.push('ground'));
+  h.remove();
+  assert.equal(freed.size, used.size, 'a High rock material was not freed');
+  assert.deepEqual(disposedGeo, ['ground'], 'the High ground geometry was not freed');
 });
 
 test('the detail ladder still thins the grass in High', () => {
