@@ -385,6 +385,43 @@ class Tools(FakeOpenCodeCase):
         new, _ = d.until(d.call("session/new", {"cwd": str(self.work), "mcpServers": []}))
         return d, None, new
 
+    def with_hook(self, *hook_args):
+        cfg = json.loads(self.config())
+        cfg["plugins"][0]["options"]["hook"] = [sys.executable, str(REPO / "tests" / "adapters" / "fake_gate_hook.py"),
+                                                *hook_args]
+        d, _, _ = self.open_raw(json.dumps(cfg), acp={"turns": [[{"tool": "read", "input": {"path": "/x"}}]]})
+        _, events = d.prompt("go")
+        self.finish(d)
+        return [e for e in events if e.get("method") == "session/request_permission"], self.events("tool")[0]["verdict"]
+
+    def test_hook_verdict_needs_exit_code_and_decision_to_agree(self):
+        for args, want in (("--exit 0 --say allow", "allow"), ("--exit 3 --say ask", "ask"),
+                           ("--exit 0 --say ask", "deny"), ("--exit 3 --say allow", "deny"),
+                           ("--exit 3 --say deny", "deny"), ("--exit 0 --say garbage", "deny"),
+                           ("--exit 1 --say allow", "deny")):
+            requests, verdict = self.with_hook(*args.split())
+            self.assertEqual(verdict, want, args)
+            self.assertEqual(len(requests), 0 if want == "deny" else 1, args)
+            self.fake_log.unlink()
+
+    def test_without_the_plugin_an_ask_rule_still_makes_the_request(self):
+        cfg = json.loads(self.config())
+        del cfg["plugins"]
+        d, _, _ = self.open_raw(json.dumps(cfg), acp={"turns": [[{"tool": "execute", "input": {}},
+                                                                 {"tool": "read", "input": {"path": "/x"}}]]})
+        _, events = d.prompt("go")
+        self.finish(d)
+        requests = [e for e in events if e.get("method") == "session/request_permission"]
+        self.assertEqual([r["params"]["toolCall"]["name"] for r in requests], ["read"])
+        self.assertEqual(self.events("tool")[0]["verdict"], None)
+
+    def test_sleep_action_waits(self):
+        d, _, _ = self.open(acp={"turns": [[{"sleep": 1.2}]]})
+        t = time.time()
+        d.prompt("x")
+        self.assertGreaterEqual(time.time() - t, 1.1)
+        self.finish(d)
+
     def test_owner_yes_for_execute_runs_without_a_request(self):
         with open(self.root / "rules.yaml", "a", encoding="utf-8") as f:
             f.write("  - id: owner-yes-execute\n    title: t\n    text: t\n    cause: c\n    verdict: yes\n"
