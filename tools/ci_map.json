@@ -131,6 +131,7 @@
   "ui/test/faults.test.mjs": ["site/test/phone.test.mjs", "tests/test_ui_package.py"],
   "ui/test/high.test.mjs": [],
   "ui/test/home.test.mjs": [],
+  "ui/test/labels.test.mjs": [],
   "ui/test/notes.test.mjs": [],
   "ui/test/phone.test.mjs": [],
   "ui/test/placement.test.mjs": [],

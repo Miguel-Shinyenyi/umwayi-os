@@ -74,6 +74,7 @@ export function createApp(win, view = viewOf(null)) {
         }
         labels.place(a.id, x, y);
       }
+      labels.placed();
     },
     onCalm(on) {
       doc.documentElement.setAttribute('data-calm', on ? '1' : '0');
