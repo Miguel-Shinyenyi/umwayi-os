@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry). Items 130 to 137 come from the security scan (S.2, [SECURITY-SCAN.md](SECURITY-SCAN.md)); item 122 changed with it. Items 196 to 212 are the expected limits of the local backend (W6), written from the spec on Nov 12 before any code; nothing is built.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry). Items 130 to 137 come from the security scan (S.2, [SECURITY-SCAN.md](SECURITY-SCAN.md)); item 122 changed with it. Items 196 to 212 are the expected limits of the local backend (W6), written from the spec on Nov 12 before any code; nothing is built. Items 213 to 232 are the expected limits of goal orchestration (W9), written from the spec on Nov 12 before any code; nothing is built.
 
 ## Approval and the owner
 
@@ -894,7 +894,7 @@ The owner's record is the input. Approving without a look counts as approved as 
 
 ## Local backend (W6): `umwayi serve` (built Nov 12 in W6.1 to W6.6; the page client W6.9 and the chat and intake routes are not built)
 
-These are the limits of [serve.md](serve.md). Items 196 to 212 were written before any code (W6.0 pull request) and are confirmed or corrected by the build (W6.1 to W6.6, Nov 12); items 229 to 232 are new from the build. Items about the chat (206, 207, 209, 211) and the page (197) describe parts that are not built yet. Numbers are never reused.
+These are the limits of [serve.md](serve.md). Items 196 to 212 were written before any code (W6.0 pull request) and are confirmed or corrected by the build (W6.1 to W6.6, Nov 12); items 233 to 236 are new from the build. Items about the chat (206, 207, 209, 211) and the page (197) describe parts that are not built yet. Numbers are never reused.
 
 ### 196. Whoever has the token is the owner, as far as the backend can tell
 
@@ -964,19 +964,102 @@ By the owner's answer of Nov 12 (W6-Q12), a request from the page can answer an 
 
 By the owner's answer of Nov 12 (W6-Q22), W7 version 1 is login plus the public site with sample data, and does not control a local backend. A relay, or any way for a deployed page to reach a local backend, is decided after Dec 3 and nothing of it is built. Any of them would be a second door with its own limits, an outbound network import in the core, and a third party in the path of the owner's data. The spec only fixes what they may not do: open the local backend to the internet, or relax a check of W6.
 
-### 229. Requests run one at a time, on the main thread
+## Goal orchestration (W9): `umwayi goal` (known from the spec, Nov 12; nothing is built)
+
+### 213. The owner commands trust a terminal
+
+`goal approve`, `answer` and `merged` refuse unless standard input and output are terminals, and the example rules of the three adapters deny an AI helper from running them. A process of the same user that opens a pseudo terminal, or an AI helper whose command the rules text match misses (item 12), can still run them. This is the same limit as items 1 and 15: nothing proves the person typing is the owner.
+
+### 214. The tester is an AI helper, and a pass is a claim
+
+The tester says pass, fail or unclear for each acceptance check, with a line of evidence. umwayi checks that every check has an answer and that the answer carries the nonce of the run, and cannot check that the tester looked. A tester on the same platform and model as the builder can share its blind spots, and a tester can be talked into printing a pass by text in the repo. The owner's review before the merge is the real check.
+
+### 215. The files a task may touch are checked after the run
+
+During a run the gate is `rules.yaml`, as for every run, and it knows nothing of the packet. The scope check compares the branch with its base afterwards. A builder that changes a file outside its packet is found and failed, but it did change it, on its own branch in its own worktree. Damage outside the checkout is for the rules to stop. A rules overlay per task is W9.16.
+
+### 216. Error recognition is a list of line markers
+
+On a `cli` run umwayi sees only the lines the AI helper prints. An error is a line that starts with one of nine markers, and two identical signatures in a row stop the run. A builder that varies its error text, or prints none, escapes that rule and is caught only by 30 minutes without a change of the work tree.
+
+### 217. Progress is a changed work tree, and a tree can be changed for nothing
+
+A builder that rewrites a file back and forth counts as making progress, until the agent's own `timeout_minutes`, the budget cap or the owner stops it. Output alone is not progress, so a silent builder that is working only by thinking, for more than 30 minutes, is stopped too.
+
+### 218. Cost is attributed by a window of the ledger
+
+The supervisor records the run ids in the budget ledger before a run and after it, and counts the runs of that agent that appeared in between. A run of the same agent that another process started in the same window (a scheduled job) is counted in the task. That over-counts, so the cap is smaller, never larger.
+
+### 219. A deadline is enforced when a command next runs
+
+There is no daemon. A deadline that passed while no `umwayi goal` command ran is already No (an answer after it is refused), but the denial is written to the logbook when the next command runs, with the deadline's own time. Between the two, the queue row is still open.
+
+### 220. A merge is seen only on the local `main`
+
+umwayi never fetches or pulls. A merge on the remote is not seen until the owner updates the local `main`. The `stale` check of a start has the same limit: it compares `main` with the remote-tracking ref `origin/main`, which is as old as the owner's last fetch. A squash or rebase merge leaves the branch tip off `main`, so it is not seen either, and the owner declares it with `goal merged G T --commit SHA` (checked only to be on `main`).
+
+### 221. `git` is trusted
+
+umwayi starts `git` by a fixed argument list with the hooks path, the file monitor, the global config and external diff turned off. A filter driver or other program named in the repository's own config can still run. Its three writes are `git worktree add` (with a new branch, or detached for the plan) and `git worktree remove`, without force. They change the repository's metadata (a branch and a worktree entry) and never the owner's working copy.
+
+### 222. The shared docs are stale until rebuilt, and the status paragraph stays by hand
+
+After a task merges, `docs/status-log.md` and `docs/KNOWN-LIMITS.md` do not change until `umwayi goal docs build` runs (the last step of a goal). In between, `docs check` and `status` say so. The hand-written head of the status log (the "Status" paragraphs) is not generated and is edited by the owner, so it can still conflict. Two rebuilds started at once conflict, and the second is redone.
+
+### 223. A model word is checked for shape, not for being honored
+
+umwayi checks `^[A-Za-z0-9._:/-]{1,64}$` and the five effort words, and passes them to the platform's own flag. Whether the platform accepts the model, and whether a level is supported by that model, is the platform's answer, and an unsupported value shows as a failed builder (adapters/NOTES-w9.md). The UU of an unknown model is the worst case of the governor (items 111 and 121).
+
+### 224. The event log is not tamper evident
+
+Each line has a CRC to find a torn or garbled line. A process of the same user can rewrite a log with a matching CRC. The logbook (chained once the owner starts the chain) is the record of every state; if the event log and the logbook disagree, the logbook wins.
+
+### 225. One goal, one task, and the owner is the wait
+
+One goal runs per root and one task at a time, and the next task waits for the owner's merge. A goal of five tasks needs five runs and five merges. This is the cost of "the owner merges". Working ahead needs the overlap rule of W9.12 (`--ahead N`); the worktree per task is already core.
+
+### 226. OpenCode is not a builder yet
+
+An OpenCode agent is refused by `agent run` today, and its chat is task 10.48. Until a non-interactive ACP run exists (W9.13), a goal uses Claude Code and Kiro. An effort for an OpenCode agent is refused until a flag is confirmed on a real install.
+
+### 227. The plan's quality and the AI helpers' reading are not judged
+
+The checks on a packet are character rules: lengths, one line, files that exist. They cannot tell a good split from a bad one, or a vague acceptance check from a sharp one; the owner reads the plan before approving it. Text in the repo that the guide, builder or tester reads can steer it (prompt injection). The nonce only stops a forged result line left in the repo; it does not stop a helper that is persuaded, and a Claude Code run shows its prompt, nonce included, in the process list to the same user (item 35).
+
+### 228. A killed supervisor leaves a child
+
+SIGKILL or a power loss while `goal run` works leaves the task `running` with no supervisor; the next command marks it `stopped` (`supervisor`). The child `agent run` is in its own session and ends by itself at its timeout, or by the kill switch, and until then it holds the run lock, so the next start gets `busy`. The task's worktree stays (item 230). Its reservation is settled by `umwayi budget settle-lost` if it was killed too (item 36).
+
+### 229. Each worktree is a full checkout and uses disk
+
+Each task's worktree holds every tracked file of its base, and the plan's does too until the plan is decided, so each live worktree costs the size of the tracked tree plus whatever the helper builds in it. A start is refused as `leftover` at eight worktrees in the root, and `status` lists the disk used by each leftover (counted only for listed worktrees, up to 10 000 files). umwayi does not check the free space of the disk, so a large repository or a build that fills a worktree can still fill it.
+
+### 230. Leftover worktrees stay until removed
+
+A failed, stopped, needs-owner or in-review task keeps its worktree, and a crash can leave one. umwayi removes a worktree only after the owner's merged (and an unused one it made itself), never with force, so a worktree that git refuses to remove stays. The next start for that task, and any start once eight exist, is refused as `leftover` until the owner removes the worktrees with `git worktree remove`. umwayi never deletes a branch, so the branches stay too.
+
+### 231. Untracked and ignored files are not in a worktree
+
+`node_modules`, build folders, caches, `.env`, local config and any file the owner did not commit are neither copied nor linked into a worktree. A helper that needs them has to make them, which costs time and disk and may need the network (a package install is the helper's own act under the rules). A gate check that needs an untracked file, for example a Kiro hook file that was never committed, fails and the task is `needs owner` with the reason `config`.
+
+### 232. Worktrees share the repository's metadata
+
+A linked worktree shares objects, refs and config with the root repository. A helper that can run git write commands in its worktree can change refs or config of the shared repository (a branch, a tag, a hook path; umwayi turns the hooks path off only for its own git calls). The gate (`rules.yaml`, which should say Ask me first for git writes) is what stops that. The scope check looks only at the files of the task branch, not at other refs.
+
+## Local backend (W6), items from the build (233 to 236)
+
+### 233. Requests run one at a time, on the main thread
 
 A logbook write holds the termination signals off and can only run in the main thread (`logbook._held_off`), so the handler threads of `umwayi serve` do the reading and the gate and hand every request that may write to the main thread, which runs them one after another. A read waits behind a write, and a slow command (an agent check starts programs) delays the next request for as long as it runs. A write that has not started within 5 seconds is answered `busy`. Relaxing the rule in the logbook would change crash safety code and is not done here.
 
-### 230. A locked-out caller with a token of the right shape is still compared
+### 234. A locked-out caller with a token of the right shape is still compared
 
 After 5 failed token checks in a minute, failures are answered 429 (`rate`) for the next minute. A token of the wrong shape is refused without a comparison, but one of the right shape is compared with the stored digest, because a valid token must never be slowed by someone else's failures (W6.R5.2, W6.R16.1). The comparison is a constant-time compare of two SHA-256 digests, and a guess still has 256 bits to find.
 
-### 231. With a broken logbook the page can read only the status
+### 235. With a broken logbook the page can read only the status
 
 A request is rules-checked and the check is logged before the route runs, so when the logbook cannot be written (a hand edit, a failed tamper check) every request but `GET /v1/status` and the page is answered `logbook` (exit-equivalent 2) and the server goes into the degraded state. The page cannot show the owner what is wrong with the logbook; `umwayi logbook verify` at the terminal says. `snapshot` and `logbook.verify` therefore cannot give `refused` (1) on a broken logbook, which the table of the design had.
 
-### 232. The reader strips the whitespace around a header value
+### 236. The reader strips the whitespace around a header value
 
 The server's own reader takes the bytes on the wire and cuts spaces and tabs from both ends of a header value, as HTTP says. The pure gate sees the cut value, so `Host: 127.0.0.1:PORT ` with a trailing space is accepted. Everything else the gate refuses is refused as it arrived: a fold, a bare line feed, a space before the colon, a duplicate.
-
