@@ -12,12 +12,7 @@ Run every test:
 python -m unittest discover -s tests -t .
 ```
 
-- CI (`.github/workflows/ci.yml`) runs the same command on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. The counts after each pull request are in [status-log.md](status-log.md). How it runs (CI.1):
-  - **One run for each push to a pull request.** The workflow starts on `pull_request` only. Before CI.1 it also started on every push to a branch other than main, so each push to a pull request branch started two runs (eight jobs). A push to main starts nothing: main is only ever changed by a merged pull request, which was already tested.
-  - **A newer push cancels the older run.** A concurrency group (the workflow name and the pull request number) cancels the run in progress when a new push arrives for the same pull request. A cancelled run is not a failure of the code: it shows as cancelled and its commit is replaced by the newer one, so wait for the run of the newest commit before you trust a green check. Two different pull requests never cancel each other.
-  - **The names are unchanged**: the workflow is `tests` and the job is `test`, with the matrix `3.10`, `3.11`, `3.12` and `3.13`, so the checks are still `tests / test (3.10) (pull_request)` and so on. A rule that requires them by name keeps working. Every job still runs every Python test on its version.
-  - **The 3.12 job also runs the Node tests** of `ui/` and `site/` (`npm ci --ignore-scripts`, then `node --test`). The npm download cache (`~/.npm`, keyed on the two lockfiles) is kept between runs; `node_modules` is not, and `npm ci` still runs every time from the lockfiles.
-  - **A job runs the whole suite in one process group**, about 20 to 25 minutes on GitHub's runners (PR 56: 19.5 to 24.9 minutes per job, almost all of it the Python tests; the Node step is under half a minute). Splitting the suite into shards per version is only a proposal, in the CI.1 pull request, and is not built.
+- CI (`.github/workflows/ci.yml`, W20) runs on every pull request and on every push to main. The counts after each pull request are in [status-log.md](status-log.md). It is described in [CI since W20](#ci-since-w20) below.
 - Each layer has its own test module (`tests/test_*.py`, `tests/agents/`, `tests/adapters/`, `tests/budget/`).
 - Tests that start umwayi run `python -m umwayi ...` as a real child process with `HOME` (and where it matters `XDG_CONFIG_HOME` and `TMPDIR`) in a temporary folder. The agents are fakes put first on `PATH`: a fake `claude` (also the fake telemetry sender), a fake `kiro-cli`, a fake `node` with a scripted ACP agent. No real agent, systemd, network or account is used.
 - `tests/test_ui_package.py` (layer 12, UI.1) checks the `ui/` package, its lockfile, `ui/dist/build.json` and the built page without npm, node or a browser, with a planted fault for each rule. The page's own logic (the engine, the layout and position function, the stations, the home content, the detail mode) is tested by `node --test` inside `ui/` (no package needed), and the look and the behaviour in a browser by a hand pass whose results are in [interface.md](interface.md).
@@ -46,13 +41,161 @@ python -m unittest discover -s tests -t .
 - `tests/test_docs.py` checks the docs: every relative link resolves, the README is at most 120 lines, no em dash, every component doc has its four parts and is under 300 lines.
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. The results are listed in each layer's pull request.
 
+### CI since W20
+
+CI.1 (PR 59) made one run per push and cancelled older runs. W20 makes the wait shorter without dropping a test: it runs only the jobs a change can affect, and it splits the Python suite into three shards per version.
+
+- **Four jobs.** `plan` (always runs) reads the diff and decides. `test` is the Python suite, one job per Python version and shard. `node` is the Node tests of `ui/` and `site/`. `result` (always runs, after the others) is the one check to require.
+- **The decider** is `python -m tools.ci_plan` ([tools/ci_plan.py](../tools/ci_plan.py)). Its rules: a push to main runs everything on 3.10 to 3.13; an empty or unreadable diff, a path it does not know, a path that is not a plain relative path, and any change under `.github/` or `tools/` (the workflow, the decider, the map, the shards) run everything. Otherwise each changed path follows the longest matching route in [tools/ci_map.json](../tools/ci_map.json) (table below). A pull request whose Python part is only a selection of test files runs 3.10 and 3.13 only; every other Python part runs 3.10 to 3.13. Python 3.11 and 3.12 therefore run on a pull request only when something other than `ui/`, `site/`, `docs/`, `README.md`, `PROJECT.md` or `.kiro/` changed, and always on main. The option "3.11 and 3.12 only when `umwayi/`, `tests/` or `adapters/` changed" was taken in a stricter form: a change to a root file such as `pyproject.toml` or `rules.yaml` also runs all four, because the decider cannot prove it safe.
+- **The shards** are listed in [tools/ci_shards.json](../tools/ci_shards.json): every test file in exactly one of three shards, balanced by seconds measured on Python 3.11 (about 603 s each in the sandbox, against 1810 s of test time in one job). `python -m tools.ci_shards balance --times FILE --out tools/ci_shards.json` rewrites it deterministically; a new test file must be added to it, or `result` fails ("in no shard"). Each shard runs its files through the same loader as `unittest discover`, records which test ids it found and which really started, and writes a report.
+- **The final check** (`python -m tools.ci_shards verify`) fails when the plan job failed, when a planned job was skipped, cancelled or failed, when a shard has no report, when a shard reports a test that did not start, when the shards disagree about which tests exist, when a test file is in no shard, and when the tests the shards ran are not all the tests found in the files the plan selected. A shard that silently drops a test is a failure: `tests/test_ci_shards.py` plants a test that never starts and a test file in no shard, and both fail.
+- **A skipped job is never a pass.** When the plan leaves something out, the `result` summary lists it under NOT RUN, with the reason. What was left out runs on main after the merge, not on the pull request.
+- **Check names.** Before: `tests / test (3.10) (pull_request)`, `tests / test (3.11) (pull_request)`, `tests / test (3.12) (pull_request)`, `tests / test (3.13) (pull_request)`. After, on a pull request: `tests / plan (pull_request)`, `tests / test (V, shard K/3) (pull_request)` for V in 3.10 to 3.13 and K in 1 to 3 (fewer when the plan selects fewer; none is created for a skipped part), `tests / node (pull_request)` (only when planned) and `tests / result (pull_request)`. The same names with `(push)` appear on main. Require only `tests / result (pull_request)`: it is always created and it fails for every reason above. The four old names no longer exist, so a branch rule that requires them waits forever until the owner changes it by hand.
+- **Node.** The Node tests are their own job now (no longer a step of the 3.12 job), with the same npm download cache and the same `npm ci --ignore-scripts` then `node --test` in `ui/` and `site/`.
+- **Not verified locally.** A workflow cannot run here. `tests/test_ci_workflow.py` pins its text; the real run on GitHub is the record.
+
+### Run only the affected tests (sessions and laptops)
+
+`python tools/affected_tests.py` reads what differs from `origin/main` (commits, uncommitted edits, files git does not track) and asks the same function as the CI decider (`ci_plan.build_plan`) with the same map. `tests/test_affected_tests.py` proves it prints the same plan for the same changed files.
+
+```
+python tools/affected_tests.py                      what is affected
+python tools/affected_tests.py --run                run those tests (Python tests, then the Node folders)
+python tools/affected_tests.py --run --python python3.10 --python python3.13
+```
+
+While building, run the affected tests. Before every push, run them on each Python version you can install. Run the whole suite only when the command prints `FULL SUITE` (a workflow, map, filter, shard or unknown-path change, or a diff it cannot read) or when asked. GitHub CI stays the record. What an affected-only run can miss: a test that reads a path the scanner cannot see (see below); a change in `umwayi/`, `tests/` or `adapters/`, which selects the whole Python suite because the map cannot say which module a change reaches (use `python -m unittest tests.test_x` for the inner loop); a base that is out of date (merge the newest `origin/main` first); the Python versions you did not run; and the Node tests when `node` or the packages are not installed (the command then fails, it does not skip). The builder rules that tell every session this are in [.kiro/steering/builder-workflow.md](../.kiro/steering/builder-workflow.md).
+
+### What each test reads (the map)
+
+The map is data ([tools/ci_map.json](../tools/ci_map.json)) and a checker: `tests/test_ci_map.py` scans every Python and Node test file and fails when a test reads a path the map does not list for it, when a test file has no entry, or when an entry is for a file that is gone. The scanner sees paths built from the repository root in test code (`REPO / "ui"`, f-strings, `os.path.join`, a root passed to a helper function), imports of `adapters`, and walks of the whole repository (`REPO.rglob`, `git ls-files`: `tests/adapters/test_claude_code.py` and `tests/agents/test_claude_acp_package.py`, which therefore run on every change); for Node, relative imports out of the package and paths named in strings or `join()`. It cannot see a path that a child process reads from its working directory or that is built from data. The starting points of the guide were checked: the five tests that read `ui/` or `site/` are in the table; 43 files import or read `adapters/` (the guide counted 27 that mention it); only 4 read `.kiro/` (the guide counted 10 mentions, the rest are Kiro's own home folder inside temporary roots); `tests/test_docs.py` reads `docs/`, `README.md` and `PROJECT.md`. This table is generated by `python -m tools.ci_map table` and `tests/test_ci_map.py` checks that it is current.
+
+
+<!-- ci-map:begin (generated by `python -m tools.ci_map table`; tests/test_ci_map.py keeps it true) -->
+
+Python test files that read a path outside `tests/` and `umwayi/` (every other Python test file reads nothing outside its own area: 14 of 86 files):
+
+| test file | reads |
+| --- | --- |
+| `tests/adapters/test_claude_code.py` | `*`, `adapters` |
+| `tests/adapters/test_core_for_adapters.py` | `.kiro` |
+| `tests/adapters/test_kiro.py` | `adapters` |
+| `tests/adapters/test_opencode_plugin.py` | `adapters` |
+| `tests/adapters/test_opencode_rules.py` | `adapters` |
+| `tests/adapters/test_stdio.py` | `adapters` |
+| `tests/agents/test_agents_acp.py` | `adapters` |
+| `tests/agents/test_agents_chain.py` | `adapters` |
+| `tests/agents/test_agents_chat.py` | `adapters` |
+| `tests/agents/test_agents_claude_acp_chat.py` | `adapters` |
+| `tests/agents/test_agents_claude_acp_gate.py` | `adapters` |
+| `tests/agents/test_agents_claude_acp_turns.py` | `adapters` |
+| `tests/agents/test_agents_claude_login.py` | `adapters` |
+| `tests/agents/test_agents_file.py` | `adapters`, `agents.example.yaml` |
+| `tests/agents/test_agents_gate.py` | `adapters` |
+| `tests/agents/test_agents_kiro_run.py` | `adapters` |
+| `tests/agents/test_agents_login.py` | `adapters` |
+| `tests/agents/test_agents_opencode_chat.py` | `adapters` |
+| `tests/agents/test_agents_opencode_config.py` | `adapters` |
+| `tests/agents/test_agents_opencode_file.py` | `adapters` |
+| `tests/agents/test_agents_opencode_gate.py` | `adapters` |
+| `tests/agents/test_agents_run.py` | `adapters` |
+| `tests/agents/test_claude_acp_package.py` | `*`, `adapters` |
+| `tests/agents/test_fake_opencode.py` | `adapters` |
+| `tests/autonomy/test_gates.py` | `rules.yaml` |
+| `tests/autonomy/test_guards.py` | `adapters`, `rules.yaml` |
+| `tests/autonomy/test_inputs.py` | `rules.yaml` |
+| `tests/autonomy/test_off.py` | `autonomy.example.yaml`, `rules.yaml` |
+| `tests/autonomy/test_status.py` | `rules.yaml` |
+| `tests/autonomy/test_text_blind.py` | `rules.yaml` |
+| `tests/budget/test_calibrate.py` | `adapters` |
+| `tests/budget/test_capture.py` | `adapters` |
+| `tests/budget/test_end_to_end.py` | `adapters` |
+| `tests/budget/test_ledger.py` | `adapters` |
+| `tests/budget/test_limits.py` | `adapters` |
+| `tests/budget/test_readings.py` | `adapters` |
+| `tests/budget/test_status.py` | `adapters` |
+| `tests/budget/test_telemetry.py` | `adapters` |
+| `tests/budget/test_units.py` | `adapters` |
+| `tests/serve/test_gate_properties.py` | `docs` |
+| `tests/serve/test_samecode.py` | `serve.rules.example.yaml` |
+| `tests/serve/test_token.py` | `.gitignore`, `adapters`, `rules.yaml` |
+| `tests/serve/test_wire.py` | `ui`, `ui/dist` |
+| `tests/test_affected_tests.py` | `tools` |
+| `tests/test_automation.py` | `jobs.yaml`, `rules.yaml` |
+| `tests/test_builder_workflow.py` | `.kiro`, `tools` |
+| `tests/test_checks.py` | `.kiro`, `adapters`, `ui` |
+| `tests/test_ci_map.py` | `.github`, `docs`, `tools` |
+| `tests/test_ci_plan.py` | `tools` |
+| `tests/test_ci_shards.py` | `tools` |
+| `tests/test_ci_workflow.py` | `.github` |
+| `tests/test_docs.py` | `.gitignore`, `PROJECT.md`, `README.md`, `docs` |
+| `tests/test_helpers.py` | `rules.yaml` |
+| `tests/test_honest.py` | `.kiro`, `adapters`, `docs`, `rules.yaml` |
+| `tests/test_logbook_chain.py` | `rules.yaml` |
+| `tests/test_petition.py` | `rules.yaml` |
+| `tests/test_reopen.py` | `adapters`, `rules.yaml` |
+| `tests/test_rulelog.py` | `rules.yaml` |
+| `tests/test_rules.py` | `rules.yaml` |
+| `tests/test_runlock.py` | `rules.yaml` |
+| `tests/test_scan_files.py` | `adapters`, `articles`, `rules.yaml`, `workflows` |
+| `tests/test_scan_receiver.py` | `adapters` |
+| `tests/test_scan_secrets.py` | `adapters`, `articles`, `rules.yaml`, `workflows` |
+| `tests/test_schedule.py` | `rules.yaml`, `schedule.example.yaml` |
+| `tests/test_site_assets.py` | `adapters`, `site`, `ui`, `ui/dist` |
+| `tests/test_site_package.py` | `site`, `ui` |
+| `tests/test_starter_rules.py` | `adapters`, `rules.yaml` |
+| `tests/test_system.py` | `articles`, `umwayi.json`, `workflows` |
+| `tests/test_ui_package.py` | `.gitignore`, `ui`, `ui/dist` |
+| `tests/test_view.py` | `jobs.yaml`, `ui`, `umwayi.json`, `workflows` |
+| `tests/test_whole_system.py` | `adapters`, `articles`, `rules.yaml`, `workflows` |
+| `tests/test_workflows.py` | `rules.yaml` |
+
+Node test files that read a path outside their own package (the others read nothing outside it):
+
+| test file | reads |
+| --- | --- |
+| `site/test/client.test.mjs` | `ui/src`, `ui/src/scene.js`, `ui/src/style.css` |
+| `site/test/home.test.mjs` | `ui/dist/index.html`, `ui/src/data/home.js`, `ui/src/index.html`, `ui/src/stations/meta.js` |
+| `ui/test/faults.test.mjs` | `tests/test_ui_package.py` |
+
+Which changed path runs which jobs (the longest matching prefix wins; a path matching none runs everything):
+
+| changed path | python tests | node job |
+| --- | --- | --- |
+| `.github/` | all of them (everything, every version) | yes |
+| `.kiro/` | only the files that read it (tables above) | only if a node test reads it |
+| `PROJECT.md` | only the files that read it (tables above) | only if a node test reads it |
+| `README.md` | only the files that read it (tables above) | only if a node test reads it |
+| `adapters/` | all of them | only if a node test reads it |
+| `agents.example.yaml` | all of them | only if a node test reads it |
+| `articles/` | all of them | only if a node test reads it |
+| `autonomy.example.yaml` | all of them | only if a node test reads it |
+| `docs/` | only the files that read it (tables above) | only if a node test reads it |
+| `jobs.yaml` | all of them | only if a node test reads it |
+| `memory/` | all of them | only if a node test reads it |
+| `pyproject.toml` | all of them | only if a node test reads it |
+| `rules.yaml` | all of them | only if a node test reads it |
+| `schedule.example.yaml` | all of them | only if a node test reads it |
+| `serve.rules.example.yaml` | all of them | only if a node test reads it |
+| `site/` | only the files that read it (tables above) | yes |
+| `tests/` | all of them | only if a node test reads it |
+| `tools/` | all of them (everything, every version) | yes |
+| `ui/` | only the files that read it (tables above) | yes |
+| `umwayi.json` | all of them | only if a node test reads it |
+| `umwayi/` | all of them | only if a node test reads it |
+| `workflows/` | all of them | only if a node test reads it |
+| anything else | all of them (everything, every version) | yes |
+
+<!-- ci-map:end -->
+
 ## Decisions log
 
 Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-12 | CI runs on pull requests only, and a newer push cancels the older run of the same pull request; the names and the matrix stay; the npm download is cached on the 3.12 job; sharding is a proposal, not built | CI.1 (the owner's reviewer found two runs per push, no cancelling and 20 to 25 minutes a job), PR 59. It overrules S-Q13, which kept the workflow unchanged for Dec 3. |
+| 2026-11-12 | CI runs only the jobs a change can affect, splits the Python suite into three shards per version, and ends in one always-on `result` check; main always runs everything on 3.10 to 3.13; sessions run `tools/affected_tests.py` | W20 (CI.1.D built, after the owner asked): a filter that cannot prove a change safe runs everything, and the checks to require change to `tests / result (pull_request)`. |
+| 2026-11-12 | CI runs on pull requests only, and a newer push cancels the older run of the same pull request; the names and the matrix stay; the npm download is cached on the 3.12 job; sharding was a proposal then (built in W20) | CI.1 (the owner's reviewer found two runs per push, no cancelling and 20 to 25 minutes a job), PR 59. It overrules S-Q13, which kept the workflow unchanged for Dec 3. |
 | 2026-11-10 | The fault scenarios restore the day's snapshot into the same folder, not a copy elsewhere | S.1, PR 36: the day writes absolute paths (the workdir, the Kiro hook's `--root`, the unit files, logbook entries) that a copy at another path would make false. |
 | 2026-11-10 | S-Q1, S-Q2, S-Q15: the whole-system test runs in the normal suite; one ordered owner's day, then each fault in its own copy; a defect it finds is fixed in its pull request, test first | Approved in PR 34. |
 | 2026-11-08 | CI runs on Python 3.10, 3.11, 3.12 and 3.13 (H.1) | Hardening, PR 9. |

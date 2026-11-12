@@ -1074,9 +1074,24 @@ In an OpenCode chat, an error answer to `initialize`, `session/new` or `session/
 
 The chat start compares the `currentValue` of the `model` config option in the `session/new` answer with the agent's `model`, as text, with no case folding or trimming. 10.42 saw OpenCode 2.2.7 replace a model it could not find with one from its own catalogue and report that, which is what the check is for. If a later version reports the same model under another spelling (an alias, a variant suffix), the chat is refused with exit 2 before the first prompt: safe, but the owner has to write the model as OpenCode reports it. Only the fake and the one 10.42 observation stand behind the format `provider/model`; the owner's own run (10.51) is the first test against a real chat.
 
+## CI path filters and shards (W20), items 244 to 246
+
+### 244. What the path filter and the test map cannot see
+
+The decider skips tests only from a map that a scanner builds by reading test code (`tests/test_ci_map.py` keeps it true). The scanner sees a path built from the repository root in the test code, an import of `adapters`, a walk of the whole repository, and the Node equivalents. It does not see a path that a child process reads from its working directory, or one built from data. If a test reads `docs/`, `ui/` or `site/` that way, a change there can skip that test on the pull request. Every route outside `ui/`, `site/`, `docs/`, `README.md`, `PROJECT.md` and `.kiro/` runs the whole Python suite, which limits the gap to those six areas. Inside `umwayi/`, `tests/` and `adapters/` the filter selects nothing: a change there runs the whole Python suite, so `tools/affected_tests.py` also gives you the whole suite for such a change. `affected_tests.py` also depends on an up to date `origin/main`.
+
+### 245. Skipped jobs run on main, not on the pull request
+
+When the plan leaves out a Python version (3.11 and 3.12 for a change that only touches `ui/`, `site/`, `docs/`, `README.md`, `PROJECT.md` or `.kiro/`), a Python test file, or the Node job, that part does not run on the pull request. The `result` check passes and its summary lists the part as NOT RUN. The part runs when the pull request is merged, because a push to main always runs everything on 3.10 to 3.13. A break that only the skipped part would find is therefore found after the merge, not before. Merging is still guarded by `result`, but `result` can only vouch for what was planned.
+
+### 246. The required check names changed
+
+Before W20 the required checks were `tests / test (3.10) (pull_request)` to `tests / test (3.13) (pull_request)`. They no longer exist. The new checks are `tests / plan (pull_request)`, `tests / test (V, shard K/3) (pull_request)` for each planned version V and shard K, `tests / node (pull_request)` (only when planned) and `tests / result (pull_request)`, and the same names with `(push)` on main. The owner changes the branch rule by hand to require `tests / result (pull_request)` only. Until then a branch rule that names the old checks waits for checks that never come. Requiring the shard checks by name would not work either, because a skipped part creates no check. A test file added without an entry in `tools/ci_shards.json` fails `result`.
+
+
 ## Shared docs builder (W9.9), found while building
 
-### 244. Two branches that each run the build give the same number twice
+### 247. Two branches that each run the build give the same number twice
 
 `umwayi goal docs build` writes the number of a new limit into its part file and never changes it later. If two branches each run the build with a new limits part, both parts get the same next number, and the second merge puts two parts with one number in `main`. The build then refuses (exit 2, "a number that another part also has") and writes nothing, so no entry is lost or renumbered silently; a part that was deleted after it had a number is refused the same way, as a gap.
 
