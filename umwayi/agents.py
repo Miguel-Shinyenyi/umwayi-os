@@ -2441,7 +2441,10 @@ class _Run:
             return acp.REJECT
         if not logged:
             return acp.REJECT
-        return permission_verdict(decision.answer)
+        verdict = permission_verdict(decision.answer)
+        if verdict == acp.ALLOW and self.agent.platform == "opencode" and not _has_tool_name(tool_call):
+            return acp.ASK  # 10.R13.9: OpenCode had no tool for the request, so no rule is trusted to say Yes
+        return verdict
 
     def _acp_chat(self) -> Result:
         a = self.agent
@@ -2519,6 +2522,11 @@ def permission_action(agent_name: str, tool_call, platform: str) -> dict:
         if isinstance(tool, str) and _PLAIN_TOOL.match(tool):
             action["tool"] = tool
     return action
+
+
+def _has_tool_name(tool_call) -> bool:
+    """True if the permission request names its tool (a non-empty text `name`)."""
+    return isinstance(tool_call, dict) and isinstance(tool_call.get("name"), str) and bool(tool_call["name"])
 
 
 def permission_verdict(answer) -> str:
