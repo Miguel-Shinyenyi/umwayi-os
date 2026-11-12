@@ -223,7 +223,8 @@ class StarterRulesTest(unittest.TestCase):
 # hash of [id, title, text, cause, verdict, matchers, review_by] of each rule as the real parser reads it, so a
 # comment or spacing may change and a verdict, a matcher, a word of text or a date may not. The guard words that
 # layer 13 added to cc-no-guard-shell, kiro-no-guard-shell and the others (PRs 45 and 51) are in these hashes: they
-# are the text of main at 85293c6. To change one of these rules on purpose, change its hash here in the same pull
+# are the text of main at 85293c6, and W6.3 added "umwayi serve" and "serve.token" to the two guard shell rules (the
+# hashes of cc-no-guard-shell and kiro-no-guard-shell changed for that reason only). To change one of these rules on purpose, change its hash here in the same pull
 # request and say why.
 PINNED = {
     "no-money": "1a78babd4b63ef9bc6d6bb95f0d2ce62de7c1049d814e50e5760ffa6501d0e51",
@@ -245,8 +246,8 @@ PINNED = {
     "cc-no-push-main": "3c07f3f4d3f6508f0d0afe2a80a76294467c7e13f462de11c37176d7bfdb8bdf",
     "cc-no-destroy": "4bca913fd1a14737d4358e5f333d160fb9092e656e9a15b6a43207e26cc45995",
     "cc-no-guard-edits": "5683a739377b72eb8982f45bebf6e37574346f7aeadcec0d60c12cfc5cceff41",
-    "cc-no-guard-shell": "b10cfebeeeb0933da5811100d45b7abb6dbdb377fcb954db391f9587161eb069",
-    "cc-no-secrets": "3beec1f1313d0ad9344112a0bcefad51d948aa1305ddcb03663505ee1bf2e9bb",
+    "cc-no-guard-shell": "c31ac01e5099a5fa5d3dff84d3ad022263e9f9347701dc82a5dcdebec32d3157",
+    "cc-no-secrets": "df3d53ca3cde34db8e9a2b4b4dd0c966532181824dca0e08c37fc19cff63f875",
     "cc-read": "5defa24d1cd1d886793a0e275680feb988dcf7437eb322abf3dbefa11e1aca5b",
     "cc-ask-write": "32db02cf1a7396d6b3767683b4a87f09843d88837cdfd84c239d35cd655e66b8",
     "cc-ask-shell": "cd86e661191fc174a3ff01599ed638e891071363078014c191d89375145a4b25",
@@ -255,14 +256,14 @@ PINNED = {
     "kiro-ask-write": "8f2f0926eda5b792934e2507047917acc7dcfc17af325da8a47202fd1b1a7019",
     "kiro-ask-shell": "8883e49e84b587f7cfb6b8ce244d2b3511a4f18cee7e73b3a9010d09e3a70e5e",
     "kiro-no-destroy": "63938e180f2cddb088ddc7e228afda56071f40efee73357b4bab82090591768b",
-    "kiro-no-guard-shell": "37bdcea29a62f04f0d4b40463257585c529a6b70b4ef102f2cc14be43284c46a",
+    "kiro-no-guard-shell": "c507e88dd54bb91be264ce8b6c4677610bffb96d18f70d081570318a25161fbf",
     "kiro-no-guard-edits": "56920fc291042f590dee2a0badc392c33bbaf6c2741b784fcaf4cfb04deda836",
-    "kiro-no-secrets": "ff0128598d8601d42556aa3445d4efd7dced215ea40161a06dd438e47fd39b22",
+    "kiro-no-secrets": "ef75d42c06a9e75bbac5a3665e104346554b3ee29be33ee2851b32af0178ff5d",
     "stdio-read": "d4dfb4f717bceab92283ee6208aad50b5a99416d8db8c03e47655b5a78fc57ab",
     "stdio-ask-deploy": "d9b62e73f1d1347c790377d4c6801134198dd44dda5dd3c6ae0c9d1a584338ec",
     "stdio-no-prod": "1f54847a93aecaf8e39e43868a02ddc682cf53d0190849ce8211fd37cf2a0499",
     "stdio-no-owner-commands": "0a4c7bc0d3b50faea88575899d378bee99bef98f33b197ea92af5be8259ed049",
-    "stdio-no-secrets": "5e4979322dccc93e1ae1c1171e620705798f88c8ae27c67b56dea0fdb977b18e",
+    "stdio-no-secrets": "4e2455c7545e8546beeab644350b04541f0acb448bf53cf4323da0179cd712e9",
 }
 PINNED_FIRST_15 = OLD_IDS
 
@@ -587,7 +588,7 @@ class OpenCodePlantedFaultTests(unittest.TestCase):
     def test_a_matcher_dropped(self):
         for rid, line in (("oc-no-destroy", '      input_command__contains: ["rm -rf", "rm -fr", "mkfs", "dd if=", "chmod -r 777"]\n'),
                           ("oc-ask-shell", "      type: tool_shell\n"),
-                          ("oc-no-secrets", '      input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]\n'),
+                          ("oc-no-secrets", '      input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc", "serve.token"]\n'),
                           ("oc-perm-read", "      kind: [read, search]\n"),
                           ("oc-no-guard-shell", "      platform: opencode\n")):
             with self.subTest(rule=rid):

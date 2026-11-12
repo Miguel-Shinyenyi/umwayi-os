@@ -338,5 +338,38 @@ class NoLeakTests(TokenBase):
                 self.assertNotIn(TOKEN.encode(), p.read_bytes(), p)
 
 
+class GuardTests(unittest.TestCase):
+    """W6.R4.9, W6.R16.7: an AI helper cannot run `umwayi serve` or touch the token file (text matching, KNOWN-LIMITS 12)."""
+
+    def test_the_example_rules_of_the_adapters_refuse_the_command_and_the_token_file(self):
+        from adapters.common import umwayi_gate as gate
+        from umwayi.rules import NO, decide, load_rules
+        repo = Path(__file__).resolve().parents[2]
+        cases = {
+            "claude_code": [gate.tool_action("claude-code", "Bash", {"command": "umwayi serve token create"}),
+                            gate.tool_action("claude-code", "Bash", {"command": "umwayi serve"}),
+                            gate.tool_action("claude-code", "Bash", {"command": "cat x/.umwayi/serve.token"}),
+                            gate.tool_action("claude-code", "Read", {"file_path": "/r/.umwayi/serve.token"}),
+                            gate.tool_action("claude-code", "Write", {"file_path": "/r/.umwayi/serve.token"})],
+            "kiro": [gate.generic_action("kiro", "execute_bash", {"command": "umwayi serve"}),
+                     gate.generic_action("kiro", "execute_bash", {"command": "cat .umwayi/serve.token"}),
+                     gate.generic_action("kiro", "fs_write", {"path": "/r/.umwayi/serve.token"})],
+            "opencode": [gate.generic_action("opencode", "shell", {"command": "umwayi serve"}),
+                         gate.generic_action("opencode", "read", {"path": "/r/.umwayi/serve.token"}),
+                         gate.generic_action("opencode", "write", {"path": "/r/.umwayi/serve.token"})],
+        }
+        for name, actions in cases.items():
+            for rules_file in (repo / "adapters" / name / "rules.example.yaml", repo / "rules.yaml"):
+                rules = load_rules(rules_file)
+                for action in actions:
+                    with self.subTest(adapter=name, file=rules_file.name, action=action):
+                        self.assertEqual(decide(rules, action, today="2026-11-12").answer, NO)
+
+    def test_git_ignores_the_token_record_and_the_lock(self):
+        lines = (Path(__file__).resolve().parents[2] / ".gitignore").read_text().splitlines()
+        self.assertIn(".umwayi/serve.token", lines)
+        self.assertIn(".umwayi/serve.lock", lines)
+
+
 if __name__ == "__main__":
     unittest.main()

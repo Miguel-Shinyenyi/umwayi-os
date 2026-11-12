@@ -28,3 +28,7 @@ outbox/
 
 # the web interface snapshot (layer 12): the owner's counts, not code
 .umwayi/snapshot.json
+
+# the local backend (W6): the SHA-256 record of its token, and its one-server-per-root lock
+.umwayi/serve.token
+.umwayi/serve.lock

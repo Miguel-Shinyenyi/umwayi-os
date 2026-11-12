@@ -62,13 +62,13 @@ rules:
   # add "umwayi petition" to the list below.
   - id: cc-no-guard-shell
     title: Shell commands that touch the guard files
-    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .claude/settings, umwayi kill, umwayi decision, decision reopen, umwayi autonomy, autonomy record or autonomy.yaml are refused.
+    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .claude/settings, umwayi kill, umwayi serve, serve.token, umwayi decision, decision reopen, umwayi autonomy, autonomy record or autonomy.yaml are refused.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: claude-code
       type: [tool_bash, tool_powershell]
-      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
+      command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".claude/settings", "umwayi kill", "umwayi serve", "serve.token", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
 
   - id: cc-no-secrets
     title: No reading of secret files
@@ -76,7 +76,7 @@ rules:
     verdict: no
     matchers:
       platform: claude-code
-      path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]
+      path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc", "serve.token"]
 
   # --- yes: reading and searching inside the project
   - id: cc-read
