@@ -11,13 +11,15 @@ const read = (name) => readFileSync(join(site, name), 'utf8');
 const walk = (dir) => readdirSync(dir).flatMap((n) => (['node_modules', '.next'].includes(n) ? [] : statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]));
 const sources = walk(site).filter((f) => /\.(js|mjs|css|json)$/.test(f) && !f.endsWith('package-lock.json') && !relative(site, f).startsWith('test'));
 
-test('app/scene.js is a client component that starts the shared page script, for Standard at most, with the network counted', () => {
+test('app/scene.js is a client component that starts the shared page script, up to High, with the network counted', () => {
   const text = read('app/scene.js');
   assert.match(text, /^['"]use client['"]/);
   assert.match(text, /ui\/src\/boot\.js/, 'it does not use the shared boot module');
   assert.match(text, /import\(['"]\.\.\/\.\.\/ui\/src\/app\.js['"]\)/, 'the scene code is not fetched on demand, so a List visitor would download it');
   assert.ok(!/^import .*ui\/src\/app\.js/m.test(text), 'the scene code is imported at the top, so every visitor downloads it');
-  assert.match(text, /maxTier:\s*2/, 'the site draws Standard at most for now');
+  assert.match(text, /maxTier:\s*3/, 'the site offers High (UI.7)');
+  assert.match(text, /loadHigh:\s*\(\)\s*=>\s*import\(['"]\.\.\/\.\.\/ui\/src\/high\/index\.js['"]\)/, 'the High code is not fetched on demand, so a Standard visitor would download it');
+  assert.ok(!/^import .*ui\/src\/high/m.test(text), 'the High code is imported at the top, so every visitor downloads it');
   assert.match(text, /local:\s*false/, 'the site is served over a network, so the network counts');
   assert.match(text, /useEffect/, 'the picture starts in the browser, after the server HTML');
 });

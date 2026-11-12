@@ -37,7 +37,7 @@ Content was rephrased for compliance with licensing restrictions.
 
 ## How the look is made (decisions of Nov 11, not facts from outside)
 
-- No photograph, texture file, model or font is used. Terrain is a height function from noise; the ground, rock, wood, wool, iron and water are shaders and vertex colours; plants are instanced shapes; clouds are made once from noise; the mountain is a displaced mesh. This keeps the page under about 2 MB with three.js bundled (the bundle was 554 KB for the renderer, the composer and the bloom pass on Nov 10).
+- No photograph, texture file, model or font is used in List, Standard or the live view (High, on the public site only, uses the five photographs listed under "The High assets" below). Terrain is a height function from noise; the ground, rock, wood, wool, iron and water are shaders and vertex colours; plants are instanced shapes; clouds are made once from noise; the mountain is a displaced mesh. This keeps the page under about 2 MB with three.js bundled (the bundle was 554 KB for the renderer, the composer and the bloom pass on Nov 10).
 - A bump made from noise derivatives (the screen space change of a noise value) gives fine relief with no texture.
 - three.js 0.187.0 removed `PCFSoftShadowMap` (a console warning on Nov 10), so shadows use `PCFShadowMap`.
 - The automatic lower detail mode reads the renderer name (software rendering such as SwiftShader or llvmpipe is low), `navigator.hardwareConcurrency` and `navigator.deviceMemory` where the browser has them, and the measured frame times. None of these is a network request.
@@ -138,3 +138,18 @@ Rules for this check:
 - **Order of the keyboard:** List, Standard, Owner checks, Calm mode, then the eleven names in the order of the list view, then the station panel (reachable only while it is open), the snapshot button and the rest. The names show on focus; at rest nothing is written in the picture.
 - **Not run:** a screen reader, a real GPU, Firefox, Safari, touch. The interface check above (1.12 for the screen reader) is the owner's.
 
+## The High assets (UI.7, read and downloaded Nov 11 2026)
+
+The High tier of the public site uses five photographs from Poly Haven, at 1k (1024 by 1024) as JPEG. Poly Haven's licence page says every asset on the site (HDRIs, textures and models) is CC0, so it may be used for any purpose with no credit needed ([Poly Haven licence](https://polyhaven.com/license)), and each asset's own page also shows CC0. The author and the date come from Poly Haven's public API (`api.polyhaven.com/info/<id>`), and the md5 of each download matched the md5 in its file list (`api.polyhaven.com/files/<id>`). The machine readable list, with sizes and SHA-256, is `site/high-assets.json`; `tests/test_site_assets.py` checks the files, this list and the code agree. The site serves the files from its own host under `/high/`; no browser fetches anything from Poly Haven.
+
+| file | asset | author | licence | source |
+| --- | --- | --- | --- | --- |
+| `grass_ground_diff_1k.jpg` (colour) | Grass Ground | Charlotte Baglioni | CC0 1.0 | [polyhaven.com/a/grass_ground](https://polyhaven.com/a/grass_ground) |
+| `grass_ground_nor_gl_1k.jpg` (normal map) | Grass Ground | Charlotte Baglioni | CC0 1.0 | [polyhaven.com/a/grass_ground](https://polyhaven.com/a/grass_ground) |
+| `red_laterite_soil_stones_diff_1k.jpg` (colour) | Red Laterite Soil Stones | Amal Kumar | CC0 1.0 | [polyhaven.com/a/red_laterite_soil_stones](https://polyhaven.com/a/red_laterite_soil_stones) |
+| `dark_rock_02_diff_1k.jpg` (colour) | Dark Rock 02 | Amal Kumar | CC0 1.0 | [polyhaven.com/a/dark_rock_02](https://polyhaven.com/a/dark_rock_02) |
+| `dark_rock_02_nor_gl_1k.jpg` (normal map) | Dark Rock 02 | Amal Kumar | CC0 1.0 | [polyhaven.com/a/dark_rock_02](https://polyhaven.com/a/dark_rock_02) |
+
+The CC0 deed is at [creativecommons.org/publicdomain/zero/1.0](https://creativecommons.org/publicdomain/zero/1.0/). The grass and the rock photographs are not of Laikipia; they were chosen for colour and grain, and the High shader tints them towards the Standard palette. Not checked: whether an asset was ever under another licence before Poly Haven published it (the page and the licence page are the only sources). Poly Haven's API has its own terms; it was read by hand for these five assets, and nothing in the repo calls it.
+
+Content was rephrased for compliance with licensing restrictions.

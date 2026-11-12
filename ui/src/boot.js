@@ -12,8 +12,16 @@ import { readEnv } from './engine/env.js';
 
 const NO_WEBGL = 'This browser cannot draw the picture (no WebGL). The List view shows the same stations.';
 const FAILED = 'The picture could not start in this browser. The List view shows the same stations.';
+const HIGH_LOADING = 'Loading High. This is Standard until it is ready.';
+const HIGH_WARN = 'You chose High. It loads more and may be slow on this device.';
+const HIGH_FAILED = 'High could not start in this browser, so this is Standard.';
+const HIGH_SLOW = 'High took too long to load, so this is Standard.';
+// how long High may take to load and build before the page gives up and stays Standard
+export const HIGH_TIMEOUT_MS = 15000;
 
-// options: { maxTier, local }. The live view passes a highest tier of Standard and ignores the network (it is a file on disk).
+// options: { maxTier, local, loadHigh }. The live view passes a highest tier of Standard and ignores the network (it is a file on
+// disk), and has no loadHigh. The public site passes a highest tier of High and loadHigh(), a promise of the High module
+// (ui/src/high): Standard draws first, then High is built on top of it; a failed or slow High leaves Standard and says why.
 // loadApp() gives a promise of createApp: the live view has the code in its one file already, the site fetches it from its own host
 // only when a scene tier is chosen, so a visitor on List (a slow network, Save-Data, no WebGL) never downloads the 3D code.
 // Returns { stop } so a page that is torn down (the site, when its component unmounts) can take the listeners off again.
@@ -44,14 +52,51 @@ export function boot(win, options, loadApp) {
     return loading;
   }
 
+  // High, on top of a drawn Standard scene: high is { remove } while it is on
+  let high = null;
+  const highState = (s) => { if (options.loadHigh) doc.documentElement.setAttribute('data-high', s); };
+  function dropHigh() {
+    if (high) { high.remove(); high = null; }
+    if (options.loadHigh) highState('off');
+  }
+  function startHigh(mine, warn) {
+    if (high) { setTier(doc, 'high', warn ? HIGH_WARN : ''); highState('on'); return; }
+    highState('loading'); // use() has already shown High with the loading words
+    let late = false;
+    const timer = win.setTimeout(() => {
+      late = true;
+      if (mine !== turn) return;
+      highState('failed');
+      setTier(doc, 'standard', HIGH_SLOW);
+    }, HIGH_TIMEOUT_MS);
+    Promise.resolve().then(() => options.loadHigh()).then((m) => m.upgrade(app)).then((h) => {
+      win.clearTimeout(timer);
+      if (late || mine !== turn) { h.remove(); return; } // too late, or the visitor chose another tier meanwhile
+      high = h;
+      highState('on');
+      setTier(doc, 'high', warn ? HIGH_WARN : '');
+    }, () => {
+      win.clearTimeout(timer);
+      if (late || mine !== turn) return;
+      highState('failed');
+      setTier(doc, 'standard', HIGH_FAILED);
+    });
+  }
+
   // The newest choice wins: a scene that finishes loading after the visitor chose List is built but not shown.
   function use(choice, message = '') {
     const mine = ++turn;
     if (choice.tier >= 2) {
-      setTier(doc, 'standard', choice.warn ? 'You chose Standard. The picture may be slow on this device.' : '');
+      const wantHigh = choice.tier >= 3 && !!options.loadHigh;
+      setTier(doc, wantHigh ? 'high' : 'standard', wantHigh ? HIGH_LOADING : choice.warn ? 'You chose Standard. The picture may be slow on this device.' : '');
       startScene().then((ok) => {
         if (mine !== turn) return;
-        if (ok) { app.setFlat(false); return; }
+        if (ok) {
+          app.setFlat(false);
+          if (wantHigh) startHigh(mine, choice.warn);
+          else if (high || options.loadHigh) dropHigh();
+          return;
+        }
         env.webgl = false;
         setTier(doc, 'list', FAILED);
         if (app) app.setFlat(true);
