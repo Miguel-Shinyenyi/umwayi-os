@@ -1,12 +1,18 @@
 name: tests
 
+# CI.1: one run for each push to a pull request, and a newer push cancels the older run of the same pull request.
+# Before, the workflow also ran on every push to a branch, so each push to a pull request branch started two runs
+# (eight jobs). The workflow name, the job name and the matrix are unchanged, because a branch rule may require the
+# checks by their names ("tests / test (3.10) (pull_request)" and so on).
 on:
   pull_request:
-  push:
-    branches-ignore: [main]
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -21,6 +27,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Run tests
         run: python -m unittest discover -s tests -t . -v
+      # The npm download cache of the two Node test steps below (the 3.12 job only). It holds what npm downloads,
+      # never node_modules, and `npm ci --ignore-scripts` still runs from the lockfiles. It uses the Node the runner
+      # already has, so which Node runs does not change.
+      - name: Cache the npm download of ui/ and site/
+        if: matrix.python-version == '3.12'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('ui/package-lock.json', 'site/package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
       - name: Node tests of ui/ and site/
         if: matrix.python-version == '3.12'
         run: |

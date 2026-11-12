@@ -41,7 +41,7 @@ Every check writes one logbook entry with the rule id and the answer. The action
 
 ### Starter rules for the adapters (task 9.10)
 
-The repo `rules.yaml` ends with starter rules for the actions that the Claude Code, Kiro and generic adapters send. Each rule names its platform (`claude-code`, `kiro` or `stdio`), so a rule for one never answers for another. The ids, verdicts and matchers are the ones in `adapters/claude_code/rules.example.yaml`, `adapters/kiro/rules.example.yaml` and `adapters/stdio/rules.example.yaml`.
+The repo `rules.yaml` ends with starter rules for the actions that the Claude Code, Kiro, generic and OpenCode adapters send. Each rule names its platform (`claude-code`, `kiro`, `stdio` or `opencode`), so a rule for one never answers for another. The ids, verdicts and matchers are the ones in `adapters/claude_code/rules.example.yaml`, `adapters/kiro/rules.example.yaml`, `adapters/stdio/rules.example.yaml` and `adapters/opencode/rules.example.yaml`. The OpenCode rules were added last, after the three groups of 9.10, and are described under the table.
 
 | what the AI helper does | answer | rule ids |
 | --- | --- | --- |
@@ -57,10 +57,34 @@ The repo `rules.yaml` ends with starter rules for the actions that the Claude Co
 | anything else (other tools, MCP tools, helpers' own sub tasks) | Ask me first | no rule matches |
 
 - Two rules are not in the example files: `kiro-no-secrets` and `stdio-no-secrets`. They are the secret path rule of `cc-no-secrets` for the other two adapters.
+- The table above is for the first three adapters. OpenCode has its own table below.
 - No starter rule has a `review_by` date. A Yes rule gets one only when the owner wants it reviewed.
 - Matching is plain text and not a shell parser, so a command can be written to get past it. Ask me first for every shell command is the real guard. Keep hard limits in the platform's own deny rules too.
 - The Kiro rules that look at `input_command` and `input_path` work only if Kiro uses those field names (KNOWN-LIMITS 21). If it does not, a Kiro call is still Ask me first, except reads, which stay Yes.
 - `tests/test_starter_rules.py` loads the file with the real parser and checks every rule, the ids, a table of adapter actions and an unknown action.
+
+#### OpenCode
+
+The 13 rules of `adapters/opencode/rules.example.yaml` follow the others in the file, with the same ids (all start with `oc-`), verdicts, matchers and words. Every one has `platform: opencode`. OpenCode sends two kinds of action, one for each gate (see [adapters](adapters.md) and `adapters/NOTES-layer10.md`): a tool call from the umwayi plugin (`tool_read`, `tool_shell` and so on, with `input_path` and `input_command`), and a permission request (`acp_permission` with a `kind`).
+
+| what OpenCode does | answer | rule ids |
+| --- | --- | --- |
+| reads, lists or searches files (`tool_read`, `tool_glob`, `tool_grep`) | Yes | `oc-read` |
+| a permission request of the kind `read` or `search` | Yes | `oc-perm-read` |
+| writes or edits a file | Ask me first | `oc-ask-write` |
+| runs a shell command (this covers installing, publishing, sending and deleting one file) | Ask me first | `oc-ask-shell` |
+| fetches a web page | Ask me first | `oc-ask-web` |
+| starts a sub agent or asks a question | Ask me first | `oc-ask-agent` |
+| a permission request of any other kind (edit, delete, move, execute, think, fetch, switch_mode, other) | Ask me first | `oc-perm-ask` |
+| names a payment service, pushes to main or forces a push, wipes folders or disks | No | `oc-no-money`, `oc-no-push-main`, `oc-no-destroy` |
+| changes or names `rules.yaml`, `autonomy.yaml`, `LOGBOOK.md`, `.umwayi`, `.git`, `opencode.json`, `opencode.jsonc` or the `.opencode` folder, or runs `umwayi kill`, `umwayi decision` or `umwayi autonomy` | No | `oc-no-guard-edits`, `oc-no-guard-shell` |
+| touches a secret or key path | No | `oc-no-secrets` |
+| Code Mode (`tool_execute`) and the tools inside it (`tool_opencode_*`), and any tool not listed | Ask me first | no rule matches, on purpose |
+
+- **Code Mode has no rule on purpose.** Ask me first beats Yes, so an Ask rule for `tool_execute` or `tool_opencode_*` would make a Yes rule of the owner's for them useless. With no rule they are Ask me first anyway, and the first gate stops them, because OpenCode asks no permission for them. To allow one, write a Yes rule for its type (the example file shows one). A test fails if the file gets a rule for these types.
+- The permission rules see only the kind, never the path or the command; the first gate has already looked at those.
+- Nothing about the other groups changed: no rule above this section was edited, and an action from another platform gets no answer from the `oc-` rules. A test pins each older rule by a hash of what it says.
+- `tests/test_starter_rules.py` has the OpenCode checks: every example rule is in the file with the same verdict and matchers, the decisions table is run with the real `umwayi check` on a real root, the older rules are unchanged, and planted faults (a verdict changed, a matcher dropped, a rule missing, an Ask rule for `tool_execute` added) are found.
 
 ### Review dates: a Yes rule that runs out (layer 13, elections)
 
@@ -128,6 +152,7 @@ Newest first. Each row names where it was decided.
 | --- | --- | --- |
 | 2026-11-11 | An `ask` rule may opt its class in to graded autonomy with `autonomy`; the never list and the agreement of two rules are checked when the file is read; only a Yes rule lapses at `review_by` | Layer 13, L13.5 (13.R9.2, 13.R9.3, 13.R2.2). |
 | 2026-11-11 | Every caller that asks the rules logs a changed `rules.yaml` before it uses it; if that cannot be written, a Yes becomes Ask me first; a dry run logs nothing and keeps its answer | Layer 13, L13.3 (13.R7; L13-Q11 and the new L13-Q19 as proposed). |
+| 2026-11-11 | The 13 rules of the OpenCode example are in the repo `rules.yaml` too, after the older ones and unchanged beside them; Code Mode has no rule, so an owner's Yes for it can take effect | The OpenCode starter rules pull request (a follow-up of 9.10 and 10.45; see [adapters](adapters.md)). |
 | 2026-11-11 | The repo `rules.yaml` holds starter rules for the actions the three adapters send, taken from the example files, with the strictest verdict the examples give; `kiro-no-secrets` and `stdio-no-secrets` are added because the examples have no secret rule for those two; no starter rule has `review_by` (9.10) | Task 9.10, PR 43. |
 | 2026-11-11 | A Yes rule past its `review_by` counts as Ask me first, in every caller of the rules; a lapsed Yes beside a fresh Yes gives Ask me first (L13-Q16, proposal used); `rules due` exits 3 when a rule lapsed (L13-Q9, proposal used); a date more than 366 days ahead is listed as `far` (L13-Q10, proposal used) | L13.1, 13.R2 and 13.R3. |
 | 2026-11-10 | The rules file is read only as a regular file of at most 1 MB | The security scan (S.2, PR 37): a rules file that was a link to /dev/zero made `umwayi check` read forever. |

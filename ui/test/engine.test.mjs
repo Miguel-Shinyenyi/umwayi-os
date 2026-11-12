@@ -144,6 +144,15 @@ test('settings read reduced motion, start calm on less contrast, and follow chan
   assert.equal(createSettings({ matchMedia: undefined }).reduced, false);
 });
 
+test('reduced motion that is already on when the page starts is read at start (12.R5.4), and so is less contrast for Calm mode', () => {
+  const on = (want) => (q) => ({ matches: q.includes(want), addEventListener() {} });
+  assert.equal(createSettings({ matchMedia: on('reduced-motion') }).reduced, true);
+  assert.equal(createSettings({ matchMedia: on('reduced-motion') }).calm, false);
+  assert.equal(createSettings({ matchMedia: on('prefers-contrast') }).calm, true);
+  assert.equal(createSettings({ matchMedia: on('prefers-contrast') }).reduced, false);
+  assert.equal(createSettings({ matchMedia: () => { throw new Error('no'); } }).reduced, false, 'a browser that throws is not held against the page');
+});
+
 test('the action of any station ends within 3 s, and within 5 s in calm mode', () => {
   for (let n = 2; n <= 6; n++) {
     assert.ok(moveMs(n) <= 1200);

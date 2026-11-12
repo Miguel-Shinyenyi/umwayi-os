@@ -120,7 +120,7 @@ class RepoTests(unittest.TestCase):
             self.assertTrue(c["steps"], c["id"])
             self.assertTrue(any(s.get("commands") for s in c["steps"]), c["id"])
         self.assertEqual({c["id"]: len(c["steps"]) for c in checks},
-                         {"10.21": 4, "10.31": 16, "11.6": 19, "B.10": 5, "10.37": 3, "UI.5": 20})
+                         {"10.21": 4, "10.31": 16, "11.6": 19, "B.10": 5, "10.37": 3, "UI.5": 25})
 
     def test_the_commands_are_text_for_the_owner_and_the_file_runs_nothing(self):
         js = (REPO / "ui/src/data/checks.js").read_text(encoding="utf-8")

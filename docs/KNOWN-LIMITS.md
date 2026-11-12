@@ -729,27 +729,38 @@ It fires on an email address, `://`, a run of 24 or more letters and digits, a h
 
 Nothing is stored (12.R2.2): a reload, a crash or closing the tab loses every tick and result, and the panel says so. Download saves the text through a link whose address holds the text, so it needs no Blob and makes no request. It saved the file in the one browser tried (headless Chromium, under the live view's policy `default-src 'none'` and under the site's); other browsers may refuse a very large data address, and then Copy is the way.
 
+## Layer 12: access and polish (found while building UI.5, first slice)
+
+### 149. The contrast check reads the CSS colours, not the pixels
+
+`ui/test/contrast.test.mjs` works out the ratio of the ink and muted text on the page, the solid panel, the glass over the page and the dark wells of the code blocks and fields, in normal and in Calm mode (the lowest is 6.0 to 1 in Calm mode, against a floor of 4.5), and of the focus ring and the field border (3 to 1). It does not check the glass panel and the name pills over the sky, which the owner cut on Nov 11, so text over a bright part of the picture is not measured, and the picture's own colours are not in it. A colour written in the CSS that is not one of the variables fails the test, but a new ground that is not in the list is not found.
+
+### 150. The keyboard and screen reader pass is read from the code, and the phone layout from one browser
+
+The names, landmarks, heading order, Tab order, live regions and target sizes are tested on the built HTML and on a fake document (`ui/test/access.test.mjs`), and the owner checks panel was measured at 390 by 844 in headless Chromium (no sideways scroll, no control under 24 pixels). No screen reader was run: how NVDA, VoiceOver or TalkBack read the hidden file input, the live regions, the picture's text alternative and a panel that opens by script is not known (step 1.12 of the interface check asks the owner). The station panel on a phone is a sheet at the bottom of the first screen (the picture area), not of the whole window. The frame rate check and the by-hand pass of the finished scene wait for UI.7.
+
 ## Layer 12: the High tier of the public site (found while building UI.7)
 
-### 149. High is checked only in software drawing, and its frame rate is unknown
+### 151. High is checked only in software drawing, and its frame rate is unknown
 
 Every browser run of High was in headless Chromium with SwiftShader, which draws on the processor: High drew there, and the fallback, the switch and the wildlife worked, but a drag in High timed out and a frame took seconds. That says nothing about a real GPU. The automatic rule offers High only on a fast network, 8 or more cores, 8 GB or more where the browser says, a large screen, no reduced motion and a hardware renderer, so a visitor with a weak GPU and strong numbers can still be given High. Their way back is the switch, which keeps Standard in the address. Slow frames step the detail down inside High as in Standard (a lower pixel ratio, then no bloom, and less grass), but nothing steps down from High to Standard by itself.
 
-### 150. High is about 4.7 MB of photographs, and the 15 s limit is one number for every network
+### 152. High is about 4.7 MB of photographs, and the 15 s limit is one number for every network
 
 The five photographs are 4.72 MB (JPEG does not compress further) and the High code 10 KB compressed, on top of Standard. The rule offers High only on a reported 4g network of 10 Mbit/s or more, but that is the browser's estimate. A visitor who chose High on a slow network waits up to 15 s for it and then gets Standard with the words saying why; the files that arrived late are not used, and the next visit downloads them again unless the browser cached them. The limit is not tuned to the network.
 
-### 151. The antelope is clear of trees only for the default view
+### 153. The antelope is clear of trees only for the default view
 
 The High forest leaves out every young tree that would stand between the default overview camera and the antelope's path (`blocksAntelope`), and every tree in the line of each station's view (`inStationView`). A camera that the visitor drags elsewhere can see the antelope behind a tree, or see none of it. The birds fly under the top bar of the default view at 1440 by 900 only; at other sizes they may be behind it.
 
-### 152. The photographs are of other places, and High still looks made in parts
+### 154. The photographs are of other places, and High still looks made in parts
 
 The grass, soil and rock photographs are CC0 from Poly Haven and are not of Laikipia; the shaders tint them towards the Standard palette. Up close the ground and the rocks read as real surfaces, but the shepherd, the animals and the trees are still shapes made from code: the shuka is a lathe with folds, the coats are smooth shells, the tree crowns are lumps, and the far forest is the Standard forest. The screenshots in the pull request show where.
 
-### 153. A High that fails after it is on is not caught
+### 155. A High that fails after it is on is not caught
 
 The fallback covers a High that cannot load its code, cannot load a photograph, throws while it is built, or is too slow. A failure after High is on (a shader that does not compile on a given GPU, a lost context) shows as whatever the browser does with it: three.js logs the shader error and the object is not drawn. A lost context goes through the Standard path (List, with the words). No test or browser run here had a shader fail to compile.
+
 
 ## Layer 13: elections (found while building L13.1)
 

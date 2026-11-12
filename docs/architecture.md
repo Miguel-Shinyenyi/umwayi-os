@@ -22,7 +22,7 @@ The core is the `umwayi` package, standard library only (`pyproject.toml`: `depe
 | 10 front door | `umwayi agent`: check, run, chat, login | `umwayi/agents.py`, `umwayi/acp.py` | [agent-front-door.md](agent-front-door.md) |
 | 11 scheduled runs | systemd user timers for jobs and workflows | `umwayi/schedule.py` | [scheduled-runs.md](scheduled-runs.md) |
 | budget governor | UU, the ledger, the telemetry receiver | `umwayi/units.py`, `umwayi/budget.py`, `umwayi/telemetry.py` | [budget-governor.md](budget-governor.md) |
-| 12 view (snapshot, scene and public site built) | a web page that only looks, the same scene on a public site, and the read only snapshot of counts it will read | `ui/`, `site/`, `umwayi/view.py` | [interface.md](interface.md) |
+| 12 view (snapshot, scene, public site, snapshot reading and the owner checks panel built; access and docs half done) | a web page that only looks, the same scene on a public site, and the read only snapshot of counts it will read | `ui/`, `site/`, `umwayi/view.py` | [interface.md](interface.md) |
 
 Shared by every layer:
 

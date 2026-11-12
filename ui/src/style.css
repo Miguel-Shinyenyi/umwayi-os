@@ -10,6 +10,7 @@
   --glass: rgba(20, 26, 23, 0.62);
   --glass-solid: #222622;
   --line: rgba(238, 232, 219, 0.12);
+  --field-line: #8a8579; /* the border of a field: 3 to 1 against what is inside and around it */
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -21,6 +22,7 @@ html[data-calm="1"] {
   --glass: rgba(18, 23, 20, 0.5);
   --glass-solid: #1e211e;
   --line: rgba(238, 232, 219, 0.08);
+  --field-line: #7d786d;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--base); color: var(--ink); font: 15px/1.5 var(--sans); }
@@ -133,29 +135,31 @@ html[data-tier="list"] .status-head .more { display: none; }
 .snapshot .snapshot-help { flex: 1 1 320px; margin: 0; font-size: 13.5px; }
 .snapshot .snapshot-help code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); }
 .snapshot .snapshot-msg { flex-basis: 100%; margin: 0; min-height: 1.4em; font-size: 13.5px; color: var(--ink); }
-.check { background: var(--glass-solid); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 0 0 14px; }
+.check { min-width: 0; overflow-wrap: anywhere; background: var(--glass-solid); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 0 0 14px; }
 .check-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; }
 .check-head h3 { margin: 0; }
 .check-status { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
-.check-reason, .check-source { margin: 6px 0 0; font-size: 13.5px; }
-.steps { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 14px; }
-.steps li { border-top: 1px solid var(--line); padding-top: 12px; }
-.step-head { display: flex; gap: 10px; align-items: flex-start; }
-.step-head input[type="checkbox"] { margin-top: 5px; width: 18px; height: 18px; flex: none; accent-color: var(--ink); }
+.check-reason, .check-source { margin: 6px 0 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.steps { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.steps li { min-width: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+.step-head { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.step-head input[type="checkbox"] { margin: 0; width: 24px; height: 24px; flex: none; accent-color: var(--ink); }
 .step-id { flex: none; min-width: 2.4em; color: var(--ink); font-size: 13px; padding-top: 2px; }
 .step-text { min-width: 0; }
 .step-line { margin: 0 0 4px; color: var(--muted); overflow-wrap: anywhere; }
-.step-line code { color: var(--ink); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-pre.cmd { margin: 8px 0 0 28px; padding: 8px 10px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+.step-line code { overflow-wrap: anywhere; color: var(--ink); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+pre.cmd { max-width: calc(100% - 28px); margin: 8px 0 0 28px; padding: 8px 10px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
 pre.cmd code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); white-space: pre; }
-.step-record { margin: 8px 0 0 28px; font-size: 13px; }
-.steps input[type="text"] { display: block; box-sizing: border-box; width: calc(100% - 28px); margin: 8px 0 0 28px; padding: 7px 10px; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.check-warning { margin: 6px 0 0 28px; font-size: 13px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px; }
+.step-record { margin: 8px 0 0 28px; font-size: 13px; overflow-wrap: anywhere; }
+.steps input[type="text"] { display: block; box-sizing: border-box; width: calc(100% - 28px); margin: 8px 0 0 28px; padding: 7px 10px; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--field-line); border-radius: 10px; font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.check-warning { margin: 6px 0 0 28px; font-size: 13px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px; overflow-wrap: anywhere; }
 .check-warning[hidden] { display: none; }
 .checks-memory { color: var(--ink); }
 .checks-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
-#checks-export { box-sizing: border-box; width: 100%; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+#checks-export { box-sizing: border-box; width: 100%; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--field-line); border-radius: 10px; padding: 10px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 #checks-export[hidden], #checks[hidden] { display: none; }
+#checks { scroll-margin-top: 72px; } /* the fixed top bar must not cover the title when the panel is scrolled to */
+.steps input[type="text"]::placeholder { color: var(--muted); opacity: 1; }
 .cmds { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .cmds li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--glass-solid); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px 8px 14px; }
 .cmds code { flex: 1 1 280px; min-width: 0; overflow-wrap: anywhere; font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); }
@@ -175,4 +179,7 @@ pre.cmd code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, mon
   #status { padding-top: 14px; }
   :root { --peek: 170px; }
   .status-head h2 { font-size: 23px; }
+  .check { padding: 12px; }
+  pre.cmd, .step-record, .check-warning { margin-left: 0; max-width: 100%; }
+  .steps input[type="text"] { margin-left: 0; width: 100%; }
 }
