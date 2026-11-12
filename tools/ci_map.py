@@ -28,7 +28,7 @@ TABLE_END = "<!-- ci-map:end -->"
 # python tests' own area and are left out.
 ROOT_TOKENS = frozenset({
     "ui", "site", "docs", "adapters", ".kiro", "README.md", "PROJECT.md", "LICENSE", ".gitignore", "pyproject.toml",
-    "rules.yaml", "agents.example.yaml", "autonomy.example.yaml", "schedule.example.yaml", "serve.rules.example.yaml",
+    "docs-parts", "rules.yaml", "agents.example.yaml", "autonomy.example.yaml", "schedule.example.yaml", "serve.rules.example.yaml",
     "jobs.yaml", "umwayi.json", "memory", "articles", "workflows", ".github", "tools",
 })
 PYTHON_TOKENS = ROOT_TOKENS | {"ui/dist", "*"}
