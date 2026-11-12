@@ -46,6 +46,7 @@ umwayi-os/
     security.md             what is protected and how it is checked
     corrections.md          layer 13: elections, reversal, courts and the rules change log, the stop criteria and the plain note (built)
     autonomy.md             layer 13: graded autonomy, the score and its gates (built, off by default)
+    serve.md                W6: umwayi serve, the local backend the page may send requests to (specified, not built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
     KNOWN-LIMITS.md         every known limit, numbered
@@ -53,4 +54,4 @@ umwayi-os/
   .kiro/steering/           the product rules
 ```
 
-The facts each adapter relies on, with links, are in [adapters/NOTES.md](adapters/NOTES.md), [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md) and [adapters/NOTES-layer11.md](adapters/NOTES-layer11.md) and [adapters/NOTES-layer12.md](adapters/NOTES-layer12.md).
+The facts each adapter relies on, with links, are in [adapters/NOTES.md](adapters/NOTES.md), [adapters/NOTES-layer10.md](adapters/NOTES-layer10.md) and [adapters/NOTES-layer11.md](adapters/NOTES-layer11.md) and [adapters/NOTES-layer12.md](adapters/NOTES-layer12.md) and [adapters/NOTES-w6.md](adapters/NOTES-w6.md).
