@@ -20,12 +20,18 @@ export function createLabels(nav, onSelect, onFocus) {
       buttons.get(id).style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
     },
     // While a station is selected only its own button is shown; the others wait for the overview.
+    // The selected name waits (data-pending, drawn clear) until the next frame has put it at the feature's new place, so it is never
+    // seen for a moment at the place the picture had before the move, where the station panel or the title may now be.
     setSelected(id) {
       buttons.forEach((b, key) => {
         b.classList.toggle('is-selected', key === id);
+        if (key === id) b.setAttribute('data-pending', ''); else b.removeAttribute('data-pending');
         if (id && key !== id) b.setAttribute('data-away', '');
         else b.removeAttribute('data-away');
       });
+    },
+    placed() {
+      buttons.forEach((b) => b.removeAttribute('data-pending'));
     },
     setHover(id) {
       buttons.forEach((b, key) => b.classList.toggle('is-hover', key === id));

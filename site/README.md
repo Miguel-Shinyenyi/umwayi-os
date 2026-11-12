@@ -5,6 +5,8 @@ and the list of the eleven stations, all written into the HTML by the server, an
 Next.js app. It is not part of the `umwayi` package: nothing here imports `umwayi`, and umwayi never runs npm, node or this
 site. The owner builds it and the owner deploys it (nothing here deploys anything or touches Vercel).
 
+Status (W1, mobile first): the site shares the page's CSS, so the phone layout of `ui/` is the site's (the bar in the page, 44 pixel controls). `test/phone.test.mjs` builds the site, serves it on 127.0.0.1 and renders it in a real Chromium at the four phone sizes, upright and on its side (the same audit as `ui/test/phone.test.mjs`, with the High button in the header). It skips without a Chromium. `site/` itself is unchanged.
+
 Status (UI.7): High, tier 3, on this site only. The switch offers List, Standard and High. Standard draws first; then
 `app/scene.js` loads the High code (`ui/src/high/index.js`, on demand, its own file) and `public/high/` holds the five
 photographs it loads from this site's own host. They are CC0 photographs from Poly Haven, each listed in
