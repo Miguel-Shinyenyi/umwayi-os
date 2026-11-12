@@ -74,10 +74,13 @@ test('the words are the product words: short, no em dash, every station has two 
 
 test('no module loads a file, keeps a timer or draws by itself', () => {
   const banned = [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /sendBeacon/, /\bLoader\b/, /TextureLoader/, /localStorage/, /sessionStorage/,
-    /indexedDB/, /document\.cookie/, /setInterval/, /new Worker/, /import\s*\(/];
+    /indexedDB/, /document\.cookie/, /setInterval/, /new Worker/, /import\s*\(/, /\bnew Image\b/, /\bImage\s*\(/];
   for (const f of files(ROOT).filter((n) => n.endsWith('.js'))) {
     const text = readFileSync(f, 'utf8');
-    for (const re of banned) assert.ok(!re.test(text), `${f}: ${re}`);
+    // the one exception (UI.7, 12.R16.4): the High asset module of the public site loads its photographs as images from the
+    // site's own host. The owner's live view never imports it (ui/test/high.test.mjs checks the import graph).
+    const own = f.endsWith(join('src', 'high', 'assets.js')) ? banned.filter((re) => !/Image/.test(re.source)) : banned;
+    for (const re of own) assert.ok(!re.test(text), `${f}: ${re}`);
     // only scene.js names it, to hand it to the on demand loop (it was app.js before the scene moved to a module of its own); no other module asks for a frame
     if (!f.endsWith(join('src', 'scene.js'))) assert.ok(!/requestAnimationFrame/.test(text), `${f} asks for frames by itself`);
   }

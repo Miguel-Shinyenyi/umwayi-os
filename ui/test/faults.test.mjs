@@ -31,8 +31,15 @@ test('no style, font, script or image comes from an address: the template, the s
 test('nothing in the sources asks for an animation frame or sets a timer outside the one loop and the Copy label', () => {
   const raf = srcFiles.filter((f) => f.endsWith('.js') && /requestAnimationFrame/.test(read(f))).map((f) => f.slice(ROOT.length + 5));
   assert.deepEqual(raf, ['scene.js'].map((x) => x), 'only the scene hands the loop its frame request');
-  const timers = srcFiles.filter((f) => f.endsWith('.js') && /setInterval|setTimeout|requestIdleCallback/.test(read(f))).map((f) => f.slice(ROOT.length + 5));
-  assert.deepEqual(timers.map((f) => f.split('\\').join('/')), ['ui/home.js'], 'the only timer puts the word Copy back on a button');
+  const timers = srcFiles.filter((f) => f.endsWith('.js') && /setInterval|setTimeout|requestIdleCallback/.test(read(f))).map((f) => f.slice(ROOT.length + 5).split('\\').join('/'));
+  // The one exception (UI.7, 12.R16.4): boot.js keeps a single one-shot timer, HIGH_TIMEOUT_MS, that gives up on High after 15 s
+  // and leaves Standard. It never redraws and never repeats, it is cleared as soon as High arrives or fails, and it runs only on
+  // the public site (the live view passes no loadHigh, so boot() never starts it). Anything else in boot.js, or any other file, fails.
+  assert.deepEqual(timers, ['boot.js', 'ui/home.js'], 'the only timers are the High time limit in boot.js and the one that puts the word Copy back on a button');
+  const boot = read(srcFiles.find((f) => f.endsWith('boot.js')));
+  assert.equal((boot.match(/\bset(Timeout|Interval)\(/g) || []).length, 1, 'boot.js sets exactly one timer');
+  assert.ok(/setTimeout\([\s\S]{0,400}?HIGH_TIMEOUT_MS\)/.test(boot), 'the one timer in boot.js is the High time limit');
+  assert.ok(!/setInterval|requestIdleCallback/.test(boot), 'boot.js repeats nothing');
 });
 
 // ---- the map: a fault of 12.R10.6 or of this slice, and the tests that kill it (file: test title)

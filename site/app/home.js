@@ -10,7 +10,7 @@ import { SAMPLE } from '../../ui/src/data/sample.js';
 // the same text as the label on the canvas of ui/src/index.html (the test compares them)
 export const SCENE_LABEL = 'The Kenyan highlands at dusk. A shepherd with a lantern stands at the centre of a river valley, with Mount Kenya on the horizon. Eleven features of the land stand round him: a spring pool, a drystone wall with gates, a sheepfold, a cave in a rock face, a standing stone, a river with a water wheel, a sheepdog and herd, a stream through pools, a ford and bridge, a lone gate with a red lamp and a rain water tank. The List view has the same stations as text.';
 
-const tiers = [['list', 'List', true], ['standard', 'Standard', false]];
+const tiers = [['list', 'List', true], ['standard', 'Standard', false], ['high', 'High', false]];
 
 function Command({ c }) {
   return h('li', { key: c.id },
