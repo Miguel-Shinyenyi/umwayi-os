@@ -1063,3 +1063,13 @@ A request is rules-checked and the check is logged before the route runs, so whe
 ### 236. The reader strips the whitespace around a header value
 
 The server's own reader takes the bytes on the wire and cuts spaces and tabs from both ends of a header value, as HTTP says. The pure gate sees the cut value, so `Host: 127.0.0.1:PORT ` with a trailing space is accepted. Everything else the gate refuses is refused as it arrived: a fold, a bare line feed, a space before the colon, a duplicate.
+
+## Shared docs builder (W9.9), found while building
+
+### 237. Two branches that each run the build give the same number twice
+
+`umwayi goal docs build` writes the number of a new limit into its part file and never changes it later. If two branches each run the build with a new limits part, both parts get the same next number, and the second merge puts two parts with one number in `main`. The build then refuses (exit 2, "a number that another part also has") and writes nothing, so no entry is lost or renumbered silently; a part that was deleted after it had a number is refused the same way, as a gap.
+
+- What protects you today: the design lets one place run the build, the last step of a goal on its own branch (W9-Q10), and a task never runs it. Nothing stops the owner or a task from running it early.
+- What it does not protect against: the collision itself. The fix is by hand: delete the `number:` line of the part that merged last and run the build again.
+- A later fix: give numbers only on `main` (a step after the merge), or keep a reservation file per number.

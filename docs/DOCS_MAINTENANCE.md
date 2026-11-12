@@ -17,11 +17,11 @@ Every change that adds, removes or changes behaviour comes with its doc update i
 - A new rules action type: [rules.md](rules.md) and the layer that asks it.
 - A new or changed logbook entry shape: [logbook.md](logbook.md) and the layer that writes it.
 - A new or changed adapter: [adapters.md](adapters.md) and the adapter's own README.
-- A known limit found or fixed: [KNOWN-LIMITS.md](KNOWN-LIMITS.md) (numbers never reused) and the layer's Open questions.
+- A known limit found or fixed: a limits part `docs-parts/known-limits/ID.md` (no number; `umwayi goal docs build` gives it one), see [goals.md](goals.md#the-shared-docs-builder-built-w99), and the layer's Open questions. Do not edit [KNOWN-LIMITS.md](KNOWN-LIMITS.md) by hand. Numbers are never reused.
 - A change to the web interface (`ui/`, `site/` or `umwayi view snapshot`): [interface.md](interface.md), and the NOTES file `adapters/NOTES-layer12.md` for dated facts.
 - A security or scan result: [security.md](security.md), and the dated scan results in `docs/SECURITY-SCAN.md`.
 - A new test category or coverage decision: [testing.md](testing.md).
-- A status change or a merged pull request: [status-log.md](status-log.md) and the status table in `.kiro/specs/umwayi-os/tasks.md`.
+- A status change or a merged pull request: a status part `docs-parts/status-log/ID.md` (date, pr, what, tests; `umwayi goal docs build` makes the row in [status-log.md](status-log.md)) and the status table in `.kiro/specs/umwayi-os/tasks.md`.
 - A schedule change: [schedule.md](schedule.md) and the schedule table in `.kiro/specs/umwayi-os/tasks.md`.
 - An owner's decision on an open question: the Decisions log of the doc it belongs to, and the spec where it was asked.
 
@@ -42,4 +42,5 @@ Every change that adds, removes or changes behaviour comes with its doc update i
 - Plain words; no em dashes.
 - Each doc under 300 lines; a longer one is split into sub-files that link to each other.
 - The README stays at most 120 lines and links here for everything else.
+- Do not edit `docs/status-log.md` rows or `docs/KNOWN-LIMITS.md` entries by hand: add a part (the id is the task or pull request, such as `W9-9`; a limits part needs a status part with the same id). The hand-written head of the status log is `docs-parts/status-log/00-head.md`, and a correction of an old entry is made in the frozen base `00-base.md` or `00-rows.md`; the build then rewrites the two files. Run `umwayi goal docs check` before you push.
 - `tests/test_docs.py` checks the links, the README length, the em dashes, the four parts and the 300 lines.

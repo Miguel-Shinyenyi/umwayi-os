@@ -21,7 +21,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
 | Layer 13 correction and graded autonomy | all five slices built (elections, reversal, courts and the rules change log, honest tension, graded autonomy off by default) | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
 | Local backend (W6), `umwayi serve` | W6.1 to W6.6 built Nov 12 (the gate, the token, the server, the pipeline and the first routes); the page client (W6.9) and the chat and intake routes are not built | [serve](docs/serve.md) |
-| Goal orchestration (W9), `umwayi goal` | specified Nov 12 (W9.0, docs and specs only), not built; the owner answered W9-Q1 to W9-Q14 on Nov 12; only W9.9 may go before the freeze | [goals](docs/goals.md) |
+| Goal orchestration (W9), `umwayi goal` | specified Nov 12 (W9.0); only the docs builder `umwayi goal docs build` and `check` is built (W9.9); the rest is not built and comes after the freeze | [goals](docs/goals.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 
