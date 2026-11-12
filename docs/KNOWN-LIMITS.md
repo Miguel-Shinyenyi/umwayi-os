@@ -1088,3 +1088,9 @@ When the plan leaves out a Python version (3.11 and 3.12 for a change that only 
 
 Before W20 the required checks were `tests / test (3.10) (pull_request)` to `tests / test (3.13) (pull_request)`. They no longer exist. The new checks are `tests / plan (pull_request)`, `tests / test (V, shard K/3) (pull_request)` for each planned version V and shard K, `tests / node (pull_request)` (only when planned) and `tests / result (pull_request)`, and the same names with `(push)` on main. The owner changes the branch rule by hand to require `tests / result (pull_request)` only. Until then a branch rule that names the old checks waits for checks that never come. Requiring the shard checks by name would not work either, because a skipped part creates no check. A test file added without an entry in `tools/ci_shards.json` fails `result`.
 
+
+## OpenCode chat end to end (part 8, 10.49), item 247
+
+### 247. A request with no `name` is capped after the check, so its entry can say Yes
+
+In an OpenCode chat, a permission request with no `name` (OpenCode had no tool for it) never gets Yes: when the rules answer Yes, umwayi asks the owner instead, as for Ask me first. The cap is applied after the check, so the `umwayi check` entry of that request still names the Yes rule, and the logbook does not say that the owner was asked. A No stays No. A request whose `name` is present but not a plain word (an MCP tool such as `mcp__x__y`) is not capped: the rules see only its kind. Only the fake sends a request with no `name`; a real OpenCode was seen to do so only in the source (10.42).
