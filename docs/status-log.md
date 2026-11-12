@@ -19,12 +19,13 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
 | 2026-11-11 | 54 | UI.4: the owner checks panel (`ui/src/data/checks.js`, `notes.js`, `ui/src/ui/checks.js`) on the live view and the site, five B.10 capture steps in NOTES-layer10.md, `tests/test_checks.py`; KNOWN-LIMITS 146 to 148 | see the pull request |
+| 2026-11-11 | 53 | 10.45: the OpenCode plugin (`adapters/opencode/plugin/index.js`, node: imports only), its starter rules and its tests under node | 1775 |
 | 2026-11-11 | 52 | UI.3: the page reads the snapshot (`ui/src/data/snapshot.js`, the strict reader, the needs, the mapping table), the picker and drop on the live view and the site, unknown drawn as unknown; 12.R17.6 and rule 10 changed; KNOWN-LIMITS 142 to 145 | see the pull request |
 | 2026-11-11 | 51 | L13.5: graded autonomy, off by default: the opt-in, `umwayi autonomy record`, `status` and `validate`, the thirteen gates and the move (layer 13, slice 5) | 1635 |
 | 2026-11-11 | 50 | UI.6: the shared scene module (`ui/src/scene.js`) and the public site in `site/` (List and Standard, Next.js 16.4.6), `node --test` in the CI workflow; KNOWN-LIMITS 140 and 141 | see the pull request |
 | 2026-11-11 | 49 | L13.4: honest tension, the stop criteria, the plain note and `tests/test_honest.py` (layer 13, slice 4) | 1500 |
 | 2026-11-11 | 48 | L13.3: courts and the rules change log, `umwayi petition` and the `umwayi rules` entry (layer 13, slice 3) | 1465 |
-| 2026-11-11 | NN | 10.43 and 10.44: an OpenCode agent in agents.yaml (`provider`, `model`, acp only; `agent run` and `agent login` refused) and the pure `opencode_env()` and `opencode_inline_config()`; nothing starts OpenCode yet | 1405 |
+| 2026-11-11 | 47 | 10.43 and 10.44: an OpenCode agent in agents.yaml (`provider`, `model`, acp only; `agent run` and `agent login` refused) and the pure `opencode_env()` and `opencode_inline_config()`; nothing starts OpenCode yet | 1405 |
 | 2026-11-11 | 46 | 10.42: the OpenCode facts confirmed on 2.2.7 in a throwaway sandbox, and the spec changed where they differed (OC9, OC10, OC15); docs only | |
 | 2026-11-11 | 45 | Layer 13 slice 2, Reversal: `umwayi decision reopen`, `queue answer --revisit-if`, `logbook.read_chained` | 1321 |
 | 2026-11-11 | 44 | spec: layer 10 part 8, OpenCode over ACP (10.41), and Muse Spark Open as an OpenCode model (10.40); docs only, waits for the owner's approval | |
