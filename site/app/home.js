@@ -69,7 +69,12 @@ export function Home() {
         h('div', { className: 'status-head' }, h('h2', { id: 'status-title' }, 'The state of this root'), h('p', { className: 'more' }, 'Scroll down for the install steps and the links.')),
         h('ul', { className: 'strip' },
           strip.map((s) => h('li', { key: s.id, 'data-strip': s.id },
-            h('span', { className: 'k' }, s.name), h('span', { className: 'v' }, s.value), h('span', { className: 't' }, s.tag))))),
+            h('span', { className: 'k' }, s.name), h('span', { className: 'v' }, s.value), h('span', { className: 't' }, s.tag)))),
+        h('div', { className: 'snapshot', id: 'snapshot' },
+          h('button', { type: 'button', className: 'btn small', id: 'snapshot-open' }, 'Open a snapshot file'),
+          h('input', { type: 'file', id: 'snapshot-file', accept: '.json,application/json', tabIndex: -1, hidden: true }),
+          h('p', { className: 'snapshot-help' }, 'Run ', h('code', null, 'umwayi view snapshot'), ', then open the file it wrote, or drop it on this page. The file is read in this browser. It is not uploaded, sent or kept.'),
+          h('p', { className: 'snapshot-msg', id: 'snapshot-msg', role: 'status', 'aria-live': 'polite' }))),
       h('section', { className: 'home', id: 'list-view', 'aria-labelledby': 'list-title' },
         h('h2', { id: 'list-title' }, 'The eleven stations'),
         h('p', { className: 'intro-text' }, 'The same stations as the picture, as text. This is the List view: it needs no WebGL and no script.'),
@@ -87,6 +92,6 @@ export function Home() {
           LINKS.map((l) => (l.href
             ? h('li', { key: l.id }, h('a', { href: l.href, rel: 'noopener noreferrer' }, l.name), h('span', { className: 'note' }, l.note))
             : h('li', { key: l.id, 'data-placeholder': '' }, h('span', { className: 'name' }, l.name), h('span', { className: 'note' }, l.note)))))),
-      h('footer', { className: 'home foot' }, h('p', null, 'A sample world. The picture shows made up counts until you load your own.'))),
+      h('footer', { className: 'home foot' }, h('p', { id: 'foot-note' }, 'A sample world. The picture shows made up counts until you load your own.'))),
     h('p', { id: 'notice', role: 'status', hidden: true }));
 }

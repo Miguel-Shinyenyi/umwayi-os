@@ -2,6 +2,7 @@
 // answered rows are stones in the cairn.
 import * as THREE from 'three';
 import { smoothstep } from '../engine/ease.js';
+import { sceneNumbers } from '../data/snapshot.js';
 
 export const poses = [
   { shift: 0, door: 0 },
@@ -30,6 +31,7 @@ export function build(kit) {
   for (let i = 0; i < MAX + 1; i++) {
     const s = kit.sheep(0.88);
     s.group.rotation.y = yaw;
+    s.group.userData.part = 'sheep';
     g.add(s.group);
     line.push(s.group);
   }
@@ -40,9 +42,12 @@ export function build(kit) {
   const stones = rows.map(([x, row], i) => {
     const s = kit.rock(0.17 - row * 0.02, i % 2 ? M.stone : M.stoneDark, x, 0.08 + row * 0.15, 0, i + 3);
     s.visible = false;
+    s.userData.part = 'stone';
     cairn.add(s);
     return s;
   });
+  const unknownMark = kit.unknownMark(-2.9, -0.8);
+  g.add(unknownMark);
   let open = 0, shift = 0;
   const layout = () => {
     const n = Math.min(open, MAX);
@@ -64,10 +69,12 @@ export function build(kit) {
       hurdle.rotation.y = -p.door * 1.4;
       layout();
     },
+    // the mapping table (data/snapshot.js): sheep for open rows, stones for answered rows; a queue that cannot be read is the mark
     setCounts(c) {
-      open = c && c.queue ? c.queue.open : 0;
-      const answered = c && c.queue ? Math.min(c.queue.answered, rows.length) : 0;
-      stones.forEach((s, i) => { s.visible = i < answered; });
+      const n = sceneNumbers(c).queue;
+      open = n.sheep;
+      stones.forEach((s, i) => { s.visible = i < n.stones; });
+      unknownMark.visible = n.unknown;
       layout();
     },
   };

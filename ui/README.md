@@ -4,6 +4,8 @@ A calm 3D hillside in one web page. Eleven stations stand around a lantern, one 
 only looks: it never writes to the repo, runs a command or calls a network (product.md, rule 10). The core `umwayi`
 package never imports anything from here, and nothing here imports `umwayi`.
 
+Status (UI.3, the snapshot): the page reads a snapshot file the owner picks or drops (`src/data/snapshot.js` reads it with `FileReader.readAsText` and checks it strictly; `src/ui/snapshot.js` is the picker, the drop and the one message). A file that is not a snapshot of this version gives "This file is not a snapshot of this version" and loads nothing. A loaded snapshot sets the status strip, the date next to the scene (instead of "sample"), the footer, the panels, what each feature draws (the mapping table in `docs/interface.md`) and, through `setNeeds`, the places of Queue, Kill switch and Budget. A null part is drawn as unknown. Nothing is uploaded, sent or kept, and the page still makes no request. The real file for the tests is `test/fixtures/snapshot.json`, the output of `umwayi view snapshot` on the fixed root of `tests/test_view.py`.
+
 Status (UI.6, the shared scene): the scene code is one module, `src/scene.js` (`createScene`), used by `src/app.js` here and by the public site in `../site`, which imports it from this folder. The device query and the List and Standard switch are one module too, `src/boot.js`. This page behaves and looks as before (a screenshot at 1440 by 900 is pixel for pixel the same as before the move). See `../site/README.md`.
 
 Status (UI.1, PR 39, reworked on Nov 11 after the owner's review): the page is the Kenyan highlands at dusk, drawn to look
@@ -59,7 +61,7 @@ down twice at most after slow frames: a lower pixel ratio, then no bloom and no 
 
 ```
 python -m unittest tests.test_ui_package       # the package, the lockfile, build.json, the built page (standard library)
-node --test                                    # in ui/ (95 tests): the engine, the layout and position function, the stations, the home content, the detail mode (no package needed)
+node --test                                    # in ui/ (180 tests): the engine, the layout and position function, the stations, the home content, the detail mode (no package needed)
 ```
 
 The Python suite needs no npm, node or browser. The browser pass (no console error, zero requests, still at rest, the
@@ -79,6 +81,6 @@ src/engine/        ease, tween (motion), follow, the on demand loop, settings, p
 src/world/         height (the ground), river, layout (the fixed table and the position function), shots, sky and Mount Kenya, terrain, water, plants, lantern (shepherd), trails, palette, noise, glsl
 src/stations/      meta.js (the words), kit.js (shared parts), one module per natural feature, index.js
 src/data/          sample.js (made up counts), counts.js (counts to text), home.js (the home content)
-src/ui/            the buttons over the features, the panel, the list view fallback, the home behaviours (Copy)
-test/              node --test
+src/ui/            the buttons over the features, the panel, the list view fallback, the home behaviours (Copy), snapshot.js (the picker and the drop)
+test/              node --test; test/fixtures/snapshot.json is a real snapshot
 ```

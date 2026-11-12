@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { TOKENS } from '../world/palette.js';
 import { lerp } from '../engine/ease.js';
+import { sceneNumbers } from '../data/snapshot.js';
 
 export const poses = [
   { add: 0, alter: 0, seal: 0 },
@@ -33,7 +34,10 @@ export function build(kit) {
   };
   const beads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.075, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffffff }), MAX + 1);
   beads.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  beads.userData.part = 'bead';
   g.add(beads);
+  const unknownMark = kit.unknownMark(2.2, 1.4);
+  g.add(unknownMark);
   const link = new THREE.Mesh(new THREE.BufferGeometry(), M.iron);
   g.add(link);
   const sealMat = new THREE.MeshBasicMaterial({ color: TOKENS.mint });
@@ -42,7 +46,7 @@ export function build(kit) {
   g.add(seal);
   const mint = new THREE.Color(TOKENS.mint), red = new THREE.Color(TOKENS.red), dark = new THREE.Color(0x15191a);
   const c = new THREE.Color(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3();
-  let n = 12, params = { add: 0, alter: 0, seal: 0 };
+  let n = 0, params = { add: 0, alter: 0, seal: 0 };
   const recolor = () => {
     const k = Math.floor(n * 0.45), glow = 1.0 * kit.getGlowScale();
     for (let i = 0; i <= n && i <= MAX; i++) {
@@ -58,7 +62,8 @@ export function build(kit) {
     const pts = [];
     for (let i = 0; i <= n; i++) pts.push(helix(i, n + 1));
     link.geometry.dispose();
-    link.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 120, 0.01, 5, false);
+    link.visible = n >= 1; // a curve needs two points; with no linked entry there is no thread
+    link.geometry = n >= 1 ? new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 120, 0.01, 5, false) : new THREE.BufferGeometry();
     for (let i = 0; i <= MAX; i++) {
       const s = i < n ? 1 : i === n ? Math.max(0.0001, params.add) : 0.0001;
       m4.compose(helix(i, n + 1), q, one.set(s, s, s));
@@ -81,9 +86,12 @@ export function build(kit) {
       seal.visible = p.seal > 0.02;
       recolor();
     },
+    // the mapping table (data/snapshot.js): one bead for each linked entry, 21 at most; none before the chain starts; a log that
+    // cannot be read is the mark and no bead
     setCounts(counts) {
-      const len = counts && counts.logbook && Number.isFinite(counts.logbook.chain_length) ? counts.logbook.chain_length : 12;
-      n = Math.max(4, Math.min(MAX - 1, len));
+      const m = sceneNumbers(counts).logbook;
+      n = m.beads;
+      unknownMark.visible = m.unknown;
       rebuild();
     },
   };

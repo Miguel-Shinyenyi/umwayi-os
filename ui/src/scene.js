@@ -25,7 +25,7 @@ export const STANDARD = 2; // the tier this module draws; High (3) is UI.7, List
 
 // The controls the design names (design.md, "The shared scene module"). The returned object holds more: what the page needs to
 // join its buttons, its panel and its names to the picture (see below).
-export const CONTROLS = ['select', 'overview', 'setNeeds', 'setCalm', 'setReducedMotion', 'dispose'];
+export const CONTROLS = ['select', 'overview', 'setNeeds', 'setCounts', 'setCalm', 'setReducedMotion', 'dispose'];
 
 // createScene(canvas, { tier, detail, settings, onSelect, ... }) -> controls. Throws when the canvas cannot draw (no WebGL2).
 //   win       the window (matchMedia, requestAnimationFrame, location, navigator)
@@ -33,7 +33,7 @@ export const CONTROLS = ['select', 'overview', 'setNeeds', 'setCalm', 'setReduce
 //   tier      2 (Standard). 1 and 3 are refused: List draws nothing, High is not built yet.
 //   detail    the detail step (0 high, 2 low); chosen from the device when not given
 //   settings  reduced motion and Calm mode; made from win.matchMedia when not given
-//   counts    the counts the features show (the sample until a snapshot is loaded, UI.3)
+//   counts    the counts the features show (the sample until a snapshot is loaded, UI.3); sample says which they are
 // Hooks, all optional, called in the order the page used to do the same work:
 //   onSelect(id|null, { prev, def, counts, sample, focusLabel })  a feature was opened (id) or the overview came back (null)
 //   onSettled(id|null, { prev, focusLabel })                      after the move and the pose have been started
@@ -42,7 +42,8 @@ export const CONTROLS = ['select', 'overview', 'setNeeds', 'setCalm', 'setReduce
 //   onFrame({ w, h, anchors: [{ id, x, y }] })   after each draw: where each feature's anchor is on screen, in CSS pixels
 //   onCalm(on), onResize(), onLost()
 export function createScene(canvas, opts = {}) {
-  const { tier = STANDARD, win = globalThis.window, counts = SAMPLE, sample = true } = opts;
+  const { tier = STANDARD, win = globalThis.window } = opts;
+  let counts = opts.counts || SAMPLE, sample = opts.sample !== false; // the counts the features show; setCounts changes them (UI.3)
   if (tier !== STANDARD) throw new RangeError(tier === 1 ? 'List draws no scene' : 'only Standard (tier 2) is built; High is UI.7');
   // fail first, before the world is built: a canvas that cannot draw is for the caller to answer with List
   if (!canvas.getContext('webgl2', GL_ATTRIBUTES)) throw new Error('no webgl2');
@@ -158,6 +159,18 @@ export function createScene(canvas, opts = {}) {
     if (selected && !motion.tweens.some((t) => t.tag === 'camera')) rig.set(shotFor(selected));
   }
   world.placement.onMove = onMove;
+
+  // UI.3: a snapshot was loaded. Every feature draws from the new counts and goes to its resting pose (the open one keeps its pose).
+  function setCounts(next, isSample = false) {
+    counts = next;
+    sample = !!isSample;
+    for (const st of world.stations) {
+      st.setCounts(counts);
+      const player = players.get(st.id);
+      if (st.id === selected) player.goto(player.index); else player.showRest();
+    }
+    loop.invalidate();
+  }
 
   function select(id) {
     if (!world.byId[id] || id === selected) return;
@@ -316,6 +329,7 @@ export function createScene(canvas, opts = {}) {
     select,
     overview: () => deselect(false),
     setNeeds: (needs) => world.placement.setNeeds(needs), // UI.3 feeds numbers here and nothing else: { id: 0..1 }
+    setCounts, // UI.3: the counts the features draw, and whether they are the sample
     setCalm: (value) => settings.setCalm(value),
     setReducedMotion: (value) => settings.setReduced(value),
     dispose() {

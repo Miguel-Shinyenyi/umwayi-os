@@ -1002,7 +1002,7 @@ umwayi view snapshot [--out PATH] [--date D]    read the counts, write one JSON 
 3. **The server renders the home text** (title, promise, status strip marked sample, install and first commands, links) and the tier 1 list, so they show at once and work without JavaScript. The Copy buttons need JavaScript and are hidden without it; the commands stay as selectable text.
 4. The server cannot draw the 3D. **The 3D draws in the browser** from the shared scene module (12.R18.3), for the tier the browser chose. The site fetches the scene script and tier 3 assets **from its own host only**; it makes no other request.
 5. The site sends a Content-Security-Policy that allows its own origin only (`default-src 'self'`, no remote script, style, image, font or connection), and the security headers of the design.
-6. The site shows sample counts only. It never reads, receives or shows the owner's snapshot.
+6. The site shows sample counts until a visitor opens a snapshot file of their own with the file picker or by dropping it. The file is read in the browser (12.R4.9, 12.R9.1), is never sent, stored or uploaded, and no request carries it. The site never receives the owner's snapshot. (Changed in UI.3 by the owner's task of Nov 11: before it said the site never reads a snapshot.)
 
 ### 12.R18 The owner's live view stays static, and the scene is shared (UI-Q19)
 

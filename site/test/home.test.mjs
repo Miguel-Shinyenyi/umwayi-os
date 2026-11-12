@@ -47,9 +47,24 @@ test('the list is not hidden and the page is List in its HTML, so with JavaScrip
   assert.ok(!/data-js/.test(doc), 'data-js is set by the script, never by the server');
 });
 
-test('every sample value says so: the status strip shows sample until a snapshot is loaded, and the site never loads one', () => {
+test('every sample value says so: the server sends the status strip with sample, and the sample label and footer', () => {
   for (const m of html.matchAll(/<li[^>]*data-strip="[a-z]+"[^>]*>([\s\S]*?)<\/li>/g)) assert.match(m[1], /<span class="t">sample<\/span>/);
-  assert.ok(!/type="file"|<input/.test(html), 'the site has a file picker; it must never read a snapshot (12.R17.6)');
+  assert.match(html, /<p id="sample-tag">sample<\/p>/);
+  assert.match(html, /<p id="foot-note">A sample world\./);
+});
+
+test('a visitor can open a snapshot file of their own, read in the browser: one file input for json, no form, no upload (12.R17.6, changed in UI.3)', () => {
+  const inputs = [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => m[1]);
+  assert.equal(inputs.length, 1, 'one input, the file picker');
+  assert.match(inputs[0], /type="file"/);
+  assert.match(inputs[0], /id="snapshot-file"/);
+  assert.match(inputs[0], /accept="\.json,application\/json"/);
+  assert.match(inputs[0], /\bhidden\b/);
+  assert.ok(!/multiple|capture|webkitdirectory|name=/.test(inputs[0]), inputs[0]);
+  assert.ok(!/<form\b|action=|method=|formaction/i.test(html), 'nothing is submitted');
+  assert.match(html, /id="snapshot-open"/);
+  assert.match(html, /id="snapshot-msg"[^>]*role="status"/);
+  assert.match(html, /It is not uploaded, sent or kept\./);
 });
 
 test('Devpost and the demo video are text marked link to come, and the only anchors are Repo and Docs with noopener and noreferrer', () => {
