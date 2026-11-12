@@ -227,8 +227,19 @@ OPENCODE_GO_TEXT = ("agent: provider opencode-go (OpenCode Go) is not offered ye
 OPENCODE_PAYG_TEXT = ("the free tier (opencode), a local server (ollama, lmstudio, vllm) and a subscription sign-in "
                       "(openai, github-copilot) are offered; pay as you go is not offered, it waits for the budget "
                       "governor. Nothing was started.")
-OPENCODE_CHECKS_NOT_BUILT = ("the OpenCode gate checks are not built yet (task 10.46), so this agent cannot be "
-                             "gated and nothing is started")
+# The gate checks (10.R13.8, task 10.46). The managed places are module constants so that a test can point them at
+# folders of its own: the real ones (/etc/opencode, the macOS folders) are never read by a test.
+OPENCODE_VERSION_TIMEOUT = 15.0  # seconds for `opencode --version`
+OPENCODE_MANAGED_DIRS = ("/etc/opencode", "/Library/Application Support/opencode")
+OPENCODE_MANAGED_PLIST_ROOT = "/Library/Managed Preferences"
+OPENCODE_MANAGED_PLIST = "ai.opencode.managed.plist"
+OPENCODE_PROJECT_NAMES = ("opencode.json", "opencode.jsonc", ".opencode")  # from the workdir up to /
+OPENCODE_GLOBAL_FILES = ("opencode.json", "opencode.jsonc")  # in $XDG_CONFIG_HOME/opencode, else ~/.config/opencode
+OPENCODE_GLOBAL_ENTRIES = ("plugins", "plugin", "agents", "agent")  # entries of that folder that add code or agents
+OPENCODE_GLOBAL_KEYS = ("permissions", "permission", "policies", "plugins", "plugin", "agents", "agent", "experimental",
+                        "enabled_providers", "disabled_providers")  # quoted words in those files that can widen the gate
+OPENCODE_MAX_GLOBAL_CONFIG = 1024 * 1024  # a larger global config file is refused unread
+OPENCODE_MAX_SHOWN_NAMES = 5  # names of other files in the plugin folder that a refusal shows
 _OPENCODE_PROVIDER = re.compile(r"^[a-z0-9][a-z0-9._-]{0,39}$")
 _OPENCODE_MODEL = re.compile(r"^[a-z0-9][a-z0-9._-]{0,39}/[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$")
 _OPENCODE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
@@ -1196,6 +1207,172 @@ def _claude_acp_checks(agent: Agent, root: Path, src: Path | None, gate: Gate, l
     return gate
 
 
+def _opencode_shown(name: str) -> str | None:
+    """A file name that is safe to show in a refusal: short and plain printable text. None otherwise."""
+    return name if len(name) <= 60 and name.isprintable() else None
+
+
+def _opencode_files(src: Path | None) -> tuple:
+    """(ok, detail). The layer 9 generic adapter's hook.py and the plugin's index.js are regular files inside the umwayi
+    source tree with no link on the way, and the plugin folder holds index.js and nothing else (OC21): OpenCode
+    loads `server` before `index` from a folder without a package.json, so another file there could replace the gate."""
+    base = str(src or umwayi_src())
+    real_base = os.path.realpath(base)
+    files = []
+    for rel in (PLATFORMS["opencode"].hook, OPENCODE_PLUGIN_DIR + "/index.js"):
+        path = os.path.join(base, *rel.split("/"))
+        try:
+            st = os.lstat(path)
+        except OSError:
+            return False, f"{path} is missing or not a regular file"
+        if stat.S_ISLNK(st.st_mode):
+            return False, f"{path} is a link; it must be a regular file inside the umwayi source tree"
+        if not stat.S_ISREG(st.st_mode):
+            return False, f"{path} is missing or not a regular file"
+        if os.path.realpath(path) != os.path.join(real_base, *rel.split("/")):
+            return False, f"{path} is reached through a link or lies outside the umwayi source tree"
+        files.append(path)
+    folder = os.path.join(base, *OPENCODE_PLUGIN_DIR.split("/"))
+    try:
+        others = sorted(n for n in os.listdir(folder) if n != "index.js")
+    except OSError:
+        return False, f"{folder} cannot be listed"
+    if others:
+        shown = [n for n in others if _opencode_shown(n)][:OPENCODE_MAX_SHOWN_NAMES]
+        hidden = len(others) - len(shown)
+        more = f" and {hidden} other name(s)" if hidden else ""
+        return False, f"{folder} holds more than index.js: {', '.join(shown)}{more}"
+    return True, f"{files[0]} and {files[1]} are regular files inside {base}, and the plugin folder holds index.js only"
+
+
+def _opencode_managed() -> str | None:
+    """None, or the managed OpenCode place that exists (OC4). A managed config outranks the one umwayi passes."""
+    found = None
+    for path in OPENCODE_MANAGED_DIRS:
+        if os.path.lexists(path):
+            found = path
+            break
+    if found is None:
+        candidates = [os.path.join(OPENCODE_MANAGED_PLIST_ROOT, OPENCODE_MANAGED_PLIST)]
+        try:
+            with os.scandir(OPENCODE_MANAGED_PLIST_ROOT) as it:
+                for n, entry in enumerate(it):
+                    if n >= 1000:
+                        break
+                    if entry.is_dir(follow_symlinks=False):
+                        candidates.append(os.path.join(entry.path, OPENCODE_MANAGED_PLIST))
+        except OSError:
+            pass
+        found = next((c for c in candidates if os.path.lexists(c)), None)
+    if found is None:
+        return None
+    return f"{found} exists; a managed OpenCode configuration outranks the one umwayi passes"
+
+
+def _opencode_other_config(workdir: str, home: str) -> str | None:
+    """None, or why another OpenCode config could widen the gate (OC7). A text match on names and quoted words, never a
+    parse; only names, sizes and the fixed words are ever shown, never the text of a file."""
+    seen = set()
+    for start in (workdir, os.path.realpath(workdir)):  # the path as given, then the real one
+        folder = start
+        while True:
+            if folder not in seen:
+                seen.add(folder)
+                for name in OPENCODE_PROJECT_NAMES:
+                    path = os.path.join(folder, name)
+                    if os.path.lexists(path):
+                        return f"{path} exists in the workdir or a folder above it"
+            parent = os.path.dirname(folder)
+            if parent == folder:
+                break
+            folder = parent
+    path = os.path.join(home, ".opencode")
+    if os.path.lexists(path):
+        return f"{path} exists in the home folder"
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    folder = os.path.join(xdg if xdg and os.path.isabs(xdg) else os.path.join(home, ".config"), "opencode")
+    for name in OPENCODE_GLOBAL_ENTRIES:
+        path = os.path.join(folder, name)
+        if os.path.lexists(path):
+            return f"{path} exists in the global OpenCode folder"
+    for name in OPENCODE_GLOBAL_FILES:
+        path = os.path.join(folder, name)
+        try:
+            st = os.lstat(path)
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return f"{path} cannot be read"
+        if not stat.S_ISREG(st.st_mode):
+            return f"{path} is a link or not a regular file"
+        if st.st_size > OPENCODE_MAX_GLOBAL_CONFIG:
+            return f"{path} is larger than {OPENCODE_MAX_GLOBAL_CONFIG} bytes"
+        try:
+            with open(path, "rb") as f:
+                text = f.read(OPENCODE_MAX_GLOBAL_CONFIG + 1).decode("utf-8")
+        except (OSError, UnicodeDecodeError):
+            return f"{path} cannot be read as UTF-8 text"
+        if len(text.encode("utf-8")) > OPENCODE_MAX_GLOBAL_CONFIG:
+            return f"{path} is larger than {OPENCODE_MAX_GLOBAL_CONFIG} bytes"
+        for key in OPENCODE_GLOBAL_KEYS:
+            if f'"{key}"' in text:
+                return f'{path} holds the key "{key}"'
+    return None
+
+
+def _opencode_checks(agent: Agent, plat: Platform, gate: Gate, src: Path | None, home: Path | None) -> Gate:
+    """The six checks of an OpenCode agent (10.R13.8), in order, the first failure ends it: command, version, files,
+    managed config, other config, route. Reads only. `opencode --version` runs in the workdir with the allow-listed
+    environment and an empty inline config (the version flag starts no server)."""
+    order = ["command", "version", "files", "managed config", "other config", "route"]
+    done = _recorder(gate, order)
+    found = shutil.which(agent.command)
+    if not found or not os.path.isabs(found):
+        done("command", False, f"{agent.command} was not found on PATH")
+        return gate
+    gate.command_path = found
+    done("command", True, f"{agent.command} found at {found}")
+
+    code, out = _run_child([found, plat.version_flag], b"", OPENCODE_VERSION_TIMEOUT, agent.workdir,
+                           env=opencode_env(os.environ, "{}"))
+    version = parse_version(out) if code == 0 else None
+    if code is None:
+        ok = done("version", False, f"{agent.command} {plat.version_flag} did not answer within "
+                                    f"{OPENCODE_VERSION_TIMEOUT:.0f} s")
+    elif code != 0:
+        ok = done("version", False, f"{agent.command} {plat.version_flag} exited {code}")
+    elif version is None:
+        ok = done("version", False, f"no version number in the output of {agent.command} {plat.version_flag}")
+    elif version < plat.min_version:
+        ok = done("version", False, f"{_show(version)} is older than {_show(plat.min_version)} ({plat.why_version})")
+    else:
+        gate.version = version
+        ok = done("version", True, f"{_show(version)} (at least {_show(plat.min_version)})")
+    if not ok:
+        return gate
+
+    files_ok, detail = _opencode_files(src)
+    if not done("files", files_ok, detail):
+        return gate
+
+    managed = _opencode_managed()
+    if not done("managed config", managed is None, managed or "no managed OpenCode configuration found"):
+        return gate
+
+    home_text = str(home) if home else os.path.expanduser("~")
+    other = _opencode_other_config(agent.workdir, home_text)
+    if not done("other config", other is None, other or "no other OpenCode configuration found that can widen the gate"):
+        return gate
+
+    try:
+        integration, _ = opencode_route(agent.provider)
+    except OpenCodeRefused as e:
+        done("route", False, str(e).removeprefix("agent: ").removesuffix(" Nothing was started."))
+        return gate
+    done("route", True, f"provider {agent.provider} (integration.use allows {integration})")
+    return gate
+
+
 def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None = None,
                 mode: str | None = None) -> Gate:
     """Every check from 10.R6.1 (or 10.R11.6 for a Claude Code ACP chat), in order.
@@ -1208,9 +1385,8 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     gate = Gate()
     if mode == LOGIN and not can_login(agent):
         raise UsageError(LOGIN_ONLY)
-    if agent.platform == "opencode":  # the checks of 10.R13.8 are task 10.46; until then it fails closed
-        _recorder(gate, ["gate checks"])("gate checks", False, OPENCODE_CHECKS_NOT_BUILT)
-        return gate
+    if agent.platform == "opencode":  # the six checks of 10.R13.8
+        return _opencode_checks(agent, plat, gate, src, home)
     if is_claude_acp(agent, mode):
         return _claude_acp_checks(agent, root, src, gate, login_only=mode == LOGIN)
     claude = agent.platform == "claude-code"
@@ -1294,6 +1470,10 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
     if not gate.gated:
         lines.append(f"Not gated: agent {agent.name} would be refused (exit 2). Nothing was started.")
         return Result(2, lines)
+    if agent.platform == "opencode":  # the chat itself is task 10.48
+        lines.append(f"Gated: the checks for an OpenCode chat of agent {agent.name} passed. Nothing was started. "
+                     "(The OpenCode chat itself is not built yet, task 10.48.)")
+        return Result(0, lines)
     python = python_path()
     if is_claude_acp(agent, CHAT):
         argv, _ = build_argv(agent, CHAT, gate.command_path, root, python)
@@ -1627,6 +1807,14 @@ class _Run:
             if gate.reason().startswith("login: ") and can_login(a):  # run and chat never sign in themselves
                 lines.append(f"Run umwayi agent login {a.name} to sign in.")
             return self.result(2, lines, why)
+
+        # 5a. OpenCode (10.R13): the chat is task 10.48. Until then a gated OpenCode agent is still not started.
+        if a.platform == "opencode":
+            why = self.log(f"Refused agent {a.name}: the OpenCode chat is not built yet (task 10.48)",
+                           "the kill switch, the rules (Yes), the run lock, then the gate checks, which passed",
+                           "Nothing was started.")
+            return self.result(2, [f"Refused: the OpenCode chat is not built yet, so agent {a.name} was not started "
+                                   "(exit 2)."], why)
 
         # 5b. Claude Code ACP chat: the private canary folder, a fresh token and the inline settings
         if self._claude_acp():
@@ -2330,8 +2518,8 @@ def chat_agent(root, name: str, clock, given: str | None = None, out=None) -> Re
     agent = find(load(root, given), name)
     if agent.platform not in PLATFORMS:
         raise UsageError("agent: unknown platform. Nothing was started.")
-    if agent.transport == ACP and agent.platform not in ("kiro", "claude-code"):
-        raise UsageError("agent: ACP chat is only for platforms kiro and claude-code. Nothing was started.")
+    if agent.transport == ACP and agent.platform not in ("kiro", "claude-code", "opencode"):
+        raise UsageError("agent: ACP chat is only for platforms kiro, claude-code and opencode. Nothing was started.")
     return _Run(root, agent, None, clock, mode=CHAT, out=out).go()
 
 

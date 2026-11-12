@@ -19,6 +19,8 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
 | 2026-11-11 | 57 | UI.5, first slice: access and contrast tests, the owner checks panel fits a phone, the fault map and mutation pass of 12.R10.6, the docs of UI.5, the interface check text brought up to date (25 steps); KNOWN-LIMITS 149 and 150. UI.5 is not finished: the lockfile scan, the scene polish and the owner's check wait | see the pull request |
+| 2026-11-12 | 56 | The 13 OpenCode starter rules in the repo `rules.yaml` (a follow-up of 9.10 and 10.45), and their tests in `tests/test_starter_rules.py` | see the pull request |
+| 2026-11-12 | 55 | 10.46: the six gate checks of an OpenCode agent (command, version, files, managed config, other config, route) in `agent check` and before `agent chat`; the chat itself is not built yet | 1872 |
 | 2026-11-11 | 54 | UI.4: the owner checks panel (`ui/src/data/checks.js`, `notes.js`, `ui/src/ui/checks.js`) on the live view and the site, five B.10 capture steps in NOTES-layer10.md, `tests/test_checks.py`; KNOWN-LIMITS 146 to 148 | see the pull request |
 | 2026-11-11 | 53 | 10.45: the OpenCode plugin (`adapters/opencode/plugin/index.js`, node: imports only), its starter rules and its tests under node | 1775 |
 | 2026-11-11 | 52 | UI.3: the page reads the snapshot (`ui/src/data/snapshot.js`, the strict reader, the needs, the mapping table), the picker and drop on the live view and the site, unknown drawn as unknown; 12.R17.6 and rule 10 changed; KNOWN-LIMITS 142 to 145 | see the pull request |
