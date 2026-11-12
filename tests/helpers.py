@@ -86,3 +86,20 @@ def logbook_lock_held(root) -> bool:
     finally:
         os.close(fd)
     return False
+
+
+def after_rules(entries: list) -> list:
+    """The entries after the first one, which must be the `umwayi rules` entry (layer 13, L13.3: 13.R7.2, the
+    first command that asks the rules in a root logs them first). Entries are Entry or ParsedEntry objects."""
+    first = entries[0] if entries else None
+    source = getattr(getattr(first, "entry", first), "source", None)
+    assert source == "umwayi rules", f"the first entry is {source!r}, not the rules entry"
+    return list(entries[1:])
+
+
+def log_rules(root, when="2026-11-07"):
+    """Log the rules of root/rules.yaml once (the baseline `umwayi rules` entry), as the first check in a root does.
+    For tests that snapshot a root and expect a refusal to change nothing: their rules are then already logged."""
+    from umwayi import rules
+    logged, why = rules.log_rules_change("{}", Path(root) / "rules.yaml", Path(root), when)
+    assert logged is not None and why is None, why

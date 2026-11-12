@@ -710,17 +710,21 @@ class RealHookTests(AdapterCase):
             with self.subTest(tool=tool):
                 self.assertEqual(got, expected)
 
+    def check_lines(self):
+        """The 'Added' lines of the checks. The first check after a rules change also logs the rules change log entry
+        of layer 13 ("rules.yaml first logged ..."); that line is not a check."""
+        return [l for l in self.added_lines() if not l.startswith("- Added: rules.yaml ")]
+
     def test_every_check_writes_one_logbook_entry_and_the_logbook_verifies(self):
-        before = len(self.entries())
         self.run_calls([(t, i) for t, i, _ in self.TABLE])
-        self.assertEqual(len(self.entries()) - before, len(self.TABLE))
+        self.assertEqual(len(self.check_lines()), len(self.TABLE))
         out = self.umwayi("logbook", "verify")
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertNotIn(SECRET, (self.root / "LOGBOOK.md").read_text(encoding="utf-8"))
 
     def test_the_logbook_names_the_starter_rule_that_decided(self):
         self.run_calls([("read", {"path": "/repo/a.py"}), ("read", {"path": "/repo/.env"}), ("execute", {"code": "1"})])
-        added = self.added_lines()
+        added = self.check_lines()
         self.assertIn("Rule oc-read gave Yes; action type: tool_read", added[0])
         self.assertIn("Rule oc-no-secrets gave No; action type: tool_read", added[1])
         self.assertIn("No rule gave Ask me first; action type: tool_execute", added[2])  # Code Mode has no rule

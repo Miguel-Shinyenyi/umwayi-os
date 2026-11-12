@@ -52,22 +52,24 @@ rules:
       platform: kiro
       input_command__contains: ["rm -rf", "rm -fr", "mkfs", "dd if=", "remove-item -recurse"]
 
+  # umwayi petition (layer 13) is left to the owner: an AI helper may object to a No this way. To refuse it,
+  # add "umwayi petition" to the list below.
   - id: kiro-no-guard-shell
     title: Shell commands that touch the guard files
-    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .kiro/hooks, umwayi kill, umwayi decision or decision reopen are refused.
+    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .kiro/hooks, umwayi kill, umwayi decision, decision reopen, umwayi autonomy, autonomy record or autonomy.yaml are refused.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: kiro
-      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill", "umwayi decision", "decision reopen"]
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
 
   - id: kiro-no-guard-edits
     title: Kiro never edits the files that guard it
-    text: rules.yaml, LOGBOOK.md, .umwayi/ and .kiro/hooks are changed by the owner only.
+    text: rules.yaml, autonomy.yaml, LOGBOOK.md, .umwayi/ and .kiro/hooks are changed by the owner only.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: kiro
-      input_path__contains: ["rules.yaml", "logbook.md", ".umwayi/", ".kiro/hooks"]
+      input_path__contains: ["rules.yaml", "logbook.md", ".umwayi/", ".kiro/hooks", "autonomy.yaml", "autonomy.example.yaml"]
 
   # Anything else (MCP tools, other tools) matches no rule: Ask me first, so denied plus a queue item.

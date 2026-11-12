@@ -114,7 +114,7 @@ def publish(root: Path, draft: str, today: str, approved_by: str | None = None) 
         raise UmwayiError(f"publish: {target_rel} already exists, nothing was copied (it is never overwritten)")
 
     # --- the rules
-    decision = rules.check(json.dumps(ACTION), root / "rules.yaml")
+    decision = rules.check_in_root(json.dumps(ACTION), root / "rules.yaml", root, today)
     stop = None
     if decision.answer == rules.NO:
         stop = (2, "A rule says No.")

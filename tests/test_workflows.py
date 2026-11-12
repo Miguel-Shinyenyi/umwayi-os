@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.helpers import entry_text, without_run_lock, write_sealed_logbook
+from tests.helpers import after_rules, entry_text, without_run_lock, write_sealed_logbook
 from umwayi import kill, logbook, publish, rules, taskqueue, workflow
 from umwayi.cli import main
 from umwayi.errors import ConfigError, UmwayiError, UsageError
@@ -365,7 +365,7 @@ class RunTests(Base):
 
     def test_one_logbook_entry_per_step(self):
         self.run_loop()
-        e = [(x.source, x.added) for x in self.entries()]
+        e = [(x.source, x.added) for x in after_rules(self.entries())]  # L13.3 (13.R7.2): the rules are logged before their first use
         self.assertEqual(e, [
             ("umwayi workflow", "Step 1 (workflow_step): collect (queue-list): listed 1 rows with status open"),
             ("umwayi workflow", "Step 2 (workflow_step): brief (steward): wrote drafts/steward-0001.md from 1 queue rows"),
@@ -402,7 +402,7 @@ class RunTests(Base):
         code, out, _ = self.run_loop("quick")
         self.assertEqual(code, 0)
         self.assertIn("Workflow quick finished 2 steps.", out)
-        self.assertEqual(len(self.entries()), 2)
+        self.assertEqual(len(after_rules(self.entries())), 2)  # L13.3 (13.R7.2): the rules are logged before their first use
 
     def test_report_step(self):
         env = dict(os.environ, GIT_AUTHOR_NAME="x", GIT_AUTHOR_EMAIL="x@example.org", GIT_COMMITTER_NAME="x",

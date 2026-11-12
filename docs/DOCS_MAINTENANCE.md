@@ -18,7 +18,7 @@ Every change that adds, removes or changes behaviour comes with its doc update i
 - A new or changed logbook entry shape: [logbook.md](logbook.md) and the layer that writes it.
 - A new or changed adapter: [adapters.md](adapters.md) and the adapter's own README.
 - A known limit found or fixed: [KNOWN-LIMITS.md](KNOWN-LIMITS.md) (numbers never reused) and the layer's Open questions.
-- A change to the web interface (`ui/` or `umwayi view snapshot`): [interface.md](interface.md), and the NOTES file `adapters/NOTES-layer12.md` for dated facts.
+- A change to the web interface (`ui/`, `site/` or `umwayi view snapshot`): [interface.md](interface.md), and the NOTES file `adapters/NOTES-layer12.md` for dated facts.
 - A security or scan result: [security.md](security.md), and the dated scan results in `docs/SECURITY-SCAN.md`.
 - A new test category or coverage decision: [testing.md](testing.md).
 - A status change or a merged pull request: [status-log.md](status-log.md) and the status table in `.kiro/specs/umwayi-os/tasks.md`.

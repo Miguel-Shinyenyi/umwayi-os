@@ -64,23 +64,25 @@ rules:
   # --- never: the files that guard the AI helper (rules, logbook, kill switch, OpenCode's own configuration)
   - id: oc-no-guard-edits
     title: OpenCode never edits the files that guard it
-    text: Only the owner changes rules.yaml, LOGBOOK.md, the .umwayi folder, the .git folder and OpenCode's own configuration (opencode.json, opencode.jsonc and the .opencode folder).
+    text: Only the owner changes rules.yaml, autonomy.yaml, LOGBOOK.md, the .umwayi folder, the .git folder and OpenCode's own configuration (opencode.json, opencode.jsonc and the .opencode folder).
     cause: An AI helper must not turn off its own rules, logbook or gate, or add a plugin or a policy while it runs.
     verdict: no
     matchers:
       platform: opencode
       type: [tool_write, tool_edit]
-      input_path__contains: ["rules.yaml", "logbook.md", ".umwayi/", "opencode.json", ".opencode", ".git/"]
+      input_path__contains: ["rules.yaml", "logbook.md", ".umwayi/", "opencode.json", ".opencode", ".git/", "autonomy.yaml", "autonomy.example.yaml"]
 
+  # umwayi petition (layer 13) is left to the owner: an AI helper may object to a No this way. To refuse it,
+  # add "umwayi petition" to the list below.
   - id: oc-no-guard-shell
     title: OpenCode shell commands never touch the guard files
-    text: A shell command that names rules.yaml, LOGBOOK.md, .umwayi, opencode.json, opencode.jsonc, .opencode or umwayi kill is refused.
+    text: A shell command that names rules.yaml, autonomy.yaml, LOGBOOK.md, .umwayi, opencode.json, opencode.jsonc, .opencode, umwayi kill, umwayi decision, decision reopen, umwayi autonomy or autonomy record is refused.
     cause: An AI helper must not turn off its own rules, logbook or gate, or add a plugin or a policy while it runs.
     verdict: no
     matchers:
       platform: opencode
       type: tool_shell
-      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", "opencode.json", ".opencode", "umwayi kill"]
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", "opencode.json", ".opencode", "umwayi kill", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
 
   - id: oc-no-secrets
     title: OpenCode never touches secret files

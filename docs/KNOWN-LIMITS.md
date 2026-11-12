@@ -687,6 +687,34 @@ umwayi writes in place only to `LOGBOOK.md` (an append) and the logbook lock (it
 
 A layer reader that raises (even for a bug) gives null for its part and the command still exits 0, as 12.R4.3 says; only an error in the command itself exits 2. A missing `queue.md` is null, not 0, because only `schedule.yaml` is allowed to be absent. The `--out` target is checked (regular, one name, an earlier snapshot) and then replaced through a new file: another process of the same user that swaps the file in between would have its file replaced, never written through (see 135). `used_uu` counts a reservation without a settle in full, so a lost run raises it until `umwayi budget settle-lost`.
 
+## Layer 12: the public site (found while building UI.6, not fixed)
+
+### 140. The public site's policy lets inline scripts run
+
+Next.js writes three small inline scripts into every page (its start-up and the page data), and a policy of `script-src 'self'` stops the page from starting, so `site/next.config.mjs` sends `script-src 'self' 'unsafe-inline'`. A script from another host is still refused, and so are a remote style, font, image or connection, but a script injected into the page itself would not be refused by the policy. The site takes no input, keeps nothing and has no cookie, so there is nothing today to inject; a nonce would close this and would make every page render on each visit instead of being sent as a static file. The choice is left open in the pull request for the owner.
+
+### 141. The site's host sees which files a browser asks for, and the browser pass is one browser
+
+The device hints are read in the browser and never sent, but the host that serves `site/` logs which files are requested, so its logs can tell whether the scene script was fetched (Standard) or not (List). That is a property of serving files, not tracking, and nothing else about the device is in a request. The pass that showed this ran in one browser (Chrome for Testing 158 with software drawing); Firefox, Safari, a real GPU and a screen reader are not checked, and a browser that offers no Network Information API gets Standard by the rule of 12.R16.6.
+
+## Layer 12: reading the snapshot (found while building UI.3)
+
+### 142. A snapshot is true only as far as the last command and the owner's hands
+
+The page checks the shape of the file, not that it is true. A file edited by hand with a correct shape (a queue of 3 where there are 30) loads and is drawn. The date shows how old it is; nothing makes the page refresh it. The reader is also stricter than JSON: it accepts only the command's own text, so a file re-saved by a program that writes `2.0` for 2 or reorders nothing but changes a number's form is refused with the one message, and the message does not say why.
+
+### 143. Unknown has one look for four stations, and two are fixed by the spec
+
+A queue, logbook, schedule or budget that is null shows an unlit lantern on a post beside the feature, no count and "unknown" in the panel. Rules draws unknown as 12 lanterns of Ask me first and the kill switch as on (12.R3.9), so a rules file that really has 12 Ask me first rules looks the same as one that could not be read; the panel and the strip say which. The look was seen in software drawing at one size only.
+
+### 144. The public site now reads a file a visitor opens
+
+12.R17.6 and rule 10 said the site never reads a snapshot; the owner's task for UI.3 changed that. The file is read with `FileReader` in the browser and the page makes no request with it, but the site's host cannot prove that to a visitor: only the source and the request log of the browser pass do. A visitor who opens someone else's real snapshot sees counts of that root, and nothing in the file is text from a file of theirs (12.R4.2).
+
+### 145. A quiet station stays at its default place
+
+The design proposed that a quiet station drifts out past its default place. The acceptance test says a quiet snapshot gives the defaults, so a quiet need is 0.4 and a station only comes nearer. One constant (`QUIET`) changes it. Open question in the pull request.
+
 ## Layer 13: elections (found while building L13.1)
 
 ### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses
@@ -696,6 +724,16 @@ A Yes rule runs out only if it has a `review_by` date. A rule with no date, or a
 ### 161. A clock set far ahead lapses every dated rule, and the election clock never goes back
 
 The date of a check is the latest of the system date, `--date` and the newest logbook date. A system clock set far ahead, or one entry with a far date, makes every dated Yes rule give Ask me first until the owner edits the dates; that is a safe error, not a Yes. A clock set back changes nothing, because the newest logbook date still counts. If the logbook cannot be read, only the system date and `--date` are used, and the entry of that check cannot be written either, so no Yes comes out.
+
+## Layer 13: reversal (found while building L13.2, written in L13.4)
+
+### 162. A reopen links a hash, so it needs the hash chain, and an older entry cannot be linked
+
+`umwayi decision reopen` names the old entry by its `Chain` value. A logbook whose chain has not started cannot be reopened (the owner starts it once with `umwayi logbook seal --chain`), and a decision closed before the chain started has no hash to link, so it is refused. A decision that was answered or closed by hand in `queue.md`, with no closing entry in the logbook, is refused too, and so is a `queue.md` row that was deleted by hand after a reopen: the row is not made again. Only the newest closing entry of a decision can be linked. The link proves which entry the owner meant; it does not prove the entry was wise, and a process of the same user that can write a well formed chained entry can write a reopen that nobody asked for (item 135 again).
+
+### 163. The revisit condition is the owner's words, and nothing watches for it
+
+`--revisit-if` keeps one line of text in the logbook entry of the answer, up to 200 characters, or `none`. umwayi shows it again when the decision is reopened and does nothing else with it: it does not check that the condition came true, and it does not remind the owner. An answer from before layer 13 shows `not recorded before layer 13`. A condition in another shape than the fixed one, for example text a person added to an entry, is not read. The text is the owner's, so a vague condition stays vague.
 
 ## Layer 10 part 8: OpenCode over ACP, and Muse Spark Open (known from the spec, Nov 11; nothing is built)
 
@@ -763,3 +801,43 @@ On its first use in a fresh home folder, OpenCode 2.2.7 fetched `ripgrep` from t
 - umwayi cannot stop it or see it. It happens inside the `opencode` process, before or apart from any tool call, so neither the plugin nor a permission request is involved, and nothing about it reaches the logbook.
 - The policies in umwayi's inline config cover providers and integrations (`provider.use`, `integration.use`). They do not cover this download.
 - What would fix it later: a cache folder with `rg` already in place, inside a private `HOME` that umwayi gives OpenCode, so there is nothing to fetch; or a network sandbox around OpenCode, after Dec 3.
+
+## Layer 13: courts and the rules change log (found while building L13.3)
+
+### 192. Petition limits stop a flood, not a patient helper
+
+A helper name is a label the helper gives itself, so the per helper limits are bounded only by the totals (10 open, 10 a day). A refused petition writes nothing, so a flood leaves no trace in the logbook. The day of the daily limits is the date of the entry: a helper that passes a later `--date` gets a new day, and the logbook dates then move forward for every command. The reason is untrusted text in `queue.md` that an owner, or an AI helper that reads the queue, can still take as an order.
+
+### 193. The rules change log shows a weakening and does not hold it
+
+A rule weakened by an edit (`no-money` from no to yes) is used at the next check, after its entry is written. The entry makes it visible and dated; it does not stop it (L13-Q11). A process of the same user can also write a well formed `umwayi rules` entry with the new hash before the check, so the change is not listed (item 135 again).
+
+### 194. Only ids, verdicts and review dates are listed
+
+A change of a rule's matchers, title, text or cause shows as `no rule changed` with a new SHA-256. A No rule whose matchers were narrowed to match nothing is a weakening that the entry does not name (L13-Q20). Compare the file with an older copy (for example git) to see what changed.
+
+### 195. A dry run neither logs a rules change nor falls back
+
+`umwayi check --no-log` writes nothing, so changed rules are not logged by it and its answer comes from the new rules as they are (L13-Q19). A dry run approves nothing in umwayi, but a script that treats its Yes as a permission would use rules that are not logged yet.
+
+## Layer 13: graded autonomy (found while building L13.5)
+
+### 166. A process of the same user can write well formed, chained score inputs
+
+The record is chained and read line by line in fixed shapes, so a hand edit, a deleted entry, a forged line or an unchained entry makes the whole record invalid and nothing moves. A process that runs as the owner can still call the same append umwayi uses and add well formed `umwayi autonomy record` entries, chained and recorded like the owner's own. Graded autonomy would then move on a record the owner did not write. This is item 135 again: nothing here protects against a process of the same user. The anchor of the chain (`umwayi logbook anchor`, kept outside the machine) shows that entries were added, not who added them.
+
+### 167. The score is a statistic of the past, and a class that is too wide mixes histories
+
+The score counts what the owner did with earlier proposals of one class. It cannot see that today's action differs from the last eighty, that the context changed, or that one rule's matchers catch more than the owner meant. A class is only as narrow as the matchers of the rules that name it; `umwayi autonomy status` shows the counts, so a class that grew is visible, not prevented.
+
+### 168. Reversibility and cost are the owner's declaration
+
+`reversible` and `cost_uu` are written by the owner in the rule. umwayi does not check that an action of the class can really be undone or what it really costs. A rule that says `reversible: true` for something that cannot be undone lets the score move it. The never list keeps money, publishing, an install, a spending approval and the start or permission of an agent out, by action type only.
+
+### 169. Careless approving builds a high score
+
+The owner's record is the input. Approving without a look counts as approved as proposed, and the score rises. The bound is cautious (a lower bound, z 2.58 suggested, a revert weighs 3 and starts a cooldown), and nothing here checks whether the owner's record is wise.
+
+### 170. The moves of one day are capped, but a wrong move is still a wrong move
+
+`max_moves_per_day` caps the moves of one class on one logbook day, and a `rejected` or `reverted` outcome stops the class for the cooldown. A move that was wrong has still happened: turning graded autonomy off takes effect at the next check and undoes nothing. The owner records `reverted`, which holds the class for the cooldown and lowers its score. A move is also made only in a check that logs; a script that reads the answer of a dry run never sees a move.

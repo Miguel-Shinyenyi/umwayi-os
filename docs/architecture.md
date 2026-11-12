@@ -22,7 +22,7 @@ The core is the `umwayi` package, standard library only (`pyproject.toml`: `depe
 | 10 front door | `umwayi agent`: check, run, chat, login | `umwayi/agents.py`, `umwayi/acp.py` | [agent-front-door.md](agent-front-door.md) |
 | 11 scheduled runs | systemd user timers for jobs and workflows | `umwayi/schedule.py` | [scheduled-runs.md](scheduled-runs.md) |
 | budget governor | UU, the ledger, the telemetry receiver | `umwayi/units.py`, `umwayi/budget.py`, `umwayi/telemetry.py` | [budget-governor.md](budget-governor.md) |
-| 12 view (snapshot built, page not) | a web page that only looks, and the read only snapshot of counts it reads | `umwayi/view.py`; `ui/` (planned) | [interface.md](interface.md) |
+| 12 view (snapshot, scene and public site built) | a web page that only looks, the same scene on a public site, and the read only snapshot of counts it will read | `ui/`, `site/`, `umwayi/view.py` | [interface.md](interface.md) |
 
 Shared by every layer:
 
@@ -31,7 +31,7 @@ Shared by every layer:
 - The kill switch (`.umwayi/KILL`) and the run lock (`.umwayi/run.lock`) are described in [workflows.md](workflows.md).
 - The command line is `umwayi/cli.py`; the exit codes are in [exit-codes.md](exit-codes.md).
 - The requirements, design and tasks of every layer are in [requirements.md](../.kiro/specs/umwayi-os/requirements.md), [design.md](../.kiro/specs/umwayi-os/design.md) and [tasks.md](../.kiro/specs/umwayi-os/tasks.md).
-- Layer 13 (slice 1, elections, and slice 2, reversal, built; the rest specified, not built): correction and graded autonomy. It changes `umwayi/rules.py` (built in slice 1), `umwayi/taskqueue.py` (`--revisit-if` and `add_with_entry`, slice 2) and `umwayi/logbook.py` (`read_chained`, slice 2), and adds `elections.py` (built), `decisions.py` (built), `rulelog.py`, `petition.py` and `autonomy.py` to the core; it changes nothing in `ui/`. See [corrections.md](corrections.md) and [autonomy.md](autonomy.md).
+- Layer 13 (all five slices built: elections, reversal, courts with the rules change log, honest tension, and graded autonomy in `autonomy.py`, off by default): correction and graded autonomy. It changes `umwayi/rules.py` (built in slice 1), `umwayi/taskqueue.py` (`--revisit-if` and `add_with_entry`, slice 2) and `umwayi/logbook.py` (`read_chained`, slice 2), and adds `elections.py` (built), `decisions.py` (built), `rulelog.py`, `petition.py` and `autonomy.py` to the core; it changes nothing in `ui/`. See [corrections.md](corrections.md) and [autonomy.md](autonomy.md).
 
 ## Decisions log
 

@@ -335,10 +335,10 @@ class ContentTests(unittest.TestCase):
 
     def test_the_counts_come_from_the_layers_readers(self):
         w = World(self.tmp).build()
-        self.assertEqual(w.log_counts(), (9, 3))  # six by hand, then the seal and two checks
+        self.assertEqual(w.log_counts(), (10, 4))  # six by hand, then the seal, the rules entry (L13.3) and two checks
         self.assertEqual(w.view("--date", DAY).returncode, 0)
         got = w.read()
-        self.assertEqual(got["logbook"], {"entries": 9, "chain_length": 3})
+        self.assertEqual(got["logbook"], {"entries": 10, "chain_length": 4})  # L13.3 (13.R7.2): the rules entry before the first check
         self.assertEqual(got["queue"], {"open": 2, "answered": 2})
         self.assertEqual(got["rules"], {"yes": 3, "no": 2, "ask": 1})
         self.assertEqual([d["used_uu"] for d in got["budget"]["days"]], [0, 0, 0, 0, 13, 0, 105])
@@ -761,11 +761,11 @@ class EntryTests(Case):
         self.assertEqual(m.group("file"), SNAP)
         self.assertEqual(m.group("sha"), sha(self.w.snap.read_bytes()))
         self.assertEqual(self.w.u("logbook", "verify").returncode, 0)
-        self.assertEqual(self.w.log_counts(), (10, 4))
+        self.assertEqual(self.w.log_counts(), (11, 5))  # L13.3 (13.R7.2): the rules entry before the first check
 
     def test_the_snapshot_counts_the_logbook_before_its_own_entry(self):
         self.run_ok()
-        self.assertEqual(self.w.read()["logbook"], {"entries": 9, "chain_length": 3})
+        self.assertEqual(self.w.read()["logbook"], {"entries": 10, "chain_length": 4})  # L13.3 (13.R7.2): the rules entry before the first check
 
     def test_a_logbook_that_fails_after_the_file_is_written_puts_the_file_back(self):
         for fault, extra in (("umwayi.logbook:append:crash", None),
@@ -854,6 +854,70 @@ class ExitTests(Case):
         self.assertEqual(r.stderr, "")
         self.assertEqual(len(r.stdout.splitlines()), 1)
         self.assertTrue(r.stdout.endswith("\n") and r.stdout[:-1].isprintable())
+
+
+class FixtureTests(unittest.TestCase):
+    """UI.3 (tasks.md UI.2.2): ui/test/fixtures/snapshot.json is the command's own output on the fixed root of
+    ContentTests, byte for byte. The page's tests read it as the real file, so it must not be written by hand."""
+
+    FIXTURE = REPO / "ui" / "test" / "fixtures" / "snapshot.json"
+
+    @staticmethod
+    def made(tmp: Path) -> bytes:
+        w = World(tmp, "one").build(install=True)
+        r = w.view("--date", DAY)
+        assert r.returncode == 0, r.stdout + r.stderr
+        return w.snap.read_bytes()
+
+    def problems(self, data: bytes, made: bytes) -> list:
+        out = []
+        if data != made:
+            out.append("the fixture is not what umwayi view snapshot writes on the fixed root")
+        try:
+            obj = json.loads(data.decode("ascii"))
+        except (UnicodeDecodeError, ValueError):
+            return out + ["the fixture is not JSON"]
+        from umwayi import view as view_module
+        if not view_module.valid(obj):
+            out.append("the fixture is not a valid snapshot (umwayi.view.valid)")
+        if len(data) > 4096:
+            out.append("the fixture is over 4096 bytes, the limit of the page")
+        return out
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="umwayi-fixture-")
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(os.path.realpath(self._tmp.name))
+
+    def test_the_fixture_equals_the_commands_output_on_the_fixed_root_byte_for_byte(self):
+        made = self.made(self.tmp)
+        self.assertEqual(self.problems(self.FIXTURE.read_bytes(), made), [])
+
+    def test_a_fixture_edited_by_hand_is_found(self):
+        made = self.made(self.tmp)
+        data = self.FIXTURE.read_bytes()
+        for name, bad in (("a number", data.replace(b'"open": 2', b'"open": 3', 1)), ("a final newline", data.rstrip(b"\n")),
+                          ("an indent", data.replace(b'  "schema"', b'    "schema"', 1)), ("a date", data.replace(b"2026-11-11", b"2026-11-12", 1)),
+                          ("a key", data.replace(b'"schema"', b'"schemas"', 1))):
+            self.assertTrue(self.problems(bad, made), name)
+
+    def test_a_fixture_that_is_not_a_valid_snapshot_or_is_too_big_is_found(self):
+        made = self.made(self.tmp)
+        extra = json.dumps({**json.loads(made), "extra": 1}, indent=2).encode() + b"\n"
+        self.assertIn("the fixture is not a valid snapshot (umwayi.view.valid)", self.problems(extra, extra))
+        big = made + b" " * 4096
+        self.assertIn("the fixture is over 4096 bytes, the limit of the page", self.problems(big, big))
+        self.assertIn("the fixture is not JSON", self.problems(b"nope", b"nope"))
+
+    def test_the_fixture_holds_counts_only(self):
+        obj = json.loads(self.FIXTURE.read_text(encoding="ascii"))
+        for path, leaf in leaves(obj):
+            ok = (type(leaf) is int and 0 <= leaf <= 1_000_000_000) or leaf is None or leaf in WORDS or (
+                isinstance(leaf, str) and real_date(leaf))
+            self.assertTrue(ok, (path, leaf))
+        text = self.FIXTURE.read_text(encoding="ascii").lower()
+        for word in SENTINELS:
+            self.assertNotIn(word.lower(), text)
 
 
 class CodeGuardTests(unittest.TestCase):

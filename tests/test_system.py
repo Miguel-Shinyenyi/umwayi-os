@@ -176,6 +176,7 @@ class ScriptedRunTests(SystemBase):
         # --- the logbook is whole, with the expected entries
         expected = (
             ["umwayi queue add"]
+            + ["umwayi rules"]  # L13.3 (13.R7.2): the rules are logged before their first use
             + ["umwayi check"] * 3
             + ["umwayi run"]
             + ["umwayi steward"] * 3
@@ -192,7 +193,7 @@ class ScriptedRunTests(SystemBase):
         )
         self.assertEqual(self.sources(), expected)
         self.expect(["logbook", "verify"], 0, f"ok: {len(expected)} entries, the format is valid and the hash matches")
-        self.assertEqual(len(expected), 38)
+        self.assertEqual(len(expected), 39)
         self.assertNotIn(SECRET, self.log.read_text())
         self.expect(["archive", "verify"], 1, "no archive folder")  # nothing was archived in this run
 
@@ -225,7 +226,7 @@ class OneRunAtATimeTests(SystemBase):
         self.assertEqual(self.drafts(), ["steward-0001.md"], results)
         busy = [out for c, out, _ in results if c == 3]
         self.assertIn("holds the run lock", busy[0])
-        self.expect(["logbook", "verify"], 0, "ok: 4 entries")  # 3 steps and 1 refused run
+        self.expect(["logbook", "verify"], 0, "ok: 5 entries")  # the rules entry (L13.3), 3 steps and 1 refused run
 
 
 # ======================================================================= faults
@@ -238,7 +239,7 @@ class FaultTests(SystemBase):
 
     def test_editing_the_logbook_makes_verify_fail(self):
         self.seed()
-        self.expect(["logbook", "verify"], 0, "ok: 2 entries")
+        self.expect(["logbook", "verify"], 0, "ok: 3 entries")  # L13.3 (13.R7.2): the rules are logged before their first use
         self.log.write_text(self.log.read_text().replace("- Added: Q-0001 (task) as open: One", "- Added: Q-0001 (task) as open: Two"))
         self.expect(["logbook", "verify"], 1, "does not match its recorded hash")
         self.expect(["queue", "add", "--kind", "task", "x", "--date", D1], 1, "does not match its recorded hash")
@@ -266,7 +267,7 @@ class FaultTests(SystemBase):
                        '{"type": ["launch_rocket"], "x": 1}', 'not json', '[]', '{"a": 1, "a": 2}'):
             with self.subTest(action=action):
                 self.expect(["check", action, "--date", D1], 3, "Ask me first")
-        self.expect(["logbook", "verify"], 0, "ok: 8 entries")
+        self.expect(["logbook", "verify"], 0, "ok: 9 entries")  # L13.3 (13.R7.2): the rules are logged before their first use
 
     def test_a_bad_config_or_workflow_file_gives_64(self):
         (self.root / "notes.md").write_text("a b\nc d\n")

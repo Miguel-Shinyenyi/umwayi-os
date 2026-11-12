@@ -145,12 +145,12 @@ class WholeSystemTests(Base):
         self.assertEqual(problems, [])
         self.assertEqual([p.entry.source for p in entries], [
             "umwayi queue add", "umwayi queue add", "umwayi queue answer", "umwayi queue close",
-            "umwayi archive move", "umwayi check"])
+            "umwayi archive move", "umwayi rules", "umwayi check"])  # L13.3 (13.R7.2): the rules before the check
         self.assertEqual(logbook.verify(self.root).problems, [])
         self.assertNotIn("TOPSECRET", self.log.read_text(encoding="utf-8"))
         code, out, _ = self.run_cli("logbook", "verify")
         self.assertEqual(code, 0)
-        self.assertIn("ok: 6 entries", out)
+        self.assertIn("ok: 7 entries", out)
 
     def test_migrate_logs_and_verifies(self):
         (self.root / "queue.md").write_text(OLD_QUEUE, encoding="utf-8")

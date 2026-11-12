@@ -22,7 +22,8 @@ umwayi-os/
   PROJECT.md                this file: what to read first
   umwayi/                   the core package, standard library only
   adapters/                 layer 9 hooks and the pinned Claude Code ACP adapter, outside the core
-  ui/                       layer 12, planned: the web interface build tools and the built page, outside the core
+  ui/                       layer 12: the web interface (sources, pinned build tools, the built page), outside the core
+  site/                     layer 12: the public site (Next.js, pinned), outside the core; it imports the scene from ui/src
   tests/                    every test; python -m unittest discover -s tests -t .
   docs/
     DOCS_MAINTENANCE.md     how the docs are written and kept current
@@ -39,12 +40,12 @@ umwayi-os/
     agent-front-door.md     layer 10: umwayi agent
     scheduled-runs.md       layer 11: systemd user timers
     budget-governor.md      UU, the ledger, the telemetry receiver
-    interface.md            layer 12: the view, a web page that only looks (the snapshot command is built, the page is not)
+    interface.md            layer 12: the view, a web page that only looks (the snapshot command, the highlands scene, the home page and the public site are built)
     exit-codes.md           every exit code and which command gives it
     testing.md              how everything is tested
     security.md             what is protected and how it is checked
-    corrections.md          layer 13: elections, reversal (built), courts, the stop criteria
-    autonomy.md             layer 13: graded autonomy, the score and its gates (specified, not built)
+    corrections.md          layer 13: elections, reversal, courts and the rules change log, the stop criteria and the plain note (built)
+    autonomy.md             layer 13: graded autonomy, the score and its gates (built, off by default)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
     KNOWN-LIMITS.md         every known limit, numbered

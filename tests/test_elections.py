@@ -109,6 +109,15 @@ class Base(unittest.TestCase):
     def logbook_text(self):
         return self.log.read_text(encoding="utf-8")
 
+    def check_entries_text(self):
+        """The logbook without its `umwayi rules` entries (L13.3, 13.R7.2: the first check logs the rules first).
+        The check entries are compared byte for byte as before; the rules entry must be there, first."""
+        text = self.logbook_text()
+        blocks = text.split("\n\n## ")
+        rest = [b for b in blocks[1:] if "\n\n- Source: umwayi rules\n" not in "\n" + b]
+        self.assertTrue(len(blocks) > 1 and "- Source: umwayi rules\n" in blocks[1], "no rules entry first")
+        return "\n\n## ".join([blocks[0]] + rest)
+
 
 # ============================================================ the lapse, in `umwayi check`
 
@@ -122,7 +131,7 @@ class LapseTests(Base):
         self.assertTrue(r.stdout.startswith("Ask me first\nRule: report-yes\nReason: "), r.stdout)
         self.assertIn("review_by", r.stdout)
         self.assertEqual(
-            self.logbook_text(),
+            self.check_entries_text(),
             "# Logbook\n\n## 2026-11-21\n\n- Source: umwayi check\n"
             "- Added: Rule report-yes gave Ask me first; action type: read\n"
             "- Checked: action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (1 rules); "
@@ -306,7 +315,7 @@ class GoldenTests(Base):
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, GOLDEN_JSON, ""))
         r = self.u("check", "--date", "2026-11-07", '{"type":"payment"}')
         self.assertEqual((r.returncode, r.stdout, r.stderr), (2, GOLDEN_TEXT_NO, ""))
-        self.assertEqual(self.logbook_text(), GOLDEN_LOGBOOK)
+        self.assertEqual(self.check_entries_text(), GOLDEN_LOGBOOK)
 
     def test_a_rule_with_a_date_that_has_not_passed_gives_the_same_bytes_as_without(self):
         (self.root / "rules.yaml").write_text(GOLDEN_RULES.replace(
@@ -314,7 +323,7 @@ class GoldenTests(Base):
         r = self.u("check", "--json", "--date", "2026-11-07", '{"type":"read"}', today="2026-11-07")
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, GOLDEN_JSON, ""))
         first_entry = GOLDEN_LOGBOOK.split("\n## 2026-11-07\n\n- Source: umwayi check\n- Added: Rule no-money")[0]
-        self.assertEqual(self.logbook_text(), first_entry)
+        self.assertEqual(self.check_entries_text(), first_entry)
 
 
 # ================================================================ a bad review_by is a malformed file
@@ -585,7 +594,8 @@ class RulesDueTests(Base):
 class CodeGuardTests(unittest.TestCase):
     NETWORK = {"socket", "http", "urllib", "ssl", "smtplib", "ftplib", "xmlrpc", "requests", "asyncio", "telnetlib",
                "imaplib", "poplib", "socketserver"}
-    LATER = {"decisions", "rulelog", "petition", "autonomy"}  # modules of slices 2 to 5
+    LATER = {"decisions", "petition"}  # modules of slices 2 to 5 that rules.py must not import; rulelog (step 4) and
+    # autonomy (step 8, L13.5, imported inside check_and_log) are steps of the verdict order that design.md puts there
 
     def imports(self, path):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -612,9 +622,10 @@ class CodeGuardTests(unittest.TestCase):
                 self.assertNotIn(top, self.NETWORK, f"{name} imports {imp}")
 
     def test_nothing_of_a_later_slice_exists_yet(self):
-        # decisions.py is slice 2 (L13.2, built); slice 1 still imports nothing of it (the test above)
-        for name in ("rulelog", "petition", "autonomy"):
-            self.assertFalse((REPO / "umwayi" / f"{name}.py").exists(), name)
+        # every slice is built (L13.5 was the last): no module of a later slice can exist, and the modules of the
+        # layout of design.md are there
+        for name in ("elections", "decisions", "rulelog", "petition", "autonomy"):
+            self.assertTrue((REPO / "umwayi" / f"{name}.py").exists(), name)
 
 
 if __name__ == "__main__":

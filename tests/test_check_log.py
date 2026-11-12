@@ -77,9 +77,12 @@ class LoggingTests(CheckLogBase):
         code, out, _ = self.check('{"type": "payment", "amount": 5}')
         self.assertEqual(code, 2)
         self.assertTrue(out.startswith("No\n"))
+        [rules_entry, _check] = self.entries()  # L13.3 (13.R7.2): the first check logs the rules first
+        self.assertEqual(rules_entry.entry.source, "umwayi rules")
         self.assertEqual(
             self.log.read_text(encoding="utf-8"),
-            "# Logbook\n\n## 2026-11-07\n\n- Source: umwayi check\n"
+            "# Logbook\n\n" + rules_entry.text
+            + "\n## 2026-11-07\n\n- Source: umwayi check\n"
             "- Added: Rule no-money gave No; action type: payment\n"
             "- Checked: action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (3 rules); "
             "rules matched: no-money\n"
@@ -99,7 +102,7 @@ class LoggingTests(CheckLogBase):
                 last = self.entries()[-1].entry
                 self.assertIn(f"gave {answer}", last.added)
                 self.assertIn(f"Rule {rule} gave" if rule else "No rule gave", last.added)
-        self.assertEqual(len(self.entries()), 4)
+        self.assertEqual(len(self.entries()), 5)  # L13.3 (13.R7.2): the rules entry before the first check
 
     def test_every_check_adds_exactly_one_entry_and_keeps_earlier_bytes(self):
         seen = b""
@@ -107,7 +110,7 @@ class LoggingTests(CheckLogBase):
             self.check('{"type": "read"}')
             now = self.log.read_bytes()
             self.assertTrue(now.startswith(seen))
-            self.assertEqual(len(self.entries()), n + 1)
+            self.assertEqual(len(self.entries()), n + 2)  # L13.3 (13.R7.2): one rules entry, before the first check
             seen = now
 
     def test_broken_inputs_are_logged_too(self):

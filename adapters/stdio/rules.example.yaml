@@ -33,11 +33,13 @@ rules:
       input_target__contains: [prod]
 
   # Layer 13: reopening a decision is the owner's act (13.R14.3).
+  # umwayi petition (layer 13) is left to the owner: an AI helper may object to a No this way. To refuse it,
+  # add "umwayi petition" to the list below.
   - id: stdio-no-owner-commands
     title: Owner commands of layer 13
-    text: Shell commands that run umwayi decision (or name decision reopen) are refused.
-    cause: Only the owner reopens a decision.
+    text: Shell commands that run umwayi decision or umwayi autonomy, or name decision reopen, autonomy record or autonomy.yaml, are refused.
+    cause: Only the owner reopens a decision, records an outcome or changes autonomy.yaml.
     verdict: no
     matchers:
       platform: stdio
-      input_command__contains: ["umwayi decision", "decision reopen"]
+      input_command__contains: ["umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]

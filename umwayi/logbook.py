@@ -934,6 +934,26 @@ def append(root: Path, entry: Entry) -> None:
         _write(root, data, block, "write", _record_value(root))
 
 
+def append_with(root: Path, when: str, build) -> bool:
+    """Append the entry `build(entries)` gives, decided under the lock (layer 13, the rules change log).
+
+    The same lock and checks as append. `build` gets the entries of the intact logbook, oldest first, and returns
+    the Entry to append (dated `when`) or None for nothing. So two writers that saw the same change before taking
+    the lock write it once. Returns True if an entry was appended.
+    """
+    with _lock(root):
+        _recover(root, when)
+        data, prev = _check_before_write(root, when)
+        entries = [p.entry for p in parse(_decode(data))[0]] if data else []
+        entry = build(entries)
+        if entry is None:
+            return False
+        if not isinstance(entry, Entry) or entry.date != when:
+            raise UmwayiError("logbook: internal check failed, nothing was written")
+        _write(root, data, render(entry, prev), "write", _record_value(root))
+    return True
+
+
 # -------------------------------------------------------------------- seal
 
 
