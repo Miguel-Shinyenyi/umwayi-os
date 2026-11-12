@@ -27,7 +27,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-11 | The repo `rules.yaml` holds the 13 OpenCode starter rules too, taken from `adapters/opencode/rules.example.yaml`; Code Mode has no rule on purpose (see [rules](rules.md)) | The OpenCode starter rules pull request (NN), a follow-up of 9.10 and 10.45. |
+| 2026-11-11 | The repo `rules.yaml` holds the 13 OpenCode starter rules too, taken from `adapters/opencode/rules.example.yaml`; Code Mode has no rule on purpose (see [rules](rules.md)) | The OpenCode starter rules pull request (PR 56), a follow-up of 9.10 and 10.45. |
 | 2026-11-11 | 9.10 done: the repo `rules.yaml` holds the starter rules for the three adapters, taken from their example files (see [rules](rules.md)) | PR 43. |
 | 2026-11-10 | 9.11 done: the whole-system test calls the three hooks as each platform runs them, and sends every agent start's tool calls through them | S.1, PR 36. |
 | 2026-11-08 | Every adapter denies every tool call while the kill switch is on or unknown (9.12) | Layer 9, PR 12: the owner answered yes. |
