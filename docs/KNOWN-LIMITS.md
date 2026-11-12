@@ -1098,3 +1098,9 @@ Before W20 the required checks were `tests / test (3.10) (pull_request)` to `tes
 - What protects you today: the design lets one place run the build, the last step of a goal on its own branch (W9-Q10), and a task never runs it. Nothing stops the owner or a task from running it early.
 - What it does not protect against: the collision itself. The fix is by hand: delete the `number:` line of the part that merged last and run the build again.
 - A later fix: give numbers only on `main` (a step after the merge), or keep a reservation file per number.
+
+## OpenCode chat end to end (part 8, 10.49)
+
+### 248. A request with no `name` is capped after the check, so its entry can say Yes
+
+In an OpenCode chat, a permission request with no `name` (OpenCode had no tool for it) never gets Yes: when the rules answer Yes, umwayi asks the owner instead, as for Ask me first. The cap is applied after the check, so the `umwayi check` entry of that request still names the Yes rule, and the logbook does not say that the owner was asked. A No stays No. A request whose `name` is present but not a plain word (an MCP tool such as `mcp__x__y`) is not capped: the rules see only its kind. Only the fake sends a request with no `name`; a real OpenCode was seen to do so only in the source (10.42).

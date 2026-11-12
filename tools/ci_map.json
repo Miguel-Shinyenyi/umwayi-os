@@ -47,6 +47,7 @@
   "tests/agents/test_agents_kiro_run.py": ["adapters"],
   "tests/agents/test_agents_login.py": ["adapters"],
   "tests/agents/test_agents_opencode_chat.py": ["adapters"],
+  "tests/agents/test_agents_opencode_turns.py": ["adapters"],
   "tests/agents/test_agents_opencode_config.py": ["adapters"],
   "tests/agents/test_agents_opencode_file.py": ["adapters"],
   "tests/agents/test_agents_opencode_gate.py": ["adapters"],
