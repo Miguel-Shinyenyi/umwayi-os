@@ -417,6 +417,11 @@ def _anchors(text: str) -> set:
     return out
 
 
+def _links(text: str) -> list:
+    """(line number, target) of every Markdown link outside code blocks and code spans."""
+    return [(n, m.group(1)) for n, line in _outside_code(text) for m in _LINK.finditer(_CODE_SPAN.sub("", line))]
+
+
 def check_output(root: Path, status: str, limits: str) -> list:
     """The documentation rules of tests/test_docs.py for the two built files, on the text before it is written:
     no em dash, the four parts and under 300 lines for the status log, every relative link and #anchor resolves
@@ -430,9 +435,8 @@ def check_output(root: Path, status: str, limits: str) -> list:
         for n, line in enumerate(text.split("\n"), 1):
             if EM_DASH in line:
                 problems.append(f"{rel} line {n}: an em dash")
-        for n, line in _outside_code(text):
-            for m in _LINK.finditer(_CODE_SPAN.sub("", line)):
-                problems.extend(_link_problem(root, path, rel, n, m.group(1), built))
+        for n, target in _links(text):
+            problems.extend(_link_problem(root, path, rel, n, target, built))
     found = [h for lvl, h in ((len(m.group(1)), m.group(2)) for _n, line in _outside_code(status)
                               for m in [_HEADING.match(line)] if m) if lvl == 2 and h in DOC_PARTS]
     if found != list(DOC_PARTS):

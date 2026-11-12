@@ -466,16 +466,17 @@ class OutputCheckerTests(Base):
         plan = goaldocs.plan(REPO)
         self.assertEqual(goaldocs.check_output(REPO, plan.status, plan.limits), [])
 
-    def test_the_built_output_passes_tests_test_docs_on_a_copy_of_the_docs(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            copy = Path(tmp)
-            shutil.copytree(REPO, copy, dirs_exist_ok=True,
-                            ignore=shutil.ignore_patterns(".git", "node_modules", "__pycache__", "public", "dist"))
-            plan = goaldocs.plan(REPO)
-            self.assertEqual(test_docs.check(copy), test_docs.check(REPO))
-            put(copy, "docs/status-log.md", plan.status)
-            put(copy, "docs/KNOWN-LIMITS.md", plan.limits)
-            self.assertEqual(test_docs.check(copy), test_docs.check(REPO))
+    def test_the_checker_agrees_with_tests_test_docs_on_the_real_files(self):
+        """check_output is a second copy of the rules of tests/test_docs.py; the helpers must not drift apart."""
+        texts = [(REPO / "docs/status-log.md").read_text(encoding="utf-8"),
+                 (REPO / "docs/KNOWN-LIMITS.md").read_text(encoding="utf-8"), SAMPLE_STATUS, SAMPLE_LIMITS]
+        for text in texts:
+            self.assertEqual(goaldocs._links(text), test_docs.links(text))
+            self.assertEqual(goaldocs._anchors(text), test_docs.anchors(text))
+            self.assertEqual(goaldocs._outside_code(text), test_docs.outside_code(text))
+        self.assertEqual(goaldocs.EM_DASH, test_docs.EM_DASH)
+        self.assertEqual(goaldocs.DOC_PARTS, test_docs.PARTS)
+        self.assertEqual(goaldocs.MAX_STATUS_LINES, test_docs.DOC_MAX_LINES)
 
 
 class MigrationTests(unittest.TestCase):
