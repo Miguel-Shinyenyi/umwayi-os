@@ -67,27 +67,15 @@ def b64url(data: bytes) -> str:
 QUEUE = ("# Queue\n\n| id | kind | title | status | recommendation | answer | answered |\n"
          "| --- | --- | --- | --- | --- | --- | --- |\n")
 
-RULES_ALL_YES = """\
-- id: serve-yes
-  title: The web page may do what the command line may
-  text: Every request of the web page is allowed (tests only).
-  verdict: yes
-  matchers:
-    - field: type
-      op: equals
-      values: [serve_request]
-"""
-
-
 def rules_text(read="yes", write="yes", run="yes") -> str:
-    """A rules.yaml with one rule per class of request (the example of W6.R17.4 with the verdicts chosen)."""
-    parts = []
+    """A rules.yaml with one rule per class of request (the example of W6.R17.4 with the verdicts chosen). A verdict of
+    None leaves the class without a rule, so the answer is Ask me first."""
+    parts = ["rules:\n"]
     for cls, verdict in (("read", read), ("write", write), ("run", run)):
         if verdict is None:
             continue
-        parts.append(f"- id: serve-{cls}\n  title: Web {cls}\n  text: Web requests of class {cls}.\n"
-                     f"  verdict: {verdict}\n  matchers:\n    - field: type\n      op: equals\n"
-                     f"      values: [serve_request]\n    - field: class\n      op: equals\n      values: [{cls}]\n")
+        parts.append(f"  - id: serve-{cls}\n    title: Web {cls}\n    text: Web requests of class {cls}.\n"
+                     f"    verdict: {verdict}\n    matchers:\n      type: serve_request\n      class: {cls}\n")
     return "".join(parts)
 
 

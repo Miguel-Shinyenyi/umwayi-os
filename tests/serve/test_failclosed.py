@@ -67,7 +67,7 @@ class GateRows(FailClosed):
         p.write_text(good)
 
     def test_the_gate_raising_gives_500_error_and_changes_nothing(self):
-        with mock.patch.object(servegate, "_run_checks", side_effect=RuntimeError(SENTINEL)):
+        with mock.patch.object(servegate.module(), "_run_checks", side_effect=RuntimeError(SENTINEL)):
             r = self.add()
         self.assertRefused(r, 500, "error", 2)
         self.assertNotIn(SENTINEL.encode(), r.raw)
@@ -109,7 +109,7 @@ class RulesRows(FailClosed):
         r = self.add()
         self.assertEqual((r.status, r.word, r.code), (403, "ask", 3))
         self.assertEqual(len([ln for ln in self.queue_text().splitlines() if "The web page asks first" in ln]), 1)
-        self.assertEqual([e.source for e in logbook_entries(self.root)][-3:], ["umwayi check", "umwayi queue", "umwayi serve"])
+        self.assertEqual([e.source for e in logbook_entries(self.root)][-3:], ["umwayi check", "umwayi queue add", "umwayi serve"])
 
     def test_a_yes_that_cannot_be_logged_is_not_given(self):
         real = logbook.append

@@ -35,7 +35,7 @@ MAX_COST_UU = 1000000
 # spending approval, the start or permission of an agent). A rule whose type matcher names one cannot opt in.
 NEVER_AUTONOMY = frozenset({"payment", "transfer", "purchase", "withdraw", "deposit", "publish", "post", "send",
                             "publish_draft", "schedule_install", "budget_check", "agent_run", "agent_login",
-                            "acp_permission"})
+                            "acp_permission", "serve_request"})
 MAX_NAMED_FALLBACKS = 10  # the entry of a check names at most this many lapsed rules, then counts the rest
 
 

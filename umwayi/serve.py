@@ -25,7 +25,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 
-from umwayi import fsutil, kill, logbook, rules, runlock, servegate, servetoken
+from umwayi import fsutil, kill, logbook, rules, runlock, servegate, servetoken, taskqueue
 from umwayi.errors import UmwayiError, UsageError
 
 LOOPBACK = "127.0.0.1"
@@ -142,6 +142,37 @@ def read_page(path) -> tuple:
     return data, ""
 
 
+# ----------------------------------------------------------------------------------------- one request
+
+
+@dataclass(frozen=True)
+class Ctx:
+    """What the entry of a request needs: its id, the token's id, the route (None before one matched), the method, the
+    start on the monotonic clock and the date."""
+    rid: str
+    tid: str
+    route: object
+    method: str
+    started: float
+    today: str
+
+
+def _code_of(word: str) -> int:
+    return WORDS[word][1] if word in WORDS else servegate.WORD_CODE[word]
+
+
+_WORD_OF_CODE = {0: "done", 1: "refused", 2: "error", 3: "ask", 64: "usage"}
+# the exit code the command line gives when a command raises UmwayiError (W6.R7.4): 1 for the queue, kill and logbook
+_ERROR_CODE = {"agents.list": 2, "agents.check": 2, "budget.status": 2}
+
+
+def _declared_length(facts) -> int:
+    for name, value in facts.headers:
+        if name.lower() == "content-length":
+            return int(value)
+    return 0
+
+
 # ------------------------------------------------------------------------------------------------ the backend
 
 
@@ -235,12 +266,17 @@ class Backend:
             state = replace(self._state, record=record, date=self.election_date(), mono=started)
             verdict, self._state = servegate.decide(facts, state)
         if isinstance(verdict, servegate.Refuse):
-            self._count(verdict.word)
+            if verdict.authed and record is not None and not self.degraded:
+                # a valid token, turned away after the token check (origin, route, length, type): one entry
+                ctx = Ctx(_new_request_id(), record["id"], verdict.route, facts.method, started, self._today())
+                self._write(ctx, verdict.word, "not read", "not run", False, gate=True)
+            else:
+                self._count(verdict.word)
             self.flush_summary()
             return gate_response(verdict)
         if verdict.route == "page":
             return self.page_response()
-        response = self.run_pipeline(verdict, facts, read_body)
+        response = self.run_pipeline(verdict, facts, read_body, record, started)
         self.flush_summary()
         return response
 
@@ -251,11 +287,113 @@ class Backend:
         return Response(200, _headers("text/html; charset=utf-8", len(data), (("Content-Security-Policy", PAGE_CSP),)),
                         data)
 
-    def run_pipeline(self, verdict, facts, read_body) -> Response:
-        """The steps of W6.R7 for a request the gate allowed. It cannot be entered with a refusal."""
+    # ------------------------------------------------------------------ the pipeline (W6.R7)
+
+    def run_pipeline(self, verdict, facts, read_body, record=None, started=None) -> Response:
+        """The steps of W6.R7 for a request the gate allowed, in order, stopping at the first that refuses: the request
+        id, the body, the write lock, the kill switch, the rules check, the command, the request entry. It cannot be
+        entered with a refusal."""
         if not isinstance(verdict, servegate.Allow):
             raise TypeError("the pipeline is entered only with an Allow from the gate")
-        return json_response("error", None, False)  # the pipeline is built in the next step (W6.5)
+        route = servegate.route_by_id(verdict.route)
+        started = self._clock() if started is None else started
+        ctx = Ctx(_new_request_id(), record["id"] if record else "T-00000000", route, facts.method, started,
+                  self._today())
+        if self.degraded and route.id != "kill.on":
+            if route.id == "status":  # fixed words, no entry, no rules check
+                code, data = HANDLERS["status"](self, {}, ctx.today)
+                return json_response("done", ctx.rid, False, data, ok=True)
+            if not self._recovered(ctx.today):
+                return json_response("logbook", ctx.rid, False)
+        params = dict(verdict.params)
+        if route.method == "POST":
+            body = servegate.parse_body(route, read_body(_declared_length(facts)))
+            if isinstance(body, servegate.Refuse):
+                return self._finish(ctx, "body", "not read", "not run", False)
+            params.update(body)
+        locked = route.cls in ("write", "run")  # one write at a time (W6.R7.2)
+        if locked and not self.write_lock.acquire(timeout=self.lock_wait):
+            return self._finish(ctx, "busy", "not read", "not run", False)
+        try:
+            return self._steps(ctx, route, params)
+        finally:
+            if locked:
+                self.write_lock.release()
+
+    def _steps(self, ctx: Ctx, route, params: dict) -> Response:
+        ks = kill.state(self.root)  # the function the agents read it with
+        stopped = route.stopped and kill.stopped(ks)
+        if route.skips_rules:
+            answer_text = "skipped"  # only kill.on: an emergency stop does not wait for a rule
+            exit_code = 0
+        else:
+            action = json.dumps({"type": "serve_request", "route": route.id, "class": route.cls, "platform": "web"})
+            decision, logged = rules.check_and_log(
+                action, self.root / RULES_FILE, self.root, ctx.today, log=True, kill_state=ks,
+                stop_reason=kill.reason(ks) if stopped else None)
+            answer_text, exit_code = decision.answer, decision.exit_code
+            if not logged:  # an answer that was not logged is not given
+                return self._finish(ctx, "logbook", ks, answer_text, False)
+            if stopped:
+                return self._finish(ctx, "kill", ks, answer_text, False)
+            if exit_code == 2:
+                return self._finish(ctx, "rules", ks, answer_text, False)
+            if exit_code != 0:  # Ask me first (or anything else that is not a Yes): the owner is asked in the queue
+                try:
+                    taskqueue.add_once(self.root, "decision", f"The web page asks first: may it do {route.id}?", "",
+                                       ctx.today)
+                except UmwayiError:
+                    pass
+                return self._finish(ctx, "ask", ks, answer_text, False)
+        try:
+            code, data = HANDLERS[route.id](self, params, ctx.today)
+        except UsageError:
+            code, data = 64, None
+        except UmwayiError:
+            code, data = _ERROR_CODE.get(route.id, 1), None
+        except (Exception, KeyboardInterrupt) as e:
+            _report(e)
+            code, data = 2, None
+        word = _WORD_OF_CODE.get(code, "error")
+        return self._finish(ctx, word, ks, answer_text, True, data if code == 0 else None,
+                            changed=route.cls in ("write", "run") and code == 0)
+
+    def _finish(self, ctx: Ctx, word: str, kill_text: str, rules_text: str, ran: bool, data=None,
+                changed: bool = False) -> Response:
+        """Write the request entry and build the response. An entry that cannot be written is not reported as done."""
+        if not self._write(ctx, word, kill_text, rules_text, ran):
+            return json_response("logbook", ctx.rid, False, {"changed": True} if changed else None)
+        self.served += 1
+        return json_response(word, ctx.rid, True, data, ok=word == "done")
+
+    def _write(self, ctx: Ctx, word: str, kill_text: str, rules_text: str, ran: bool, gate: bool = False) -> bool:
+        """One entry for a request that carried a valid token (W6.R13.1). False, and the degraded state, when it fails."""
+        outcome = "done" if word == "done" else f"refused ({word})"
+        ms = int(max(0.0, self._clock() - ctx.started) * 1000)
+        route = ctx.route.id if hasattr(ctx.route, "id") else (ctx.route or "no route")
+        try:
+            logbook.append(self.root, logbook.Entry(
+                ctx.today, "umwayi serve",
+                f"Request {ctx.rid}: {ctx.method} {route}, {outcome} (exit {_code_of(word)}), {ms} ms",
+                f"Token {ctx.tid} valid. " + ("The gate refused the request." if gate else "Host and Origin exact.")
+                + f" Kill switch {kill_text}. Rules check {rules_text}.",
+                "The body, the headers and the token were not recorded." + ("" if ran else " The command was not run.")))
+        except Exception:
+            self.degraded = True
+            return False
+        return True
+
+    def _recovered(self, today: str) -> bool:
+        """Leave the degraded state when the logbook can be written again, with one entry that says so."""
+        try:
+            logbook.check_writable(self.root, today)
+            logbook.append(self.root, logbook.Entry(
+                today, "umwayi serve", "The logbook can be written again; the degraded state ended.",
+                "A test write passed the same checks as an append.", "No request was recorded by this entry."))
+        except Exception:
+            return False
+        self.degraded = False
+        return True
 
     def shutdown(self, word: str) -> bool:
         """The last summary and the stop entry. True when the stop entry was written."""
@@ -269,12 +407,40 @@ class Backend:
         return True
 
 
+def _new_request_id() -> str:
+    return "R-" + secrets.token_hex(4)
+
+
 def _report(e: BaseException) -> None:
     """Only the type name goes to the server's own stderr: an exception text may hold a path or a file's text."""
     try:
         sys.stderr.write(f"umwayi serve: a request stopped with an unexpected error ({type(e).__name__}).\n")
     except Exception:
         pass
+
+
+# -------------------------------------------------------------------------------------------- the handlers
+#
+# Each handler is a few lines: it reads parameters the gate and `parse_body` already checked, calls the core function
+# the command line calls, and returns (the exit code of the command, the data of the response). No handler holds a
+# rule, a path or a file format of its own (W6.R1.1). A response is a subset of what the command prints (W6.R8.2).
+
+
+def _h_status(b: Backend, params: dict, today: str) -> tuple:
+    rec = servetoken.read_record(b.root)
+    token = None
+    if rec is not None:
+        token = {"id": rec["id"], "created": rec["created"], "expires": rec["expires"],
+                 "days_left": servetoken.days_left(rec, today)}
+    return 0, {"kill_switch": kill.state(b.root), "token": token, "degraded": b.degraded}
+
+
+def _h_kill_on(b: Backend, params: dict, today: str) -> tuple:
+    result = kill.turn_on(b.root, today, params.get("reason"))
+    return result.code, {"kill_switch": "on"}
+
+
+HANDLERS = {"status": _h_status, "kill.on": _h_kill_on}
 
 
 # --------------------------------------------------------------------------------------- the server shell
