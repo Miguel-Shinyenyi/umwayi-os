@@ -16,6 +16,10 @@ Checks, on the repo and on temporary copies with a planted fault each:
 - the snapshot reader (UI.3, 12.R4.9, 12.R9.1): one file picker for json and no other input or form, the one refusal message
   in the script, the file read with readAsText only, no call in the script that sets text as markup, runs it or turns the
   file into an address, the page says "sample" before any file, and the picker is hidden without a script;
+- the owner checks panel (UI.4, 12.R7): the section is in the HTML and hidden until opened, with the notice that the notes are
+  lost on closing and the rule to record names only, the Export, Copy, Download and Close buttons and the box of the notes
+  (read only, hidden), the closing line of the export, the six check ids, "ticked by you" and "not done", the download as a
+  data address, and no storage, cookie or Blob anywhere in the page;
 - no em dash in anything under ui/.
 Standard library only; no npm, no node, no browser, no network. The repo is never changed by the planted faults.
 """
@@ -53,6 +57,12 @@ ANY_URL = re.compile(r"https?://[^\s\"'<>)\\]*")
 INPUT = re.compile(r"<input\b([^>]*)>", re.I)
 # the one refusal message of 12.R9.1, and the calls that would turn a file's text into markup, code or an address (12.R9, UI.3)
 NOT_A_SNAPSHOT = "This file is not a snapshot of this version"
+END_LINE = "These are your notes. umwayi did not run or verify anything."
+MEMORY_NOTICE = "These notes are lost when you close this page. Export them first."
+RECORD_RULE = "Record field names, exit codes and version strings, never a value."
+PANEL_IDS = ("checks-title", "checks-list", "checks-open", "checks-open-list", "checks-export-btn", "checks-copy", "checks-download",
+             "checks-close", "checks-export", "checks-status", "checks-copy-only")
+CHECK_IDS = ("10.21", "10.31", "11.6", "B.10", "10.37", "UI.5")
 MARKUP_SINKS = (".innerHTML", "outerHTML", "insertAdjacentHTML", "insertAdjacentElement", "document.write", "DOMParser",
                 "createContextualFragment", "srcdoc", "eval(", "new Function", "createObjectURL", "readAsDataURL",
                 "readAsArrayBuffer", "readAsBinaryString")
@@ -260,6 +270,35 @@ def check_page(root: Path) -> list:
         problems.append("the page does not say sample before a snapshot is opened")
     if not re.search(r"html:not\(\[data-js\]\) :is\([^)]*#snapshot[^)]*\)\{display:none", STYLE.search(html).group(2) if STYLE.search(html) else ""):
         problems.append("the snapshot picker is not hidden when there is no script")
+    # the owner checks panel (UI.4, 12.R7): hidden until opened, notes in memory only, export as text
+    sec = re.search(r"<section\b[^>]*\bid=\"checks\"[^>]*>", markup)
+    if not sec or not re.search(r"\bhidden\b", sec.group(0)):
+        problems.append("the owner checks panel is missing from the page or is not hidden until it is opened")
+    for pid in PANEL_IDS:
+        if f'id="{pid}"' not in markup:
+            problems.append(f"the owner checks panel has no element {pid}")
+    if MEMORY_NOTICE not in markup:
+        problems.append("the owner checks panel does not say that the notes are lost when the page is closed")
+    if RECORD_RULE not in markup:
+        problems.append("the owner checks panel does not repeat the rule to record names, exit codes and versions only")
+    boxes = re.findall(r"<textarea\b[^>]*>", markup)
+    if len(boxes) != 1 or not all(w in boxes[0] for w in ('id="checks-export"', "readonly", "hidden")):
+        problems.append("the notes box is not one read only hidden textarea")
+    if not re.search(r"<button[^>]*data-copy=\"checks-export\"[^>]*\bhidden\b", markup):
+        problems.append("the Copy button of the notes is missing or is shown before an export")
+    if html.count(END_LINE) < 1:
+        problems.append("the closing line of the export is not in the page")
+    if "data:text/plain" not in html:
+        problems.append("the Download link does not hold the text in its own address")
+    for cid in CHECK_IDS:
+        if f'"{cid}"' not in html:
+            problems.append(f"the check {cid} is not in the page")
+    if "ticked by you" not in html or "not done" not in html:
+        problems.append("the page does not have the two statuses of a check, not done and ticked by you")
+    if re.search(r"cookie", html, re.I):
+        problems.append("the page mentions a cookie, and it must keep nothing")
+    if re.search(r"\bBlob\b", html):
+        problems.append("the page uses a Blob, and the download must be a data address")
     holds = re.findall(r"<li data-placeholder><span class=\"name\">([^<]*)</span><span class=\"note\">([^<]*)</span>", html)
     if holds != [("Devpost", "link to come"), ("Demo video", "link to come")]:
         problems.append(f"the placeholders are {holds}, not Devpost and Demo video marked link to come")
@@ -540,8 +579,69 @@ class PlantedFaultTests(unittest.TestCase):
         self.edit("ui/dist/index.html", lambda t: t.replace('<p id="foot-note">A sample world.', '<p id="foot-note">A world.', 1))
         self.assert_found("does not say sample before a snapshot")
         self.setUp()
-        self.edit("ui/dist/index.html", lambda t: t.replace(",#snapshot){display:none", "){display:none", 1))
+        self.edit("ui/dist/index.html", lambda t: t.replace(",#snapshot,", ",", 1))
         self.assert_found("not hidden when there is no script")
+
+    # ---- the owner checks panel (UI.4)
+    def test_a_missing_or_shown_checks_panel(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('id="checks" aria-labelledby="checks-title" hidden>', 'id="checks" aria-labelledby="checks-title">', 1))
+        self.assert_found("is not hidden until it is opened")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<section class="home" id="checks"', '<section class="home" id="notchecks"', 1))
+        self.assert_found("missing from the page")
+
+    def test_a_panel_without_one_of_its_parts(self):
+        for pid in ("checks-export-btn", "checks-download", "checks-close", "checks-open-list"):
+            self.setUp()
+            self.edit("ui/dist/index.html", lambda t, k=pid: t.replace(f'id="{k}"', 'id="x"', 1))
+            self.assert_found(f"has no element {pid}")
+
+    def test_a_panel_that_does_not_say_the_notes_are_lost_or_what_to_record(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(MEMORY_NOTICE, "", 1))
+        self.assert_found("lost when the page is closed")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace(RECORD_RULE, "", 1))
+        self.assert_found("repeat the rule")
+
+    def test_a_notes_box_that_is_editable_or_shown_or_doubled(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(' readonly rows="14"', ' rows="14"', 1))
+        self.assert_found("not one read only hidden textarea")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('<textarea id="checks-export" readonly rows="14" hidden', '<textarea id="checks-export" readonly rows="14"', 1))
+        self.assert_found("not one read only hidden textarea")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("</main>", '<textarea id="two"></textarea></main>', 1))
+        self.assert_found("not one read only hidden textarea")
+
+    def test_a_copy_button_shown_before_an_export(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('data-copy="checks-export" hidden>', 'data-copy="checks-export">', 1))
+        self.assert_found("Copy button of the notes")
+
+    def test_a_page_without_the_closing_line_the_data_address_or_a_check(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(END_LINE, "Done.", 2))
+        self.assert_found("closing line of the export")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("data:text/plain", "x:text/plain", 1))
+        self.assert_found("Download link")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace('"B.10"', '"B.11"', 1))
+        self.assert_found("check B.10 is not in the page")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("ticked by you", "passed"))
+        self.assert_found("two statuses")
+
+    def test_a_cookie_or_a_blob_in_the_page(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace("</script>", "var c = 'x'; /* cookie */</script>", 1))
+        self.assert_found("mentions a cookie")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("</script>", "var b = new Blob([]);</script>", 1))
+        self.assert_found("uses a Blob")
+
+    def test_storage_in_the_checks_panel(self):
+        for token in ("sessionStorage", "indexedDB", "document.cookie"):
+            self.setUp()
+            self.edit("ui/dist/index.html", lambda t, k=token: t.replace("</script>", f"var q = window.{k};</script>", 1))
+            self.assert_found(repr(token))
 
     def test_an_em_dash(self):
         self.edit("ui/README.md", lambda t: t + "\nA line " + EM_DASH + " here.\n", rebuild=False)

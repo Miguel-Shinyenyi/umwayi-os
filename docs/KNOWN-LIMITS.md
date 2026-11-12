@@ -715,6 +715,20 @@ A queue, logbook, schedule or budget that is null shows an unlit lantern on a po
 
 The design proposed that a quiet station drifts out past its default place. The acceptance test says a quiet snapshot gives the defaults, so a quiet need is 0.4 and a station only comes nearer. One constant (`QUIET`) changes it. Open question in the pull request.
 
+## Layer 12: the owner checks panel (found while building UI.4)
+
+### 146. The panel's steps are a copy of the NOTES files, and the B.10 steps are new
+
+Every step, code block, command and "what to record" cell in `ui/src/data/checks.js` is found word for word in its NOTES file by `tests/test_checks.py`, so a change in one place and not the other fails the suite. The test cannot tell whether a step is right. The NOTES had no steps for the B.10 capture, so UI.4 added five to `adapters/NOTES-layer10.md` from tasks.md B.10 and `umwayi/telemetry.py`; they were not run. A tick means the owner says they did the step. The page runs nothing and never shows a check as passed.
+
+### 147. The value warning is a hint with misses and false alarms
+
+It fires on an email address, `://`, a run of 24 or more letters and digits, a hex string of 16 or more digits (or a UUID), and, for a step marked as an exit code, anything but a number up to 255. It misses a secret that is short, split by dashes or underscores into pieces under 24, or written in words, and it flags a plain 16 digit number. It never blocks a tick or the export. A typed result is on screen and in the export text until the owner closes the page.
+
+### 148. The notes exist only in the page, and Download is a data address
+
+Nothing is stored (12.R2.2): a reload, a crash or closing the tab loses every tick and result, and the panel says so. Download saves the text through a link whose address holds the text, so it needs no Blob and makes no request. It saved the file in the one browser tried (headless Chromium, under the live view's policy `default-src 'none'` and under the site's); other browsers may refuse a very large data address, and then Copy is the way.
+
 ## Layer 13: elections (found while building L13.1)
 
 ### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses

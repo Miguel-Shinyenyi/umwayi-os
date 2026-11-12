@@ -14,7 +14,8 @@ function fakePage({ hash = '', renderer = 'ANGLE (NVIDIA GeForce RTX 4060)', con
   const timers = [];
   const doc = {
     documentElement: el('html'),
-    getElementById: (id) => el(id),
+    // the owner checks panel (UI.4) is not on this page; it does nothing without its section
+    getElementById: (id) => (id === 'checks' || id === 'checks-list' ? null : el(id)),
     addEventListener() {}, removeEventListener() {}, // the snapshot file picker and drop (UI.3)
     querySelectorAll: (q) => (q === '#tiers button[data-tier]' ? buttons : []),
     createElement: () => ({ getContext: () => (webgl ? { getExtension: (n) => (n === 'WEBGL_debug_renderer_info' ? { UNMASKED_RENDERER_WEBGL: 1 } : null), getParameter: () => renderer, RENDERER: 2 } : null) }),

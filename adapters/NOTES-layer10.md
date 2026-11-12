@@ -1101,4 +1101,14 @@ Built in PR 33. What the receiver expects, from design.md "Budget governor", Fac
 
 Not confirmed: the exact nesting and value shapes Claude Code emits, and whether a short run exports before it exits. The owner's capture (tasks.md B.10) records them.
 
+### The capture, step by step (written Nov 11 2026 for the owner checks panel, from tasks.md B.10 and `umwayi/telemetry.py`)
+
+Not run by the build. The capture file holds field names and types only, never a value, but record only names and types from it all the same. It needs the `reviewer` agent of the 10.31 run, signed in.
+
+1. Choose a file name that does not exist yet, because umwayi never overwrites a capture: `ls /tmp/umwayi-capture.jsonl`. Expected: `No such file or directory`.
+2. Run one short Claude Code run with the capture on: `UMWAYI_TELEMETRY_CAPTURE=/tmp/umwayi-capture.jsonl umwayi agent run reviewer --prompt "say hi"; echo "exit $?"`. Expected: the run ends and `exit 0`.
+3. Look at the shapes: `cat /tmp/umwayi-capture.jsonl`. Expected: one line for each new shape, each with a `path` (`/v1/logs` or `/v1/metrics`) and a `shape` of names and types.
+4. Count the lines: `wc -l /tmp/umwayi-capture.jsonl`. Record the number, the paths and the field names. If the file does not exist, a short run exported nothing before it exited: record that.
+5. Take the file away: `rm /tmp/umwayi-capture.jsonl`.
+
 - Capture: not done yet. Date: (none). Field names: (none recorded).
