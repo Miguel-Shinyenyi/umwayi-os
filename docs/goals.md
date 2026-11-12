@@ -6,7 +6,7 @@
 
 ## Current state
 
-**Specified, not built.** This page was written in the W9.0 pull request (Nov 12 2026, docs and specs only). Nothing below exists in `umwayi/` yet. It is made current in each build pull request ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), W9.1 to W9.16). The spec: [requirements W9.R1 to W9.R23](../.kiro/specs/umwayi-os/requirements.md), [design "Goal orchestration (W9)"](../.kiro/specs/umwayi-os/design.md), the platform facts in [NOTES-w9.md](../adapters/NOTES-w9.md). The owner has not answered W9-Q1 to W9-Q14 yet; each has a recommendation, and the spec is written with the recommendations. No dates are set.
+**Specified, not built.** This page was written in the W9.0 pull request (Nov 12 2026, docs and specs only). Nothing below exists in `umwayi/` yet. It is made current in each build pull request ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), W9.1 to W9.16). The spec: [requirements W9.R1 to W9.R23](../.kiro/specs/umwayi-os/requirements.md), [design "Goal orchestration (W9)"](../.kiro/specs/umwayi-os/design.md), the platform facts in [NOTES-w9.md](../adapters/NOTES-w9.md). The owner answered W9-Q1 to W9-Q14 on Nov 12 2026, all approved as recommended. Only W9.9 (the shared docs builder, 7 hours, also the owner's task W17) may go before the Nov 29 freeze, at a quiet moment right after the pull request of the W6 first batch merges; the rest comes after Dec 3. No dates are set.
 
 ### The roles
 
@@ -74,10 +74,11 @@ Newest first. Each row names where it was decided.
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-12 | The goal orchestration is specified as `umwayi goal`, with the roles, the packet, the states and the seven pitfalls designed out, as W9. Nothing is built and no safety rule changes. | The owner asked for the spec on Nov 12 2026 (W9.0). |
-| 2026-11-12 | The recommendations used by the spec until the owner answers: tester and guide differ from the builder by name; one dedicated checkout; wait for the merge; halt on failure; 30 minutes and two errors; deadlines of 7 days and 24 hours; Claude Code and Kiro first; a terminal for owner commands; the system prepares the docs rebuild; files checked after the run. | W9-Q2 to W9-Q11, design.md. |
+| 2026-11-12 | The owner approved all fourteen answers as recommended: W9 stays the name (W8 is progress dashboards on the owner's board, not in the repo); tester and guide differ from the builder by name, warn on the same platform and model; one dedicated checkout now, worktrees with W9.12; wait for the merge; halt on failure, no automatic retry; the literal reading, 30 minutes, 2 errors, 30 seconds; deadlines of 7 days and 24 hours, answer No when they pass; Claude Code and Kiro first, OpenCode after 10.48; a terminal for owner commands; the system prepares the docs branch and the owner merges; files checked after the run; this repo first; a short paragraph in the steering build order, rules 1 to 13 unchanged; only W9.9 before the freeze. | The owner, Nov 12 2026, W9-Q1 to W9-Q14 (design.md, "Answers (owner, Nov 12)"). |
+| 2026-11-12 | W9.9 and the owner's task W17 are the same task. Build it at a quiet moment right after the pull request of the W6 first batch (W6.1 to W6.6) merges. | The owner, Nov 12 2026. Its first build moves the text of the two shared docs files, so an open pull request that edits them would conflict. |
 
 ## Open questions
 
-W9-Q1 to W9-Q14 are open (design.md, "Open questions for the owner (W9-Q1 to W9-Q14)"), each with a recommendation:
+None open. The owner answered W9-Q1 to W9-Q14 on Nov 12 2026, all approved as recommended (design.md, "Open questions for the owner (W9-Q1 to W9-Q14), with the owner's answers of Nov 12"). W8 is progress dashboards on the owner's board and is not in the repo (Q1).
 
-- Q1 the name W9 (W8 is not defined in the repo); Q2 the tester and the guide are not the builder, by name; Q3 one dedicated checkout for the three roles; Q4 wait for the merge before the next task; Q5 halt on a failed task, no automatic retry; Q6 what counts as progress and as an error, and the numbers 30 minutes, 2 and 30 seconds; Q7 the approval deadlines; Q8 the platforms of the first batch (OpenCode waits for task 10.48); Q9 a terminal for the owner commands; Q10 who rebuilds the shared docs; Q11 files checked after the run, not during it; Q12 this repo only; Q13 a line in the steering build order, no safety rule changed; Q14 dates (W9.9 before the freeze if there is time, the rest after Dec 3).
+To confirm when W9.9 is built: that no pull request that edits `docs/status-log.md` or `docs/KNOWN-LIMITS.md` is open at the time. To decide later, if the waiting hurts: `--ahead` (W9.12, W9-Q4). To decide after the first real runs: the scope overlay during a run (W9.16, W9-Q11).
