@@ -1238,6 +1238,25 @@ def anchor(root: Path) -> tuple:
 # ------------------------------------------------------------ checked read
 
 
+def newest_date(root: Path) -> str | None:
+    """The date of the newest entry, from the last heading in the last 64 KB of LOGBOOK.md, or None. A cheap look for
+    callers that only move a clock forward (the local backend's expiry date, W6.R4.3): it takes no lock, checks nothing
+    and is not the tamper check, so a hand edited date can only make a token expire early, never revive one."""
+    try:
+        fd = _no_follow(Path(root) / LOGBOOK_NAME, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    except OSError:
+        return None
+    try:
+        size = os.fstat(fd).st_size
+        tail = os.pread(fd, 65536, max(0, size - 65536)).decode("utf-8", "replace")
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+    found = re.findall(r"^## (\d{4}-\d{2}-\d{2})$", tail, re.MULTILINE)
+    return found[-1] if found and real_date(found[-1]) else None
+
+
 def read_checked(root: Path) -> list:
     """All entries of an intact logbook, oldest first. Reads only, takes no lock.
 

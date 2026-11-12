@@ -24,3 +24,4 @@ Facts read on Nov 12 2026 for the spec in the W6.0 pull request (requirements W6
 - Whether `http://127.0.0.1` counts as a secure context for the features the page uses (it does not need any secure-context feature; the page uses `fetch`, which works on plain HTTP).
 - `Cross-Origin-Resource-Policy` and `Cross-Origin-Opener-Policy` on a loopback page, and `frame-ancestors` in a header (the headers are in W6.R6.6 by the standard names; their effect is for the by-hand pass).
 - The by-hand results of W6.10 go here, with the date, the browser and its version.
+- **Nov 12 2026, the build of W6.1 to W6.6:** the wire tests (`tests/serve/test_wire.py`) send the headers by hand, with a raw socket and `http.client`-style requests, and no browser was started. So nothing above is tested against a browser yet; the by-hand pass is still W6.10.

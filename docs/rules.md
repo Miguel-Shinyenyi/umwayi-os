@@ -140,7 +140,7 @@ An `ask` rule may carry `autonomy` with three entries, `class`, `reversible` and
       command__contains: git commit
 ```
 
-- `rules.yaml` is malformed (every check gives Ask me first) when `autonomy` is on a Yes or No rule, has another shape, is on a rule without a `type` equals matcher, names a type of the never list (`payment`, `transfer`, `purchase`, `withdraw`, `deposit`, `publish`, `post`, `send`, `publish_draft`, `schedule_install`, `budget_check`, `agent_run`, `agent_login`, `acp_permission`), or when two rules give one class a different `reversible` or `cost_uu`.
+- `rules.yaml` is malformed (every check gives Ask me first) when `autonomy` is on a Yes or No rule, has another shape, is on a rule without a `type` equals matcher, names a type of the never list (`payment`, `transfer`, `purchase`, `withdraw`, `deposit`, `publish`, `post`, `send`, `publish_draft`, `schedule_install`, `budget_check`, `agent_run`, `agent_login`, `acp_permission`, `serve_request`), or when two rules give one class a different `reversible` or `cost_uu`.
 - The rules change log lists the opt-in in its state (`commit-ask ask review_by 2027-02-01 autonomy git-commit reversible yes cost 2`), so turning `reversible` to true, or a lower cost, is named in the entry.
 - Only a Yes rule lapses at its `review_by` (elections). An opt-in rule past its date stays Ask me first and is held by its own gate (`opt-in-lapsed`).
 

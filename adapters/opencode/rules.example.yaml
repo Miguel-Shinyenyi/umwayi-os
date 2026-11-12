@@ -76,13 +76,13 @@ rules:
   # add "umwayi petition" to the list below.
   - id: oc-no-guard-shell
     title: OpenCode shell commands never touch the guard files
-    text: A shell command that names rules.yaml, autonomy.yaml, LOGBOOK.md, .umwayi, opencode.json, opencode.jsonc, .opencode, umwayi kill, umwayi decision, decision reopen, umwayi autonomy or autonomy record is refused.
+    text: A shell command that names rules.yaml, autonomy.yaml, LOGBOOK.md, .umwayi, opencode.json, opencode.jsonc, .opencode, umwayi kill, umwayi serve, serve.token, umwayi decision, decision reopen, umwayi autonomy or autonomy record is refused.
     cause: An AI helper must not turn off its own rules, logbook or gate, or add a plugin or a policy while it runs.
     verdict: no
     matchers:
       platform: opencode
       type: tool_shell
-      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", "opencode.json", ".opencode", "umwayi kill", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", "opencode.json", ".opencode", "umwayi kill", "umwayi serve", "serve.token", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
 
   - id: oc-no-secrets
     title: OpenCode never touches secret files
@@ -91,7 +91,7 @@ rules:
     verdict: no
     matchers:
       platform: opencode
-      input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc"]
+      input_path__contains: [".env", ".pem", "id_rsa", "id_ed25519", ".aws/credentials", ".netrc", "serve.token"]
 
   # --- yes: reading and listing
   - id: oc-read
