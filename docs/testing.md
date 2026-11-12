@@ -12,7 +12,12 @@ Run every test:
 python -m unittest discover -s tests -t .
 ```
 
-- CI (`.github/workflows/ci.yml`) runs the same command on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. The counts after each pull request are in [status-log.md](status-log.md).
+- CI (`.github/workflows/ci.yml`) runs the same command on every pull request, on Python 3.10, 3.11, 3.12 and 3.13. The counts after each pull request are in [status-log.md](status-log.md). How it runs (CI.1):
+  - **One run for each push to a pull request.** The workflow starts on `pull_request` only. Before CI.1 it also started on every push to a branch other than main, so each push to a pull request branch started two runs (eight jobs). A push to main starts nothing: main is only ever changed by a merged pull request, which was already tested.
+  - **A newer push cancels the older run.** A concurrency group (the workflow name and the pull request number) cancels the run in progress when a new push arrives for the same pull request. A cancelled run is not a failure of the code: it shows as cancelled and its commit is replaced by the newer one, so wait for the run of the newest commit before you trust a green check. Two different pull requests never cancel each other.
+  - **The names are unchanged**: the workflow is `tests` and the job is `test`, with the matrix `3.10`, `3.11`, `3.12` and `3.13`, so the checks are still `tests / test (3.10) (pull_request)` and so on. A rule that requires them by name keeps working. Every job still runs every Python test on its version.
+  - **The 3.12 job also runs the Node tests** of `ui/` and `site/` (`npm ci --ignore-scripts`, then `node --test`). The npm download cache (`~/.npm`, keyed on the two lockfiles) is kept between runs; `node_modules` is not, and `npm ci` still runs every time from the lockfiles.
+  - **A job runs the whole suite in one process group**, about 20 to 25 minutes on GitHub's runners (PR 56: 19.5 to 24.9 minutes per job, almost all of it the Python tests; the Node step is under half a minute). Splitting the suite into shards per version is only a proposal, in the CI.1 pull request, and is not built.
 - Each layer has its own test module (`tests/test_*.py`, `tests/agents/`, `tests/adapters/`, `tests/budget/`).
 - Tests that start umwayi run `python -m umwayi ...` as a real child process with `HOME` (and where it matters `XDG_CONFIG_HOME` and `TMPDIR`) in a temporary folder. The agents are fakes put first on `PATH`: a fake `claude` (also the fake telemetry sender), a fake `kiro-cli`, a fake `node` with a scripted ACP agent. No real agent, systemd, network or account is used.
 - `tests/test_ui_package.py` (layer 12, UI.1) checks the `ui/` package, its lockfile, `ui/dist/build.json` and the built page without npm, node or a browser, with a planted fault for each rule. The page's own logic (the engine, the layout and position function, the stations, the home content, the detail mode) is tested by `node --test` inside `ui/` (no package needed), and the look and the behaviour in a browser by a hand pass whose results are in [interface.md](interface.md).
@@ -45,6 +50,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-12 | CI runs on pull requests only, and a newer push cancels the older run of the same pull request; the names and the matrix stay; the npm download is cached on the 3.12 job; sharding is a proposal, not built | CI.1 (the owner's reviewer found two runs per push, no cancelling and 20 to 25 minutes a job), PR 59. It overrules S-Q13, which kept the workflow unchanged for Dec 3. |
 | 2026-11-10 | The fault scenarios restore the day's snapshot into the same folder, not a copy elsewhere | S.1, PR 36: the day writes absolute paths (the workdir, the Kiro hook's `--root`, the unit files, logbook entries) that a copy at another path would make false. |
 | 2026-11-10 | S-Q1, S-Q2, S-Q15: the whole-system test runs in the normal suite; one ordered owner's day, then each fault in its own copy; a defect it finds is fixed in its pull request, test first | Approved in PR 34. |
 | 2026-11-08 | CI runs on Python 3.10, 3.11, 3.12 and 3.13 (H.1) | Hardening, PR 9. |
