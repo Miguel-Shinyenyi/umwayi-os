@@ -85,9 +85,11 @@ test('seven Copy buttons, each for the text of its command, and no clipboard cal
   assert.ok(!/clipboard|onclick|onClick/i.test(html));
 });
 
-test('the switch is List and Standard, with no High on this site yet (UI.7), and the page has the scene elements the shared script joins to', () => {
+test('the switch is List, Standard and High (UI.7), and the page has the scene elements the shared script joins to', () => {
   const sw = /<div[^>]*id="tiers"[^>]*>([\s\S]*?)<\/div>/.exec(html)?.[1] ?? '';
-  assert.deepEqual([...sw.matchAll(/data-tier="([a-z]+)"/g)].map((m) => m[1]), ['list', 'standard']);
+  assert.deepEqual([...sw.matchAll(/data-tier="([a-z]+)"/g)].map((m) => m[1]), ['list', 'standard', 'high']);
+  assert.deepEqual([...sw.matchAll(/data-tier="[a-z]+"[^>]*>([^<]*)</g)].map((m) => m[1]), ['List', 'Standard', 'High']);
+  assert.deepEqual([...sw.matchAll(/data-tier="([a-z]+)"[^>]*aria-pressed="true"/g)].map((m) => m[1]), ['list'], 'the server HTML is List');
   assert.ok(!/id="list-toggle"/.test(html));
   const labels = /<nav[^>]*id="labels"[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? '';
   assert.deepEqual([...labels.matchAll(/data-station="([a-z]+)"/g)].map((m) => m[1]), STATIONS.map((s) => s.id));
