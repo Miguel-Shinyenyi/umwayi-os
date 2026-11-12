@@ -374,8 +374,9 @@ class ChatAndCheckTests(OpenCodeCase):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assert_nothing_ran()
 
-    def test_agent_chat_with_a_yes_rule_is_refused_with_exit_2_and_starts_nothing(self):
-        # whatever this machine has (a global OpenCode config, a managed folder), the result is the same: not started
+    def test_agent_chat_with_a_yes_rule_and_a_failing_gate_check_is_refused_with_exit_2_and_starts_nothing(self):
+        # a project opencode.json is a refusal on every machine; a chat that passes is tested in test_agents_opencode_chat.py
+        (self.work / "opencode.json").write_text("{}", encoding="utf-8")
         self.write_rules("rules:\n  - id: all\n    title: t\n    text: t\n    verdict: yes\n    matchers:\n"
                          "      type: agent_run\n      platform: opencode\n")
         r = self.umwayi("chat", "o")

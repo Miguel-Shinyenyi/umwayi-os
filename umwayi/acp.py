@@ -45,6 +45,8 @@ SIGN_IN = "Sign in with kiro-cli login, then try again."
 GATE_WAIT = 30.0  # seconds after session/new for gate_ready (part 7: the Claude Code canary)
 GATE_NOT_CONFIRMED = "the first gate could not be confirmed in the ACP session"
 MODE_REFUSED = "the agent did not accept the default permission mode"
+MODEL_OPTION = "model"  # part 8 (10.R13.11): the config option of the session/new answer that names the model
+MODEL_MISMATCH = "the agent reported another model than the one of the agent"
 AUTH_UPDATE = "_auth/status_update"  # part 7c (10.R12.8): the Claude adapter's push when who pays changes
 _AUTH_KIND = re.compile(r"^[a-z][a-z0-9_]{0,39}$")  # params.authStatus.kind: only a short plain word is read
 
@@ -137,7 +139,8 @@ class Chat:
     """One ACP chat. run() returns ("done", how) | ("failed", why, lines) | ("stopped", token)."""
 
     def __init__(self, proc, out, owner, workdir: str, permission, tick, queue_lines, client_version: str,
-                 tick_interval: float = 1.0, session_meta=None, gate_ready=None, set_mode=None, on_auth=None):
+                 tick_interval: float = 1.0, session_meta=None, gate_ready=None, set_mode=None, on_auth=None,
+                 expect_model=None, sign_in=None):
         self.proc = proc
         self.out = out  # the owner's screen
         self.owner = owner  # the owner's input, a file descriptor (stdin)
@@ -166,6 +169,9 @@ class Chat:
         self.set_mode = set_mode  # a mode id sent with session/set_mode once the gate is confirmed
         # part 7c (10.R12.8); None for Kiro: callback(kind) -> None, or a token that stops the chat
         self.on_auth = on_auth
+        # part 8 (OpenCode, 10.R13.11 and 10.R13.12); both None for Kiro and Claude Code
+        self.expect_model = expect_model  # the model the session/new answer must name (option "model")
+        self.sign_in = sign_in  # the line for an auth_required error, instead of the Kiro one
 
     # ------------------------------------------------------------ called from the SIGINT handler
 
@@ -394,6 +400,8 @@ class Chat:
         msg = self.responses.pop(self.turn)
         self.turn = None
         if "error" in msg:
+            if self.sign_in is not None and self._is_auth_error(msg):
+                raise _Failed("the agent needs a sign in", [self.sign_in])
             raise _Failed("the agent answered a prompt with an error",
                           ["The agent answered the prompt with an error. The chat ended (exit 2)."])
         result = msg.get("result") if isinstance(msg.get("result"), dict) else {}
@@ -435,6 +443,8 @@ class Chat:
             raise _Failed("the agent gave no usable session id",
                           ["The agent gave no usable session id. The chat ended (exit 2)."])
         self.sid = sid
+        if self.expect_model is not None:  # before anything of the owner is sent
+            self._check_model(new["result"])
         if self.gate_ready is not None:  # nothing of the owner is sent before the gate is confirmed
             deadline = time.monotonic() + GATE_WAIT
             while not self.gate_ready():
@@ -448,15 +458,31 @@ class Chat:
             if "error" in answer:
                 raise _Failed(MODE_REFUSED, ["The agent did not accept the default permission mode."])
 
+    def _check_model(self, result: dict) -> None:
+        """The `model` config option must be there and its currentValue must be exactly the agent's model."""
+        options = result.get("configOptions")
+        current = None
+        if isinstance(options, list):
+            for o in options:
+                if isinstance(o, dict) and o.get("id") == MODEL_OPTION:
+                    current = o.get("currentValue")
+                    break
+        if not (isinstance(current, str) and current == self.expect_model):
+            raise _Failed(MODEL_MISMATCH, [f"The agent reported another model than {safe_text(self.expect_model)}. "
+                                           "The chat ended (exit 2)."])
+
     @staticmethod
-    def _check_error(msg: dict, method: str) -> None:
+    def _is_auth_error(msg: dict) -> bool:
         err = msg.get("error")
-        if err is None:
-            return
         code = err.get("code") if isinstance(err, dict) else None
         text = err.get("message") if isinstance(err, dict) and isinstance(err.get("message"), str) else ""
-        if code == AUTH_REQUIRED or "auth" in text.lower():
-            raise _Failed("the agent needs a sign in", [SIGN_IN])
+        return code == AUTH_REQUIRED or "auth" in text.lower()
+
+    def _check_error(self, msg: dict, method: str) -> None:
+        if msg.get("error") is None:
+            return
+        if self._is_auth_error(msg):
+            raise _Failed("the agent needs a sign in", [self.sign_in or SIGN_IN])
         raise _Failed(f"the agent answered {method} with an error",
                       [f"The agent answered {method} with an error. The chat ended (exit 2)."])
 

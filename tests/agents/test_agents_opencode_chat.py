@@ -40,6 +40,7 @@ class ChatCase(GateCase):
     def setUp(self):
         super().setUp()
         self.write_rules(YES_RULE)
+        self.roomy_budget()  # several starts in one test must not meet the budget limit
         self.tmpdir = self.tmp / "tmpdir"  # TMPDIR of umwayi, so a leftover canary folder can be seen
         self.tmpdir.mkdir()
 
@@ -365,7 +366,7 @@ class ModelTests(ChatCase):
                 self.assertEqual(json.loads(new["config_content"])["model"], model)
 
     def test_a_model_with_a_different_case_or_a_suffix_is_another_model(self):
-        for other in ("OLLAMA/M", "ollama/m ", "ollama/m2", ""):
+        for other in ("OLLAMA/M", "ollama/m ", "ollama/m2", "ollama"):
             with self.subTest(other=other):
                 self.fake_log.unlink(missing_ok=True)
                 self.spec({"model": other})
