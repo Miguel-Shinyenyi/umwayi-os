@@ -54,8 +54,9 @@ def unavailable_reason(e: Exception) -> str:
 
 
 @contextmanager
-def held(root: Path):
-    """Hold the run lock for the whole block, or raise at once."""
+def held(root: Path, name: str = LOCK_NAME):
+    """Hold the run lock for the whole block, or raise at once. `name` is another lock file of the same folder with the
+    same rules (W6: .umwayi/serve.lock, one `umwayi serve` for a root); the default is the run lock."""
     if fcntl is None:
         raise RunLockUnavailable("file locking is not available on this platform")
     d = Path(root) / STATE_DIR
@@ -64,9 +65,9 @@ def held(root: Path):
     try:
         d.mkdir(exist_ok=True)
         flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
-        fd = os.open(d / LOCK_NAME, flags, 0o666)
+        fd = os.open(d / name, flags, 0o666)
     except OSError:
-        raise RunLockUnavailable(f"{LOCK_REL} cannot be opened (is it a link or a folder?)") from None
+        raise RunLockUnavailable(f"{STATE_DIR}/{name} cannot be opened (is it a link or a folder?)") from None
     try:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)

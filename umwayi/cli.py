@@ -11,6 +11,7 @@ Exit codes:
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
   umwayi autonomy: record 0, 1 (refused), 2 or 64; status 0, 2 or 64; validate 0 (valid), 2 or 64 (layer 13)
+  umwayi serve token: create and rotate 0 or 1 (refused) or 2 or 64; revoke 0, 1, 2 or 64; status 0, 2 or 64; never 3 (W6)
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, decisions, elections, jobs, kill, logbook, petition,
-                    publish, report, rules, schedule, taskqueue, units, view, workflow)
+                    publish, report, rules, schedule, servegate, servetoken, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -55,6 +56,20 @@ def _waiting_days_arg(value: str) -> int:
 def _within_arg(value: str) -> int:
     if not re.fullmatch(r"\d{1,4}", value) or not 0 <= int(value) <= elections.MAX_WITHIN:
         raise argparse.ArgumentTypeError(f"must be a whole number from 0 to {elections.MAX_WITHIN}")
+    return int(value)
+
+
+def _days_arg(value: str) -> int:
+    if not re.fullmatch(r"\d{1,3}", value) or not 1 <= int(value) <= servetoken.MAX_DAYS:
+        raise argparse.ArgumentTypeError(f"must be a whole number from 1 to {servetoken.MAX_DAYS}")
+    return int(value)
+
+
+def _port_arg(value: str) -> int:
+    ok = re.fullmatch(r"\d{1,5}", value) and (int(value) == 0 or servegate.MIN_PORT <= int(value) <= servegate.MAX_PORT)
+    if not ok:
+        raise argparse.ArgumentTypeError(f"must be 0 (a free one) or a whole number from {servegate.MIN_PORT} to "
+                                         f"{servegate.MAX_PORT}")
     return int(value)
 
 
@@ -278,6 +293,23 @@ def build_parser() -> argparse.ArgumentParser:
     vws.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD, the last of the seven budget days "
                                                     "(default: today, from the system clock)")
 
+    sv = sub.add_parser("serve", help="the local backend for the web page (W6); exit 0, 1, 2 or 64, never 3")
+    sv.add_argument("--port", type=_port_arg, default=servegate.DEFAULT_PORT,
+                    help=f"the port on 127.0.0.1, 0 for a free one (default {servegate.DEFAULT_PORT}); there is no "
+                         "option for any other address")
+    sv.add_argument("--page", help="the built page to serve (default: ui/dist/index.html beside the package), served "
+                                   "only if its SHA-256 equals the one in build.json beside it")
+    svsub = sv.add_subparsers(dest="serve_command", parser_class=_Parser)
+    svt = svsub.add_parser("token", help="the token of the local backend: shown once, kept only as a SHA-256")
+    svtsub = svt.add_subparsers(dest="token_command", parser_class=_Parser)
+    for name, text in (("create", "make the first token and show it once (on a terminal only)"),
+                       ("rotate", "make a new token, show it once; the old one stops working at the next request")):
+        sp = svtsub.add_parser(name, help=text)
+        sp.add_argument("--days", type=_days_arg, default=servetoken.DEFAULT_DAYS,
+                        help=f"how long it lives, 1 to {servetoken.MAX_DAYS} (default {servetoken.DEFAULT_DAYS})")
+    svtsub.add_parser("revoke", help="remove the token: every request is refused until a new one is created")
+    svtsub.add_parser("status", help="the id, the dates and the days left; no digest, no token (changes nothing)")
+
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
     lgv = lgsub.add_parser("verify", help="check the format, the hash record and the hash chain of LOGBOOK.md "
@@ -434,12 +466,9 @@ def _cmd_queue(args, out) -> int:
             out.write(line + "\n")
         return 0
     when = args.date or _today()
-    if cmd == "add" and args.if_not_open:
-        row, added = taskqueue.add_once(root, args.kind, args.title, args.recommendation, when)
+    if cmd == "add":
+        row, added = taskqueue.add_row(root, args.kind, args.title, args.recommendation, when, args.if_not_open)
         out.write(f"{'Added' if added else 'Already open, nothing added:'} {row.id} ({row.kind}): {row.title}\n")
-    elif cmd == "add":
-        row = taskqueue.add(root, args.kind, args.title, args.recommendation, when)
-        out.write(f"Added {row.id} ({row.kind}): {row.title}\n")
     elif cmd == "answer":
         row = taskqueue.answer(root, args.id, args.answer, when, revisit_if=args.revisit_if)
         out.write(f"Answered {row.id} on {row.answered}\n")
@@ -562,6 +591,53 @@ def _cmd_view(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_serve(args, out) -> int:
+    """W6. `umwayi serve`: 0 stopped, 1 the logbook failed its tamper check (nothing started), 2, 64; never 3."""
+    try:
+        from umwayi import serve  # here, not at the top: the network modules are loaded only when a server starts
+        return serve.run(Path(args.root), args.port, args.page, out, sys.stderr)
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
+def _is_terminal(out) -> bool:
+    try:
+        return bool(out.isatty())
+    except Exception:
+        return False
+
+
+def _cmd_serve_token(args, out) -> int:
+    """W6.R4. Its own error handling: 0, 1 (refused), 2 or 64, never 3. The token is written only to a terminal."""
+    root = Path(args.root)
+    try:
+        cmd = args.token_command
+        if cmd == "create":
+            r = servetoken.create(root, args.days, _today(), _is_terminal(out))
+        elif cmd == "rotate":
+            r = servetoken.rotate(root, args.days, _today(), _is_terminal(out))
+        elif cmd == "revoke":
+            r = servetoken.revoke(root, _today())
+        else:
+            r = servetoken.status(root, _today())
+        (out if r.code == 0 else sys.stderr).write("\n".join(r.lines) + "\n")
+        return r.code
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_ERROR
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _cmd_autonomy(args, out) -> int:
     """Layer 13. status and validate change nothing: 0, 2 or 64, never 1."""
     try:
@@ -640,6 +716,11 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return 0
         if args.command == "autonomy" and getattr(args, "autonomy_command", None) in ("status", "validate"):
             return _cmd_autonomy(args, out)
+        if args.command == "serve" and getattr(args, "serve_command", None) == "token":
+            if getattr(args, "token_command", None):
+                return _cmd_serve_token(args, out)
+        elif args.command == "serve" and not getattr(args, "serve_command", None):
+            return _cmd_serve(args, out)
         if args.command == "petition":
             r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
             out.write("\n".join(petition.render(r)) + "\n")

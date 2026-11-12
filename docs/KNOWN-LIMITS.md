@@ -892,9 +892,9 @@ The owner's record is the input. Approving without a look counts as approved as 
 
 `max_moves_per_day` caps the moves of one class on one logbook day, and a `rejected` or `reverted` outcome stops the class for the cooldown. A move that was wrong has still happened: turning graded autonomy off takes effect at the next check and undoes nothing. The owner records `reverted`, which holds the class for the cooldown and lowers its score. A move is also made only in a check that logs; a script that reads the answer of a dry run never sees a move.
 
-## Local backend (W6): `umwayi serve` (known from the spec, Nov 12; nothing is built)
+## Local backend (W6): `umwayi serve` (built Nov 12 in W6.1 to W6.6; the page client W6.9 and the chat and intake routes are not built)
 
-These are the limits the design of [serve.md](serve.md) is known to have. They are written before any code (W6.0 pull request) and corrected or confirmed by the build. Items 196 to 212; numbers are never reused.
+These are the limits of [serve.md](serve.md). Items 196 to 212 were written before any code (W6.0 pull request) and are confirmed or corrected by the build (W6.1 to W6.6, Nov 12); items 233 to 236 are new from the build. Items about the chat (206, 207, 209, 211) and the page (197) describe parts that are not built yet. Numbers are never reused.
 
 ### 196. Whoever has the token is the owner, as far as the backend can tell
 
@@ -918,7 +918,7 @@ The queue, the kill switch and (later) a chat are real. A wrong click in the pag
 
 ### 201. Each request adds logbook entries, and each append reads the whole logbook
 
-A read adds two entries (the rules check and the request), a write up to three. Item 4 applies: every append reads and hashes the whole file. Requests with no valid token, and requests over the rate, are counted in one summary entry a minute, so a flood cannot add an entry each, but a long session of authenticated use grows the file. The cost per append was not measured. The owner approved logging every request on Nov 12 and asked for this volume to be looked at again after the build (W6-Q10).
+A read adds two entries (the rules check and the request), a write up to three. Item 4 applies: every append reads and hashes the whole file. Requests with no valid token, and requests over the rate, are counted in one summary entry a minute, so a flood cannot add an entry each, but a long session of authenticated use grows the file. **Measured at the build (Nov 12, the in-process tests, one machine):** a read costs about 10 ms while the logbook is under 600 entries (180 KB) and about 28 ms between 600 and 1200 entries (360 KB), because each of its two appends reads and hashes the whole file; one request pair adds about 600 bytes. A thousand requests a day would add 0.6 MB a day. The owner approved logging every request on Nov 12 and asked for this volume to be looked at again after the build (W6-Q10); the numbers are for that look.
 
 ### 202. No TLS on loopback
 
@@ -958,7 +958,7 @@ A token's expiry and the logbook date come from the system date (taken with the 
 
 ### 211. The page can only reject an Ask me first of a chat; approvals are at the terminal
 
-By the owner's answer of Nov 12 (W6-Q12), a request from the page can answer an Ask me first of a chat with `reject_once` and nothing else. A holder of the token can therefore stop an AI helper's tool call and cannot allow one, and a stolen token cannot approve. The approval is made at the terminal where `umwayi serve` runs (how is W6-Q28, open); a process of the same user that can type into that terminal, or an AI helper that can read it, is the same limit as items 1 and 15. A holder of the token can also deny every Ask me first, which makes a chat unusable until a Yes rule exists (a nuisance, not a way in). Allowing from the page waits until the page's threat model has been tested by hand and the owner approves.
+By the owner's answer of Nov 12 (W6-Q12), a request from the page can answer an Ask me first of a chat with `reject_once` and nothing else. A holder of the token can therefore stop an AI helper's tool call and cannot allow one, and a stolen token cannot approve. The approval is made at the terminal where `umwayi serve` runs (W6-Q28, answered Nov 12: at the console of `umwayi serve`, with the prompt `Allow once? [y/N]`; with no terminal attached the request is rejected); a process of the same user that can type into that terminal, or an AI helper that can read it, is the same limit as items 1 and 15. A holder of the token can also deny every Ask me first, which makes a chat unusable until a Yes rule exists (a nuisance, not a way in). Allowing from the page waits until the page's threat model has been tested by hand and the owner approves.
 
 ### 212. Login for a deployed interface is not built (W7)
 
@@ -1045,3 +1045,21 @@ A failed, stopped, needs-owner or in-review task keeps its worktree, and a crash
 ### 232. Worktrees share the repository's metadata
 
 A linked worktree shares objects, refs and config with the root repository. A helper that can run git write commands in its worktree can change refs or config of the shared repository (a branch, a tag, a hook path; umwayi turns the hooks path off only for its own git calls). The gate (`rules.yaml`, which should say Ask me first for git writes) is what stops that. The scope check looks only at the files of the task branch, not at other refs.
+
+## Local backend (W6), items from the build (233 to 236)
+
+### 233. Requests run one at a time, on the main thread
+
+A logbook write holds the termination signals off and can only run in the main thread (`logbook._held_off`), so the handler threads of `umwayi serve` do the reading and the gate and hand every request that may write to the main thread, which runs them one after another. A read waits behind a write, and a slow command (an agent check starts programs) delays the next request for as long as it runs. A write that has not started within 5 seconds is answered `busy`. Relaxing the rule in the logbook would change crash safety code and is not done here.
+
+### 234. A locked-out caller with a token of the right shape is still compared
+
+After 5 failed token checks in a minute, failures are answered 429 (`rate`) for the next minute. A token of the wrong shape is refused without a comparison, but one of the right shape is compared with the stored digest, because a valid token must never be slowed by someone else's failures (W6.R5.2, W6.R16.1). The comparison is a constant-time compare of two SHA-256 digests, and a guess still has 256 bits to find.
+
+### 235. With a broken logbook the page can read only the status
+
+A request is rules-checked and the check is logged before the route runs, so when the logbook cannot be written (a hand edit, a failed tamper check) every request but `GET /v1/status` and the page is answered `logbook` (exit-equivalent 2) and the server goes into the degraded state. The page cannot show the owner what is wrong with the logbook; `umwayi logbook verify` at the terminal says. `snapshot` and `logbook.verify` therefore cannot give `refused` (1) on a broken logbook, which the table of the design had.
+
+### 236. The reader strips the whitespace around a header value
+
+The server's own reader takes the bytes on the wire and cuts spaces and tabs from both ends of a header value, as HTTP says. The pure gate sees the cut value, so `Host: 127.0.0.1:PORT ` with a trailing space is accepted. Everything else the gate refuses is refused as it arrived: a fold, a bare line feed, a space before the colon, a duplicate.

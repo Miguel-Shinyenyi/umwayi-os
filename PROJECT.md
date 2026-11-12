@@ -46,7 +46,7 @@ umwayi-os/
     security.md             what is protected and how it is checked
     corrections.md          layer 13: elections, reversal, courts and the rules change log, the stop criteria and the plain note (built)
     autonomy.md             layer 13: graded autonomy, the score and its gates (built, off by default)
-    serve.md                W6: umwayi serve, the local backend the page may send requests to (specified, not built)
+    serve.md                W6: umwayi serve, the local backend the page may send requests to (the core is built; the page client is not)
     goals.md                W9: umwayi goal, a goal split into task packets and run one at a time through the gate (specified, not built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
