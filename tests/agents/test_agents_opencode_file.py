@@ -6,8 +6,7 @@ checking or refusing an OpenCode agent never starts a program. Only the table of
 
 What 10.43 builds: `opencode` in the platform table (command word `opencode`, transport acp only), the keys
 `provider` and `model` (required for OpenCode, refused for every other platform), and `agent run` and `agent login`
-refused with 64. Gate checks (10.46) and the chat (10.48) are not built: `agent check` says not gated (exit 2) and
-`agent chat` is still refused (64), and neither starts anything.
+refused with 64. Task 10.46 added the gate checks (test_agents_opencode_gate.py); the chat (10.48) is not built, and nothing here starts it.
 """
 
 import unittest
@@ -51,7 +50,7 @@ def line_of(text: str, key: str) -> int:
 class OpenCodeCase(AgentCase):
     def setUp(self):
         super().setUp()
-        self.fake("opencode")  # a spy: every call is recorded, and a test says what it expects
+        self.fake_opencode()  # a spy: every call is recorded, and a test says what it expects
         self.fake("claude")
         self.fake("kiro-cli")
         (self.root / "inner").mkdir()
@@ -354,35 +353,43 @@ class PatternTests(unittest.TestCase):
             self.assertFalse(agents._OPENCODE_MODEL.fullmatch(bad), repr(bad))
 
 
-class ChatAndCheckAreNotBuiltYetTests(OpenCodeCase):
-    """The chat (10.48) and the gate checks (10.46) come later. Until then both fail closed and start nothing."""
+class ChatAndCheckTests(OpenCodeCase):
+    """Task 10.46 gave `agent check` and `agent chat` the six gate checks (tests/agents/test_agents_opencode_gate.py has
+    them all, with the places a machine could differ pinned down). The chat itself is task 10.48. Here: what the machine
+    does not matter for, and that nothing is started."""
 
     def setUp(self):
         super().setUp()
         self.write_agents(oc())
 
-    def test_agent_chat_is_refused_with_64(self):
+    def test_agent_chat_without_a_rule_is_ask_me_first_and_runs_nothing(self):
         r = self.umwayi("chat", "o")
-        self.assertEqual(r.returncode, 64, r.stdout + r.stderr)
-        self.assertIn("Nothing was started.", r.stdout + r.stderr)
-        self.assert_nothing_ran()
-        self.assertFalse((self.root / "LOGBOOK.md").exists())
-
-    def test_agent_chat_is_refused_even_when_a_rule_says_yes(self):
-        self.write_rules("rules:\n  - id: all\n    title: t\n    text: t\n    verdict: yes\n    matchers:\n"
-                         "      type: agent_chat\n")
-        r = self.umwayi("chat", "o")
-        self.assertEqual(r.returncode, 64, r.stdout + r.stderr)
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assert_nothing_ran()
 
-    def test_agent_check_says_not_gated_and_runs_no_program(self):
-        r = self.umwayi("check", "o")
+    def test_agent_chat_with_a_no_rule_is_refused_and_runs_nothing(self):
+        self.write_rules("rules:\n  - id: no\n    title: t\n    text: t\n    verdict: no\n    matchers:\n"
+                         "      type: agent_run\n      platform: opencode\n")
+        r = self.umwayi("chat", "o")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assert_nothing_ran()
+
+    def test_agent_chat_with_a_yes_rule_is_refused_with_exit_2_and_starts_nothing(self):
+        # whatever this machine has (a global OpenCode config, a managed folder), the result is the same: not started
+        self.write_rules("rules:\n  - id: all\n    title: t\n    text: t\n    verdict: yes\n    matchers:\n"
+                         "      type: agent_run\n      platform: opencode\n")
+        r = self.umwayi("chat", "o")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertEqual(self.started(), [])
+        self.assertTrue(all(c["argv"] == ["--version"] for c in self.calls()), self.calls())
+
+    def test_agent_check_runs_the_checks_and_starts_nothing(self):
+        r = self.umwayi("check", "o")
+        self.assertIn(r.returncode, (0, 2), r.stdout + r.stderr)
         self.assertIn("Agent o: opencode, transport acp, workdir", r.stdout)
-        self.assertIn("no: gate checks: ", r.stdout)
-        self.assertIn("not built yet", r.stdout)
-        self.assertIn("Not gated: agent o would be refused (exit 2). Nothing was started.", r.stdout)
-        self.assert_nothing_ran()  # not even `opencode --version`
+        self.assertIn("ok: command: opencode found at", r.stdout)
+        self.assertEqual(self.started(), [])
+        self.assertTrue(all(c["argv"] == ["--version"] for c in self.calls()), self.calls())
 
     def test_agent_check_writes_nothing(self):
         before = {p.name for p in self.root.iterdir()}
