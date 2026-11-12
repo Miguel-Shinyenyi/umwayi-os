@@ -627,7 +627,7 @@ Requirements S.R1 to S.R10, design.md "Whole-system test and security scan" (fac
   10. S-Q10: the same-user boundary is stated plainly and not tested against.
   11. S-Q11: every licence is listed and the SDK's "SEE LICENSE IN README.md" is pointed out for the owner to read; umwayi decides nothing.
   12. S-Q12: the results go to `docs/SECURITY-SCAN.md`, dated, with nothing secret.
-  13. S-Q13: the CI workflow is not changed for Dec 3; the scan is run by hand and recorded.
+  13. S-Q13: the CI workflow is not changed for Dec 3; the scan is run by hand and recorded. (Overruled on Nov 12 by the owner's request CI.1, which changes the triggers, adds cancelling and caches npm; it adds no scan.)
   14. S-Q14: the owner's real runs (10.21's real run of each platform, 10.31, 11.6, B.10) are not part of S.1 and are listed as not done.
   15. S-Q15: a defect S.1 finds in any layer is fixed in the S.1 pull request, test first, and named in it.
   16. S-Q16: built right after approval (now Nov 10 to Nov 12, moved up by the owner from Nov 23 to Nov 26), one pull request for S.1 and one for S.2.
@@ -768,6 +768,15 @@ Requirements 12.R1 to 12.R11, design.md "Layer 12" (what is kept from the owner'
   - [x] (first slice) Planted faults and mutation checks of 12.R10.6, each killed by a named test (`ui/test/faults.test.mjs` checks the map): this slice 28 mutants, 28 killed; the UI.4 pass 62 of 62; UI.2 in PR 41. **Still open:** the full suite on Python 3.10 to 3.13 (CI runs it on the pull request) and the browser pass of the finished page.
   - [ ] **The owner's interface check** (1 h, the owner's; **not done**: the steps, the expected result and a results table are in `adapters/NOTES-layer12.md`, "The owner's interface check (UI.5)", brought up to date on Nov 11 for the page after UI.4: 25 steps, also in the checks panel as `UI.5`): open the built page from disk, watch the network tab show no request, walk the page with the keyboard, switch on reduced motion in the system, use Calm mode, load a real snapshot, and export the checks panel as text.
   - Acceptance tests: all of 12.R10; `tests.test_docs` passes; the page and `build.json` match the sources; the pull request lists what was not done.
+
+## CI.1: faster, less wasteful CI (the owner's request, Nov 12; its own pull request, after PR 56)
+
+The owner's reviewer found that each push to a pull request branch started two runs (eight jobs), that nothing cancelled an older run, and that each job runs the whole suite (about 1900 tests) in 20 to 25 minutes. This overrules S-Q13 above ("the CI workflow is not changed for Dec 3"): the owner asked for it. Strictly reviewed, because CI is the record the owner trusts.
+
+- [x] CI.1.A (PR NN) The workflow runs on `pull_request` only, and a concurrency group (the workflow name and the pull request number) cancels the older run of the same pull request when a newer push arrives. The workflow name `tests`, the job name `test`, the matrix `3.10`, `3.11`, `3.12` and `3.13`, and every test on every version are unchanged, so the check names are unchanged. Proof is in the pull request: the workflow parses and passes `actionlint` v1.7.12, and a draft pull request (`ci1-proof`, closed without merging, its branch deleted) shows a deliberately failing test turning CI red, an older run being cancelled by a newer push, and the job names.
+- [x] CI.1.B (PR NN) The npm download cache (`~/.npm`, keyed on the two lockfiles) on the 3.12 job, with `npm ci --ignore-scripts` unchanged. The whole Node step took 0.4 minutes of a 24.9 minute job, so the gain is small; it is cached because the owner asked, and the number is in the pull request.
+- [x] CI.1.C (PR NN) Measured, not changed: the time of each test module on Python 3.12 (70 modules, 1898 tests, 1295 s in the sandbox, which is not the CI runner). The 15 slowest modules are in the pull request.
+- [ ] CI.1.D **Proposed only, not built, waits for the owner:** sharding the suite into 2 or 3 jobs per Python version with a final job that fails if any shard fails or if the shards together do not run every test. It changes the job names, so the owner decides after reading the table. The plan is in the pull request.
 
 ## Non goals for Dec 3
 
