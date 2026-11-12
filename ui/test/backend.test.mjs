@@ -45,18 +45,15 @@ class El {
   byId(id) { return this.all((e) => e.attrs.id === id)[0] || null; }
 }
 function page() {
-  const ids = {};
-  const mk = (id, tag) => { const e = new El(tag); e.setAttribute('id', id); ids[id] = e; return e; };
-  const section = mk('backend', 'section'); section.hidden = true;
-  mk('backend-note', 'p'); mk('backend-body', 'div'); mk('backend-msg', 'p');
-  const doc = {
-    createElement: (t) => new El(t), createTextNode: (t) => new Text(t),
-    getElementById: (id) => ids[id] || section.byId(id) || ids['backend-body'].byId(id) || null,
-  };
-  const find = (id) => doc.getElementById(id);
-  return { doc, ids, section, body: ids['backend-body'], note: ids['backend-note'], msg: ids['backend-msg'], find };
+  const main = new El('main');
+  const start = new El('section'); start.setAttribute('id', 'start');
+  main.append(start); start.parentNode = main;
+  main.insertBefore = (n, ref) => { main.children.splice(main.children.indexOf(ref), 0, n); n.parentNode = main; };
+  const doc = { createElement: (t) => new El(t), createTextNode: (t) => new Text(t), getElementById: (id) => main.byId(id) };
+  const find = (id) => main.byId(id);
+  return { doc, main, find, get section() { return find('backend'); }, get note() { return find('backend-note'); }, get body() { return find('backend-body'); }, get msg() { return find('backend-msg'); } };
 }
-const everything = (p) => { const out = []; [p.section, p.note, p.body, p.msg].forEach((r) => r.walk((e) => out.push(e))); return out; };
+const everything = (p) => { const out = []; if (p.section) p.section.walk((e) => out.push(e)); return out; };
 const allText = (p) => [p.note, p.body, p.msg].map((e) => e.textContent).join('\n');
 const allAttrs = (p) => JSON.stringify(everything(p).map((e) => [e.log, e.value, e.className, e.textContent]));
 
@@ -116,7 +113,9 @@ const rowsText = (ctx) => ctx.p.find('backend-queue').textContent;
 test('opened from disk or from another address: the section says to open the page with umwayi serve, has no field or button, and sends nothing', async () => {
   for (const origin of ['null', 'file://', 'http://localhost:8765', 'https://umwayi.example']) {
     const ctx = await open({}, origin);
-    assert.equal(ctx.p.section.hidden, false, 'the section is shown so the owner can read why');
+    assert.ok(ctx.p.section, 'the section is made so the owner can read why');
+    assert.equal(ctx.p.section.hidden, false);
+    assert.equal(ctx.p.main.children[0], ctx.p.section, 'it stands before the Start section');
     assert.equal(ctx.p.note.textContent, UNAVAILABLE_MESSAGE);
     assert.equal(everything(ctx.p).filter((e) => ['input', 'button', 'select', 'textarea'].includes(e.tag)).length, 0);
     assert.equal(ctx.b.seen.length, 0);
@@ -441,13 +440,7 @@ test('the panel code sends nothing itself, builds no markup, keeps nothing and w
   assert.ok(!/\.setAttribute\(\s*'value'/.test(PANEL_SRC) && !/\.defaultValue/.test(PANEL_SRC), 'a value is never written as an attribute');
 });
 
-test('the page template has the empty hidden section for the panel, with a heading, and no field, form or script of its own for it', () => {
-  const m = /<section\b[^>]*\bid="backend"[^>]*>([\s\S]*?)<\/section>/.exec(TEMPLATE);
-  assert.ok(m, 'no section with id backend');
-  assert.match(m[0], /^<section[^>]*\bhidden\b/);
-  assert.match(m[0], /aria-labelledby="backend-title"/);
-  assert.match(m[1], /<h2 id="backend-title"/);
-  for (const id of ['backend-note', 'backend-body', 'backend-msg']) assert.ok(m[1].includes(`id="${id}"`), id);
-  assert.match(m[1], /id="backend-msg"[^>]*role="status"/);
-  assert.ok(!/<input|<form|<textarea|<select|<script/i.test(m[1]), 'the controls are made by the script, not written in the page');
+test('the page template has no id of the panel: the public site shows the same template and has no place for it', () => {
+  assert.ok(!/backend/.test(TEMPLATE), 'the template mentions the backend panel');
+  assert.match(TEMPLATE, /<section[^>]*\bid="start"/, 'the panel is placed before this section');
 });

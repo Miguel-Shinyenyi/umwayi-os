@@ -22,11 +22,21 @@ const daysText = (d) => {
 
 // client: for a test. The page passes nothing, and the client is made from the page's own address.
 export function initBackend(doc, win, { client } = {}) {
-  const $ = (id) => doc.getElementById(id);
-  const section = $('backend'), note = $('backend-note'), body = $('backend-body'), msg = $('backend-msg');
-  if (!section || !note || !body || !msg) return { stop() {} };
+  // The section is made here, not written in the page: the public site shows the same template and must not hold a place for it.
+  const anchor = doc.getElementById('start');
+  const parent = anchor && anchor.parentNode;
+  if (!parent || typeof parent.insertBefore !== 'function') return { stop() {} };
+  const make = (tag, props, ...kids) => {
+    const e = doc.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) e.setAttribute(k, v);
+    e.append(...kids);
+    return e;
+  };
+  const note = make('p', { id: 'backend-note' }), body = make('div', { id: 'backend-body' });
+  const msg = make('p', { id: 'backend-msg', class: 'backend-msg', role: 'status', 'aria-live': 'polite' });
+  const section = make('section', { id: 'backend', class: 'home', 'aria-labelledby': 'backend-title' }, make('h2', { id: 'backend-title' }, 'Local backend'), note, body, msg);
   const api = client || createClient({ location: win.location });
-  section.hidden = false;
+  parent.insertBefore(section, anchor);
   if (!api.available) {
     note.textContent = UNAVAILABLE_MESSAGE;
     return { stop() {} };

@@ -32,7 +32,7 @@
     "src/high/index.js": "33fe15cafcec4b813f43ddf6e2ec122dbd4e2b1de495b300f62a8050b5cc4c06",
     "src/high/plants.js": "9aeac2d2dc0ece6e4b063e548467d7c497990e42fc728775904b31e4285ded4d",
     "src/high/wildlife.js": "36cc32eb054a0ec3a7a80cf0f30067b84d6e2fcd8c02439855f8fed085848c65",
-    "src/index.html": "0a1c0e82df65211ba1f31b6a4ec38c7609d7063fd06369c902cae8fe2d1c6485",
+    "src/index.html": "27d3314b1238ca5334d6d91ecda8426d6c52b5849b56ae9a7e949be2d4fd00d8",
     "src/main.js": "a32482d12c103e1bbe461eb0397a4989bf1f371dd7f08f8c68d96e8ba06f0195",
     "src/scene.js": "032b124fca50a4a5715e6c3060643e0416b0e728a33b0d5d43ad425ef81806a8",
     "src/stations/adapters.js": "fc57f901f56ae67403ebdfa40ba3c6963d923e83ed2eca14b11cba3d31c22e18",
@@ -50,7 +50,7 @@
     "src/stations/rules.js": "3e3f677a8b8b0e9847e1fff21566eb908049970954d04c572a0e1cd470e87764",
     "src/stations/workflows.js": "4d6ce8a1350a6302c3f1ef58f1340927ab77913bcbc7cc434c673987edff0ae5",
     "src/style.css": "a1e7a07a0f234b77ae681c6878bd2ab2412285c71d92b388532c059821b86416",
-    "src/ui/backend.js": "5fc3749f7d5d02f553bf9cc3cc1e6f45b473e2ad14779de1c9a4ec02cc4e7471",
+    "src/ui/backend.js": "8926a0f67c181ecde1fbff06b76d069de42f86993ca4f450cae2113a1cdba725",
     "src/ui/checks.js": "3d90c4bdd48a32ce274f4539c7ce4598b010723602b910722c1707c2a5058ebf",
     "src/ui/fallback.js": "e2f8e971b831153ec4ab7eb205f12a7059e41636f66b8f01b3a84559836801e9",
     "src/ui/home.js": "ae27cf208097f9db277fd4b9b935ba2f9fa5be17eaffa7b508457baca6541726",
@@ -77,5 +77,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "07f06b8e4f324948063c99b222abce0a0a8db5e6d14860c826d7db2e6f8b618e"
+  "page": "5a616b9cabd16ede279b332af81b15be40b284751ba140f98a162c602892fbf2"
 }

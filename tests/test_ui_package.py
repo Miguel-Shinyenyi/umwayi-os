@@ -59,7 +59,6 @@ CLIENT_END = "/*! umwayi-client:end */"
 FETCH = re.compile(r"\bfetch\b")
 FETCH_CALL = re.compile(r"\bfetch\s*\(")
 CONNECT_SRC = "connect-src 'self'"
-BACKEND_IDS = ("backend-title", "backend-note", "backend-body", "backend-msg")
 FORBIDDEN_TAGS = re.compile(r"<(link|img|iframe|object|embed|base|form|audio|video|source|track)\b", re.I)
 SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.S | re.I)
 STYLE = re.compile(r"<style\b([^>]*)>(.*?)</style>", re.S | re.I)
@@ -309,17 +308,12 @@ def check_page(root: Path) -> list:
             problems.append(f"the check {cid} is not in the page")
     if "ticked by you" not in html or "not done" not in html:
         problems.append("the page does not have the two statuses of a check, not done and ticked by you")
-    # the panel of the local backend (W6.9): an empty hidden section; its controls are made by the script, so the markup still
-    # has one input (the file picker) and no form
-    back = re.search(r"<section\b[^>]*\bid=\"backend\"[^>]*>(.*?)</section>", markup, re.S)
-    if not back or not re.search(r"\bhidden\b", re.match(r"<section\b[^>]*>", back.group(0)).group(0)):
-        problems.append("the panel of the local backend is missing from the page or is not hidden until the script shows it")
-    else:
-        for bid in BACKEND_IDS:
-            if f'id="{bid}"' not in back.group(1):
-                problems.append(f"the panel of the local backend has no element {bid}")
-        if re.search(r"<(input|button|select|textarea|form|a)\b", back.group(1), re.I):
-            problems.append("the panel of the local backend has a control written in the page, not made by the script")
+    # the panel of the local backend (W6.9) is made by the script, not written in the page: the public site shows the same
+    # template and has no place for it, and the markup keeps its one input (the file picker) and no form
+    if re.search(r"id=\"backend", markup):
+        problems.append("the panel of the local backend is written in the page, not made by the script")
+    if "Local backend" not in html or "backend-body" not in html:
+        problems.append("the panel of the local backend is not in the script")
     if re.search(r"cookie", html, re.I):
         problems.append("the page mentions a cookie, and it must keep nothing")
     if re.search(r"\bBlob\b", html):
@@ -769,18 +763,12 @@ class PlantedFaultTests(unittest.TestCase):
                 self.edit("ui/dist/index.html", fn)
                 self.assert_found("is not the old policy plus connect-src 'self' and nothing else")
 
-    def test_a_panel_section_shown_or_missing_or_with_a_control_in_the_page(self):
-        self.edit("ui/dist/index.html", lambda t: t.replace('aria-labelledby="backend-title" hidden>', 'aria-labelledby="backend-title">', 1))
-        self.assert_found("is not hidden until the script shows it")
+    def test_a_panel_written_in_the_page_or_missing_from_the_script(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('<section class="home" id="start"', '<section class="home" id="backend" hidden></section><section class="home" id="start"', 1))
+        self.assert_found("written in the page, not made by the script")
         self.setUp()
-        self.edit("ui/dist/index.html", lambda t: t.replace('id="backend" ', 'id="elsewhere" ', 1))
-        self.assert_found("panel of the local backend is missing")
-        self.setUp()
-        self.edit("ui/dist/index.html", lambda t: t.replace('id="backend-note"', 'id="x"', 1))
-        self.assert_found("has no element backend-note")
-        self.setUp()
-        self.edit("ui/dist/index.html", lambda t: t.replace('<div id="backend-body">', '<div id="backend-body"><button type="button">Go</button>', 1))
-        self.assert_found("control written in the page")
+        self.edit("ui/dist/index.html", lambda t: t.replace("Local backend", "Elsewhere", 1))
+        self.assert_found("panel of the local backend is not in the script")
 
     def test_an_em_dash(self):
         self.edit("ui/README.md", lambda t: t + "\nA line " + EM_DASH + " here.\n", rebuild=False)
