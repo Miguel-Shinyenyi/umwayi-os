@@ -1063,3 +1063,13 @@ A request is rules-checked and the check is logged before the route runs, so whe
 ### 236. The reader strips the whitespace around a header value
 
 The server's own reader takes the bytes on the wire and cuts spaces and tabs from both ends of a header value, as HTTP says. The pure gate sees the cut value, so `Host: 127.0.0.1:PORT ` with a trailing space is accepted. Everything else the gate refuses is refused as it arrived: a fold, a bare line feed, a space before the colon, a duplicate.
+
+## OpenCode chat start (part 8), items from the build (242 and 243)
+
+### 242. An error that mentions "auth" is shown as a sign-in request
+
+In an OpenCode chat, an error answer to `initialize`, `session/new` or `session/prompt` whose code is -32000 or whose message contains the letters "auth" in any case ends the chat with "Run opencode auth login first, then try again." The same text test is used for the Kiro chat. An error that merely contains a word such as "author" or "authority" gets this line too, and the real cause is only in what OpenCode wrote to its own stderr. Nothing is sent after the error and the chat ends with exit 2, so the cost is a wrong hint, not a wrong action. Not seen on a real OpenCode: only the fake answers `auth_required` (10.47).
+
+### 243. The model must be reported as exactly the agent's model
+
+The chat start compares the `currentValue` of the `model` config option in the `session/new` answer with the agent's `model`, as text, with no case folding or trimming. 10.42 saw OpenCode 2.2.7 replace a model it could not find with one from its own catalogue and report that, which is what the check is for. If a later version reports the same model under another spelling (an alias, a variant suffix), the chat is refused with exit 2 before the first prompt: safe, but the owner has to write the model as OpenCode reports it. Only the fake and the one 10.42 observation stand behind the format `provider/model`; the owner's own run (10.51) is the first test against a real chat.

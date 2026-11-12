@@ -28,7 +28,7 @@ session/request_permission (the V2 toolCall shape of 10.42) when an ask rule or 
   init              "garbage" | {"protocolVersion": N} | {"error": {...}}
   turns             one list of actions per session/prompt; actions: {"chunk": TEXT}, {"tool": NAME, "input": {...},
                     "child": true, "no_name": true, "call_id": TEXT}, {"sleep": S}, {"wait_cancel": true},
-                    {"exit": N}, {"spawn": true}
+                    {"exit": N}, {"spawn": true}, {"spawn_setsid": true}
   ignore_eof        keep running when stdin is closed
   stderr            text written to stderr at the start
 """
@@ -337,8 +337,9 @@ while True:
         if "wait_cancel" in act:
             next_msg(lambda x: x.get("method") == "session/cancel")
             stop = "cancelled"
-        if "spawn" in act:
-            p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+        if "spawn" in act or "spawn_setsid" in act:  # spawn_setsid: a command in a session of its own (a background job)
+            p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"],
+                                 start_new_session="spawn_setsid" in act)
             rec(event="spawn", pid=p.pid)
         if "exit" in act:
             rec(event="exit", code=act["exit"])

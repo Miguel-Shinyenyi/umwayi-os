@@ -6,7 +6,7 @@ checking or refusing an OpenCode agent never starts a program. Only the table of
 
 What 10.43 builds: `opencode` in the platform table (command word `opencode`, transport acp only), the keys
 `provider` and `model` (required for OpenCode, refused for every other platform), and `agent run` and `agent login`
-refused with 64. Task 10.46 added the gate checks (test_agents_opencode_gate.py); the chat (10.48) is not built, and nothing here starts it.
+refused with 64. Task 10.46 added the gate checks (test_agents_opencode_gate.py); the chat (10.48) is tested in test_agents_opencode_chat.py.
 """
 
 import unittest
@@ -374,8 +374,9 @@ class ChatAndCheckTests(OpenCodeCase):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assert_nothing_ran()
 
-    def test_agent_chat_with_a_yes_rule_is_refused_with_exit_2_and_starts_nothing(self):
-        # whatever this machine has (a global OpenCode config, a managed folder), the result is the same: not started
+    def test_agent_chat_with_a_yes_rule_and_a_failing_gate_check_is_refused_with_exit_2_and_starts_nothing(self):
+        # a project opencode.json is a refusal on every machine; a chat that passes is tested in test_agents_opencode_chat.py
+        (self.work / "opencode.json").write_text("{}", encoding="utf-8")
         self.write_rules("rules:\n  - id: all\n    title: t\n    text: t\n    verdict: yes\n    matchers:\n"
                          "      type: agent_run\n      platform: opencode\n")
         r = self.umwayi("chat", "o")
