@@ -16,6 +16,8 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 
 The local backend (W6, `umwayi serve`) is specified (W6.0, PR 61, docs and specs only) and not built; the page still makes no request. See [serve.md](serve.md).
 
+Goal orchestration (W9, `umwayi goal`: a goal split into task packets, run one at a time through the gate by a builder and a different tester, the owner approves and merges) is specified (W9.0, docs and specs only) and not built. See [goals.md](goals.md).
+
 ### Pull requests
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |

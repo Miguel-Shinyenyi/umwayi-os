@@ -24,6 +24,7 @@ The core is the `umwayi` package, standard library only (`pyproject.toml`: `depe
 | budget governor | UU, the ledger, the telemetry receiver | `umwayi/units.py`, `umwayi/budget.py`, `umwayi/telemetry.py` | [budget-governor.md](budget-governor.md) |
 | 12 view (snapshot, scene, public site, snapshot reading and the owner checks panel built; access and docs half done) | a web page that only looks, the same scene on a public site, and the read only snapshot of counts it will read | `ui/`, `site/`, `umwayi/view.py` | [interface.md](interface.md) |
 | W6 local backend (specified, not built) | `umwayi serve`: a server on 127.0.0.1 with a token that lets the page send the same request the command line would | `umwayi/servegate.py`, `umwayi/servetoken.py`, `umwayi/serve.py` (planned) | [serve.md](serve.md) |
+| W9 goal orchestration (specified, not built) | `umwayi goal`: a goal split into task packets, run one at a time through the rules check, the kill switch and the budget governor by a builder and a different tester; the owner approves and merges | `umwayi/goalpacket.py`, `umwayi/goallog.py`, `umwayi/goalwatch.py`, `umwayi/goalstate.py`, `umwayi/goalbudget.py`, `umwayi/goalgit.py`, `umwayi/goalrun.py`, `umwayi/goal.py`, `umwayi/goaldocs.py` (planned) | [goals.md](goals.md) |
 
 Shared by every layer:
 
