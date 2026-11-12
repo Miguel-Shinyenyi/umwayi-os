@@ -18,6 +18,7 @@ Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop 
 
 | date | PR | what | tests after it (Python 3.10 to 3.13) |
 | --- | --- | --- | --- |
+| 2026-11-11 | NN | The 13 OpenCode starter rules in the repo `rules.yaml` (a follow-up of 9.10 and 10.45), and their tests in `tests/test_starter_rules.py` | see the pull request |
 | 2026-11-11 | 54 | UI.4: the owner checks panel (`ui/src/data/checks.js`, `notes.js`, `ui/src/ui/checks.js`) on the live view and the site, five B.10 capture steps in NOTES-layer10.md, `tests/test_checks.py`; KNOWN-LIMITS 146 to 148 | see the pull request |
 | 2026-11-11 | 53 | 10.45: the OpenCode plugin (`adapters/opencode/plugin/index.js`, node: imports only), its starter rules and its tests under node | 1775 |
 | 2026-11-11 | 52 | UI.3: the page reads the snapshot (`ui/src/data/snapshot.js`, the strict reader, the needs, the mapping table), the picker and drop on the live view and the site, unknown drawn as unknown; 12.R17.6 and rule 10 changed; KNOWN-LIMITS 142 to 145 | see the pull request |

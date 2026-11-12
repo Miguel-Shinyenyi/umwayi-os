@@ -352,7 +352,7 @@ rules:
   # rules", the same job 9.10 did for the other three adapters). The source is adapters/opencode/rules.example.yaml:
   # the 13 rules below have the same ids, verdicts, matchers and words as the example. Every rule names
   # "platform: opencode", so a rule for OpenCode never answers for another platform, and none of the rules above is
-  # touched by them. An action that no rule names is Ask me first. See docs/rules.md and adapters/opencode/README.md.
+  # touched by them. An action that no rule names is Ask me first. See docs/rules.md and adapters/NOTES-layer10.md (OpenCode 2.2.7).
   # --- OpenCode: never. Money, pushing to main, destroying things.
   - id: oc-no-money
     title: OpenCode never moves money
