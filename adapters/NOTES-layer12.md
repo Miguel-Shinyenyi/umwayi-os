@@ -53,7 +53,7 @@ Content was rephrased for compliance with licensing restrictions.
 
 ## The owner's interface check (UI.5): steps, expected output, results (NOT DONE YET)
 
-Written Nov 10 2026 with the spec. Nothing here has been run. It is the owner's, on the owner's machine, with the finished page from UI.5. It is also the `UI` entry of the checks panel in the page.
+Written Nov 10 2026 with the spec and brought up to date on Nov 11 2026 for the page as built after UI.4 (the tier switch, the snapshot picker, the owner checks panel, Download). Nothing here has been run. It is the owner's, on the owner's machine, with the page from `ui/dist/index.html`. It is also the `UI.5` entry of the checks panel in the page, so you can run it from the panel: every step below is a step there. The scene itself is still being finished (UI.7, High); steps 1.1 to 1.8 judge the Standard picture as it is, and are to be run again when UI.7 is merged.
 
 Rules for this check:
 
@@ -77,13 +77,16 @@ Rules for this check:
 7. Narrow the window to about 390 pixels. Expected: the panel is a bottom sheet and the home content reads in one column.
 8. Add `#detail=low` to the address and reload. Expected: the same scene with less detail and no bloom. Remove it and add `#detail=high`.
 9. Home content: press Copy on a command and paste it somewhere. Expected: the command, exactly. Devpost and demo video say "link to come" and are not links.
+10. Press List in the top bar, then Standard. Expected: List shows the title, the status strip and the eleven stations as text, with no picture; Standard shows the picture again. The address gets `#tier=list` or `#tier=standard` and nothing else.
+11. Press Tab from the top of the page and count. Expected: List, Standard, Owner checks, Calm mode, then the eleven names in the order Memory, Rules, Queue, Archive, Logbook, Automation, AI helpers, Workflows, Adapters, Kill switch, Budget, and the focus is visible on each.
+12. Turn on your screen reader and move through the page by landmarks and headings. Expected: one main landmark, the title, and the sections The valley, The state of this root, The eleven stations, Start, Links, each with a name; the picture is described in words and the description says where the List view is. Record anything missing or wrong.
 
 ### 2. Your own state
 
-1. In the page, pick `.umwayi/snapshot.json`. Expected: the "sample" label is gone and the date next to the scene is today's.
-2. The queue sheep equal `umwayi queue list --status open` (count the rows); the Logbook panel shows the entries count of `LOGBOOK.md`; the Kill switch hurdle matches `umwayi kill status`.
-3. `umwayi kill on --reason "UI check"`, then `umwayi view snapshot`, load the new file: the hurdle is up. Then `umwayi kill off` and a new snapshot.
-4. Pick a file that is not a snapshot (for example `rules.yaml`). Expected: one message, nothing changes in the scene.
+1. In the page, press Open a snapshot file (under the status strip) and pick `.umwayi/snapshot.json`, or drop the file on the page. Expected: the "sample" label is gone and the date next to the scene is today's.
+2. The queue sheep equal `umwayi queue list --status open` (count the rows); the Logbook panel shows the entries count of `LOGBOOK.md`; the Kill switch gate matches `umwayi kill status`.
+3. `umwayi kill on --reason "UI check"`, then `umwayi view snapshot`, load the new file: the gate is shut and its lamp is red. Then `umwayi kill off` and a new snapshot.
+4. Pick a file that is not a snapshot (for example `rules.yaml`). Expected: one message that says the file is not a snapshot of this version, and nothing changes in the scene.
 
 ### 3. The checks panel
 
@@ -91,6 +94,8 @@ Rules for this check:
 2. Tick one step and type a result with names only. Expected: the check still says "not done" until all its steps are ticked, and then "ticked by you", never "passed".
 3. Type an email address into a result. Expected: a warning on that field.
 4. Export. Expected: the text lists every check with its steps and ends with "These are your notes. umwayi did not run or verify anything." Copy it. Close the page and open it again. Expected: the notes are gone.
+5. Press Download. Expected: a file `umwayi-owner-checks.txt` is saved with the same text as the box. If your browser does not save it, the page says Copy only; record that.
+6. Press Close. Expected: the panel closes and the focus goes back to the button that opened it.
 
 ### Results (to be filled in by the owner; all NOT DONE)
 
@@ -107,11 +112,14 @@ Rules for this check:
 | 1.7 | bottom sheet and one column home content at 390 pixels | not done |
 | 1.8 | low and high detail both draw | not done |
 | 1.9 | Copy gives the exact command; placeholders are not links | not done |
+| 1.10 | List and Standard both work; the address shows only the tier | not done |
+| 1.11 | the Tab order and a visible focus | not done |
+| 1.12 | what the screen reader said, and anything missing | not done |
 | 2.1 | "sample" gone, the date | not done |
 | 2.2 | queue, logbook and kill switch match the commands | not done |
 | 2.3 | hurdle up with the kill switch on | not done |
 | 2.4 | a non snapshot file refused | not done |
-| 3.1 to 3.4 | six checks, "ticked by you", the warning, the export text, notes gone after closing | not done |
+| 3.1 to 3.6 | six checks, "ticked by you", the warning, the export text, notes gone after closing, Download saved a file or said Copy only, focus back on the button | not done |
 
 ## Facts found while building UI.6 (Nov 11 2026, tried in the repo's own `site/` with Next.js 16.4.6)
 
@@ -120,3 +128,13 @@ Rules for this check:
 - `Permissions-Policy: bluetooth=()` gives a Chromium console warning (unrecognized feature), so the site does not send it.
 - `next build` for this site is static for `/` (prerendered); `next start` applies the `headers()` of `next.config.mjs`. A static export would not send them, so the site is not exported.
 - Headless Chromium 158.0.8127.18 (Playwright 1.65 headless shell, SwiftShader) was used for the pass; the Playwright browser tool of this sandbox could reach only the sandbox's second address, not 127.0.0.1, so the pass was driven from a script outside the repo.
+
+## Facts found while building UI.5, first slice (Nov 11 2026)
+
+- **What the WCAG 2.2 rules say that this slice relies on** ([WCAG 2.2](https://www.w3.org/TR/WCAG22/)): 1.4.3 Contrast (Minimum), 4.5 to 1 for text at level AA; 1.4.11 Non-text Contrast, 3 to 1 for the parts of a control and for a focus indicator; 2.5.8 Target Size (Minimum), a control is at least 24 by 24 CSS pixels unless it has room around it (new in 2.2); 2.4.7 Focus Visible; 1.3.1 Info and Relationships (landmarks, headings, names); 4.1.3 Status Messages (a message is in a live region). The page aims at AA. The 4.5 floor is the owner's UI-Q9.
+- **Contrast, worked out from `ui/src/style.css` on Nov 11 2026:** normal mode, ink on the page 15.4 to 1, muted on the page 8.4 to 1; Calm mode, ink 10.0 and muted 7.0. The lowest text ratio on any ground the CSS uses (page, solid panel, glass over the page, the dark wells) is 6.9 to 1 in normal mode and 6.0 to 1 in Calm mode, both muted on the solid panel. The field border is 4.2 and 3.7 to 1 at worst, and the focus ring 7.3 and 7.2.
+- **Three things the checks found and the CSS now fixes:** the tick boxes of the owner checks panel were 18 pixels (now 24); the browser's own placeholder colour is too faint on the dark fields (now the muted colour, at full opacity so Firefox does not dim it); the border of a field was the faint line colour (now `--field-line`, 3 to 1 or better). A fourth, found in the browser: at 390 pixels the owner checks panel was 1005 pixels wide, because long commands in a grid column could not shrink; the grid, its items and the text now shrink and wrap, and a code block scrolls inside its own box.
+- **Headless Chromium 151 at 390 by 844, Nov 11 2026:** the owner checks panel open: document width 390, no control under 24 by 24; the station panel open at Standard: a bottom sheet 390 wide inside the first screen (its bottom is the bottom of the picture area, 674 pixels down, above the status strip), no sideways scroll.
+- **Order of the keyboard:** List, Standard, Owner checks, Calm mode, then the eleven names in the order of the list view, then the station panel (reachable only while it is open), the snapshot button and the rest. The names show on focus; at rest nothing is written in the picture.
+- **Not run:** a screen reader, a real GPU, Firefox, Safari, touch. The interface check above (1.12 for the screen reader) is the owner's.
+

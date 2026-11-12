@@ -40,7 +40,7 @@ umwayi-os/
     agent-front-door.md     layer 10: umwayi agent
     scheduled-runs.md       layer 11: systemd user timers
     budget-governor.md      UU, the ledger, the telemetry receiver
-    interface.md            layer 12: the view, a web page that only looks (the snapshot command, the highlands scene, the home page and the public site are built)
+    interface.md            layer 12: the view, a web page that only looks (the snapshot command, the highlands scene, the home page, the public site, the snapshot reading and the owner checks panel are built; UI.5 is half done)
     exit-codes.md           every exit code and which command gives it
     testing.md              how everything is tested
     security.md             what is protected and how it is checked

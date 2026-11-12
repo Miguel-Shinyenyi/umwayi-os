@@ -643,6 +643,14 @@ class PlantedFaultTests(unittest.TestCase):
             self.edit("ui/dist/index.html", lambda t, k=token: t.replace("</script>", f"var q = window.{k};</script>", 1))
             self.assert_found(repr(token))
 
+    def test_a_font_from_a_cdn(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace("<style>", '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter"><style>', 1))
+        self.assert_found("<link> element")
+        self.assert_found("fonts.googleapis.com")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("<style>", '<style>@font-face{font-family:X;src:url(https://fonts.example.invalid/x.woff2)}', 1))
+        self.assert_found("url() that is not a data: address")
+
     def test_an_em_dash(self):
         self.edit("ui/README.md", lambda t: t + "\nA line " + EM_DASH + " here.\n", rebuild=False)
         self.assert_found("ui/README.md: an em dash")
