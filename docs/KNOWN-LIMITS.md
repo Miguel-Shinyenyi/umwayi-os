@@ -1104,3 +1104,14 @@ Before W20 the required checks were `tests / test (3.10) (pull_request)` to `tes
 ### 248. A request with no `name` is capped after the check, so its entry can say Yes
 
 In an OpenCode chat, a permission request with no `name` (OpenCode had no tool for it) never gets Yes: when the rules answer Yes, umwayi asks the owner instead, as for Ask me first. The cap is applied after the check, so the `umwayi check` entry of that request still names the Yes rule, and the logbook does not say that the owner was asked. A No stays No. A request whose `name` is present but not a plain word (an MCP tool such as `mcp__x__y`) is not capped: the rules see only its kind. Only the fake sends a request with no `name`; a real OpenCode was seen to do so only in the source (10.42).
+
+## OpenCode planted faults and mutation checks (part 8, 10.50)
+
+### 249. The fault runs are manual, and four guards have a twin that hides them
+
+`tests/agents/opencode_mutants.py` plants 153 faults in a copy of the source and reports which tests notice. It is a helper that a person runs (`python -m tests.agents.opencode_mutants`, about 10 minutes with 6 jobs on 8 cores), not part of the test suite or of GitHub CI. The suite checks only that the fault table is still true (`tests/agents/test_opencode_mutants.py`: every edit still matches the source, every mutated file compiles, every named test exists). A later change that loosens the gate in a way the table does not list is not found by it.
+
+- **Four survivors.** Each is a guard whose twin refuses the same case, so removing one alone changes nothing a test can see. B3b: the "is a link" refusal for `index.js` or `hook.py` (the "not a regular file" check refuses a link too, only the wording differs). B3e: `lstat` becoming `stat` in the same check (the real-path check refuses a link whose target has another path). B5l and B5m: the size limit on a global config file is checked from the file's size before the read and again on the text after it (the second only matters if the file grows between the two). Removing both guards of each pair is caught (faults B3x and B5lm), so each pair is tested as a whole. They stay as defence in depth.
+- **Not reachable as root.** A plugin folder that can be entered but not listed cannot be made by a test running as root, so that check (fault B3h) is tested by making the listing itself fail, not with a real folder mode.
+- **One catch depends on timing.** The test for the last look at the agent's descendants before a clean exit (fault S2) needs the whole chat to end within the one-second watcher interval. On a machine that is much slower the fault could survive that test; the code itself passes either way.
+- **Only the fake.** All of this runs against the fake `opencode` and the plugin under `node`. What the real OpenCode does is the owner's check, task 10.51.
