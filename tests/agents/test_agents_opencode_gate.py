@@ -16,8 +16,8 @@ The checks, in this order, the first failure ends it (exit 2, one logbook entry 
                     plugins, plugin, agents or agent entry and no opencode.json(c) that holds a key that widens the gate
     route           the provider is an offered route
 
-Until the chat itself is built (10.48), an agent that passes every check is still not started: `agent chat` refuses with
-exit 2 and says so. `agent check` says it is gated and starts nothing.
+An agent that passes every check is gated: `agent check` says so and starts nothing, and `agent chat` goes on to the
+start of task 10.48 (tests/agents/test_agents_opencode_chat.py).
 """
 
 import json
@@ -167,14 +167,12 @@ class AllPassTests(GateCase):
         self.check()
         self.assertEqual(tree_state(self.root, self.work, self.deep), before)
 
-    def test_a_pass_with_the_chat_not_built_yet_is_refused_with_one_entry_and_nothing_started(self):
-        c = self.chat()
-        self.assertEqual(c.returncode, 2, c.stdout + c.stderr)
-        self.assertIn("the OpenCode chat is not built yet", c.stdout)
-        [entry] = self.refused_entries()
-        self.assertIn("the OpenCode chat is not built yet", entry.added)
-        self.assertEqual(self.started(), [])
-        self.assertEqual([e for e in self.run_entries() if e.added.startswith("Started agent")], [])
+    def test_a_pass_starts_the_chat_with_one_start_entry(self):
+        c = self.chat()  # the chat itself is tested in test_agents_opencode_chat.py (10.48)
+        self.assertEqual(c.returncode, 0, c.stdout + c.stderr)
+        self.assertNotIn("not built", c.stdout)
+        self.assertEqual(self.refused_entries(), [])
+        self.assertEqual(len([e for e in self.run_entries() if e.added.startswith("Started agent o")]), 1)
 
 
 # ------------------------------------------------------------------------------------------------ 1 command

@@ -1085,3 +1085,13 @@ To give the owner checks a 44 pixel target without making the box big, `appearan
 ### 241. Two phone rules use `:has()`, and a short window gets the side card
 
 While a station panel is open the "sample" tag is hidden with `:has()` (Chrome 105, Safari 15.4, Firefox 121 and later); in an older browser the tag stays visible behind the panel's glass. In a window under 520 pixels high, which includes every phone on its side, the station panel is a card at the right (at most 360 pixels, 48 per cent of the width) and the title and promise are narrowed to what is left, so on a 667 pixel wide screen the promise wraps to about five lines. The side card scrolls inside itself; nothing was done for a window that is both narrow and short beyond the same rules.
+
+## OpenCode chat start (part 8), items from the build (242 and 243)
+
+### 242. An error that mentions "auth" is shown as a sign-in request
+
+In an OpenCode chat, an error answer to `initialize`, `session/new` or `session/prompt` whose code is -32000 or whose message contains the letters "auth" in any case ends the chat with "Run opencode auth login first, then try again." The same text test is used for the Kiro chat. An error that merely contains a word such as "author" or "authority" gets this line too, and the real cause is only in what OpenCode wrote to its own stderr. Nothing is sent after the error and the chat ends with exit 2, so the cost is a wrong hint, not a wrong action. Not seen on a real OpenCode: only the fake answers `auth_required` (10.47).
+
+### 243. The model must be reported as exactly the agent's model
+
+The chat start compares the `currentValue` of the `model` config option in the `session/new` answer with the agent's `model`, as text, with no case folding or trimming. 10.42 saw OpenCode 2.2.7 replace a model it could not find with one from its own catalogue and report that, which is what the check is for. If a later version reports the same model under another spelling (an alias, a variant suffix), the chat is refused with exit 2 before the first prompt: safe, but the owner has to write the model as OpenCode reports it. Only the fake and the one 10.42 observation stand behind the format `provider/model`; the owner's own run (10.51) is the first test against a real chat.
