@@ -76,7 +76,7 @@ No route, hidden parameter or body field can: turn the kill switch off; touch a 
 
 ### Known limits
 
-[KNOWN-LIMITS.md](KNOWN-LIMITS.md) items 196 to 216. The main ones: a process of the same user that learns the token is the owner as far as the backend can tell; no TLS on loopback; any local process can use up the 16 request slots; a request changes real files exactly as the command line does; requests run one at a time on the main thread (213); the browser behaviour was read, not tried (205).
+[KNOWN-LIMITS.md](KNOWN-LIMITS.md) items 196 to 212 and 229 to 232. The main ones: a process of the same user that learns the token is the owner as far as the backend can tell; no TLS on loopback; any local process can use up the 16 request slots; a request changes real files exactly as the command line does; requests run one at a time on the main thread (229); the browser behaviour was read, not tried (205).
 
 ## Decisions log
 
@@ -92,4 +92,4 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
-W6-Q1 to W6-Q28 are answered (design.md, "Answers (owner, Nov 12)"). Open for the owner, from the build (the pull request has the numbered list with a recommendation for each): the lock-out compare (KNOWN-LIMITS 214), the broken logbook and the page (215), the serial pipeline (213), and the shape of the `changed` note and of a logged gate refusal. To look at after the build (W6-Q10): the logbook volume (KNOWN-LIMITS 201, now with numbers). Confirm: the 53 hours of W6-Q27 are read as leaving out W6.10.
+W6-Q1 to W6-Q28 are answered (design.md, "Answers (owner, Nov 12)"). Open for the owner, from the build (the pull request has the numbered list with a recommendation for each): the lock-out compare (KNOWN-LIMITS 230), the broken logbook and the page (231), the serial pipeline (229), and the shape of the `changed` note and of a logged gate refusal. To look at after the build (W6-Q10): the logbook volume (KNOWN-LIMITS 201, now with numbers). Confirm: the 53 hours of W6-Q27 are read as leaving out W6.10.

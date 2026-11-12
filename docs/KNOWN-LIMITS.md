@@ -894,7 +894,7 @@ The owner's record is the input. Approving without a look counts as approved as 
 
 ## Local backend (W6): `umwayi serve` (built Nov 12 in W6.1 to W6.6; the page client W6.9 and the chat and intake routes are not built)
 
-These are the limits of [serve.md](serve.md). Items 196 to 212 were written before any code (W6.0 pull request) and are confirmed or corrected by the build (W6.1 to W6.6, Nov 12); items 213 to 216 are new from the build. Items about the chat (206, 207, 209, 211) and the page (197) describe parts that are not built yet. Numbers are never reused.
+These are the limits of [serve.md](serve.md). Items 196 to 212 were written before any code (W6.0 pull request) and are confirmed or corrected by the build (W6.1 to W6.6, Nov 12); items 229 to 232 are new from the build. Items about the chat (206, 207, 209, 211) and the page (197) describe parts that are not built yet. Numbers are never reused.
 
 ### 196. Whoever has the token is the owner, as far as the backend can tell
 
@@ -964,19 +964,19 @@ By the owner's answer of Nov 12 (W6-Q12), a request from the page can answer an 
 
 By the owner's answer of Nov 12 (W6-Q22), W7 version 1 is login plus the public site with sample data, and does not control a local backend. A relay, or any way for a deployed page to reach a local backend, is decided after Dec 3 and nothing of it is built. Any of them would be a second door with its own limits, an outbound network import in the core, and a third party in the path of the owner's data. The spec only fixes what they may not do: open the local backend to the internet, or relax a check of W6.
 
-### 213. Requests run one at a time, on the main thread
+### 229. Requests run one at a time, on the main thread
 
 A logbook write holds the termination signals off and can only run in the main thread (`logbook._held_off`), so the handler threads of `umwayi serve` do the reading and the gate and hand every request that may write to the main thread, which runs them one after another. A read waits behind a write, and a slow command (an agent check starts programs) delays the next request for as long as it runs. A write that has not started within 5 seconds is answered `busy`. Relaxing the rule in the logbook would change crash safety code and is not done here.
 
-### 214. A locked-out caller with a token of the right shape is still compared
+### 230. A locked-out caller with a token of the right shape is still compared
 
 After 5 failed token checks in a minute, failures are answered 429 (`rate`) for the next minute. A token of the wrong shape is refused without a comparison, but one of the right shape is compared with the stored digest, because a valid token must never be slowed by someone else's failures (W6.R5.2, W6.R16.1). The comparison is a constant-time compare of two SHA-256 digests, and a guess still has 256 bits to find.
 
-### 215. With a broken logbook the page can read only the status
+### 231. With a broken logbook the page can read only the status
 
 A request is rules-checked and the check is logged before the route runs, so when the logbook cannot be written (a hand edit, a failed tamper check) every request but `GET /v1/status` and the page is answered `logbook` (exit-equivalent 2) and the server goes into the degraded state. The page cannot show the owner what is wrong with the logbook; `umwayi logbook verify` at the terminal says. `snapshot` and `logbook.verify` therefore cannot give `refused` (1) on a broken logbook, which the table of the design had.
 
-### 216. The reader strips the whitespace around a header value
+### 232. The reader strips the whitespace around a header value
 
 The server's own reader takes the bytes on the wire and cuts spaces and tabs from both ends of a header value, as HTTP says. The pure gate sees the cut value, so `Host: 127.0.0.1:PORT ` with a trailing space is accepted. Everything else the gate refuses is refused as it arrived: a fold, a bare line feed, a space before the colon, a duplicate.
 
