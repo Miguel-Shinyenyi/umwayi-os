@@ -72,6 +72,7 @@ export const MAP = [
   ['the top bar over the checks title', ['ui/test/access.test.mjs: the fixed top bar does not cover the title of the owner checks panel when it is scrolled into view']],
   ['the mode buttons over the page title (W1)', ['ui/test/phone.test.mjs: the live view on a phone in portrait: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order', 'site/test/phone.test.mjs: the public site on a phone in portrait: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order']],
   ['a row of buttons past the right edge, or a page that scrolls sideways (W1)', ['ui/test/phone.test.mjs: the live view on a phone in landscape: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order', 'site/test/phone.test.mjs: the public site on a phone in landscape: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order']],
+  ['the name of the selected feature over the station panel (W1)', ['ui/test/phone.test.mjs: the name of the selected feature moves out from under the station panel, beside a side card and above a bottom sheet']],
   ['the list view order changed', ['ui/test/placement.test.mjs: the default positions equal the table of the design']],
 ];
 
@@ -86,5 +87,5 @@ test('every test the map names exists', () => {
       py[file] = true;
     }
   }
-  assert.ok(MAP.length >= 27);
+  assert.ok(MAP.length >= 28);
 });
