@@ -337,6 +337,8 @@ class GateOnTheWireTests(WireBase):
             if h[0].lower() in ("host", "origin"):
                 h[1] = h[1].replace(":%d" % gen.PORT, ":%d" % port)
         r.port = port
+        r.peer = r.server = "127.0.0.1"  # a socket cannot lie about these; the pure gate tests do
+        r.channel = "local"
         r.rec, r.date, r.buckets, r.fails, r.locked_until = record(TOKEN), today(), {}, (), 0.0
         return r
 

@@ -409,10 +409,10 @@ class CodeGuardTests(unittest.TestCase):
             for bad in ("os.system", "os.popen", "shell=True"):
                 self.assertNotIn(bad, src)
 
-    def test_json_loads_is_called_only_on_a_body_or_the_token_record(self):
+    def test_json_loads_is_called_only_on_a_body_the_token_record_and_build_json(self):
         for name, src in self.sources().items():
             n = len(re.findall(r"json\.loads\(", src))
-            self.assertEqual(n, {"servegate.py": 1, "servetoken.py": 1}.get(name, 0), name)
+            self.assertEqual(n, {"servegate.py": 1, "servetoken.py": 1, "serve.py": 1}.get(name, 0), name)  # serve.py: build.json
 
     def test_no_function_compares_an_answer_with_yes_or_ask_me_first(self):
         for name, src in self.sources().items():

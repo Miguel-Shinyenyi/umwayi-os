@@ -28,6 +28,8 @@ import re
 from dataclasses import dataclass
 
 LOOPBACK = "127.0.0.1"
+DEFAULT_PORT = 8765  # `umwayi serve --port 0` takes a free one
+MIN_PORT, MAX_PORT = 1024, 65535
 CHANNELS = ("local",)  # a closed set of one (W6.R12.4): a relay would be a second member, decided after Dec 3
 
 # the fixed words of a refusal (W6.R15.2) and the exit code the command line would give; `body` is a usage error

@@ -25,7 +25,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, decisions, elections, jobs, kill, logbook, petition,
-                    publish, report, rules, schedule, servetoken, taskqueue, units, view, workflow)
+                    publish, report, rules, schedule, servegate, servetoken, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -62,6 +62,14 @@ def _within_arg(value: str) -> int:
 def _days_arg(value: str) -> int:
     if not re.fullmatch(r"\d{1,3}", value) or not 1 <= int(value) <= servetoken.MAX_DAYS:
         raise argparse.ArgumentTypeError(f"must be a whole number from 1 to {servetoken.MAX_DAYS}")
+    return int(value)
+
+
+def _port_arg(value: str) -> int:
+    ok = re.fullmatch(r"\d{1,5}", value) and (int(value) == 0 or servegate.MIN_PORT <= int(value) <= servegate.MAX_PORT)
+    if not ok:
+        raise argparse.ArgumentTypeError(f"must be 0 (a free one) or a whole number from {servegate.MIN_PORT} to "
+                                         f"{servegate.MAX_PORT}")
     return int(value)
 
 
@@ -286,6 +294,11 @@ def build_parser() -> argparse.ArgumentParser:
                                                     "(default: today, from the system clock)")
 
     sv = sub.add_parser("serve", help="the local backend for the web page (W6); exit 0, 1, 2 or 64, never 3")
+    sv.add_argument("--port", type=_port_arg, default=servegate.DEFAULT_PORT,
+                    help=f"the port on 127.0.0.1, 0 for a free one (default {servegate.DEFAULT_PORT}); there is no "
+                         "option for any other address")
+    sv.add_argument("--page", help="the built page to serve (default: ui/dist/index.html beside the package), served "
+                                   "only if its SHA-256 equals the one in build.json beside it")
     svsub = sv.add_subparsers(dest="serve_command", parser_class=_Parser)
     svt = svsub.add_parser("token", help="the token of the local backend: shown once, kept only as a SHA-256")
     svtsub = svt.add_subparsers(dest="token_command", parser_class=_Parser)
@@ -581,6 +594,21 @@ def _cmd_view(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_serve(args, out) -> int:
+    """W6. `umwayi serve`: 0 stopped, 1 the logbook failed its tamper check (nothing started), 2, 64; never 3."""
+    try:
+        from umwayi import serve  # here, not at the top: the network modules are loaded only when a server starts
+        return serve.run(Path(args.root), args.port, args.page, out, sys.stderr)
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _is_terminal(out) -> bool:
     try:
         return bool(out.isatty())
@@ -691,9 +719,11 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return 0
         if args.command == "autonomy" and getattr(args, "autonomy_command", None) in ("status", "validate"):
             return _cmd_autonomy(args, out)
-        if args.command == "serve" and getattr(args, "serve_command", None) == "token" \
-                and getattr(args, "token_command", None):
-            return _cmd_serve_token(args, out)
+        if args.command == "serve" and getattr(args, "serve_command", None) == "token":
+            if getattr(args, "token_command", None):
+                return _cmd_serve_token(args, out)
+        elif args.command == "serve" and not getattr(args, "serve_command", None):
+            return _cmd_serve(args, out)
         if args.command == "petition":
             r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
             out.write("\n".join(petition.render(r)) + "\n")
