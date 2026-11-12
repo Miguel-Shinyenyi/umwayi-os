@@ -50,7 +50,7 @@
     "src/stations/rules.js": "3e3f677a8b8b0e9847e1fff21566eb908049970954d04c572a0e1cd470e87764",
     "src/stations/workflows.js": "4d6ce8a1350a6302c3f1ef58f1340927ab77913bcbc7cc434c673987edff0ae5",
     "src/style.css": "5c7716547d2d0b2f0b8ebdbc0da0bd3cb9cf064401fd7cf41d2fab584fa58f59",
-    "src/ui/backend.js": "77685f1b2e21ddf2b430aa3b3d940798a9de7b2d0c04bfe316726b0b52d948bb",
+    "src/ui/backend.js": "5fc3749f7d5d02f553bf9cc3cc1e6f45b473e2ad14779de1c9a4ec02cc4e7471",
     "src/ui/checks.js": "3d90c4bdd48a32ce274f4539c7ce4598b010723602b910722c1707c2a5058ebf",
     "src/ui/fallback.js": "e2f8e971b831153ec4ab7eb205f12a7059e41636f66b8f01b3a84559836801e9",
     "src/ui/home.js": "ae27cf208097f9db277fd4b9b935ba2f9fa5be17eaffa7b508457baca6541726",
@@ -77,5 +77,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "ef03d6588447839318603cacf6239fd764836dcff31f9684f6a4f361e982c3a1"
+  "page": "acc91234c78d36ff7e095e1cd411c49f1054ec30df3634a1f88b9f49b5aee652"
 }
