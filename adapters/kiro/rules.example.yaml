@@ -56,12 +56,12 @@ rules:
   # add "umwayi petition" to the list below.
   - id: kiro-no-guard-shell
     title: Shell commands that touch the guard files
-    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .kiro/hooks, umwayi kill, umwayi decision, decision reopen, umwayi autonomy, autonomy record or autonomy.yaml are refused.
+    text: Shell commands that name rules.yaml, LOGBOOK.md, .umwayi, .kiro/hooks, umwayi kill, umwayi serve, serve.token, umwayi decision, decision reopen, umwayi autonomy, autonomy record or autonomy.yaml are refused.
     cause: An AI helper must not turn off its own rules, logbook or hook.
     verdict: no
     matchers:
       platform: kiro
-      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
+      input_command__contains: ["rules.yaml", "logbook.md", ".umwayi", ".kiro/hooks", "umwayi kill", "umwayi serve", "serve.token", "umwayi decision", "decision reopen", "umwayi autonomy", "autonomy record", "autonomy.yaml", "autonomy.example.yaml"]
 
   - id: kiro-no-guard-edits
     title: Kiro never edits the files that guard it

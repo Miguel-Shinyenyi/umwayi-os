@@ -421,7 +421,12 @@ def _modules():
 # that starts a receiver, so importing any umwayi module still loads no network library (checked below).
 ALLOWED_NETWORK = {("umwayi/telemetry.py", "http.server"), ("umwayi/telemetry.py", "http.server.BaseHTTPRequestHandler"),
                    ("umwayi/telemetry.py", "http.server.ThreadingHTTPServer"),
-                   ("umwayi/telemetry.py", "socket")}  # S.2: the receiver's request deadline, in the same function
+                   ("umwayi/telemetry.py", "socket"),  # S.2: the receiver's request deadline, in the same function
+                   # W6: the local backend, `umwayi serve` (the owner's decision of Nov 12, rule 10): the same standard
+                   # library server on 127.0.0.1, by name, inside the function that makes the server and no other module
+                   ("umwayi/serve.py", "http.server"), ("umwayi/serve.py", "http.server.BaseHTTPRequestHandler"),
+                   ("umwayi/serve.py", "http.server.HTTPServer"), ("umwayi/serve.py", "http.server.ThreadingHTTPServer"),
+                   ("umwayi/serve.py", "socket")}
 
 
 class CodeTests(SystemBase):

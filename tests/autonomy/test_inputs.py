@@ -164,7 +164,8 @@ class OptInParseTests(AutonomyCase):
     is Ask me first, with or without graded autonomy."""
 
     NEVER = ("payment", "transfer", "purchase", "withdraw", "deposit", "publish", "post", "send", "publish_draft",
-             "schedule_install", "budget_check", "agent_run", "agent_login", "acp_permission")
+             "schedule_install", "budget_check", "agent_run", "agent_login", "acp_permission",
+             "serve_request")
 
     def malformed(self, text, why):
         self.write_rules(text)

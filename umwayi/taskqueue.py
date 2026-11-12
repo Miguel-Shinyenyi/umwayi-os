@@ -394,6 +394,15 @@ def add_once(root: Path, kind: str, title: str, recommendation: str, when: str) 
     return add(root, kind, title, recommendation, when), True
 
 
+def add_row(root: Path, kind: str, title: str, recommendation: str, when: str,
+            if_not_open: bool = False) -> tuple[Row, bool]:
+    """`queue add`, with or without --if-not-open. Returns (row, added). The command line and the local backend (W6)
+    both call this, so the choice between `add` and `add_once` is made in one place."""
+    if if_not_open:
+        return add_once(root, kind, title, recommendation, when)
+    return add(root, kind, title, recommendation, when), True
+
+
 def _transition(root: Path, row_id: str, new_status: str, when: str, command: str, answer_text: str = "",
                 revisit_if: str | None = None) -> Row:
     when = _require_date(when)

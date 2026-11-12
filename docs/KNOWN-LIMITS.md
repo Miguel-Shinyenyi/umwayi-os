@@ -892,9 +892,9 @@ The owner's record is the input. Approving without a look counts as approved as 
 
 `max_moves_per_day` caps the moves of one class on one logbook day, and a `rejected` or `reverted` outcome stops the class for the cooldown. A move that was wrong has still happened: turning graded autonomy off takes effect at the next check and undoes nothing. The owner records `reverted`, which holds the class for the cooldown and lowers its score. A move is also made only in a check that logs; a script that reads the answer of a dry run never sees a move.
 
-## Local backend (W6): `umwayi serve` (known from the spec, Nov 12; nothing is built)
+## Local backend (W6): `umwayi serve` (built Nov 12 in W6.1 to W6.6; the page client W6.9 and the chat and intake routes are not built)
 
-These are the limits the design of [serve.md](serve.md) is known to have. They are written before any code (W6.0 pull request) and corrected or confirmed by the build. Items 196 to 212; numbers are never reused.
+These are the limits of [serve.md](serve.md). Items 196 to 212 were written before any code (W6.0 pull request) and are confirmed or corrected by the build (W6.1 to W6.6, Nov 12); items 233 to 236 are new from the build. Items about the chat (206, 207, 209, 211) and the page (197) describe parts that are not built yet. Numbers are never reused.
 
 ### 196. Whoever has the token is the owner, as far as the backend can tell
 
@@ -918,7 +918,7 @@ The queue, the kill switch and (later) a chat are real. A wrong click in the pag
 
 ### 201. Each request adds logbook entries, and each append reads the whole logbook
 
-A read adds two entries (the rules check and the request), a write up to three. Item 4 applies: every append reads and hashes the whole file. Requests with no valid token, and requests over the rate, are counted in one summary entry a minute, so a flood cannot add an entry each, but a long session of authenticated use grows the file. The cost per append was not measured. The owner approved logging every request on Nov 12 and asked for this volume to be looked at again after the build (W6-Q10).
+A read adds two entries (the rules check and the request), a write up to three. Item 4 applies: every append reads and hashes the whole file. Requests with no valid token, and requests over the rate, are counted in one summary entry a minute, so a flood cannot add an entry each, but a long session of authenticated use grows the file. **Measured at the build (Nov 12, the in-process tests, one machine):** a read costs about 10 ms while the logbook is under 600 entries (180 KB) and about 28 ms between 600 and 1200 entries (360 KB), because each of its two appends reads and hashes the whole file; one request pair adds about 600 bytes. A thousand requests a day would add 0.6 MB a day. The owner approved logging every request on Nov 12 and asked for this volume to be looked at again after the build (W6-Q10); the numbers are for that look.
 
 ### 202. No TLS on loopback
 
@@ -958,7 +958,7 @@ A token's expiry and the logbook date come from the system date (taken with the 
 
 ### 211. The page can only reject an Ask me first of a chat; approvals are at the terminal
 
-By the owner's answer of Nov 12 (W6-Q12), a request from the page can answer an Ask me first of a chat with `reject_once` and nothing else. A holder of the token can therefore stop an AI helper's tool call and cannot allow one, and a stolen token cannot approve. The approval is made at the terminal where `umwayi serve` runs (how is W6-Q28, open); a process of the same user that can type into that terminal, or an AI helper that can read it, is the same limit as items 1 and 15. A holder of the token can also deny every Ask me first, which makes a chat unusable until a Yes rule exists (a nuisance, not a way in). Allowing from the page waits until the page's threat model has been tested by hand and the owner approves.
+By the owner's answer of Nov 12 (W6-Q12), a request from the page can answer an Ask me first of a chat with `reject_once` and nothing else. A holder of the token can therefore stop an AI helper's tool call and cannot allow one, and a stolen token cannot approve. The approval is made at the terminal where `umwayi serve` runs (W6-Q28, answered Nov 12: at the console of `umwayi serve`, with the prompt `Allow once? [y/N]`; with no terminal attached the request is rejected); a process of the same user that can type into that terminal, or an AI helper that can read it, is the same limit as items 1 and 15. A holder of the token can also deny every Ask me first, which makes a chat unusable until a Yes rule exists (a nuisance, not a way in). Allowing from the page waits until the page's threat model has been tested by hand and the owner approves.
 
 ### 212. Login for a deployed interface is not built (W7)
 
@@ -1046,24 +1046,42 @@ A failed, stopped, needs-owner or in-review task keeps its worktree, and a crash
 
 A linked worktree shares objects, refs and config with the root repository. A helper that can run git write commands in its worktree can change refs or config of the shared repository (a branch, a tag, a hook path; umwayi turns the hooks path off only for its own git calls). The gate (`rules.yaml`, which should say Ask me first for git writes) is what stops that. The scope check looks only at the files of the task branch, not at other refs.
 
+## Local backend (W6), items from the build (233 to 236)
+
+### 233. Requests run one at a time, on the main thread
+
+A logbook write holds the termination signals off and can only run in the main thread (`logbook._held_off`), so the handler threads of `umwayi serve` do the reading and the gate and hand every request that may write to the main thread, which runs them one after another. A read waits behind a write, and a slow command (an agent check starts programs) delays the next request for as long as it runs. A write that has not started within 5 seconds is answered `busy`. Relaxing the rule in the logbook would change crash safety code and is not done here.
+
+### 234. A locked-out caller with a token of the right shape is still compared
+
+After 5 failed token checks in a minute, failures are answered 429 (`rate`) for the next minute. A token of the wrong shape is refused without a comparison, but one of the right shape is compared with the stored digest, because a valid token must never be slowed by someone else's failures (W6.R5.2, W6.R16.1). The comparison is a constant-time compare of two SHA-256 digests, and a guess still has 256 bits to find.
+
+### 235. With a broken logbook the page can read only the status
+
+A request is rules-checked and the check is logged before the route runs, so when the logbook cannot be written (a hand edit, a failed tamper check) every request but `GET /v1/status` and the page is answered `logbook` (exit-equivalent 2) and the server goes into the degraded state. The page cannot show the owner what is wrong with the logbook; `umwayi logbook verify` at the terminal says. `snapshot` and `logbook.verify` therefore cannot give `refused` (1) on a broken logbook, which the table of the design had.
+
+### 236. The reader strips the whitespace around a header value
+
+The server's own reader takes the bytes on the wire and cuts spaces and tabs from both ends of a header value, as HTTP says. The pure gate sees the cut value, so `Host: 127.0.0.1:PORT ` with a trailing space is accepted. Everything else the gate refuses is refused as it arrived: a fold, a bare line feed, a space before the colon, a duplicate.
+
 ## Layer 12: the phone layout (found while building W1)
 
-### 233. The phone layout is checked in one emulated browser, not on a device
+### 237. The phone layout is checked in one emulated browser, not on a device
 
 The overlap, sideways and touch size checks (`ui/test/phone.test.mjs`, `site/test/phone.test.mjs`) run in headless Chromium 158 with the phone sizes 375 by 667, 390 by 844, 412 by 915 and 360 by 640 and the same four on their side, with touch and a mobile viewport emulated and the pixel ratio at 1. No real phone, real touch, real GPU, Safari (iOS) or Firefox (Android) was used. Fonts are those of the machine: a phone with wider system fonts or a larger text size setting can wrap a button label onto more lines, which the layout allows (the bar is in the page and grows) but no test measured. A layout that fits in the emulation can still differ on a device with a notch, a rounded corner or a browser bar that changes the height while scrolling (the first screen uses `100svh`, the smallest height).
 
-### 234. The phone tests need a Chromium and skip without one
+### 238. The phone tests need a Chromium and skip without one
 
 `ui/tools/browser.mjs` finds Google Chrome, Chromium or a Playwright headless shell on PATH or in `~/.cache/ms-playwright`, or the file named by `UMWAYI_BROWSER`. With none, the four phone tests report as skipped and print the steps for the check by hand, so a machine without a browser sees a green run that did not look at the layout. `UMWAYI_REQUIRE_BROWSER=1` makes a missing browser a failure. The CI workflow was not changed (it is outside `ui/` and `site/`); the runner image normally has Chrome, and whether the tests ran there is read from the "skipped" count of the Node step. The tests add about 50 seconds to `ui/` and 60 to `site/` (the site is also built and served on 127.0.0.1).
 
-### 235. On a phone the top bar scrolls away with the page, and the Standard first screen is shorter
+### 239. On a phone the top bar scrolls away with the page, and the Standard first screen is shorter
 
 Below 700 pixels wide, on a touch screen and in a window under 520 pixels high the top bar is part of the page instead of floating over it, so it can never cover the title. The cost is that the View switch, Owner checks and Calm mode are not on screen once the visitor has scrolled down; there is no sticky bar. On an upright phone the bar is two rows (116 pixels), so the picture is shorter than before (at 360 by 640 about 440 pixels instead of 470) and the strip below shows a heading instead of its first row. The camera still picks its narrow framing (picture taller than wide; the hero has a minimum height of 120 per cent of the width for that reason). Wide screens with a mouse keep the floating bar: the screenshots at 1440 by 900 and 1024 by 768 are the same bytes as on main.
 
-### 236. The tick box is drawn by the page on touch screens
+### 240. The tick box is drawn by the page on touch screens
 
 To give the owner checks a 44 pixel target without making the box big, `appearance: none` and a drawn 24 pixel box are used below 700 pixels and on touch screens (a ticked box is filled, with an inner ring). It was seen in one browser; a browser that ignores `appearance` on a checkbox shows its own box inside a 44 pixel area. The tick box itself is the target, with negative margins to keep the text column wide, so on a 360 pixel screen it overlaps the padding of its neighbours, which holds nothing to touch.
 
-### 237. Two phone rules use `:has()`, and a short window gets the side card
+### 241. Two phone rules use `:has()`, and a short window gets the side card
 
 While a station panel is open the "sample" tag is hidden with `:has()` (Chrome 105, Safari 15.4, Firefox 121 and later); in an older browser the tag stays visible behind the panel's glass. In a window under 520 pixels high, which includes every phone on its side, the station panel is a card at the right (at most 360 pixels, 48 per cent of the width) and the title and promise are narrowed to what is left, so on a 667 pixel wide screen the promise wraps to about five lines. The side card scrolls inside itself; nothing was done for a window that is both narrow and short beyond the same rules.
