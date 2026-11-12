@@ -128,3 +128,15 @@ test('the label on the canvas is the live view page label, word for word', () =>
   const label = /<canvas[^>]*aria-label="([^"]*)"/.exec(template)?.[1];
   assert.equal(SCENE_LABEL, label);
 });
+
+test('the owner checks panel is in the server HTML, hidden, with the notice and the rule; its steps are built in the browser, so the server sends no input of it (UI.4)', () => {
+  assert.match(html, /<section class="home" id="checks"[^>]*\bhidden(="")?/);
+  assert.ok(html.includes('These notes are lost when you close this page. Export them first.'));
+  assert.ok(html.includes('Record field names, exit codes and version strings, never a value.'));
+  for (const id of ['checks-open', 'checks-open-list', 'checks-list', 'checks-export-btn', 'checks-copy', 'checks-download', 'checks-close', 'checks-export', 'checks-status', 'checks-copy-only']) {
+    assert.ok(html.includes(`id="${id}"`), id);
+  }
+  assert.match(html, /<textarea[^>]*id="checks-export"[^>]*readOnly=""|<textarea[^>]*readonly/i);
+  assert.equal([...html.matchAll(/<input\b/g)].length, 1, 'the snapshot file picker is the only input the server sends');
+  assert.ok(!/localStorage|sessionStorage|indexedDB|cookie/i.test(html.replace(/cookie-free/g, '')), 'no storage in the server HTML');
+});

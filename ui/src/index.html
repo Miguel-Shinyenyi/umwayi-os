@@ -16,6 +16,7 @@
       <button type="button" class="btn" data-tier="list" aria-pressed="true">List</button>
       <button type="button" class="btn" data-tier="standard" aria-pressed="false">Standard</button>
     </div>
+    <button type="button" class="btn" id="checks-open" aria-expanded="false" aria-controls="checks">Owner checks</button>
     <button type="button" class="btn" id="calm-toggle" aria-pressed="false">Calm mode</button>
   </div>
 </header>
@@ -70,6 +71,7 @@
   <ul id="station-list">
 <!--@list-->
   </ul>
+  <p><button type="button" class="btn small" id="checks-open-list" aria-expanded="false" aria-controls="checks">Owner checks</button></p>
 </section>
 <section class="home" id="start" aria-labelledby="start-title">
   <h2 id="start-title">Start</h2>
@@ -88,6 +90,22 @@
   <ul class="links">
 <!--@links-->
   </ul>
+</section>
+<section class="home" id="checks" aria-labelledby="checks-title" hidden>
+  <h2 id="checks-title" tabindex="-1">Owner checks</h2>
+  <p>Six checks that only you can run, on your machine. The steps are the ones in the NOTES files of the repo, word for word. This page runs nothing and cannot tell whether a check passed: when you have ticked every step of a check, it says "ticked by you".</p>
+  <p class="checks-rule" id="checks-rule">Record field names, exit codes and version strings, never a value.</p>
+  <p class="checks-memory" id="checks-memory">These notes are lost when you close this page. Export them first.</p>
+  <div id="checks-list"></div>
+  <div class="checks-tools">
+    <button type="button" class="btn small" id="checks-export-btn">Export as text</button>
+    <button type="button" class="btn small" id="checks-copy" data-copy="checks-export" hidden>Copy</button>
+    <button type="button" class="btn small" id="checks-download" hidden>Download</button>
+    <button type="button" class="btn small" id="checks-close">Close</button>
+  </div>
+  <p class="checks-copy-only" id="checks-copy-only" hidden></p>
+  <textarea id="checks-export" readonly rows="14" hidden aria-label="The notes as text"></textarea>
+  <p class="copied" id="checks-status" role="status" aria-live="polite"></p>
 </section>
 <footer class="home foot"><p id="foot-note">A sample world. The picture shows made up counts until you load your own.</p></footer>
 </main>

@@ -5,6 +5,7 @@
 import { setTier } from './ui/fallback.js';
 import { initHome } from './ui/home.js';
 import { initSnapshot } from './ui/snapshot.js';
+import { initChecks } from './ui/checks.js';
 import { viewOf } from './data/snapshot.js';
 import { chooseTier, parseTier, tierHash, TIERS } from './engine/tier.js';
 import { readEnv } from './engine/env.js';
@@ -22,6 +23,8 @@ export function boot(win, options, loadApp) {
   const stopHome = initHome(doc, win);
   const env = readEnv(win);
   let app = null, loading = null, turn = 0;
+  // The owner checks panel (12.R7): it needs no scene, so List has it too. It reads and sends nothing.
+  const checks = initChecks(doc, win);
   // What the page shows: the sample world, until the owner (or a visitor) opens a snapshot file. The file is read in this browser
   // and nowhere else (ui/snapshot.js). A scene that starts later starts with it; one that is running is told with setData.
   let view = viewOf(null);
@@ -73,5 +76,5 @@ export function boot(win, options, loadApp) {
     b.addEventListener('click', onClick);
     clicks.push([b, onClick]);
   });
-  return { stop() { clicks.forEach(([b, f]) => b.removeEventListener('click', f)); snapshot.stop(); if (stopHome) stopHome(); } };
+  return { stop() { clicks.forEach(([b, f]) => b.removeEventListener('click', f)); snapshot.stop(); checks.stop(); if (stopHome) stopHome(); } };
 }

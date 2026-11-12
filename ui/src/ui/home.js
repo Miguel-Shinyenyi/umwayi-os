@@ -5,14 +5,20 @@ export function initHome(doc, win) {
   doc.querySelectorAll('button[data-copy]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const code = doc.getElementById(btn.dataset.copy);
-      const text = code.textContent;
+      const isBox = typeof code.value === 'string'; // the box of the owner's notes: copy what it holds now, and do not echo it
+      const text = isBox ? code.value : code.textContent;
       const done = () => {
         btn.textContent = 'Copied';
-        say(`Copied: ${text}`);
+        say(isBox ? 'Copied the notes.' : `Copied: ${text}`);
         win.setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
       };
       // where the browser does not allow it, select the text so the owner can press Ctrl+C
       const fallback = () => {
+        if (isBox) {
+          code.select();
+          say('The browser did not allow a copy here. The notes are selected: press Ctrl+C.');
+          return;
+        }
         const r = doc.createRange();
         r.selectNodeContents(code);
         const s = win.getSelection();
