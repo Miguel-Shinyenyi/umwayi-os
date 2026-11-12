@@ -40,6 +40,10 @@ class Lazy:
     def __getattr__(self, attr):
         return getattr(importlib.import_module(self._name), attr)
 
+    def module(self):
+        """The real module, for mock.patch.object (patching the Lazy object itself would change nothing)."""
+        return importlib.import_module(self._name)
+
 
 servegate = Lazy("umwayi.servegate")
 servetoken = Lazy("umwayi.servetoken")

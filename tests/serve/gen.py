@@ -279,12 +279,12 @@ def _build():
         "Sec-Fetch-Site", "same-origin"))
     # body length and type
     must("content_length_missing", "length", lambda r: r.drop("Content-Length"), is_post)
-    must("content_length_doubled", "header", lambda r: r.add("Content-Length", r.get("Content-Length")[0]), is_post)
+    must("content_length_doubled", "header", lambda r: r.add("Content-Length", (r.get("Content-Length") or ["2"])[0]), is_post)
     must("content_length_negative", "length", lambda r: r.set("Content-Length", "-1"), is_post)
     must("content_length_hex", "length", lambda r: r.set("Content-Length", "0x10"), is_post)
     must("content_length_seven_digits", "length", lambda r: r.set("Content-Length", "1000000"), is_post)
     must("content_length_over_the_cap", "length",
-         lambda r: r.set("Content-Length", str(BODY_CAPS[r.route] + 1)), is_post)
+         lambda r: r.set("Content-Length", str(BODY_CAPS.get(r.route, 64) + 1)), is_post)
     must("content_length_zero", "length", lambda r: r.set("Content-Length", "0"), is_post)
     must("content_length_with_plus", "length", lambda r: r.set("Content-Length", "+5"), is_post)
     must("content_type_missing", "type", lambda r: r.drop("Content-Type"), is_post)
@@ -292,7 +292,7 @@ def _build():
     must("content_type_form", "type", lambda r: r.set("Content-Type", "application/x-www-form-urlencoded"), is_post)
     must("content_type_json_other_charset", "type", lambda r: r.set("Content-Type", "application/json; charset=latin1"),
          is_post)
-    must("body_on_a_get", "length", lambda r: r.add("Content-Length", "5"), lambda r: r.method == "GET")
+    must("body_on_a_get", "length", lambda r: r.set("Content-Length", "5"), lambda r: r.method == "GET")
     # peer, protocol, method
     must("peer_not_loopback", "peer", lambda r: setattr(r, "peer", "10.0.0.5"))
     must("peer_empty", "peer", lambda r: setattr(r, "peer", ""))
@@ -303,8 +303,8 @@ def _build():
     for v in ("HTTP/0.9", "HTTP/2.0", "HTTP/1.2", "http/1.1", ""):
         must(f"version_{v.replace('/', '_') or 'empty'}", "method", lambda r, v=v: setattr(r, "version", v))
     must("method_swapped_to_post_on_a_get_route", "method", lambda r: (
-        setattr(r, "method", "POST"), r.add("Origin", f"http://127.0.0.1:{PORT}"),
-        r.add("Content-Type", "application/json"), r.add("Content-Length", "2")), lambda r: r.method == "GET"
+        setattr(r, "method", "POST"), r.set("Origin", f"http://127.0.0.1:{PORT}"),
+        r.set("Content-Type", "application/json"), r.set("Content-Length", "2")), lambda r: r.method == "GET"
         and r.route not in ("queue.list",) and r.route != "page")
     must("method_swapped_to_get_on_a_post_route", "method", lambda r: (
         setattr(r, "method", "GET"), r.drop("Content-Length"), r.drop("Content-Type")),
@@ -372,7 +372,7 @@ def _build():
                                              r.add("Sec-Fetch-Dest", "empty")), _v1)
     benign("good_page_fetch_metadata", lambda r: (r.add("Sec-Fetch-Site", "none"), r.add("Sec-Fetch-Mode", "navigate"),
                                                   r.add("Sec-Fetch-Dest", "document")), lambda r: r.route == "page")
-    benign("origin_on_a_get", lambda r: r.add("Origin", f"http://127.0.0.1:{PORT}"), lambda r: r.method == "GET"
+    benign("origin_on_a_get", lambda r: r.set("Origin", f"http://127.0.0.1:{PORT}"), lambda r: r.method == "GET"
            and not r.get("Origin"))
     benign("a_long_but_legal_header", lambda r: r.add("X-Long", "a" * 4096))
     benign("sixty_four_headers", lambda r: [r.add(f"X-H{i}", "v") for i in range(64 - len(r.headers))])
