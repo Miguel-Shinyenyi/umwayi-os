@@ -117,6 +117,23 @@ def snapshot_tree(root: Path, skip=(".umwayi/logbook.lock", ".umwayi/serve.lock"
     return out
 
 
+def write_agents(root: Path, workdir: Path, name: str = "helper") -> Path:
+    """An agents.yaml with one Kiro agent whose command and folder carry a sentinel (they are paths: never in a response)."""
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    path = Path(root) / "agents.yaml"
+    path.write_text(f"agents:\n  - name: {name}\n    platform: kiro\n    command: kiro-cli\n    workdir: {workdir}\n")
+    return path
+
+
+LOGBOOK_FILES = ("LOGBOOK.md", ".umwayi/logbook.sha256", ".umwayi/logbook.pending")
+
+
+def state_files(root: Path) -> dict:
+    """Every file of the root except the logbook and its record: what a refusal must leave byte for byte as it was."""
+    return {k: v for k, v in snapshot_tree(root).items() if k not in LOGBOOK_FILES}
+
+
 def logbook_entries(root: Path) -> list:
     from umwayi import logbook
     return logbook.read_checked(Path(root))
@@ -175,6 +192,9 @@ class Server:
 
     def stop(self, sig=None):
         import signal
+        if getattr(self, "_stopped", False):
+            return self.proc.returncode
+        self._stopped = True
         if self.proc and self.proc.poll() is None:
             self.proc.send_signal(sig or signal.SIGTERM)
             try:
@@ -247,6 +267,80 @@ def parse_response(raw: bytes):
 
 def envelope(body: bytes) -> dict:
     return json.loads(body.decode("utf-8"))
+
+
+class Clock:
+    """A monotonic clock the test moves by hand. Every request of InProc moves it one second, so no rate limit trips."""
+
+    def __init__(self, t=1000.0):
+        self.t = t
+
+    def __call__(self):
+        return self.t
+
+
+class Reply:
+    def __init__(self, status, headers, body):
+        self.status, self.headers, self.raw = status, headers, body
+        try:
+            self.env = json.loads(body.decode("utf-8")) if body.startswith(b"{") else None
+        except ValueError:
+            self.env = None
+
+    @property
+    def word(self):
+        return self.env and self.env["word"]
+
+    @property
+    def code(self):
+        return self.env and self.env["code"]
+
+    @property
+    def ok(self):
+        return self.env and self.env["ok"]
+
+    @property
+    def data(self):
+        return self.env and self.env.get("data")
+
+    def __repr__(self):
+        return f"Reply({self.status}, {self.raw[:200]!r})"
+
+
+class InProc:
+    """The backend without a socket: Facts go in, a Response comes out. Same code path as the live server."""
+
+    def __init__(self, root, today=DATE, port=PORT, page=None, tick=1.0, **backend_kw):
+        self.root, self.today, self.port, self.tick = Path(root), today, port, tick
+        self.clock = Clock()
+        self.body_reads = []
+        self.backend = serve.Backend(self.root, port, page=page, today=lambda: self.today, clock=self.clock, **backend_kw)
+
+    def request(self, method, path, body=None, token=TOKEN, extra=(), drop=(), raw=None, origin=True):
+        data = raw if raw is not None else (json.dumps({} if body is None else body).encode() if method == "POST" else b"")
+        headers = [("Host", f"127.0.0.1:{self.port}"), ("Accept", "*/*")]
+        if token is not None and path != "/":
+            headers.append(("Authorization", f"Bearer {token}"))
+        if method == "POST":
+            if origin:
+                headers.append(("Origin", f"http://127.0.0.1:{self.port}"))
+            headers += [("Content-Type", "application/json"), ("Content-Length", str(len(data)))]
+        headers = [h for h in headers if h[0] not in drop] + list(extra)
+        facts = servegate.Facts("HTTP/1.1", method, path, tuple(headers), "127.0.0.1", "127.0.0.1", self.port, "local")
+
+        def read_body(n):
+            self.body_reads.append(n)
+            return data[:n]
+
+        self.clock.t += self.tick
+        r = self.backend.handle(facts, read_body)
+        return Reply(r.status, {k.lower(): v for k, v in r.headers}, r.body)
+
+    def get(self, path, **kw):
+        return self.request("GET", path, **kw)
+
+    def post(self, path, body=None, **kw):
+        return self.request("POST", path, body, **kw)
 
 
 class RootCase(unittest.TestCase):
