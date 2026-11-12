@@ -326,6 +326,8 @@ class GateOnTheWireTests(WireBase):
         for n, v in r.headers:
             if not n or not v.isprintable() or not v.isascii() or any(c in n for c in " :\r\n\x00") or n != n.strip():
                 return None
+            if v != v.strip(" \t"):
+                return None  # the reader strips the whitespace around a value, as HTTP says; the pure gate does not
             lines.append(f"{n}: {v}")
         head = f"{r.method} {r.target} {r.version}\r\n" + "".join(ln + "\r\n" for ln in lines) + "\r\n"
         return head.encode("ascii") + r.body

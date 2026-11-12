@@ -93,6 +93,9 @@ CORE = ["kill.state", "rules.check_and_log", "logbook.append", "taskqueue.list_r
         "logbook.verify", "budget.status", "agents.load", "agents.check_agent"]
 
 
+INTERNAL = {"kill.state", "logbook.read_checked_chain", "logbook.verify"}
+
+
 class SpyTests(RootCase):
     def setUp(self):
         super().setUp()
@@ -109,7 +112,7 @@ class SpyTests(RootCase):
                 names = spy.names()
                 for name, _args in expected:
                     self.assertIn(name, names)
-                    if name != "kill.state":
+                    if name not in INTERNAL:  # these are also called by the rules check itself
                         self.assertEqual(names.count(name), 1, (rid, names))
                 self.assertIn("logbook.append(request)", names)
                 self.assertEqual(names.count("logbook.append(request)"), 1)
@@ -121,10 +124,12 @@ class SpyTests(RootCase):
                     continue
                 self.assertEqual(names.count("rules.check_and_log"), 1)
                 self.assertLess(names.index("kill.state"), names.index("rules.check_and_log"))
+                check = names.index("rules.check_and_log")
                 for name, _a in expected:
                     if name != "kill.state":
-                        self.assertLess(names.index("rules.check_and_log"), names.index(name), (rid, names))
-                        self.assertLess(names.index(name), names.index("logbook.append(request)"))
+                        last = len(names) - 1 - names[::-1].index(name)
+                        self.assertLess(check, last, (rid, names))  # the last call is after the rules check
+                        self.assertLess(last, names.index("logbook.append(request)"))
 
     def test_the_arguments_of_the_core_calls(self):
         for rid, method, path, body, cls, expected in ROUTES:
@@ -261,7 +266,8 @@ class DifferentialTests(RootCase):
     """Each scenario runs once through the command line on one root and once through requests on an identical root."""
 
     def roots(self):
-        a, b = self.tmp / "cli", self.tmp / "web"
+        self._n = getattr(self, "_n", 0) + 1
+        a, b = self.tmp / f"cli{self._n}", self.tmp / f"web{self._n}"
         for r in (a, b):
             r.mkdir()
             make_root(r, token=TOKEN)
@@ -374,6 +380,57 @@ class DifferentialTests(RootCase):
         for r in replies:
             self.assertNotIn(SENTINEL.encode(), r.raw, r)
             self.assertNotIn(str(self.tmp).encode(), r.raw, r)
+
+
+# --------------------------------------------------------------------------------- the example rules
+
+class ExampleRulesTests(RootCase):
+    """serve.rules.example.yaml (W6.R17.4): Yes for the read routes, Ask me first for the write and run routes, none for kill.on."""
+
+    def test_the_file_has_the_three_rules_and_no_rule_for_kill_on(self):
+        from umwayi.rules import ASK, YES, decide, load_rules
+        loaded = load_rules(REPO / "serve.rules.example.yaml")
+        self.assertEqual([(r.id, r.verdict) for r in loaded], [("serve-read", YES), ("serve-write", ASK),
+                                                               ("serve-run", ASK)])
+        for r in loaded:
+            self.assertIsNone(r.review_by)
+        from tests.serve.gen import GOLDEN
+        for rid, (_m, _p, _b, cls) in GOLDEN.items():
+            if rid == "page":
+                continue
+            action = {"type": "serve_request", "route": rid, "class": cls, "platform": "web"}
+            want = YES if cls == "read" else ASK
+            self.assertEqual(decide(loaded, action, today=DATE).answer, want, rid)
+        self.assertNotIn("\u2014", (REPO / "serve.rules.example.yaml").read_text(encoding="utf-8"))
+
+    def test_with_the_example_rules_a_read_is_done_and_a_write_asks(self):
+        shutil.copy(REPO / "serve.rules.example.yaml", self.root / "rules.yaml")
+        make_logbook(self.root)
+        web = InProc(self.root)
+        self.assertEqual(web.get("/v1/queue").word, "done")
+        r = web.post("/v1/queue", {"kind": "task", "title": "T"})
+        self.assertEqual((r.word, r.code), ("ask", 3))
+        self.assertIn("The web page asks first: may it do queue.add?", (self.root / "queue.md").read_text())
+        self.assertEqual(web.post("/v1/kill/on", {}).word, "done")
+
+
+class ScheduleTests(RootCase):
+    """W6.R2.1: no schedule entry may run `umwayi serve`; the schedule and the jobs file take no such word."""
+
+    def test_a_job_whose_command_is_serve_is_refused(self):
+        (self.root / "jobs.yaml").write_text("jobs:\n  - name: web\n    command: serve\n    min_gap_days: 1\n")
+        code, out = run_cli(self.root, "run", "jobs.yaml", "--job", "web")
+        self.assertEqual(code, 64)
+
+    def test_a_schedule_entry_that_runs_serve_is_refused(self):
+        (self.root / "schedule.yaml").write_text(
+            "schedules:\n  - name: web\n    run: serve\n    every: daily\n    at: \"08:00\"\n")
+        code, out = run_cli(self.root, "schedule", "validate")
+        self.assertEqual(code, 64)
+        (self.root / "schedule.yaml").write_text(
+            "schedules:\n  - name: web\n    run: job\n    job: serve\n    every: daily\n    at: \"08:00\"\n")
+        (self.root / "jobs.yaml").write_text("jobs:\n  - name: web\n    command: serve\n    min_gap_days: 1\n")
+        self.assertEqual(run_cli(self.root, "schedule", "validate")[0], 64)
 
 
 # ------------------------------------------------------------------------------------------ the code guard

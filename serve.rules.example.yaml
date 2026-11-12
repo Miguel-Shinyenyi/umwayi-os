@@ -1,0 +1,47 @@
+# Example rules for the local backend (`umwayi serve`, workstream W6, requirement W6.R17.4). Copy the rules you want into
+# the rules.yaml of your umwayi root. This file is not read by umwayi.
+#
+# Every request that the web page sends is checked as one action, built by the server from the route and never from
+# the request:
+#   {"type": "serve_request", "route": "queue.answer", "class": "write", "platform": "web"}
+# `class` is read, write or run (docs/serve.md has the table of routes). With no rule that matches, the answer is Ask me
+# first: the page can then do nothing until you write a rule, and the server prints a hint when it starts.
+#
+# Read these before you copy them:
+#   * Yes for the read routes lets the page read the state: the kill switch and the token's dates, the counts of the
+#     snapshot, the rows of the queue (their titles, recommendations and answers), the logbook check, the budget lines
+#     and the names of your agents. It changes nothing.
+#   * Ask me first for every write and run route means each add, answer, close and agent check from the page adds one
+#     decision to the queue ("The web page asks first: may it do queue.answer?") and does nothing until you have decided
+#     and written a Yes rule. A Yes rule on `class: write` lets the page change the queue without asking.
+#   * `kill.on` has no rule here because it needs none: the emergency stop is never held up by a rule. It is still
+#     checked by the gate, logged, and the page can never turn the switch off.
+#   * `serve_request` can never be moved to Yes by graded autonomy (it is on the never list of umwayi/rules.py).
+#   * A Yes rule may carry "review_by: YYYY-MM-DD" (layer 13, elections): past that day it counts as Ask me first.
+rules:
+  - id: serve-read
+    title: The web page may read the state
+    text: A request of the web page that only reads (class read) is allowed.
+    cause: Reading changes nothing, and each read is still logged.
+    verdict: yes
+    matchers:
+      type: serve_request
+      class: read
+
+  - id: serve-write
+    title: A write from the web page needs the owner
+    text: A request of the web page that changes the queue (class write) gives Ask me first.
+    cause: The page is not the owner at the keyboard, so the owner decides and writes a Yes rule if they want one.
+    verdict: ask
+    matchers:
+      type: serve_request
+      class: write
+
+  - id: serve-run
+    title: A run from the web page needs the owner
+    text: A request of the web page that checks an agent (class run) gives Ask me first.
+    cause: A check starts programs on the machine, so the owner decides.
+    verdict: ask
+    matchers:
+      type: serve_request
+      class: run

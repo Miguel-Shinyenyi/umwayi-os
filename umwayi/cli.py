@@ -466,12 +466,9 @@ def _cmd_queue(args, out) -> int:
             out.write(line + "\n")
         return 0
     when = args.date or _today()
-    if cmd == "add" and args.if_not_open:
-        row, added = taskqueue.add_once(root, args.kind, args.title, args.recommendation, when)
+    if cmd == "add":
+        row, added = taskqueue.add_row(root, args.kind, args.title, args.recommendation, when, args.if_not_open)
         out.write(f"{'Added' if added else 'Already open, nothing added:'} {row.id} ({row.kind}): {row.title}\n")
-    elif cmd == "add":
-        row = taskqueue.add(root, args.kind, args.title, args.recommendation, when)
-        out.write(f"Added {row.id} ({row.kind}): {row.title}\n")
     elif cmd == "answer":
         row = taskqueue.answer(root, args.id, args.answer, when, revisit_if=args.revisit_if)
         out.write(f"Answered {row.id} on {row.answered}\n")

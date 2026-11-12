@@ -207,10 +207,10 @@ class SecretTests(EntryBase):
     def test_no_body_header_target_token_or_text_reaches_an_entry_or_a_response(self):
         replies = [
             self.web.post("/v1/queue", {"kind": "task", "title": SENTINEL + "-title"}),
-            self.web.get("/v1/queue?status=open", extra=[("X-Sentinel", SENTINEL + "-header")]),
+            self.web.get("/v1/status", extra=[("X-Sentinel", SENTINEL + "-header")]),
             self.web.get("/v1/queue?zz=" + SENTINEL, extra=[]),
             self.web.get("/v1/queue", token="umt1_" + SENTINEL.replace("-", "_")[:43].ljust(43, "A")),
-            self.web.get("/v1/queue", extra=[("User-Agent", SENTINEL + "-agent")]),
+            self.web.get("/v1/status", extra=[("User-Agent", SENTINEL + "-agent")]),
             self.web.post("/v1/queue/Q-0001/answer", {"answer": SENTINEL + "-answer"}),
             self.web.post("/v1/queue", raw=b'{"kind":"task","title":"' + SENTINEL.encode() + b'\x00"}'),
             self.web.get("/v1/queue", drop=("Host",), extra=[("Host", SENTINEL + ":1")]),
@@ -251,7 +251,7 @@ class DegradedTests(EntryBase):
         self.assertEqual((r.status, r.word, r.code, r.env["logged"]), (500, "logbook", 2, False))
         self.assertEqual(r.env["data"], {"changed": True})
         self.assertIn("Q-0001", (self.root / "queue.md").read_text())  # the command's own entry is the record
-        self.assertTrue(any("Q-0001" in e.added for e in logbook_entries(self.root) if e.source == "umwayi queue"))
+        self.assertTrue(any("Q-0001" in e.added for e in logbook_entries(self.root) if e.source.startswith("umwayi queue")))
 
     def test_after_a_failed_entry_the_server_refuses_everything_but_three_routes(self):
         with self.failing():

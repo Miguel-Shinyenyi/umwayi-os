@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import queue
 import re
 import secrets
 import signal
@@ -25,7 +26,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 
-from umwayi import fsutil, kill, logbook, rules, runlock, servegate, servetoken, taskqueue
+from umwayi import agents, budget, fsutil, kill, logbook, rules, runlock, servegate, servetoken, taskqueue, view
 from umwayi.errors import UmwayiError, UsageError
 
 LOOPBACK = "127.0.0.1"
@@ -39,7 +40,8 @@ SUMMARY_SECONDS = 60.0
 MAX_COUNT = 1_000_000  # a counter of the summary stops here
 MAX_PAGE = 2_500_000
 MAX_BUILD_JSON = 1 << 20
-REQUEST_LINE = re.compile(r"(GET|POST|DELETE|[A-Z]{1,16}) (\S{1,512}) (HTTP/1\.[01])\r\n")
+MAX_ROWS = 500  # rows of queue.list; beyond that the response says `more`
+REQUEST_LINE = re.compile(r"(GET|POST|DELETE|[A-Z]{1,16}) (\S+) (HTTP/1\.[01])\r\n")  # the gate judges the target
 
 # the pipeline words (W6.R15.2): word -> (HTTP status, the exit code the command line would give)
 WORDS = {"done": (200, 0), "refused": (409, 1), "usage": (400, 64), "error": (500, 2), "ask": (403, 3), "kill": (403, 3),
@@ -157,6 +159,22 @@ class Ctx:
     today: str
 
 
+class _Job:
+    """A piece of work a handler thread hands to the main thread."""
+
+    def __init__(self, fn):
+        self.fn = fn
+        self.result = None
+        self.error = None
+        self.done = threading.Event()
+        self.started = threading.Event()
+        self.lock = threading.Lock()
+        self.cancelled = False
+
+
+_BUSY = object()  # what _in_main gives back when the work was not started in time
+
+
 def _code_of(word: str) -> int:
     return WORDS[word][1] if word in WORDS else servegate.WORD_CODE[word]
 
@@ -197,22 +215,64 @@ class Backend:
         self._last_flush = self._clock()
         self._log_key = None
         self._log_date = None
+        self.pump = None  # set by the server: the queue the main thread takes work from (see _in_main)
+        self.closing = False
+
+    # ------------------------------------------------------------------ the main thread
+
+    def _in_main(self, fn, wait: bool = True, limit=None):
+        """Run `fn` on the main thread. A logbook write holds the termination signals off while it runs, and a handler
+        can only be swapped in the main thread (logbook._held_off), so the handler threads of the server hand all the
+        work that may write the logbook to the main thread of `umwayi serve`, which runs it one at a time. With no pump
+        (the tests, or a caller that already is the main thread) it runs here. `limit` is how long work may wait for
+        its turn (a write waits 5 seconds, then it is `busy`); None waits as long as the server runs."""
+        if self.pump is None or threading.current_thread() is threading.main_thread():
+            return fn()
+        job = _Job(fn)
+        self.pump.put(job)
+        if not wait:
+            return None
+        if limit is not None and not job.started.wait(limit):
+            with job.lock:
+                if not job.started.is_set():
+                    job.cancelled = True
+                    return _BUSY
+        while not job.done.wait(1.0):
+            if self.closing:
+                raise OSError("the server is stopping")
+        if job.error is not None:
+            raise job.error
+        return job.result
+
+    def pump_once(self, timeout: float) -> bool:
+        """Run one piece of work from a handler thread. Called in a loop by the main thread of `umwayi serve`."""
+        try:
+            job = self.pump.get(timeout=timeout)
+        except queue.Empty:
+            return False
+        with job.lock:
+            if job.cancelled:
+                return True
+            job.started.set()
+        try:
+            job.result = job.fn()
+        except (Exception, KeyboardInterrupt) as e:
+            job.error = e
+        finally:
+            job.done.set()
+        return True
 
     # ------------------------------------------------------------------ the election clock
 
     def _newest_logbook_date(self):
-        """The newest date in the logbook, read again only when the file changed (a stat, not a read, per request)."""
+        """The newest date in the logbook, looked up again only when the file changed (a stat per request)."""
         try:
             st = os.stat(self.root / logbook.LOGBOOK_NAME)
         except OSError:
             return None
         key = (st.st_mtime_ns, st.st_size, st.st_ino)
         if key != self._log_key:
-            try:
-                dates = [e.date for e in logbook.read_checked(self.root) if logbook.real_date(e.date)]
-                self._log_date = max(dates) if dates else None
-            except Exception:  # a broken logbook: the request will fail closed at the rules check
-                self._log_date = None
+            self._log_date = logbook.newest_date(self.root)
             self._log_key = key
         return self._log_date
 
@@ -266,19 +326,35 @@ class Backend:
             state = replace(self._state, record=record, date=self.election_date(), mono=started)
             verdict, self._state = servegate.decide(facts, state)
         if isinstance(verdict, servegate.Refuse):
-            if verdict.authed and record is not None and not self.degraded:
+            if verdict.authed and record is not None:
                 # a valid token, turned away after the token check (origin, route, length, type): one entry
-                ctx = Ctx(_new_request_id(), record["id"], verdict.route, facts.method, started, self._today())
-                self._write(ctx, verdict.word, "not read", "not run", False, gate=True)
+                self._in_main(lambda: self._log_gate_refusal(verdict, facts, record, started), wait=False)
             else:
                 self._count(verdict.word)
-            self.flush_summary()
+            self._after_request()
             return gate_response(verdict)
         if verdict.route == "page":
             return self.page_response()
-        response = self.run_pipeline(verdict, facts, read_body, record, started)
-        self.flush_summary()
+        route = servegate.route_by_id(verdict.route)
+        raw = read_body(_declared_length(facts)) if route.method == "POST" else b""  # read only after the gate said Allow
+        limit = self.lock_wait if route.cls in ("write", "run") else None
+        response = self._in_main(lambda: self.run_pipeline(verdict, facts, raw, record, started), limit=limit)
+        if response is _BUSY:
+            self._count("busy")
+            return json_response("busy", None, False)
+        self._after_request()
         return response
+
+    def _log_gate_refusal(self, verdict, facts, record, started) -> None:
+        if self.degraded:
+            self._count(verdict.word)
+            return
+        ctx = Ctx(_new_request_id(), record["id"], verdict.route, facts.method, started, self._today())
+        self._write(ctx, verdict.word, "not read", "not run", False, gate=True)
+
+    def _after_request(self) -> None:
+        if self.pump is None:  # with a pump the main thread flushes the summary in its own loop
+            self.flush_summary()
 
     def page_response(self) -> Response:
         data, _why = read_page(self.page_path)
@@ -289,7 +365,7 @@ class Backend:
 
     # ------------------------------------------------------------------ the pipeline (W6.R7)
 
-    def run_pipeline(self, verdict, facts, read_body, record=None, started=None) -> Response:
+    def run_pipeline(self, verdict, facts, raw_body, record=None, started=None) -> Response:
         """The steps of W6.R7 for a request the gate allowed, in order, stopping at the first that refuses: the request
         id, the body, the write lock, the kill switch, the rules check, the command, the request entry. It cannot be
         entered with a refusal."""
@@ -307,7 +383,7 @@ class Backend:
                 return json_response("logbook", ctx.rid, False)
         params = dict(verdict.params)
         if route.method == "POST":
-            body = servegate.parse_body(route, read_body(_declared_length(facts)))
+            body = servegate.parse_body(route, raw_body)
             if isinstance(body, servegate.Refuse):
                 return self._finish(ctx, "body", "not read", "not run", False)
             params.update(body)
@@ -440,7 +516,72 @@ def _h_kill_on(b: Backend, params: dict, today: str) -> tuple:
     return result.code, {"kill_switch": "on"}
 
 
-HANDLERS = {"status": _h_status, "kill.on": _h_kill_on}
+def _h_snapshot(b: Backend, params: dict, today: str) -> tuple:
+    entries, chain_length = logbook.read_checked_chain(b.root)  # the tamper check, as `view snapshot` makes it
+    data = view.gather(b.root, today, entries, chain_length)
+    if not view.valid(data):
+        raise UmwayiError("serve: the snapshot did not have the shape of schema 1")
+    return 0, data
+
+
+def _h_queue_list(b: Backend, params: dict, today: str) -> tuple:
+    rows = taskqueue.list_rows(b.root, params["status"], params["kind"])
+    shown = [{"id": r.id, "kind": r.kind, "status": r.status, "answered": r.answered, "title": r.title,
+              "recommendation": r.recommendation, "answer": r.answer} for r in rows[:MAX_ROWS]]
+    return 0, {"rows": shown, "more": len(rows) > MAX_ROWS}
+
+
+def _h_logbook_verify(b: Backend, params: dict, today: str) -> tuple:
+    report = logbook.verify(b.root, None)
+    if report.problems:
+        return 1, None  # the names of the problems stay with the command line
+    _entries, chain_length = logbook.read_checked_chain(b.root)
+    return 0, {"entries": report.entries, "chain_length": chain_length, "problems": 0}
+
+
+def _h_budget_status(b: Backend, params: dict, today: str) -> tuple:
+    code, lines = budget.status(b.root, today, today)
+    return code, {"lines": lines}
+
+
+def _h_agents_list(b: Backend, params: dict, today: str) -> tuple:
+    found = agents.load(b.root, None)
+    return 0, {"agents": [{"name": a.name, "platform": a.platform, "transport": a.transport} for a in found]}
+
+
+_CHECK_LINE = re.compile(r"(ok|no|not run): ([A-Za-z0-9 ._-]{1,60}): ")
+
+
+def _h_agents_check(b: Backend, params: dict, today: str) -> tuple:
+    result = agents.check_agent(b.root, params["name"], None, None)
+    checks = []
+    for line in result.lines:  # the name and the mark of each check; the detail may hold a path, so it stays out
+        m = _CHECK_LINE.match(line)
+        if m:
+            checks.append({"name": m.group(2), "ok": {"ok": True, "no": False}.get(m.group(1))})
+    return result.code, {"gated": result.code == 0, "checks": checks}
+
+
+def _h_queue_add(b: Backend, params: dict, today: str) -> tuple:
+    row, added = taskqueue.add_row(b.root, params["kind"], params["title"], params.get("recommendation", ""), today,
+                                   params.get("if_not_open", False))
+    return 0, {"id": row.id, "added": added}
+
+
+def _h_queue_answer(b: Backend, params: dict, today: str) -> tuple:
+    row = taskqueue.answer(b.root, params["id"], params["answer"], today, revisit_if=params.get("revisit_if"))
+    return 0, {"id": row.id, "answered": row.answered}
+
+
+def _h_queue_close(b: Backend, params: dict, today: str) -> tuple:
+    row = taskqueue.close(b.root, params["id"], today)
+    return 0, {"id": row.id, "status": row.status}
+
+
+HANDLERS = {"status": _h_status, "snapshot": _h_snapshot, "queue.list": _h_queue_list,
+            "logbook.verify": _h_logbook_verify, "budget.status": _h_budget_status, "agents.list": _h_agents_list,
+            "agents.check": _h_agents_check, "queue.add": _h_queue_add, "queue.answer": _h_queue_answer,
+            "queue.close": _h_queue_close, "kill.on": _h_kill_on}
 
 
 # --------------------------------------------------------------------------------------- the server shell
@@ -552,17 +693,24 @@ def _classes():
                     pass
                 self.shutdown_request(request)
                 return
+            with self.count_lock:
+                self.active += 1
             try:
                 super().process_request(request, client_address)
             except BaseException:
-                self.slots.release()
+                self._finished()
                 raise
 
         def process_request_thread(self, request, client_address):
             try:
                 super().process_request_thread(request, client_address)
             finally:
-                self.slots.release()
+                self._finished()
+
+        def _finished(self):
+            with self.count_lock:
+                self.active -= 1
+            self.slots.release()
 
         def handle_error(self, request, client_address):  # never print a traceback with request content
             pass
@@ -583,6 +731,8 @@ class Running:
         self.server = server_class((LOOPBACK, port), handler_class)
         self.server.backend = backend
         self.server.slots = threading.BoundedSemaphore(MAX_HANDLERS)
+        self.server.active = 0
+        self.server.count_lock = threading.Lock()
         host, bound = self.server.socket.getsockname()[:2]
         if host != LOOPBACK or (port and bound != port):  # read back what the socket really is (W6.R3.2)
             self.server.server_close()
@@ -595,16 +745,16 @@ class Running:
     def start(self) -> None:
         self.thread.start()
 
-    def stop(self) -> None:
-        self.server.shutdown()
-        # wait for the requests in flight (at most 5 seconds), then close the socket
-        deadline = time.monotonic() + 5.0
-        taken = 0
-        while taken < MAX_HANDLERS and time.monotonic() < deadline:
-            if self.server.slots.acquire(timeout=max(0.0, deadline - time.monotonic())):
-                taken += 1
-            else:
-                break
+    def begin_stop(self) -> None:
+        """Stop accepting. `shutdown` waits for the accept loop to end, so it runs in a thread of its own and the main
+        thread goes on running the work the handlers still wait for."""
+        threading.Thread(target=self.server.shutdown, name="umwayi-serve-stop", daemon=True).start()
+
+    def idle(self) -> bool:
+        with self.server.count_lock:
+            return self.server.active == 0
+
+    def close(self) -> None:
         self.server.server_close()
         self.thread.join(5.0)
 
@@ -681,6 +831,8 @@ def _serve(backend: Backend, rec: dict, today: str, port: int, out, err) -> int:
         stop.set()
 
     previous = {s: signal.signal(s, on_signal) for s in (signal.SIGINT, signal.SIGTERM)}
+    backend.pump = queue.Queue()  # the handler threads hand their work to this thread (Backend._in_main)
+    stopping, deadline = False, 0.0
     try:
         running.start()
         out.write(f"Listening on http://{LOOPBACK}:{running.port}" + ("" if page_ok[0] is not None else " (page not served)")
@@ -693,12 +845,24 @@ def _serve(backend: Backend, rec: dict, today: str, port: int, out, err) -> int:
             out.write("No rule matches a serve_request, so every request will get Ask me first; see "
                       "serve.rules.example.yaml.\n")
         out.flush()
-        while not stop.wait(1.0):
+        while True:
+            backend.pump_once(0.2)
             backend.flush_summary()
+            if stop.is_set():
+                if not stopping:
+                    stopping, deadline = True, time.monotonic() + 5.0
+                    running.begin_stop()
+                # keep running the work of requests in flight until they are done, for at most 5 seconds
+                if running.idle() or time.monotonic() > deadline:
+                    break
     finally:
         for s, h in previous.items():
             signal.signal(s, h)
-        running.stop()
+        backend.closing = True
+        if not stopping:
+            running.begin_stop()
+        running.close()
+    backend.pump = None
     return 0 if backend.shutdown(reason[0] if reason else "stopped") else 2
 
 
