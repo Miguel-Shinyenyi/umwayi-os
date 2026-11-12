@@ -3595,6 +3595,7 @@ This section is added at the end of the file so it merges cleanly with the other
 | the owner approves and merges | `goal approve` (needs a terminal), W9.R9 (approvals), W9.R17 (the system observes a merge and never makes one) |
 | the guide splits goals and checks results | the planning run and the check run of one `agents.yaml` agent (W9.R5, W9.R8.6); it writes nothing |
 | builders do one task each | W9.R8.2; a builder run is one `agent run` for one packet |
+| one task gets one worktree, made by umwayi from the newest main, a fresh helper session per task, no helper in a shared checkout (the owner's rule of Nov 12, core) | W9.R8.1 and W9.R8.9 to W9.R8.16; the git list gains `worktree add` and `worktree remove`; `agent run --workdir` takes only a path umwayi made (W9.6b); "The worktree of a task" below |
 | a tester that is not the builder checks each result | W9.R2.2 (the names differ, tested for every pair), W9.R8.5 (a verdict for every check, parsed strictly) |
 | packet: goal, context files, acceptance checks, where the outcome is recorded, size about 60 builder minutes, model and effort chosen by the owner, files the task may touch | W9.R4.1 (the table of the ten fields); size 15 to 90, the owner's model, effort and budget, blank until approved |
 | states queued, running, in review, needs owner, merged, failed, stopped | W9.R6 (a closed transition table and a closed list of reason words) |
@@ -3605,7 +3606,7 @@ This section is added at the end of the file so it merges cleanly with the other
 | the owner merges, never the system | W9.R1.5, W9.R17, the git list below, a code guard |
 | Python standard library only | W9.R1.6; `git` and `umwayi agent run` are programs it starts, not packages |
 
-What I decided where the words left room, each asked as a question at the end: tester and guide must differ from the builder by agent name (W9-Q2); all three roles share one dedicated checkout (W9-Q3); a task waits for the merge of the one before it, so a run does one task (W9-Q4); a failed task halts the goal with no retry (W9-Q5); what counts as progress and as an error (W9-Q6); the deadlines of approvals (W9-Q7); the owner commands need a terminal (W9-Q9); the shared docs files are rebuilt by the system as the last step of a goal (W9-Q10); scope is checked after the run and not during it (W9-Q11).
+What I decided where the words left room, each asked as a question at the end: tester and guide must differ from the builder by agent name (W9-Q2); each task has its own git worktree, made by umwayi from the newest main (W9-Q3, superseded by the owner's rule of Nov 12); a task waits for the merge of the one before it, so a run does one task (W9-Q4); a failed task halts the goal with no retry (W9-Q5); what counts as progress and as an error (W9-Q6); the deadlines of approvals (W9-Q7); the owner commands need a terminal (W9-Q9); the shared docs files are rebuilt by the system as the last step of a goal (W9-Q10); scope is checked after the run and not during it (W9-Q11).
 
 ### Facts read in the code of main at 508a1f8 (Nov 12 2026)
 
@@ -3615,7 +3616,9 @@ What I decided where the words left room, each asked as a question at the end: t
 - **`taskqueue.add_once(root, kind, title, recommendation, when)`** adds an open row unless one with the same kind and title is open, and returns `(row, added)`. It writes its own logbook entry. It is how every Ask me first becomes visible today.
 - **The budget ledger** is the logbook: `budget.read_ledger(root)` returns reserves and settles by run id; `budget.fit` checks a reservation against the day limits; the placeholders are `per_run` 100 UU and `per_day` 500 UU.
 - **`kill.state(root)`** is `off`, `on` or `unknown`; `runlock.held(root)` is a context manager that raises `RunLockBusy`; `logbook.append`, `logbook.check_writable` and `logbook.read_checked_chain` are the writer, the pre-check and the tamper-checked reader; `fsutil.atomic_write(path, data, mode)` and `fsutil.read_regular(path, limit)` are the file functions; `acp.safe_text` makes agent text safe for a terminal.
-- **`umwayi/report.py` already runs one fixed `git log` command** by argument list (layer 6), so `git` as a program the core starts is not new; what is new is the one write (`git switch -c`) and the checks that make it safe.
+- **`umwayi/report.py` already runs one fixed `git log` command** by argument list (layer 6), so `git` as a program the core starts is not new; what is new is three writes (`git worktree add -b`, `git worktree add --detach` and `git worktree remove`) and the checks that make them safe.
+- **`git worktree`** (git-scm.com, read Nov 12; adapters/NOTES-w9.md): a linked worktree shares everything with its repository except per-worktree files such as HEAD and the index; `add -b` refuses a branch that already exists; `add --detach` makes a worktree with no branch; `remove` refuses an unclean worktree unless `--force` is given; `list --porcelain` is the machine readable list.
+- **`agents._workdir_problem`** requires an agent's `workdir` to be an absolute existing folder that is neither the umwayi root, nor inside it, nor containing it. Today a working folder is fixed per agent in `agents.yaml`, and `agent run` has no way to name another one. That is why the worktree root of W9 is a sibling folder outside the umwayi root, and why `--workdir` must apply the same rule.
 - **`docs/status-log.md` and `docs/KNOWN-LIMITS.md` are edited by hand in almost every pull request,** which is why they conflict (PR 58 and PR 62 are open now and both touch docs). `tests/test_docs.py` checks every `docs/**/*.md` for links and em dashes, checks the four parts and 300 lines only for direct children of `docs/`, and checks that direct children can be reached by links. The part files therefore live outside `docs/`, in `docs-parts/`: a part under `docs/` would be scanned with its own folder as the base of every relative link, and would need nothing a part has. The build checks its own output for the two things a part can break (a link that does not resolve, an em dash) with a small checker of its own, because the core cannot import from `tests/`; a differential test runs `tests.test_docs.check` on the built output and requires the two to agree on 60 generated sets of parts.
 
 ### The picture
@@ -3627,7 +3630,7 @@ owner                        umwayi goal (the supervisor, a program)            
   |  goal approve (terminal)-> roles, model, effort, budgets, packet hashes; tasks queued; one entry
   |  goal run -----------------> for the next task whose turn has come:
   |                              kill switch -> rules goal_start -> checks -> budget cap -> start entry
-  |                              git switch -c branch main (the one write) -> agent run builder ----> builder works, commits, writes its 2 files
+  |                              git worktree add -b branch PATH BASE (BASE = main now) -> agent run builder --workdir PATH ----> builder works in its own worktree, commits, writes its 2 files
   |                              watch every second: kill, log writable, judge(progress, errors), budget
   |                              scope check (git, read only) -> agent run tester -----------------> tester: UMWAYI-RESULT <nonce> {...}
   |                              agent run guide check ------------------------------------------> guide: UMWAYI-CHECK <nonce> {...}
@@ -3646,16 +3649,17 @@ owner                        umwayi goal (the supervisor, a program)            
 | `umwayi/goallog.py` | the event shape, `read`, `Writer` (append, probe, cap), the bounded line reader | the only code that touches an event log |
 | `umwayi/goalstate.py` | the state files, the strict parser of `umwayi goal` entries, `repair`, the write order | uses `logbook`, `fsutil`, `taskqueue` |
 | `umwayi/goalbudget.py` | the ledger window, `spent`, `cap` | pure over a `budget.Ledger` |
-| `umwayi/goalgit.py` | the list of git argument lists and `run_git` | the only place git is started; a code guard checks it |
+| `umwayi/goalgit.py` | the list of git argument lists, `run_git`, `worktree_path` and the path checks, the worktree lifecycle | the only place git is started; a code guard checks it (W9.6b) |
 | `umwayi/goalrun.py` | the supervisor: the start steps, the child, the watch, the roles, the prompts, the verdict parsers | the only place an AI helper is started |
 | `umwayi/goal.py` | the `goal` commands and their exit codes | imported inside `_cmd_goal` |
 | `umwayi/goaldocs.py` | part files, `build`, `check`, numbering, the migration | standard library only |
-| `umwayi/agents.py`, `umwayi/cli.py`, `umwayi/budget.py` | `agent run --cap-uu N --model M --effort E` | W9.6, goldens first, no change without the options |
+| `umwayi/agents.py`, `umwayi/cli.py`, `umwayi/budget.py` | `agent run --cap-uu N --model M --effort E` (W9.6) and `agent run` and `agent check --workdir PATH` for a path umwayi made (W9.6b) | goldens first, no change without the options |
 | `umwayi/rules.py` | `goal_start` in `NEVER_AUTONOMY` | one word, its test and its line in `docs/rules.md` |
 | `docs-parts/status-log/`, `docs-parts/known-limits/` | the part files, one pair per task | W9.9 and the tasks |
 | `tests/goal/` | `gen.py`, `fake_agent.py`, `fakeroot.py`, `test_*.py` | standard library only |
 | `.umwayi/goals/G-0007/` | the state of a goal | in `.gitignore`, mode 0700 |
 | `.umwayi/goal.lock` | the supervisor lock | in `.gitignore`, mode 0600 |
+| `ROOT-worktrees/` (a sibling folder of the umwayi root) | the worktrees: `g-0007-t-02/`, `g-0007-plan/` | mode 0700, outside the root, made by umwayi (W9.R8.11) |
 | `goal.rules.example.yaml` | the example rules for `goal_start` | later; the owner copies lines |
 | the three adapters' example rules | deny the owner commands to an AI helper | text matching, KNOWN-LIMITS 12 |
 
@@ -3725,32 +3729,83 @@ The nonce is made by `secrets.token_hex(8)` for each run, kept in memory, and wr
 7. The kill switch (W9.R16). On: mark every active goal stopped, exit 3.
 8. Observe merges for tasks `in review` (W9.R17.2).
 9. Pick the task: the first not `merged` in plan order. If it is `queued` and every earlier one is merged, go on. If it is `in review`, `needs owner`, `failed` or `stopped`, report and return (0 for in review, 3 for needs owner, 2 for the others).
-10. Run the task: the seven start steps (W9.R7), then builder, scope check, tester, guide's check (W9.R8). Each run is one child; each leaves its own entries; the loop below watches each.
+10. Run the task: the seven start steps (W9.R7, which include the worktree), then builder, scope check, tester, guide's check (W9.R8), all in the task's worktree. Each run is one child; each leaves its own entries; the loop below watches each.
 11. Report (W9.R20), return.
 
 **The watch of one child.** Start `Popen([sys.executable, "-m", "umwayi", "agent", "run", NAME, "-", flags...], stdin=PIPE, stdout=PIPE, stderr=DEVNULL, start_new_session=True, env=...)` and feed the prompt by a thread (as `_feed` does). The child gets the supervisor's environment unchanged; `agent run` builds the AI helper's own environment from it (the credential names removed, 10.R12.6). A reader thread takes lines with the bounded reader of W9.R12.5 and puts events on a queue. The main loop wakes every second and: checks the kill switch, `logbook.check_writable` and the goal folder probe; every 30 seconds takes the work fingerprint; drains the events (writes `output` aggregates every 5 seconds, `error` per error line); calls `judge`; if `judge` says `Stop`, runs the stop of W9.R10.5; if the child exited, reads its exit code and goes on. A `poll` event is written every 30 seconds and is not real (W9.R11.2). Everything the loop writes goes through `goallog.Writer`, which raises on any failure; the loop's one handler for that exception is the stop of W9.R13.2.
 
 ### The git commands (`goalgit.py`, the whole list)
 
-All run as `["git", "-c", "core.hooksPath=/dev/null", "-C", WORKDIR, ...]` with `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0` and no shell, with a 20 second timeout and an output cap of 1 MB.
+All run as `["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-C", DIR, ...]` with `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0` and no shell, with a 20 second timeout and an output cap of 1 MB. `DIR` is the umwayi root for the commands about the repository and the task's worktree for the commands about its tree.
 
-| name | arguments after `-C WORKDIR` | writes | used for |
-| --- | --- | --- | --- |
-| `is_worktree` | `rev-parse --is-inside-work-tree` | no | approval, every start |
-| `head` | `rev-parse HEAD` | no | the tip, the fingerprint |
-| `branch_name` | `symbolic-ref --short HEAD` | no | the base check |
-| `status` | `status --porcelain=v1 -z --untracked-files=all` | no | clean tree, fingerprint |
-| `count_ahead` | `rev-list --count main..HEAD` | no | at least one commit |
-| `changed` | `diff --name-status -z --no-ext-diff --no-renames main...HEAD` | no | the scope check |
-| `is_ancestor` | `merge-base --is-ancestor TIP main` | no | merged, observed |
-| `commit_exists` | `cat-file -e SHA^{commit}` | no | merged, declared |
-| `switch_new` | `switch -c BRANCH main` | **yes, the only write** | the task branch |
+| name | DIR | arguments | writes | used for |
+| --- | --- | --- | --- | --- |
+| `is_repo` | root | `rev-parse --is-inside-work-tree` | no | approval, every start |
+| `has_main` | root | `rev-parse --verify --quiet refs/heads/main` | no | approval |
+| `base` | root | `rev-parse refs/heads/main` | no | BASE, read at each start |
+| `has_origin_main` | root | `rev-parse --verify --quiet refs/remotes/origin/main` | no | the `stale` check |
+| `behind_origin` | root | `rev-list --count refs/heads/main..refs/remotes/origin/main` | no | the `stale` check |
+| `branch_exists` | root | `rev-parse --verify --quiet refs/heads/BRANCH` | no | the `leftover` check |
+| `worktree_list` | root | `worktree list --porcelain -z` | no | leftover, no sharing, the cap, the sweep |
+| `worktree_add` | root | `worktree add -b BRANCH PATH BASE` | **yes** | a task's worktree and branch |
+| `worktree_add_detached` | root | `worktree add --detach PATH BASE` | **yes** | the plan's worktree |
+| `worktree_remove` | root | `worktree remove PATH` | **yes** | cleanup after merged, an unused worktree, the plan's |
+| `toplevel` | worktree | `rev-parse --show-toplevel` | no | the path check |
+| `common_dir` | worktree | `rev-parse --git-common-dir` | no | the path check |
+| `head` | worktree | `rev-parse HEAD` | no | the tip, the fingerprint |
+| `status` | worktree | `status --porcelain=v1 -z --untracked-files=all` | no | clean tree, fingerprint |
+| `count_ahead` | worktree | `rev-list --count BASE..HEAD` | no | at least one commit |
+| `changed` | worktree | `diff --name-status -z --no-ext-diff --no-renames BASE HEAD` | no | the scope check |
+| `is_ancestor` | root | `merge-base --is-ancestor TIP refs/heads/main` | no | merged, observed |
+| `commit_exists` | root | `cat-file -e SHA^{commit}` | no | merged, declared |
 
-`BRANCH` and `SHA` match a fixed pattern before they enter an argument list (`umwayi/g-\d{4,}-t-\d{2}` and 40 or 64 hex characters). `main` is the literal word. A guard test reads the module and fails if any other argument list, or any of `push`, `merge`, `rebase`, `pull`, `fetch`, `reset`, `clean`, `checkout`, `commit`, `tag`, `branch`, `stash` or `-D` appears. `git` may still read the repo's own config (filters, `core.fsmonitor`, `diff.external` are neutralized by the flags and `--no-ext-diff`, and by `-c core.fsmonitor=false` added to the list; others are a known limit, KNOWN-LIMITS 221).
+`BRANCH`, `BASE`, `TIP` and `SHA` match a fixed pattern before they enter an argument list (`umwayi/g-\d{4,}-t-\d{2}`, and 40 or 64 hex characters); `PATH` comes only from `worktree_path` and passes the checks of "The worktree of a task". Words such as `main` are literals. A guard test reads the module and compares every argument as a whole word: it fails if any argument list other than these 18 exists, if any argument is `push`, `merge`, `rebase`, `pull`, `fetch`, `reset`, `clean`, `checkout`, `switch`, `branch`, `tag`, `stash`, `commit`, `prune`, `lock`, `move`, `repair`, `--force` or `-f` (`merge-base` is a different word and is allowed in `is_ancestor` only), or if any of the three writes appears more than once. `git` may still read the repo's own config (filters, `diff.external` are neutralized by the flags and `--no-ext-diff`; others are a known limit, KNOWN-LIMITS 221).
+
+### The worktree of a task
+
+```
+<parent>/umwayi-os/                 the umwayi root: rules.yaml, queue.md, LOGBOOK.md, .umwayi/, and the repository's .git
+<parent>/umwayi-os-worktrees/       the fixed worktree root, mode 0700, made by umwayi
+    g-0007-plan/                    detached at BASE: the guide's planning run; removed when the plan is decided
+    g-0007-t-01/                    branch umwayi/g-0007-t-01 at BASE_1: builder, then tester, then the guide's check
+    g-0007-t-02/                    branch umwayi/g-0007-t-02 at BASE_2, made after t-01 was merged
+```
+
+**`worktree_path(root, goal, task)`** is pure. It takes the real path of the umwayi root, ids that matched `^G-\d{4,}$` and `^T-\d{2}$`, and returns `realpath(root) + "-worktrees/" + "g-0007-t-02"`. `check_path(root, path)` then requires: the path equals that string; its parent exists, is a real folder, not a link, owned by the owner, mode 0700, and is neither the umwayi root nor inside it; the path itself, when it exists, is a real folder and not a link. `agent run --workdir` calls the same two functions (the agent code imports them, not a copy) and adds `rev-parse --show-toplevel` equal to the path and `--git-common-dir` equal to the root repo's.
+
+**Making one (inside start step 8, after the start entry):**
+
+1. Read BASE with `base`, and check `has_origin_main` and `behind_origin` (`stale` if above 0). BASE is in the start entry, so the record comes before the write.
+2. Check `leftover` once more (`worktree_list`, `branch_exists`, the folder, the task files of every goal, the cap of eight): time has passed since step 6.
+3. Make the worktree root if it is missing (one folder, mode 0700, the parent must exist).
+4. `worktree_add`. Failure: `needs owner` (`config`), nothing else is touched.
+5. Verify: `toplevel` equals the path, `common_dir` equals the root repo's, `head` equals BASE, `status` is empty. Failure: the unused worktree is removed (`worktree_remove`, no force) and the task is `needs owner` (`dirty`).
+6. Write the `worktree` event and the entry "Worktree made".
+7. `agents.check_agent` with `--workdir` for the helper about to start (the gate checks are those of this folder). Failure: remove the unused worktree, `needs owner` (`config`).
+8. The `started` event, then the child with `--workdir PATH`.
+
+**Using it.** The builder runs in it. When the builder exits 0 the supervisor runs the scope check against BASE and takes the tip. The tester and the guide's check run in the same worktree, after `status` is empty and `head` equals the tip the scope check passed (`dirty` otherwise). Nothing ever runs two helpers in it at once (the run lock).
+
+**Ending it.**
+
+| the task | the worktree |
+| --- | --- |
+| `merged` | removed after the `merged` entry, when `status` is empty, by `worktree_remove` without force; if git refuses it stays and is listed; the branch stays |
+| `failed`, `stopped`, `needs owner`, `in review` | stays, with its work, until the owner removes it or the task is merged |
+| any state, and no builder `started` event ever written | removed at once (the supervisor's undo, or the next command after a crash), when clean at BASE |
+| the plan's | removed when the plan is approved, denied or discarded; kept and listed when the guide changed it (`readonly`) |
+
+`status` and `report` list the worktrees that are left over (a path and the command to remove it) and the disk each uses (the sum of file sizes, computed only for listed worktrees and capped at 10 000 files). Removing one by hand with `git worktree remove` is always allowed; the next command sees it gone.
+
+**Why a sibling folder.** `agents._workdir_problem` refuses a working folder that is the umwayi root or inside it, so that a helper's folder does not hold `rules.yaml`, the logbook or the queue. A worktree under `.umwayi/` would break that rule or need an exception. A sibling folder keeps the rule as it is, and the worktree gets nothing of the root's state: the tracked files of BASE only.
+
+**What a worktree lacks.** Untracked and ignored files of the owner's folder: `node_modules`, build folders, caches, `.env`, local config, a Kiro hook file the owner did not commit. They are not copied or linked. A helper that needs them makes them, and a gate check that needs one fails as `config`. The `.git` metadata (objects, refs, config) is shared with the root repo, so a helper that can run git write commands could change refs of the shared repo; the gate (`rules.yaml`) is what stops that (KNOWN-LIMITS 232).
+
+**Several tasks at once (W9.12) is the only part left to build later.** With `--ahead N` the supervisor would start a task while another is in review, if their `files` do not overlap. Nothing in the worktree design changes for it: each task already has its own worktree.
 
 ### The work fingerprint
 
-`SHA-256(head || NUL || the status lines sorted || NUL || for each changed path in the status, sorted: path || NUL || SHA-256 of its bytes (read with a 2 MB cap, a larger file counts its size and mtime))`. Left out: the task's status and limits files, `.umwayi/`, and any path the checkout's `.gitignore` ignores (git does not list them). It is a hash, so it can be stored and compared without keeping a file. Reading the files is read-only. A change in a file between two reads shows as a change, which is progress; a file the tool rewrites with the same bytes does not.
+`SHA-256(head || NUL || the status lines sorted || NUL || for each changed path in the status, sorted: path || NUL || SHA-256 of its bytes (read with a 2 MB cap, a larger file counts its size and mtime))`. Left out: the task's status and limits files, `.umwayi/`, and any path the worktree's `.gitignore` ignores (git does not list them). It is a hash, so it can be stored and compared without keeping a file. Reading the files is read-only. A change in a file between two reads shows as a change, which is progress; a file the tool rewrites with the same bytes does not.
 
 ### The event log
 
@@ -3773,6 +3828,7 @@ All run as `["git", "-c", "core.hooksPath=/dev/null", "-C", WORKDIR, ...]` with 
 | `check_result` | `n`, `verdict` | yes |
 | `skipped` | `line`, `offset`, `length`, `reason`, `sha256` | yes |
 | `stopped` | `reason` | yes |
+| `worktree` | `action` (`made` or `removed`), `base` (8 hex characters) | yes |
 | `poll` | none | no |
 | `waiting` | `left_s` | no |
 
@@ -3808,7 +3864,8 @@ Docs: 2 parts not yet built
 | after step 2 (the entry is written) | the entry says the new state, the file the old | repairs the file from the entry, adds a `state` event with `recovered` |
 | after step 3 (the file is written) | the file is right, the event is missing | adds the event with `recovered` |
 | after the start entry, before the child | state `running`, no child | the supervisor is lost: `stopped` with `supervisor` |
-| during the child | `running`, a child | if `goal.lock` is free the supervisor is lost; the child ends by itself (its timeout, kill switch watch) or stays and holds the run lock |
+| after `worktree add`, before the child | `running`, a worktree, no child | the supervisor is lost: `stopped` with `supervisor`; a worktree in which no builder ever started is removed when clean at BASE |
+| during the child | `running`, a child, a worktree | if `goal.lock` is free the supervisor is lost; the child ends by itself (its timeout, kill switch watch) or stays and holds the run lock |
 | a failed write at any step | as the row for that step | the same stop (exit 2), the same repair |
 
 `tests/goal/test_failwrite.py` raises at each of these points for each transition and checks the right-hand column, with a fake clock.
@@ -3874,6 +3931,20 @@ Checked:  Queue row added first. Default answer No.
 Not done: Nothing was started and nothing was answered.
 ```
 
+```
+Source:   umwayi goal
+Added:    Goal G-0007 task T-02: worktree made, base 9f1c2e0a, branch umwayi/g-0007-t-02
+Checked:  main is not behind origin/main. No leftover. Clean at base. Gate checks passed for the worktree. Worktrees in the root: 1 of 8.
+Not done: Nothing was pushed or merged. The owner's working copy was not touched.
+```
+
+```
+Source:   umwayi goal
+Added:    Goal G-0007 task T-01: worktree removed after merged (observed)
+Checked:  The worktree was clean. git worktree remove ran without force. The branch umwayi/g-0007-t-01 was kept.
+Not done: No branch was deleted and nothing was forced.
+```
+
 Other shapes: goal planned (`Goal G-0007 planned by agent NAME: 5 packets, 270 minutes, goal text 212 characters sha256 ab12cd34`), plan approved, approval answered or denied (`Approval denied: ... (timed out)`), goal stopped, docs built, merged observed or declared. Every number, id, word and name comes from a pattern in `goalstate.py`; a test builds every combination.
 
 ### The fail closed table
@@ -3889,7 +3960,11 @@ Other shapes: goal planned (`Goal G-0007 planned by agent NAME: 5 packets, 270 m
 | the packet file differs from its hash | `needs owner` (`unclear`) | one queue row |
 | the plan does not parse or fails a check | exit 2; the goal stays in `plan` with no packets | one entry naming the problem word |
 | the run lock is held | retried, then `needs owner` (`busy`) | one queue row after the fifth try |
-| the checkout is dirty or not on the base | `needs owner` (`dirty`) | one queue row |
+| the local `main` is behind `origin/main` | `needs owner` (`stale`) | one queue row |
+| a worktree, branch or folder of the task is left over, or eight worktrees exist | `needs owner` (`leftover`), exit 3, nothing removed | one queue row |
+| a worktree is not clean when a helper is about to start in it | `needs owner` (`dirty`) | one queue row |
+| `worktree add` fails, or the new worktree does not check out right | `needs owner` (`config`), the unused worktree removed | the entries |
+| `--workdir` is not a path umwayi made | exit 64, nothing starts | nothing |
 | the budget cap is under 1 UU | `failed` (`budget`) or goal `stopped` (`budget`) | the entries |
 | `agent run` exits 3 | `needs owner` (`ask`) | the queue row `agent run` added, ours |
 | `agent run` exits 2 on its own | `failed` (`builder`) | the entries |
@@ -3931,12 +4006,17 @@ Other shapes: goal planned (`Goal G-0007 planned by agent NAME: 5 packets, 270 m
 | a crash between a change and its record | the write order and repair | `test_failwrite.py` |
 | docs conflicts and numbering races | per-task part files, one builder of the shared files, numbers assigned once | `test_docs_parts.py` |
 | git hooks and config run code | `core.hooksPath`, the global config off, `--no-ext-diff`; repo-local config is a known limit | `test_git.py` (a repo with a hook that leaves a marker file: the marker is not made) |
+| a helper works in a shared or wrong folder | one worktree per task, `--workdir` takes only a path umwayi made under the fixed root, the path and the repo checked | `test_worktree.py` |
+| worktrees pile up and use disk | the cap of eight, a leftover stops the start, cleanup after merged, `status` lists them | `test_worktree.py` |
 | a moved branch or a rewritten history after review | the tip is recorded, a changed tip voids the result | `test_merge.py` |
 | a second goal or a second supervisor | `goal.lock`, the run lock | `test_files.py` |
 
 ### What can go wrong in running (failure modes)
 
-- **The owner's checkout is used as the goal checkout.** The approval checks that the folder is a git work tree and clean, and cannot know it is the owner's working copy; the docs say to use a clone of its own (KNOWN-LIMITS 221).
+- **The owner is working in the root repo.** A goal never touches the owner's working copy (no `switch`, no `checkout`); it adds a branch and a worktree next to it. The owner's uncommitted files are not in any worktree.
+- **The local `main` is old.** A start is refused as `stale` only if the remote-tracking ref `origin/main` shows it is behind; with no remote or an old fetch it cannot know (KNOWN-LIMITS 220).
+- **Leftover worktrees.** A failed or stopped task keeps its worktree, and a crash can leave one; the next start for that task is refused as `leftover`, and the cap of eight stops a pile. The owner removes them with `git worktree remove`.
+- **The disk.** Each worktree is a full checkout of the tracked files of BASE (KNOWN-LIMITS 229).
 - **The local `main` is old.** A merge is not observed until the owner updates it, so the next task waits. `status` says "in review, merge not seen".
 - **A squash merge.** `is-ancestor` is false for the branch tip; the owner declares it with `goal merged G T --commit SHA`.
 - **A fast child.** A builder that ends with exit 0 and no commit is `failed` (`outcome`) at once.
@@ -3948,11 +4028,11 @@ Other shapes: goal planned (`Goal G-0007 planned by agent NAME: 5 packets, 270 m
 
 ### Tests (W9.R21), files
 
-`tests/goal/`: `gen.py` (seeded generators, the shrinker), `fake_agent.py`, `fakeroot.py` (a temporary root with a fake `agents.yaml`, `units.yaml`, `rules.yaml` and a git repo), `test_packet.py`, `test_roles.py`, `test_verdict.py`, `test_watch.py`, `test_log.py`, `test_status.py`, `test_approvals.py`, `test_failwrite.py`, `test_budget.py`, `test_docs_parts.py`, `test_merge.py`, `test_git.py`, `test_kill.py`, `test_entries.py`, `test_files.py`, `test_owner_commands.py`, `test_report.py`, `test_cli.py` (exit codes, the order of the start steps), and `test_samecode.py` (spies: each start calls `kill.state`, `rules.check_and_log` and the child in the order of W9.R7; code guards: one child start, one git module, no network import, no shell, no `shell=True`). The normal suite stays standard library only.
+`tests/goal/`: `gen.py` (seeded generators, the shrinker), `fake_agent.py`, `fakeroot.py` (a temporary root with a fake `agents.yaml`, `units.yaml`, `rules.yaml` and a git repo), `test_packet.py`, `test_roles.py`, `test_verdict.py`, `test_worktree.py` (the sixteen points of W9.R8: BASE, the owner's copy untouched, `stale`, the path checks, `--workdir`, leftover, dirty, cleanup after merged, no sharing, the plan worktree, what a worktree lacks), `test_watch.py`, `test_log.py`, `test_status.py`, `test_approvals.py`, `test_failwrite.py`, `test_budget.py`, `test_docs_parts.py`, `test_merge.py`, `test_git.py`, `test_kill.py`, `test_entries.py`, `test_files.py`, `test_owner_commands.py`, `test_report.py`, `test_cli.py` (exit codes, the order of the start steps), and `test_samecode.py` (spies: each start calls `kill.state`, `rules.check_and_log` and the child in the order of W9.R7; code guards: one child start, one git module, no network import, no shell, no `shell=True`). The normal suite stays standard library only.
 
-### KNOWN-LIMITS (written now, numbered 213 to 228)
+### KNOWN-LIMITS (written now, numbered 213 to 232)
 
-213 owner commands trust a terminal; 214 a tester is an AI helper and a pass is a claim; 215 scope is checked after the run; 216 error recognition is a list of line markers; 217 progress is a changed tree and can be faked; 218 cost is attributed by a window; 219 deadlines are enforced when a command next runs; 220 merges are seen only on the local main; 221 git and the checkout are trusted; 222 shared docs are stale until rebuilt, and the status paragraph stays by hand; 223 a model word is checked for shape only; 224 the event log is not tamper evident; 225 one goal, one task, the owner is the wait; 226 OpenCode is not a builder yet; 227 plan quality and prompt injection are not judged; 228 a killed supervisor leaves a child. Full text in `docs/KNOWN-LIMITS.md`.
+213 owner commands trust a terminal; 214 a tester is an AI helper and a pass is a claim; 215 scope is checked after the run; 216 error recognition is a list of line markers; 217 progress is a changed tree and can be faked; 218 cost is attributed by a window; 219 deadlines are enforced when a command next runs; 220 merges are seen only on the local main; 221 git is trusted; 222 shared docs are stale until rebuilt, and the status paragraph stays by hand; 223 a model word is checked for shape only; 224 the event log is not tamper evident; 225 one goal, one task, the owner is the wait; 226 OpenCode is not a builder yet; 227 plan quality and prompt injection are not judged; 228 a killed supervisor leaves a child; 229 each worktree is a full checkout and uses disk; 230 leftover worktrees stay until removed; 231 untracked and ignored files (`node_modules`, build folders, local config) are not in a worktree; 232 worktrees share the repository's metadata. Full text in `docs/KNOWN-LIMITS.md`.
 
 ### Hours, and what it does to the schedule
 
@@ -3966,19 +4046,20 @@ Estimates, without a margin. W9.0 (this spec) is about 6 hours and is this pull 
 | W9.4 `goalwatch.py`: signature, judge, approvals, `expired` | 5 |
 | W9.5 `goalstate.py` and `goalbudget.py`: files, entries, the write order, repair, the ledger window | 7 |
 | W9.6 `agent run --cap-uu --model --effort` with goldens first | 6 |
-| W9.7 `goalrun.py` and `goalgit.py`: the supervisor, the watch, the roles, the prompts | 10 |
+| W9.6b the worktree per task: `agent run` and `agent check --workdir`, the worktree git list, the fixed root, the checks, the lifecycle, `test_worktree.py` | 9 |
+| W9.7 `goalrun.py`: the supervisor, the watch, the roles, the prompts | 9 |
 | W9.8 `goal.py`: the commands, exit codes, status, report, answer, merged, stop; example rules | 7 |
 | W9.9 `goaldocs.py`: parts, build, check, the migration (its own pull request, first) | 7 |
-| **First batch: W9.1 to W9.9** | **60** |
+| **First batch: W9.1 to W9.9 and W9.6b** | **68** |
 | W9.10 the whole-system scenarios, the mutation pass | 8 |
 | W9.11 docs current and the owner's by-hand run with real helpers | 4, plus the owner's time |
-| W9.12 `--ahead` and a worktree per task | 10 |
+| W9.12 `--ahead N`: several tasks in review at once (the worktree per task is core, W9.6b) | 4 |
 | W9.13 OpenCode as a builder (after 10.48) | 8 |
 | W9.14 `goal retry` | 3 |
 | W9.15 the snapshot counts goals that need the owner | 6 |
 | W9.16 the scope enforced during the run by a rules overlay | 8 |
 
-The schedule to Dec 3 has no window for this (layer 12 and W6 are not placed either, and the freeze is Nov 29), and I have not placed W9 in the schedule table; the owner sets any dates (W9-Q14, answered). W9.9 is useful alone, removes the doc conflicts that every pull request has today, and is the one piece that may go before Dec 3 (the owner's answer to W9-Q14, Nov 12: only W9.9 before the freeze, the rest after Dec 3). W9.9 is also the owner's task W17: they are the same task. Build it at a quiet moment, right after the pull request of the W6 first batch (W6.1 to W6.6) merges: the first build moves the text of `docs/status-log.md` and `docs/KNOWN-LIMITS.md` into `docs-parts/`, so any open pull request that still edits those two files would conflict with it; with the W6 batch merged and few pull requests open, that is least likely. The build is in three pull requests after W9.9: W9.1 to W9.5 (nothing starts an AI helper), W9.6 (the three options, goldens first), W9.7 and W9.8 (the supervisor and the commands). No code starts an AI helper before the third.
+The schedule to Dec 3 has no window for this (layer 12 and W6 are not placed either, and the freeze is Nov 29), and I have not placed W9 in the schedule table; the owner sets any dates (W9-Q14, answered). W9.9 is useful alone, removes the doc conflicts that every pull request has today, and is the one piece that may go before Dec 3 (the owner's answer to W9-Q14, Nov 12: only W9.9 before the freeze, the rest after Dec 3). W9.9 is also the owner's task W17: they are the same task. Build it at a quiet moment, right after the pull request of the W6 first batch (W6.1 to W6.6) merges: the first build moves the text of `docs/status-log.md` and `docs/KNOWN-LIMITS.md` into `docs-parts/`, so any open pull request that still edits those two files would conflict with it; with the W6 batch merged and few pull requests open, that is least likely. The build is in four pull requests after W9.9: W9.1 to W9.5 (nothing starts an AI helper), W9.6 (the three options, goldens first), W9.6b (the worktree per task and `--workdir`, goldens first), W9.7 and W9.8 (the supervisor and the commands). No code starts an AI helper before the fourth.
 
 ### Docs page plan
 
@@ -3990,8 +4071,8 @@ Each had a recommendation, and the spec was written with it. The owner answered 
 
 1. **W9-Q1. The name.** The repo defines W4 to W7 and not W8. I used W9 as you named it and left W8 unused. Recommendation: keep W9; tell me if W8 means something I should read. **Answered Nov 12: approved, keep W9. W8 is progress dashboards on the owner's board and is not in the repo.**
 2. **W9-Q2. The tester and the guide are not the builder.** The agent names must differ, checked at approval and at every start; the same platform and model gives a warning, not a refusal. Or also require a different platform or model (stronger, but an owner with one platform and one model could not run a goal). Recommendation: names differ, warn on the same platform and model. **Answered Nov 12: approved as recommended.**
-3. **W9-Q3. Where the helpers work.** All three roles use the same dedicated checkout (their `workdir` in `agents.yaml` is the same folder, a clone of its own, not your working copy), and umwayi makes the task branch with `git switch -c`. Or a git worktree per task, which needs an `agent run --workdir` and is needed anyway for working ahead (W9.12). Or your own working copy (not proposed). Recommendation: one dedicated checkout now, worktrees with W9.12. **Answered Nov 12: approved as recommended (one dedicated checkout now, worktrees with W9.12).**
-4. **W9-Q4. Waiting for the merge.** The next task starts only after the one before it is merged, so one `goal run` does one task and you are the pace. Or several tasks in review at once (`--ahead N`) when their files do not overlap, which needs W9.12 (10 hours) and a worktree per task. Recommendation: wait for the merge now; add `--ahead` only if the waiting hurts. **Answered Nov 12: approved as recommended.**
+3. **W9-Q3. Where the helpers work.** All three roles use the same dedicated checkout (their `workdir` in `agents.yaml` is the same folder, a clone of its own, not your working copy), and umwayi makes the task branch with `git switch -c`. Or a git worktree per task, which needs an `agent run --workdir` and is needed anyway for working ahead (W9.12). Or your own working copy (not proposed). Recommendation: one dedicated checkout now, worktrees with W9.12. **Answered Nov 12: first approved as recommended (one dedicated checkout now, worktrees with W9.12). Then changed by a new owner rule the same day: the worktree per task is core, not an option, and it supersedes the one dedicated checkout. One task gets one worktree, made by umwayi from the newest main, with a fresh helper session per task; no helper works in a shared checkout. Applied in W9.R8.1 and W9.R8.9 to W9.R8.16, this section ("The worktree of a task"), tasks.md (W9.6b) and `docs/goals.md`.**
+4. **W9-Q4. Waiting for the merge.** The next task starts only after the one before it is merged, so one `goal run` does one task and you are the pace. Or several tasks in review at once (`--ahead N`) when their files do not overlap, which needs W9.12 (10 hours, and a worktree per task). Recommendation: wait for the merge now; add `--ahead` only if the waiting hurts. **Answered Nov 12: approved as recommended. After the worktree rule (Q3) W9.12 is `--ahead N` only, 4 hours: the worktree per task is already core.**
 5. **W9-Q5. When a task fails.** The goal halts, the report says why, later tasks stay queued, and you start again or ask for a retry (W9.14). Or one automatic fix attempt with the tester's findings, which costs more and is a second builder run. Recommendation: halt, no automatic retry. **Answered Nov 12: approved as recommended.**
 6. **W9-Q6. Progress, errors and the numbers.** Progress is a changed work tree (the task's own two files excluded), measured every 30 seconds, and 30 minutes without it stops the run. An error is a line starting with one of nine markers, and two identical signatures in a row (other output and edits between do not reset it) stop the run. Or reset the count whenever the tree changes, which tolerates a builder that edits and hits the same error again. Recommendation: the literal reading, and the numbers 30 minutes, 2, 30 seconds. **Answered Nov 12: approved as recommended (the literal reading, 30 minutes, 2, 30 seconds).**
 7. **W9-Q7. Approval deadlines.** A plan waits 7 days, a task that needs you 24 hours, both changeable per goal from 1 hour to 7 days, and both answer No when they pass. A task in review has no deadline. Recommendation: as written. **Answered Nov 12: approved as recommended (7 days and 24 hours, the answer is No when they pass).**
@@ -4001,12 +4082,13 @@ Each had a recommendation, and the spec was written with it. The owner answered 
 11. **W9-Q11. Scope during the run.** Version 1 checks the files after the run and relies on `rules.yaml` during it. Or a per-task overlay that `umwayi check` reads while the task runs (W9.16, 8 hours, a change to the core check). Recommendation: after the run now; the overlay later, if a builder strays in practice. **Answered Nov 12: approved as recommended (checked after the run).**
 12. **W9-Q12. Which repo.** Version 1 works on this repo (umwayi-os) and its docs layout only. Another root without `docs-parts/status-log/` records the outcome under `.umwayi/goals/` and has no docs parts. Recommendation: this repo first. **Answered Nov 12: approved as recommended (this repo first).**
 13. **W9-Q13. Steering.** Add W9 to the build order of `.kiro/steering/product.md` when you approve the spec. No safety rule is changed: rules 3, 4, 5, 7 and 9 already cover a goal (branches only, drafts only, no network, every helper action through `umwayi check`, standard library). Recommendation: a short paragraph in the build order only; no change to rules 1 to 13. **Answered Nov 12: approved as recommended. Applied in this pull request: one paragraph in the build order of `.kiro/steering/product.md`, no change to rules 1 to 13.**
-14. **W9-Q14. Dates.** Nothing is placed in the schedule. Recommendation: W9.9 (7 hours) before the freeze of Nov 29 if you have the time; everything else after Dec 3, because the first batch is about 60 hours and the freeze does not move. **Answered Nov 12: approved as recommended. Only W9.9 (the shared docs builder, 7 hours) may go before the Nov 29 freeze; the rest after Dec 3. Applied in this pull request: the schedule note in `docs/schedule.md` and the schedule table of tasks.md. The owner adds that W9.9 is also the owner's task W17 (see the answers below).**
+14. **W9-Q14. Dates.** Nothing is placed in the schedule. Recommendation: W9.9 (7 hours) before the freeze of Nov 29 if you have the time; everything else after Dec 3, because the first batch is about 60 hours and the freeze does not move. **Answered Nov 12: approved as recommended. With the worktree rule the first batch is 68 hours (W9.6b added, 9 hours, and W9.7 down by 1), so the rest after Dec 3 is 61 hours. Only W9.9 (the shared docs builder, 7 hours) may go before the Nov 29 freeze; the rest after Dec 3. Applied in this pull request: the schedule note in `docs/schedule.md` and the schedule table of tasks.md. The owner adds that W9.9 is also the owner's task W17 (see the answers below).**
 
 Answers (owner, Nov 12), recorded as given:
 
-- Approved as recommended: W9-Q1 (keep W9; W8 is progress dashboards on the owner's board, not in the repo), Q2 (names differ, warn on the same platform and model), Q3 (one dedicated checkout now, worktrees with W9.12), Q4 (wait for the merge), Q5 (halt, no automatic retry), Q6 (the literal reading, 30 minutes, 2, 30 seconds), Q7 (7 days and 24 hours, answer No when they pass), Q8 (Claude Code and Kiro first, OpenCode after 10.48), Q9 (terminal required), Q10 (the system prepares the docs branch, the owner merges), Q11 (check after the run), Q12 (this repo first), Q13 (a short paragraph in the build order of `.kiro/steering/product.md` only, no change to rules 1 to 13), Q14 (only W9.9, the shared docs builder, 7 hours, may go before the Nov 29 freeze; the rest after Dec 3).
+- Approved as recommended: W9-Q1 (keep W9; W8 is progress dashboards on the owner's board, not in the repo), Q2 (names differ, warn on the same platform and model), Q4 (wait for the merge), Q5 (halt, no automatic retry), Q6 (the literal reading, 30 minutes, 2, 30 seconds), Q7 (7 days and 24 hours, answer No when they pass), Q8 (Claude Code and Kiro first, OpenCode after 10.48), Q9 (terminal required), Q10 (the system prepares the docs branch, the owner merges), Q11 (check after the run), Q12 (this repo first), Q13 (a short paragraph in the build order of `.kiro/steering/product.md` only, no change to rules 1 to 13), Q14 (only W9.9, the shared docs builder, 7 hours, may go before the Nov 29 freeze; the rest after Dec 3).
+- Changed by the owner (a new rule, later on Nov 12): **Q3**. The worktree per task is core, not an option, and it supersedes the answer "one dedicated checkout now, worktrees with W9.12". One task gets one worktree, made by umwayi from the newest main, with a fresh helper session per task; no helper works in a shared checkout. The worktree is part of the core design: the git list gains `worktree add` and `worktree remove`, the task branch lives in its own worktree, the worktree path is under a fixed root and is checked, a dirty or leftover worktree stops the start, and cleanup happens only after the owner's merged. `agent run --workdir` for a path umwayi made and the worktree per task move out of W9.12 into the first batch (W9.6b); `--ahead N` stays in W9.12 as the only option. The first batch is 68 hours (it was 60).
 - Additional: **W9.9 is also the owner's task W17** (one status file and one limits file per task; a script builds `docs/status-log.md` and `docs/KNOWN-LIMITS.md`). W9.9 and W17 are the same task: one piece of work, not two. It is to be built at a quiet moment, right after the pull request of the W6 first batch (W6.1 to W6.6) merges.
-- Nothing was changed by an answer except as follows. Q1 changed the wording of the name note (requirements, `docs/goals.md`). Q13 and Q14 were applied (steering paragraph, schedule note). The W17 note and the quiet moment were added to W9.R14.9, W9.9, the hours section above and `docs/goals.md`. No requirement, packet field, state, number or exit code changed.
+- Nothing was changed by the answers of the first round except as follows (the worktree rule above is the one change after them). Q1 changed the wording of the name note (requirements, `docs/goals.md`). Q13 and Q14 were applied (steering paragraph, schedule note). The W17 note and the quiet moment were added to W9.R14.9, W9.9, the hours section above and `docs/goals.md`. No requirement, packet field, state, number or exit code changed.
 
-Where each answer landed: Q1 in requirements (the intro of the W9 section) and `docs/goals.md`; Q13 in `.kiro/steering/product.md` (build order, one bullet, rules 1 to 13 untouched); Q14 and W17 in tasks.md (the schedule table, W9.9, the W9 plan row), `docs/schedule.md`, the hours section above, requirements W9.R14.9 and `docs/goals.md`; the status of all fourteen in this list, tasks.md, `docs/goals.md` and the status log.
+Where each answer landed (the worktree rule, Q3, is listed in the changed bullet above and in W9.R8, tasks.md W9.6b and W9.12, KNOWN-LIMITS 215, 221, 225 and 229 to 232, and `docs/goals.md`): Q1 in requirements (the intro of the W9 section) and `docs/goals.md`; Q13 in `.kiro/steering/product.md` (build order, one bullet, rules 1 to 13 untouched); Q14 and W17 in tasks.md (the schedule table, W9.9, the W9 plan row), `docs/schedule.md`, the hours section above, requirements W9.R14.9 and `docs/goals.md`; the status of all fourteen in this list, tasks.md, `docs/goals.md` and the status log.

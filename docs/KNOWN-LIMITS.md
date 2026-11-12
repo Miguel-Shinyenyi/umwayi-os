@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry). Items 130 to 137 come from the security scan (S.2, [SECURITY-SCAN.md](SECURITY-SCAN.md)); item 122 changed with it. Items 196 to 212 are the expected limits of the local backend (W6), written from the spec on Nov 12 before any code; nothing is built. Items 213 to 228 are the expected limits of goal orchestration (W9), written from the spec on Nov 12 before any code; nothing is built.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry). Items 130 to 137 come from the security scan (S.2, [SECURITY-SCAN.md](SECURITY-SCAN.md)); item 122 changed with it. Items 196 to 212 are the expected limits of the local backend (W6), written from the spec on Nov 12 before any code; nothing is built. Items 213 to 232 are the expected limits of goal orchestration (W9), written from the spec on Nov 12 before any code; nothing is built.
 
 ## Approval and the owner
 
@@ -976,7 +976,7 @@ The tester says pass, fail or unclear for each acceptance check, with a line of 
 
 ### 215. The files a task may touch are checked after the run
 
-During a run the gate is `rules.yaml`, as for every run, and it knows nothing of the packet. The scope check compares the branch with its base afterwards. A builder that changes a file outside its packet is found and failed, but it did change it, on its own branch in the goal checkout. Damage outside the checkout is for the rules to stop. A rules overlay per task is W9.16.
+During a run the gate is `rules.yaml`, as for every run, and it knows nothing of the packet. The scope check compares the branch with its base afterwards. A builder that changes a file outside its packet is found and failed, but it did change it, on its own branch in its own worktree. Damage outside the checkout is for the rules to stop. A rules overlay per task is W9.16.
 
 ### 216. Error recognition is a list of line markers
 
@@ -996,11 +996,11 @@ There is no daemon. A deadline that passed while no `umwayi goal` command ran is
 
 ### 220. A merge is seen only on the local `main`
 
-umwayi never fetches or pulls. A merge on the remote is not seen until the owner updates the local `main`. A squash or rebase merge leaves the branch tip off `main`, so it is not seen either, and the owner declares it with `goal merged G T --commit SHA` (checked only to be on `main`).
+umwayi never fetches or pulls. A merge on the remote is not seen until the owner updates the local `main`. The `stale` check of a start has the same limit: it compares `main` with the remote-tracking ref `origin/main`, which is as old as the owner's last fetch. A squash or rebase merge leaves the branch tip off `main`, so it is not seen either, and the owner declares it with `goal merged G T --commit SHA` (checked only to be on `main`).
 
-### 221. `git` and the checkout are trusted
+### 221. `git` is trusted
 
-umwayi starts `git` by a fixed argument list with the hooks path, the global config and external diff turned off. A filter driver or other program named in the checkout's own config can still run. The one write is `git switch -c`. The goal checkout must be a clone of its own; if it is the owner's working copy, a dirty tree is refused, and a clean one is switched to the task branch under the owner's feet.
+umwayi starts `git` by a fixed argument list with the hooks path, the file monitor, the global config and external diff turned off. A filter driver or other program named in the repository's own config can still run. Its three writes are `git worktree add` (with a new branch, or detached for the plan) and `git worktree remove`, without force. They change the repository's metadata (a branch and a worktree entry) and never the owner's working copy.
 
 ### 222. The shared docs are stale until rebuilt, and the status paragraph stays by hand
 
@@ -1016,7 +1016,7 @@ Each line has a CRC to find a torn or garbled line. A process of the same user c
 
 ### 225. One goal, one task, and the owner is the wait
 
-One goal runs per root and one task at a time, and the next task waits for the owner's merge. A goal of five tasks needs five runs and five merges. This is the cost of "the owner merges". Working ahead needs a worktree per task and is W9.12.
+One goal runs per root and one task at a time, and the next task waits for the owner's merge. A goal of five tasks needs five runs and five merges. This is the cost of "the owner merges". Working ahead needs the overlap rule of W9.12 (`--ahead N`); the worktree per task is already core.
 
 ### 226. OpenCode is not a builder yet
 
@@ -1028,4 +1028,20 @@ The checks on a packet are character rules: lengths, one line, files that exist.
 
 ### 228. A killed supervisor leaves a child
 
-SIGKILL or a power loss while `goal run` works leaves the task `running` with no supervisor; the next command marks it `stopped` (`supervisor`). The child `agent run` is in its own session and ends by itself at its timeout, or by the kill switch, and until then it holds the run lock, so the next start gets `busy`. Its reservation is settled by `umwayi budget settle-lost` if it was killed too (item 36).
+SIGKILL or a power loss while `goal run` works leaves the task `running` with no supervisor; the next command marks it `stopped` (`supervisor`). The child `agent run` is in its own session and ends by itself at its timeout, or by the kill switch, and until then it holds the run lock, so the next start gets `busy`. The task's worktree stays (item 230). Its reservation is settled by `umwayi budget settle-lost` if it was killed too (item 36).
+
+### 229. Each worktree is a full checkout and uses disk
+
+Each task's worktree holds every tracked file of its base, and the plan's does too until the plan is decided, so each live worktree costs the size of the tracked tree plus whatever the helper builds in it. A start is refused as `leftover` at eight worktrees in the root, and `status` lists the disk used by each leftover (counted only for listed worktrees, up to 10 000 files). umwayi does not check the free space of the disk, so a large repository or a build that fills a worktree can still fill it.
+
+### 230. Leftover worktrees stay until removed
+
+A failed, stopped, needs-owner or in-review task keeps its worktree, and a crash can leave one. umwayi removes a worktree only after the owner's merged (and an unused one it made itself), never with force, so a worktree that git refuses to remove stays. The next start for that task, and any start once eight exist, is refused as `leftover` until the owner removes the worktrees with `git worktree remove`. umwayi never deletes a branch, so the branches stay too.
+
+### 231. Untracked and ignored files are not in a worktree
+
+`node_modules`, build folders, caches, `.env`, local config and any file the owner did not commit are neither copied nor linked into a worktree. A helper that needs them has to make them, which costs time and disk and may need the network (a package install is the helper's own act under the rules). A gate check that needs an untracked file, for example a Kiro hook file that was never committed, fails and the task is `needs owner` with the reason `config`.
+
+### 232. Worktrees share the repository's metadata
+
+A linked worktree shares objects, refs and config with the root repository. A helper that can run git write commands in its worktree can change refs or config of the shared repository (a branch, a tag, a hook path; umwayi turns the hooks path off only for its own git calls). The gate (`rules.yaml`, which should say Ask me first for git writes) is what stops that. The scope check looks only at the files of the task branch, not at other refs.
