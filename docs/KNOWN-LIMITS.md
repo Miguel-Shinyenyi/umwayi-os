@@ -872,7 +872,7 @@ These are the limits the design of [serve.md](serve.md) is known to have. They a
 
 ### 196. Whoever has the token is the owner, as far as the backend can tell
 
-The token is checked, not the person. A process of the same user that learns it (from the terminal scrollback where it was shown once, the clipboard, a shell history, a screen capture) can send any request the table allows, including an answer to an Ask me first of a chat. The raw token is never on disk and never in a child's environment, and the example rules keep an AI helper from `umwayi serve` and from the token file, but those rules match text (item 12). The same kind of limit as items 1 and 15.
+The token is checked, not the person. A process of the same user that learns it (from the terminal scrollback where it was shown once, the clipboard, a shell history, a screen capture) can send any request the table allows. In a chat that is at most a reject of an Ask me first (item 211); the page cannot approve one. The raw token is never on disk and never in a child's environment, and the example rules keep an AI helper from `umwayi serve` and from the token file, but those rules match text (item 12). The same kind of limit as items 1 and 15.
 
 ### 197. A script that runs inside the page can use the token
 
@@ -892,7 +892,7 @@ The queue, the kill switch and (later) a chat are real. A wrong click in the pag
 
 ### 201. Each request adds logbook entries, and each append reads the whole logbook
 
-A read adds two entries (the rules check and the request), a write up to three. Item 4 applies: every append reads and hashes the whole file. Requests with no valid token, and requests over the rate, are counted in one summary entry a minute, so a flood cannot add an entry each, but a long session of authenticated use grows the file. The cost per append was not measured.
+A read adds two entries (the rules check and the request), a write up to three. Item 4 applies: every append reads and hashes the whole file. Requests with no valid token, and requests over the rate, are counted in one summary entry a minute, so a flood cannot add an entry each, but a long session of authenticated use grows the file. The cost per append was not measured. The owner approved logging every request on Nov 12 and asked for this volume to be looked at again after the build (W6-Q10).
 
 ### 202. No TLS on loopback
 
@@ -930,10 +930,10 @@ Ctrl-C and SIGTERM stop each chat and settle its budget before the process exits
 
 A token's expiry and the logbook date come from the system date (taken with the newest logbook date, so a clock set back does not revive an expired token or make an old one valid). A clock set far forward expires the token early, which is the safe direction. The rate windows use a monotonic clock.
 
-### 211. The page can answer an Ask me first of a chat
+### 211. The page can only reject an Ask me first of a chat; approvals are at the terminal
 
-The owner can allow a tool for an AI helper from the page, as at the terminal. Anyone or anything that has the token can do the same (item 196). Whether the page should be able to approve at all, or only reject unless a Yes rule exists, is W6-Q12.
+By the owner's answer of Nov 12 (W6-Q12), a request from the page can answer an Ask me first of a chat with `reject_once` and nothing else. A holder of the token can therefore stop an AI helper's tool call and cannot allow one, and a stolen token cannot approve. The approval is made at the terminal where `umwayi serve` runs (how is W6-Q28, open); a process of the same user that can type into that terminal, or an AI helper that can read it, is the same limit as items 1 and 15. A holder of the token can also deny every Ask me first, which makes a chat unusable until a Yes rule exists (a nuisance, not a way in). Allowing from the page waits until the page's threat model has been tested by hand and the owner approves.
 
 ### 212. Login for a deployed interface is not built (W7)
 
-Nothing here says what a deployed login, a relay or remote control would be. Any of them would be a second door with its own limits, an outbound network import in the core, and a third party in the path of the owner's data. The spec only fixes what they may not do: open the local backend to the internet, or relax a check of W6.
+By the owner's answer of Nov 12 (W6-Q22), W7 version 1 is login plus the public site with sample data, and does not control a local backend. A relay, or any way for a deployed page to reach a local backend, is decided after Dec 3 and nothing of it is built. Any of them would be a second door with its own limits, an outbound network import in the core, and a third party in the path of the owner's data. The spec only fixes what they may not do: open the local backend to the internet, or relax a check of W6.

@@ -6,7 +6,7 @@
 
 ## Current state
 
-**Specified, not built.** This page was written in the W6.0 pull request (Nov 12 2026, docs and specs only). Nothing below exists in `umwayi/`, `ui/` or `site/` yet. It is made current in each build pull request ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), W6.1 to W6.10). The spec: [requirements W6.R1 to W6.R18](../.kiro/specs/umwayi-os/requirements.md), [design "Local backend (W6)"](../.kiro/specs/umwayi-os/design.md), the browser facts in [NOTES-w6.md](../adapters/NOTES-w6.md). The owner approved the change of rule on Nov 12 2026; the spec itself waits for the owner's approval.
+**Specified, not built.** This page was written in the W6.0 pull request (Nov 12 2026, docs and specs only). Nothing below exists in `umwayi/`, `ui/` or `site/` yet. It is made current in each build pull request ([tasks.md](../.kiro/specs/umwayi-os/tasks.md), W6.1 to W6.10). The spec: [requirements W6.R1 to W6.R18](../.kiro/specs/umwayi-os/requirements.md), [design "Local backend (W6)"](../.kiro/specs/umwayi-os/design.md), the browser facts in [NOTES-w6.md](../adapters/NOTES-w6.md). The owner approved the change of rule on Nov 12 2026 and answered W6-Q1 to W6-Q27 the same day (all as proposed except four, below); W6-Q28 is open. The dates are set by the owner after UI.7 merges.
 
 ### The rule
 
@@ -53,7 +53,7 @@ There is no CORS and no cookie. A request without a valid token is counted, not 
 | queue.close | `POST /v1/queue/{id}/close` | `queue close` | `taskqueue.close` | write | yes | 0, 1, 2, 64 | 64 |
 | kill.on | `POST /v1/kill/on` | `kill on` | `kill.turn_on` | write | never (it is the switch) | 0, 1, 2, 64 | 512 |
 
-Specified for later, each in its own spec (workstreams W4 and W5, not built): the chat routes `chats.start`, `chats.list`, `chats.events` (a long poll), `chats.message`, `chats.permission`, `chats.cancel` and `chats.stop`; and the intake routes `intake.start`, `intake.get`, `intake.answer`, `intake.commit` and `intake.discard`. The intake step asks fixed questions until a pure function says the intent is clear, and adds a queue row only when the owner commits what was shown.
+In a chat the page can only reject an Ask me first (`chats.permission` accepts `reject_once` and nothing else); an approval is made at the terminal where `umwayi serve` runs, until the page's threat model has been tested by hand (W6-Q12). Specified for later, each in its own spec (workstreams W4 and W5, not built): the chat routes `chats.start`, `chats.list`, `chats.events` (a long poll), `chats.message`, `chats.permission`, `chats.cancel` and `chats.stop`; and the intake routes `intake.start`, `intake.get`, `intake.answer`, `intake.commit` and `intake.discard`. The intake step asks a fixed list of questions until a pure function says the intent is clear, with no model, and adds a queue row only when the owner commits what was shown; an intake written by an AI helper is an option for the W5 spec (W6-Q15).
 
 A response is a subset of what the command prints. `agents.list` sends the name, platform and transport and no path.
 
@@ -84,17 +84,13 @@ Newest first. Each row names where it was decided.
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-12 | The rule changes from "the interface only looks" to "the page may send the same request the command line would, to a local backend". The command is `umwayi serve`, bound to 127.0.0.1 only, with a token. Every request meets the same rules check, logbook and kill switch by calling the same code. Fail closed. The core stays standard library only. Steering rule 10 and requirement 12.R17.6 carry the wording. | The owner, Nov 12 2026, approved. |
-| 2026-11-12 | The rest of the design (every request rules-checked, writes stopped by the kill switch, the page served by the backend, `Origin` required on `POST`, reads logged, summary entries for requests with no valid token) are my readings of that decision and are open as W6-Q2, Q3, Q6, Q8, Q10 and Q11. | The words left room; proposed answers in design.md. |
+| 2026-11-12 | The rest of the design (every request rules-checked, writes stopped by the kill switch, the page served by the backend, `Origin` required on `POST`, reads logged, summary entries for requests with no valid token) were my readings of that decision (W6-Q2, Q3, Q6, Q8, Q10 and Q11). | The words left room. The owner approved them on Nov 12. |
+| 2026-11-12 | The owner answered W6-Q1 to W6-Q27: all as proposed except four. Q12: the page can only reject an Ask me first in a chat; approvals stay at the terminal until the page's threat model is tested by hand. Q15: the intake step is a fixed list and a pure judge, no model; an AI written intake is an option in the W5 spec. Q22: W7 version 1 is login plus the public site with sample data and does not control a local backend; a relay is decided after Dec 3. Q27: W6.1 to W6.6 plus W6.9 first, about 53 hours; W6.7 and W6.8 wait until W4 starts; dates after UI.7 merges. Also: Q10 the logbook volume is revisited after the build; Q19 and Q20 are done in the pull request that builds serve. | The owner, Nov 12 2026. |
 
 ## Open questions
 
-W6-Q1 to W6-Q27 in [design.md](../.kiro/specs/umwayi-os/design.md) ("Open questions for the owner (W6-Q1 to W6-Q27)"), each with a proposed answer. The ones that change the most:
+W6-Q1 to W6-Q27 are answered (design.md, "Answers (owner, Nov 12)"). One question is open:
 
-- W6-Q1: are W4 the chat, W5 the queue with intake, W6 this backend and W7 the login for a deployed interface? The repo does not define the names.
-- W6-Q2 and W6-Q3: does every request get a rules check, and is every write stopped by the kill switch (stricter than the command line)? Can the page never turn the switch off?
-- W6-Q4: may `serve token create` print the token once, against rule 2 ("never print secrets")?
-- W6-Q12: may the page answer an Ask me first inside a chat?
-- W6-Q17: may W6.7 and W6.8 change `agents.py` and `budget.py` (no change of behaviour, goldens first)?
-- W6-Q19: rule 5 already says no core module imports a network library, which `umwayi/telemetry.py` contradicts today; reword it?
-- W6-Q22: should a deployed page ever control a local one, and may queue or chat text pass a third party (W7)?
-- W6-Q27: about 61 hours for the core and 13 for the two refactors, none in the schedule. The owner sets the dates and what is cut first.
+- W6-Q28: how an approval reaches a web chat. Proposed: the console of `umwayi serve` shows the same `Allow once? [y/N]` prompt as a command line chat and reads its own standard input when that is a terminal; with no terminal the request is rejected. Or a command in a second terminal. Or no approval at all for now.
+
+Still to do in the pull request that builds serve (W6-Q19, W6-Q20): reword steering rule 5, and edit 12.R2, 12.R11 and "The view only looks". To look at after the build (W6-Q10): the logbook volume ([KNOWN-LIMITS](KNOWN-LIMITS.md) 201). Confirm: the 53 hours of W6-Q27 are read as leaving out W6.10 (8 hours).
