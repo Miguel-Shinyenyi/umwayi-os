@@ -6,9 +6,12 @@ Checks, on the repo and on temporary copies with a planted fault each:
 - ui/.gitignore keeps node_modules out and the root .gitignore has the exception that lets ui/dist be committed;
 - ui/dist/build.json holds the SHA-256 of every source file, of build.mjs, of package.json, of the lockfile and of the
   page: a source changed without a rebuild, or a page edited by hand, is found without npm;
-- the built page makes no request: no script, link, image or other file loaded from anywhere, none of the calls that
-  would make one, no storage, and every http:// or https:// string is a named XML namespace, not an address;
-- the page carries a Content-Security-Policy that denies everything except its own inline script and style, and the
+- the built page makes no request except through the page client (W6.9): no script, link, image or other file loaded from
+  anywhere, none of the calls that would make one, no storage, and every http:// or https:// string is a named XML
+  namespace, not an address. The word fetch appears only between the two markers of the page client's region of the
+  bundle (once), nowhere else in the page;
+- the page carries a Content-Security-Policy that denies everything except its own inline script and style (by hash)
+  and, since W6.9, connections to its own origin: the policy is exactly the old one plus connect-src 'self', and the
   hashes in it are the hashes of the page's inline script and style;
 - the page is under about 2 MB; its only addresses are the XML namespace name and the listed home links; the Devpost and
   demo video entries are marked placeholders and are not anchors; every Copy button has its command;
@@ -45,9 +48,17 @@ MAX_PAGE_BYTES = 2_000_000  # 12.R1.6: under about 2 MB
 STATIONS = ("memory", "rules", "queue", "archive", "logbook", "automation", "helpers", "workflows", "adapters",
             "killswitch", "budget")
 # calls and names that would make a request, load a file or keep something; none may be in the built page
-FORBIDDEN = ("fetch(", "XMLHttpRequest", "WebSocket", "sendBeacon", "import(", "//cdn", "localStorage",
+# (fetch is not in this list since W6.9: it is checked by CLIENT_BEGIN and CLIENT_END below)
+FORBIDDEN = ("XMLHttpRequest", "WebSocket", "sendBeacon", "import(", "//cdn", "localStorage",
              "sessionStorage", "indexedDB", "document.cookie", "FileLoader", "ImageLoader", "TextureLoader",
              "EventSource", "importScripts", "new Worker", "navigator.serviceWorker")
+# W6.9 (W6.R2.5): the page client, ui/src/api/client.js, is the only place that sends a request. The build keeps two comments
+# around its code, so the bundle has one region where the word fetch may be, and the policy gains connect-src 'self' only.
+CLIENT_BEGIN = "/*! umwayi-client:begin */"
+CLIENT_END = "/*! umwayi-client:end */"
+FETCH = re.compile(r"\bfetch\b")
+FETCH_CALL = re.compile(r"\bfetch\s*\(")
+CONNECT_SRC = "connect-src 'self'"
 FORBIDDEN_TAGS = re.compile(r"<(link|img|iframe|object|embed|base|form|audio|video|source|track)\b", re.I)
 SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.S | re.I)
 STYLE = re.compile(r"<style\b([^>]*)>(.*?)</style>", re.S | re.I)
@@ -182,6 +193,7 @@ def check_page(root: Path) -> list:
     for token in FORBIDDEN:
         if token in html:
             problems.append(f"the page contains {token!r}")
+    problems += check_client_region(html)
     for m in FORBIDDEN_TAGS.finditer(html):
         problems.append(f"the page has a <{m.group(1)}> element, which loads or sends something")
     if "@import" in html:
@@ -199,9 +211,10 @@ def check_page(root: Path) -> list:
         problems.append("the page has no Content-Security-Policy meta tag")
     else:
         csp = m.group(1)
-        for need in ("default-src 'none'", "base-uri 'none'", "form-action 'none'"):
+        for need in ("default-src 'none'", "base-uri 'none'", "form-action 'none'", CONNECT_SRC):
             if need not in csp:
                 problems.append(f"the Content-Security-Policy lacks {need}")
+        problems += check_csp_exact(csp, scripts[0][1] if scripts else "", styles[0][1] if styles else "")
         if scripts and f"script-src '{csp_hash(scripts[0][1])}'" not in csp:
             problems.append("the Content-Security-Policy does not hold the hash of the inline script")
         if styles and f"style-src '{csp_hash(styles[0][1])}'" not in csp:
@@ -295,6 +308,12 @@ def check_page(root: Path) -> list:
             problems.append(f"the check {cid} is not in the page")
     if "ticked by you" not in html or "not done" not in html:
         problems.append("the page does not have the two statuses of a check, not done and ticked by you")
+    # the panel of the local backend (W6.9) is made by the script, not written in the page: the public site shows the same
+    # template and has no place for it, and the markup keeps its one input (the file picker) and no form
+    if re.search(r"id=\"backend", markup):
+        problems.append("the panel of the local backend is written in the page, not made by the script")
+    if "Local backend" not in html or "backend-body" not in html:
+        problems.append("the panel of the local backend is not in the script")
     if re.search(r"cookie", html, re.I):
         problems.append("the page mentions a cookie, and it must keep nothing")
     if re.search(r"\bBlob\b", html):
@@ -329,6 +348,36 @@ def check_page(root: Path) -> list:
     if not re.search(r"<title>[^<]+</title>", html):
         problems.append("the page has no title")
     return problems
+
+
+def check_client_region(html: str) -> list:
+    """The word fetch is in the page once, between the two markers of the page client (W6.9). Anything else is a problem."""
+    problems = []
+    begins, ends = html.count(CLIENT_BEGIN), html.count(CLIENT_END)
+    if begins != 1 or ends != 1:
+        return [f"the page has {begins} begin and {ends} end markers of the page client, not one of each"]
+    b, e = html.index(CLIENT_BEGIN), html.index(CLIENT_END)
+    if e < b:
+        return ["the end marker of the page client comes before its begin marker"]
+    inside, outside = html[b:e], html[:b] + html[e + len(CLIENT_END):]
+    if FETCH.search(outside):
+        problems.append("the page contains fetch( outside the region of the page client")
+    if len(FETCH_CALL.findall(inside)) != 1:
+        problems.append(f"the region of the page client has {len(FETCH_CALL.findall(inside))} fetch( calls, not exactly one")
+    if re.search(r"<(script|style)\b", inside, re.I):
+        problems.append("the region of the page client holds an element")
+    if "Bearer" in outside or inside.count("Bearer") != 1:
+        problems.append("the Authorization header is not made in exactly one place, inside the region of the page client")
+    return problems
+
+
+def check_csp_exact(csp: str, script: str, style: str) -> list:
+    """The policy is the old one plus connect-src 'self' and nothing else, in this order (W6.R2.5)."""
+    want = ["default-src 'none'", f"script-src '{csp_hash(script)}'", f"style-src '{csp_hash(style)}'", "img-src data:",
+            "base-uri 'none'", "form-action 'none'", CONNECT_SRC]
+    if csp.split("; ") != want:
+        return ["the Content-Security-Policy is not the old policy plus connect-src 'self' and nothing else"]
+    return []
 
 
 def check_no_em_dash(root: Path) -> list:
@@ -425,7 +474,7 @@ class PlantedFaultTests(unittest.TestCase):
 
     def test_a_fetch_in_the_page(self):
         self.edit("ui/dist/index.html", lambda t: t.replace("</script>", ";fetch('x')</script>", 1))
-        self.assert_found("contains 'fetch('")
+        self.assert_found("fetch( outside the region of the page client")
 
     def test_storage_in_the_page(self):
         for word in ("localStorage", "sessionStorage", "indexedDB", "document.cookie"):
@@ -650,6 +699,76 @@ class PlantedFaultTests(unittest.TestCase):
         self.setUp()
         self.edit("ui/dist/index.html", lambda t: t.replace("<style>", '<style>@font-face{font-family:X;src:url(https://fonts.example.invalid/x.woff2)}', 1))
         self.assert_found("url() that is not a data: address")
+
+    # ---- the page client and its panel (W6.9, W6.R2.5)
+    def test_the_region_of_the_page_client_has_the_only_fetch(self):
+        html = (self.root / "ui/dist/index.html").read_text(encoding="utf-8")
+        self.assertEqual(html.count(CLIENT_BEGIN), 1)
+        self.assertEqual(html.count(CLIENT_END), 1)
+        inside = html[html.index(CLIENT_BEGIN):html.index(CLIENT_END)]
+        self.assertEqual(len(FETCH_CALL.findall(inside)), 1)
+        self.assertIsNone(FETCH.search(html[:html.index(CLIENT_BEGIN)] + html[html.index(CLIENT_END):]))
+
+    def test_a_fetch_before_or_after_the_region_or_in_the_markup(self):
+        for where, fn in (("before", lambda t: t.replace(CLIENT_BEGIN, ";fetch('x');" + CLIENT_BEGIN, 1)),
+                          ("after", lambda t: t.replace(CLIENT_END, CLIENT_END + ";fetch('x');", 1)),
+                          ("markup", lambda t: t.replace("<body", "<body data-x='fetch(1)'", 1)),
+                          ("brackets", lambda t: t.replace(CLIENT_END, CLIENT_END + ";window['fetch']('x');", 1)),
+                          ("space", lambda t: t.replace(CLIENT_END, CLIENT_END + ";fetch ('x');", 1))):
+            with self.subTest(where=where):
+                self.setUp()
+                self.edit("ui/dist/index.html", fn)
+                self.assert_found("fetch( outside the region of the page client")
+
+    def test_a_second_fetch_inside_the_region_or_none(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(CLIENT_END, ";globalThis.fetch('x');" + CLIENT_END, 1))
+        self.assert_found("2 fetch( calls, not exactly one")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("globalThis.fetch(", "globalThis.xetch(", 1))
+        self.assert_found("0 fetch( calls, not exactly one")
+
+    def test_markers_missing_doubled_or_in_the_wrong_order(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(CLIENT_BEGIN, "", 1))
+        self.assert_found("0 begin and 1 end markers")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace(CLIENT_END, CLIENT_END + CLIENT_END, 1))
+        self.assert_found("1 begin and 2 end markers")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace(CLIENT_BEGIN, "@@B@@", 1).replace(CLIENT_END, CLIENT_BEGIN, 1).replace("@@B@@", CLIENT_END, 1))
+        self.assert_found("comes before its begin marker")
+
+    def test_the_authorization_header_made_in_a_second_place(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace(CLIENT_BEGIN, ";var h='Bearer x';" + CLIENT_BEGIN, 1))
+        self.assert_found("not made in exactly one place")
+
+    def test_the_policy_is_the_old_one_plus_connect_src_self(self):
+        html = (self.root / "ui/dist/index.html").read_text(encoding="utf-8")
+        csp = re.search(r"<meta http-equiv=\"Content-Security-Policy\" content=\"([^\"]*)\"", html).group(1)
+        parts = csp.split("; ")
+        self.assertEqual(parts[0], "default-src 'none'")
+        self.assertEqual(parts[3:], ["img-src data:", "base-uri 'none'", "form-action 'none'", "connect-src 'self'"])
+        self.assertTrue(parts[1].startswith("script-src 'sha256-") and parts[2].startswith("style-src 'sha256-"))
+
+    def test_a_policy_without_connect_src_or_with_more_than_self(self):
+        csp = "connect-src 'self'"
+        for name, fn in (("none", lambda t: t.replace("; " + csp, "", 1)),
+                         ("star", lambda t: t.replace(csp, "connect-src *", 1)),
+                         ("an address", lambda t: t.replace(csp, csp + " http://127.0.0.1:8765", 1)),
+                         ("https", lambda t: t.replace(csp, "connect-src https:", 1)),
+                         ("an extra directive", lambda t: t.replace(csp, csp + "; frame-src 'self'", 1)),
+                         ("first, not last", lambda t: t.replace("default-src 'none'; ", "default-src 'none'; " + csp + "; ", 1).replace("; " + csp + "\"", "\"", 1)),
+                         ("default-src self", lambda t: t.replace("default-src 'none'", "default-src 'self'", 1))):
+            with self.subTest(name=name):
+                self.setUp()
+                self.edit("ui/dist/index.html", fn)
+                self.assert_found("is not the old policy plus connect-src 'self' and nothing else")
+
+    def test_a_panel_written_in_the_page_or_missing_from_the_script(self):
+        self.edit("ui/dist/index.html", lambda t: t.replace('<section class="home" id="start"', '<section class="home" id="backend" hidden></section><section class="home" id="start"', 1))
+        self.assert_found("written in the page, not made by the script")
+        self.setUp()
+        self.edit("ui/dist/index.html", lambda t: t.replace("Local backend", "Elsewhere", 1))
+        self.assert_found("panel of the local backend is not in the script")
 
     def test_an_em_dash(self):
         self.edit("ui/README.md", lambda t: t + "\nA line " + EM_DASH + " here.\n", rebuild=False)
