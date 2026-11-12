@@ -905,6 +905,6 @@ Order and pull requests (the owner's answer of Nov 12): **(a) W6.1 to W6.6** fir
 
 | part | status | pull request | tests on main after it |
 | --- | --- | --- | --- |
-| Local backend (W6) | W6.0 spec written Nov 12; the owner answered W6-Q1 to W6-Q27 on Nov 12 (four changed), W6-Q28 answered (approved as proposed); W6.1 to W6.6 built Nov 12 in one pull request (the core: the gate, the token, the server, the pipeline and the first routes); W6.9 (the page client) not started; W6.7 and W6.8 wait for W4; dates set by the owner after UI.7 merges | W6.0: see the pull request | |
+| Local backend (W6) | W6.0 spec written Nov 12; the owner answered W6-Q1 to W6-Q27 on Nov 12 (four changed), W6-Q28 answered (approved as proposed); W6.1 to W6.6 built Nov 12 in one pull request (the core: the gate, the token, the server, the pipeline and the first routes); W6.9 (the page client) not started; W6.7 and W6.8 wait for W4; dates set by the owner after UI.7 merges | W6.0: PR 61; W6.1 to W6.6: PR 64 (open) | 2171 on Python 3.10 to 3.13 |
 
 When W6 is approved and built, this row moves into the main status table as its last row.
