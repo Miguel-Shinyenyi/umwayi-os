@@ -48,6 +48,8 @@ COMMANDS = [
     (["serve"], "umwayi.serve.run"),
     (["serve", "token", "status"], "umwayi.cli.servetoken.status"),
     (["serve", "token", "revoke"], "umwayi.cli.servetoken.revoke"),
+    (["goal", "docs", "build"], "umwayi.cli.goaldocs.build"),
+    (["goal", "docs", "check"], "umwayi.cli.goaldocs.check"),
 ]
 
 
@@ -164,6 +166,20 @@ class ConfigAndUsageTests(Base):
                 self.assertEqual((code, out), (64, ""))
                 self.assertEqual(sorted(p.name for p in self.root.rglob("*")), before)
         self.assertEqual((self.root / "queue.md").read_text(), QUEUE)
+
+    def test_goal_has_only_docs_and_wrong_use_is_64_and_changes_nothing(self):
+        (self.root / "umwayi.json").write_text(json.dumps({"memory_dir": "memory", "private_paths": []}))
+        for argv in (["goal"], ["goal", "docs"], ["goal", "start", "x"], ["goal", "docs", "build", "x"]):
+            with self.subTest(argv=argv):
+                before = sorted(p.name for p in self.root.rglob("*"))
+                code, out, _ = self.cli(*argv)
+                self.assertEqual((code, out), (64, ""))
+                self.assertEqual(sorted(p.name for p in self.root.rglob("*")), before)
+
+    def test_goal_docs_is_2_and_never_1_or_3_on_a_refusal(self):
+        for cmd in ("build", "check"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.cli("goal", "docs", cmd)[0], 2)  # no docs-parts here: refused, nothing written
 
     def test_data_problems_stay_exit_1(self):
         (self.root / "queue.md").write_text(QUEUE, encoding="utf-8")

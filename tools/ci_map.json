@@ -10,6 +10,7 @@
   {"match": "ui/", "python": "map", "node": true},
   {"match": "site/", "python": "map", "node": true},
   {"match": "docs/", "python": "map", "node": "map"},
+  {"match": "docs-parts/", "python": "map", "node": "map"},
   {"match": "README.md", "python": "map", "node": "map"},
   {"match": "PROJECT.md", "python": "map", "node": "map"},
   {"match": ".kiro/", "python": "map", "node": "map"},
@@ -27,6 +28,7 @@
  ],
  "default": {"python": "all", "node": true, "full": true},
  "python": {
+  "tests/goal/test_docs_parts.py": [".gitignore", "PROJECT.md", "README.md", "docs", "docs-parts"],
   "tests/adapters/test_claude_code.py": ["*", "adapters"],
   "tests/adapters/test_core_for_adapters.py": [".kiro"],
   "tests/adapters/test_kiro.py": ["adapters"],
