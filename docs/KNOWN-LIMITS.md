@@ -1,6 +1,6 @@
 # Known limits
 
-These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry). Items 130 to 137 come from the security scan (S.2, [SECURITY-SCAN.md](SECURITY-SCAN.md)); item 122 changed with it.
+These are real limits of umwayi-os today. They are written down on purpose and are not fixed yet. Each one says what happens, why it matters and what would fix it later. Items 1 to 11 were checked on the hardening branch (Nov 8 2026) by running the commands, not only by reading the code. Items 12 to 20 come from building the layer 9 Claude Code adapter (item 16 is fixed in PR 12). Items 21 to 28 come from building the Kiro and generic adapters. Items 29 to 34 come from building layer 10 parts 1 and 2 (agents.yaml and the gate checks). Items 35 to 40 come from building part 3 (`umwayi agent run` for Claude Code). Items 41 to 45 come from building part 4 (`umwayi agent run` for Kiro). Items 46 to 51 come from building part 5 (`umwayi agent chat` on the terminal). Items 52 to 58 come from building part 6 (ACP chat for Kiro). Items 59 to 64 come from building part 7a (Claude Code over ACP: agents.yaml, `adapters/claude_acp/` and the gate checks). Items 65 to 68 come from building part 7b (the Claude Code ACP chat: the inline settings, the canary and the stop). Items 69 to 72 come from building part 7c-1 (subscription first: the login check, the credential names, `forceLoginMethod`). Items 73 to 80 come from building the Layer 5 crash safety addendum (the intent, recovery, flock and held-off signals); item 39 changed with it. Items 81 to 88 come from building part 7c-2 (`umwayi agent login` and Kiro subscription first). Items 89 to 92 come from building part 7c-3 (the watch during an ACP chat, the chat end to end, and the docs of 10.31); item 71 changed with it. Items 93 to 103 come from building layer 11 (scheduled runs through systemd user timers). Items 104 to 109 come from building the logbook hash chain (addendum, tasks C.1 to C.4); item 3 changed with it. Items 110 to 128 come from building the budget governor (tasks B.1 to B.10). Item 129 comes from the whole-system test (S.1); item 98 is true since then (a gap rule refusal now writes its entry). Items 130 to 137 come from the security scan (S.2, [SECURITY-SCAN.md](SECURITY-SCAN.md)); item 122 changed with it. Items 196 to 212 are the expected limits of the local backend (W6), written from the spec on Nov 12 before any code; nothing is built.
 
 ## Approval and the owner
 
@@ -865,3 +865,75 @@ The owner's record is the input. Approving without a look counts as approved as 
 ### 170. The moves of one day are capped, but a wrong move is still a wrong move
 
 `max_moves_per_day` caps the moves of one class on one logbook day, and a `rejected` or `reverted` outcome stops the class for the cooldown. A move that was wrong has still happened: turning graded autonomy off takes effect at the next check and undoes nothing. The owner records `reverted`, which holds the class for the cooldown and lowers its score. A move is also made only in a check that logs; a script that reads the answer of a dry run never sees a move.
+
+## Local backend (W6): `umwayi serve` (known from the spec, Nov 12; nothing is built)
+
+These are the limits the design of [serve.md](serve.md) is known to have. They are written before any code (W6.0 pull request) and corrected or confirmed by the build. Items 196 to 212; numbers are never reused.
+
+### 196. Whoever has the token is the owner, as far as the backend can tell
+
+The token is checked, not the person. A process of the same user that learns it (from the terminal scrollback where it was shown once, the clipboard, a shell history, a screen capture) can send any request the table allows, including an answer to an Ask me first of a chat. The raw token is never on disk and never in a child's environment, and the example rules keep an AI helper from `umwayi serve` and from the token file, but those rules match text (item 12). The same kind of limit as items 1 and 15.
+
+### 197. A script that runs inside the page can use the token
+
+The page holds the token in memory, so any script that runs in the page can send requests with it. What stands in the way is that the page sets all text as text, loads no script from outside, has a Content-Security-Policy, and is tested for it. That is a list of checks, not a proof, and a flaw in the page's own code or in a package it bundles would defeat it.
+
+### 198. The port is open to every user of the machine
+
+127.0.0.1 is shared. Another user of a multi-user machine can connect, send requests and try tokens (5 failures a minute, then 429, and a 256 bit token). They cannot do anything without the token, but they can use up request slots (item 199). A Unix socket with file permissions would stop that and a browser cannot use one.
+
+### 199. Any local process can crowd out the owner
+
+The server handles 16 requests at once and answers the 17th with 503 without reading it. A process that holds 16 connections open for the 10 second deadline, over and over, keeps the owner's page waiting. Nothing identifies the caller on loopback, so nothing can tell it apart.
+
+### 200. A request changes the real files, exactly as the command line does
+
+The queue, the kill switch and (later) a chat are real. A wrong click in the page is a wrong command. The rules check adds Ask me first by default, but a Yes rule written for `serve_request` by type alone says Yes to every route of its class. The page shows the route and the words, and the owner writes the rules.
+
+### 201. Each request adds logbook entries, and each append reads the whole logbook
+
+A read adds two entries (the rules check and the request), a write up to three. Item 4 applies: every append reads and hashes the whole file. Requests with no valid token, and requests over the rate, are counted in one summary entry a minute, so a flood cannot add an entry each, but a long session of authenticated use grows the file. The cost per append was not measured.
+
+### 202. No TLS on loopback
+
+The token and the responses travel as plain HTTP on 127.0.0.1. A user who can read loopback traffic (root, or a process with packet capture rights) sees them, and could replay the token until it expires or is rotated. Such a user can usually do more than that already. A certificate for 127.0.0.1 needs a local certificate authority, which W6 does not build.
+
+### 203. A tunnel that rewrites `Host` can carry reads
+
+The gate refuses any `Host` that is not `127.0.0.1:PORT`, which stops a tunnel or reverse proxy that passes the public name through. A tunnel that rewrites `Host` to the local address, and a client that has the token, can send `GET` requests, which need no `Origin`; a `POST` or `DELETE` from a remote page carries the page's own origin and is refused. The docs say never to carry the port out. Nothing in umwayi can detect a tunnel.
+
+### 204. The page and its fingerprint sit in the same folder
+
+`GET /` serves the built page only if its SHA-256 matches `ui/dist/build.json`. Someone who can write one can write the other. This is item 3 again (a record next to the file it protects), and the owner's build is the only source of both.
+
+### 205. Browser behaviour comes from documentation
+
+How a browser sets `Origin` and the fetch metadata headers for `http://127.0.0.1`, what it does with a private network request from a public page, and how it treats `frame-ancestors` were read, not tried. The server relies on the token, the exact `Host` and the exact `Origin` on `POST` and `DELETE`, and checks the other headers only when present. The by-hand pass (W6.10) uses one headless Chromium; Firefox, Safari, a real phone browser and an extension that rewrites headers are not tested ([NOTES-w6.md](../adapters/NOTES-w6.md)).
+
+### 206. A web chat holds the run lock
+
+One run at a time for the root, so while a chat started from the page is open (up to its 10 minute idle stop), a scheduled job, `umwayi run` or a command line chat gets the lock's answer (Ask me first, exit 3).
+
+### 207. Only ACP chats work over the web
+
+An agent with `transport: cli` needs the owner's terminal and is refused. The limits of items 52 and 53 apply to Kiro (the hook may not run in an ACP session, and permission requests are advisory), and OpenCode waits for task 10.48.
+
+### 208. "Clear" in the intake step is a checklist, not understanding
+
+The first intake slice asks fixed questions and has a pure function judge that each has an answer of reasonable length. A long, vague answer passes. The owner's commit, which shows the exact title and recommendation first, is the real check.
+
+### 209. A server killed with SIGKILL leaves a reservation open
+
+Ctrl-C and SIGTERM stop each chat and settle its budget before the process exits. SIGKILL cannot be caught, so a live chat's reservation stays open until the owner runs `umwayi budget settle-lost`, as for a command line run (item 36).
+
+### 210. Dates use the system date
+
+A token's expiry and the logbook date come from the system date (taken with the newest logbook date, so a clock set back does not revive an expired token or make an old one valid). A clock set far forward expires the token early, which is the safe direction. The rate windows use a monotonic clock.
+
+### 211. The page can answer an Ask me first of a chat
+
+The owner can allow a tool for an AI helper from the page, as at the terminal. Anyone or anything that has the token can do the same (item 196). Whether the page should be able to approve at all, or only reject unless a Yes rule exists, is W6-Q12.
+
+### 212. Login for a deployed interface is not built (W7)
+
+Nothing here says what a deployed login, a relay or remote control would be. Any of them would be a second door with its own limits, an outbound network import in the core, and a third party in the path of the owner's data. The spec only fixes what they may not do: open the local backend to the internet, or relax a check of W6.

@@ -20,6 +20,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | Layer 12 web interface (the view) | `umwayi view snapshot` built (UI.2, PR 41); the Kenyan highlands scene and home page with List and Standard tiers built (UI.1 and UI.1b, PR 39, merged); the shared scene module and the public site in `site/` with List and Standard built (UI.6, its own pull request); UI.3 (the page reads the snapshot, live view and site) built (its own pull request); the owner checks panel built (UI.4, its own pull request); UI.5 half done (the docs, access, contrast and fault map in its first slice; the scan, the scene polish and the owner's check wait), UI.7 not started | [interface](docs/interface.md) |
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
 | Layer 13 correction and graded autonomy | all five slices built (elections, reversal, courts and the rules change log, honest tension, graded autonomy off by default) | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
+| Local backend (W6), `umwayi serve` | specified Nov 12 (W6.0, docs and specs only), not built; waits for the owner's approval | [serve](docs/serve.md) |
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 
