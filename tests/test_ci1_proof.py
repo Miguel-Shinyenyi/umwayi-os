@@ -1,4 +1,4 @@
-"""CI.1 proof only. A deliberately failing test, on the throwaway branch ci1-proof. It is never merged: the draft pull
+"""CI.1 proof only (second push, to cancel the first run). A deliberately failing test, on the throwaway branch ci1-proof. It is never merged: the draft pull
 request that carries it is closed and the branch deleted. It exists to show that CI goes red when a test fails."""
 
 import unittest
