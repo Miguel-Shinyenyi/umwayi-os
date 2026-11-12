@@ -120,6 +120,9 @@ SIGNIN_TEXT = ("Sign in to Claude Code with your Claude subscription first (clau
 CLAUDE_ACP_MODE = "default"  # sent with session/set_mode once the canary is seen
 CANARY_TIMEOUT = 10  # seconds, the SessionStart canary hook's timeout in the inline settings
 CANARY_PREFIX = "umwayi-canary-"
+OPENCODE_CANARY_NAME = "canary"  # the file the umwayi plugin writes in the private folder (10.R13.10)
+OPENCODE_CANARY_READ = 129  # bytes read of that file: the token is 32 characters, one more is already too many
+OPENCODE_SIGN_IN = "Run opencode auth login first, then try again."
 CLAUDE_ACP_PROBES = {  # the self-test programs after `node --version`, each [NODE, ADAPTER, *tail]
     "adapter version": ("--version",),
     "claude code version": ("--cli", "--version"),
@@ -879,6 +882,10 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
         if agent.platform == "kiro":
             return _assert_allowed([command_path, "login"]), None
         raise UsageError(LOGIN_ONLY)
+    if agent.platform == "opencode":  # only the chat: `agent run` and `agent login` refuse it before this point
+        if mode != CHAT:
+            raise UsageError("agent: an OpenCode agent has a chat only")
+        return _assert_allowed([command_path, "acp"]), None
     if is_claude_acp(agent, mode):
         # command_path is node here; the adapter is the fixed path, never looked up through PATH or npx
         return _assert_allowed([command_path, str(claude_acp_path(CLAUDE_ACP_ADAPTER, src))]), None
@@ -1470,9 +1477,11 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
     if not gate.gated:
         lines.append(f"Not gated: agent {agent.name} would be refused (exit 2). Nothing was started.")
         return Result(2, lines)
-    if agent.platform == "opencode":  # the chat itself is task 10.48
-        lines.append(f"Gated: the checks for an OpenCode chat of agent {agent.name} passed. Nothing was started. "
-                     "(The OpenCode chat itself is not built yet, task 10.48.)")
+    if agent.platform == "opencode":  # the six checks of 10.R13.8; the chat itself is 10.R13.10 to 10.R13.12
+        argv, _ = build_argv(agent, CHAT, gate.command_path, root, python_path())
+        lines.append(f"chat would start: {json.dumps(argv)} with the allow-listed environment and the inline config; "
+                     "the chat goes on only after the plugin has written the canary in the session")
+        lines.append(f"Gated: the checks for an OpenCode chat of agent {agent.name} passed. Nothing was started.")
         return Result(0, lines)
     python = python_path()
     if is_claude_acp(agent, CHAT):
@@ -1650,6 +1659,7 @@ class _Run:
         self.tty = None  # chat: (fd, termios attributes) to put back after the agent
         self.canary = None  # Claude Code ACP chat: (private folder, token) of this start
         self.meta = None  # Claude Code ACP chat: the _meta of session/new
+        self.opencode_config = None  # OpenCode chat: the inline config, passed in OPENCODE_CONFIG_CONTENT
         self.gate = None  # login: the gate of the checks before the sign-in (the program found, for the check after)
         self.budget = None  # budget governor: the reservation of this start (run id, micros, units, receiver)
 
@@ -1808,16 +1818,8 @@ class _Run:
                 lines.append(f"Run umwayi agent login {a.name} to sign in.")
             return self.result(2, lines, why)
 
-        # 5a. OpenCode (10.R13): the chat is task 10.48. Until then a gated OpenCode agent is still not started.
-        if a.platform == "opencode":
-            why = self.log(f"Refused agent {a.name}: the OpenCode chat is not built yet (task 10.48)",
-                           "the kill switch, the rules (Yes), the run lock, then the gate checks, which passed",
-                           "Nothing was started.")
-            return self.result(2, [f"Refused: the OpenCode chat is not built yet, so agent {a.name} was not started "
-                                   "(exit 2)."], why)
-
-        # 5b. Claude Code ACP chat: the private canary folder, a fresh token and the inline settings
-        if self._claude_acp():
+        # 5b. Claude Code ACP chat or OpenCode chat: the private canary folder, a fresh token and the inline settings
+        if self._claude_acp() or self._opencode():
             problem = self._prepare_canary(stack)
             if problem is not None:
                 why = self.log(f"Refused agent {a.name}: not gated ({problem})",
@@ -2003,14 +2005,19 @@ class _Run:
         """A Claude Code ACP chat (the canary, the inline settings, the ACP client). Never the sign-in."""
         return self.mode == CHAT and is_claude_acp(self.agent, self.mode)
 
+    def _opencode(self) -> bool:
+        """An OpenCode chat (the plugin's canary, the inline config, the ACP client). Run and login never get here."""
+        return self.mode == CHAT and self.agent.platform == "opencode"
+
     def _prepare_canary(self, stack: ExitStack) -> str | None:
-        """The canary of this start (10.R11.4). None, or why it cannot be prepared (then nothing starts).
+        """The canary of this start (10.R11.4, 10.R13.10). None, or why it cannot be prepared (then nothing starts).
 
         The folder is removed when the stack closes: on every way out, after the agent was stopped.
         """
-        canary = claude_acp_path(CLAUDE_ACP_CANARY)
-        if not _regular_file(canary):
-            return f"the canary hook {canary} is missing, a link or not a regular file"
+        if not self._opencode():
+            canary = claude_acp_path(CLAUDE_ACP_CANARY)
+            if not _regular_file(canary):
+                return f"the canary hook {canary} is missing, a link or not a regular file"
         python = python_path()
         if python is None:
             return "the path of the Python running umwayi is not known"
@@ -2028,12 +2035,35 @@ class _Run:
             return "the private canary folder is not a private folder outside the root and the workdir"
         token = secrets.token_hex(16)
         self.canary = (folder, token)
+        if self._opencode():
+            try:
+                self.opencode_config = opencode_inline_config(self.agent, self.root, token, folder, python)
+            except OpenCodeRefused as e:
+                return str(e).rstrip(". ")
+            return None
         self.meta = claude_acp_session_meta(python, self.root, folder, token)
         return None
 
     def _gate_ready(self) -> bool:
         """The first gate is confirmed when the canary file of this start exists. Its content is never read."""
         return self.canary is not None and os.path.exists(os.path.join(self.canary[0], self.canary[1]))
+
+    def _opencode_ready(self) -> bool:
+        """The plugin's canary is confirmed when the file in the private folder holds exactly the token of this start.
+
+        A regular file only (no link), at most OPENCODE_CANARY_READ bytes read; a different or longer text is not it.
+        """
+        if self.canary is None:
+            return False
+        path = os.path.join(self.canary[0], OPENCODE_CANARY_NAME)
+        try:
+            if not stat.S_ISREG(os.lstat(path).st_mode):
+                return False
+            with open(path, "rb") as f:
+                data = f.read(OPENCODE_CANARY_READ)
+        except OSError:
+            return False
+        return data == self.canary[1].encode("ascii")
 
     def _ask_owner(self) -> str:
         if self.mode == LOGIN:
@@ -2074,6 +2104,9 @@ class _Run:
             if self._claude_acp():
                 lines.append(f"Nothing you type is sent until the hook is confirmed in the session (at most "
                              f"{acp.GATE_WAIT:.0f} s).")
+            if self._opencode():
+                lines.append(f"Nothing you type is sent until the plugin is confirmed in the session (at most "
+                             f"{acp.GATE_WAIT:.0f} s).")
         else:
             lines.append(f"Starting a chat with agent {self.agent.name}. Every tool call it makes is checked by the "
                          "layer 9 hook. Nothing of the conversation is logged.")
@@ -2104,6 +2137,8 @@ class _Run:
             stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
         if self.mode == LOGIN and self.agent.platform == "claude-code":
             env = login_env(os.environ)  # the allow list plus only what a browser sign-in needs (10.R12.9)
+        elif self._opencode():
+            env = opencode_env(os.environ, self.opencode_config)  # the allow list of 10.R13.4 and the inline config
         elif self._claude_acp():
             env = child_env(os.environ)  # the allow list of 10.R11.9
         elif self.agent.platform == "claude-code":
@@ -2411,11 +2446,13 @@ class _Run:
     def _acp_chat(self) -> Result:
         a = self.agent
         claude = self._claude_acp()  # Kiro: no _meta, no waiting, no session/set_mode
+        opencode = self._opencode()  # OpenCode: no _meta, waits for the canary, checks the model, no set_mode
         chat = acp.Chat(self.proc, out=self.out or sys.stdout, owner=_owner_input(), workdir=a.workdir,
                         permission=self._permission, tick=self._tick, queue_lines=self._queue_lines,
                         client_version=__version__, tick_interval=WATCH_INTERVAL,
-                        session_meta=self.meta if claude else None, gate_ready=self._gate_ready if claude else None,
-                        set_mode=CLAUDE_ACP_MODE if claude else None, on_auth=_billing_watch if claude else None)
+                        session_meta=self.meta if claude else None, gate_ready=(self._gate_ready if claude else self._opencode_ready if opencode else None),
+                        set_mode=CLAUDE_ACP_MODE if claude else None, on_auth=_billing_watch if claude else None,
+                        expect_model=a.model if opencode else None, sign_in=OPENCODE_SIGN_IN if opencode else None)
         # Ctrl-C belongs to umwayi here (the agent is in its own session): it cancels the turn, never kills umwayi
         self._old_sigint = signal.signal(signal.SIGINT, lambda _s, _f: chat.interrupt())
         outcome = chat.run()
@@ -2431,7 +2468,7 @@ class _Run:
                 why = self.log(f"ACP chat with agent {a.name} ended: {outcome[1]}", "the agent was stopped", NOT_LOGGED)
             return self.result(2, list(outcome[2]), why)
         # the owner ended it (:quit or the end of input): the agent gets the end of its stdin and should exit
-        if claude:
+        if claude or opencode:
             self._track()  # what it started, before its exit orphans it
         try:
             self.proc.stdin.close()
