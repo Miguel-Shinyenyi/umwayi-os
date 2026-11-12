@@ -25,6 +25,7 @@ SECRET = "sk-live-AGENTS-TEST-SECRET"
 CODES = {0, 2, 3, 64}  # the only exit codes umwayi agent may give
 
 FAKE_SOURCE = Path(__file__).with_name("fake_agent.py")
+FAKE_OPENCODE_SOURCE = Path(__file__).with_name("fake_opencode.py")
 
 # Test only: loaded by the sitecustomize in every child. Makes a "minute" of timeout_minutes
 # last UMWAYI_TEST_MINUTE seconds, so a timeout test does not take a real minute.
@@ -48,6 +49,24 @@ if os.environ.get("UMWAYI_TEST_GATE_WAIT"):
     try:
         import umwayi.acp as _acp
         _acp.GATE_WAIT = float(os.environ["UMWAYI_TEST_GATE_WAIT"])
+    except ImportError:
+        pass
+# Test only (part 8, task 10.46): where umwayi looks for a managed OpenCode config, and the limit of `opencode --version`.
+# The real places (/etc/opencode, the macOS folders) are never read by a test: a test that runs the checks points them
+# at folders of its own.
+if os.environ.get("UMWAYI_TEST_OPENCODE_MANAGED"):
+    try:
+        import json as _json
+        import umwayi.agents as _agents5
+        _managed = _json.loads(os.environ["UMWAYI_TEST_OPENCODE_MANAGED"])
+        _agents5.OPENCODE_MANAGED_DIRS = tuple(_managed["dirs"])
+        _agents5.OPENCODE_MANAGED_PLIST_ROOT = _managed["plist_root"]
+    except ImportError:
+        pass
+if os.environ.get("UMWAYI_TEST_OPENCODE_VERSION_TIMEOUT"):
+    try:
+        import umwayi.agents as _agents6
+        _agents6.OPENCODE_VERSION_TIMEOUT = float(os.environ["UMWAYI_TEST_OPENCODE_VERSION_TIMEOUT"])
     except ImportError:
         pass
 # Test only: the logbook is edited by hand right after the gate checks, so the rules check
@@ -205,6 +224,13 @@ class AgentCase(unittest.TestCase):
     def fake(self, prog: str):
         p = self.bin / prog
         p.write_text(f"#!{sys.executable}\n" + FAKE_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
+        p.chmod(0o755)
+        return p
+
+    def fake_opencode(self):
+        """A fake `opencode` that answers --version and records every call (task 10.46)."""
+        p = self.bin / "opencode"
+        p.write_text(f"#!{sys.executable}\n" + FAKE_OPENCODE_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
         p.chmod(0o755)
         return p
 
