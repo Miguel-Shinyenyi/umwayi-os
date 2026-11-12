@@ -13,11 +13,10 @@ import os
 import re
 import string
 import unittest
-from pathlib import Path
 from unittest import mock
 
 from tests.serve import gen, oracle
-from tests.serve.support import PORT, REPO, TOKEN, TOKEN2, record, servegate
+from tests.serve.support import PORT, REPO, TOKEN, TOKEN2, servegate
 
 PROP_N = int(os.environ.get("UMWAYI_PROP_N", "5000"))
 FIXED_SEEDS = (1, 2, 3)

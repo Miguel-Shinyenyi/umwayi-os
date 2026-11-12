@@ -14,7 +14,7 @@ The full status table, with every task, is in [tasks.md](../.kiro/specs/umwayi-o
 
 Layer 13 (correction and graded autonomy: elections, reversal, courts, the stop criteria and a graded autonomy score) is specified (L13.0, PR 40, docs and specs only). Slice 1, elections (L13.1: `review_by` on Yes rules and `umwayi rules due`), is built. Slice 2, reversal (L13.2: `umwayi decision reopen` and `queue answer --revisit-if`), is built. Slice 3, courts and the rules change log (L13.3: `umwayi petition`, the `umwayi rules` entries), is built. Slice 4, honest tension (L13.4: the stop criteria, the plain note and the words test), is built. Slice 5, graded autonomy (L13.5: `umwayi autonomy record`, `status` and `validate`, the opt-in and the thirteen gates), is built and off by default. See [corrections](corrections.md) and [autonomy](autonomy.md).
 
-The local backend (W6, `umwayi serve`) is specified (W6.0, PR 61, docs and specs only) and not built; the page still makes no request. See [serve.md](serve.md).
+The local backend (W6, `umwayi serve`) was specified in W6.0 (PR 61, docs and specs only). Its core is built (W6.1 to W6.6, one pull request, Nov 12): the gate, the token, the server, the pipeline and the first routes. The page client (W6.9) is not built, so the page still makes no request. See [serve.md](serve.md).
 
 ### Pull requests
 

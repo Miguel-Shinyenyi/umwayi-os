@@ -7,7 +7,6 @@ import re
 import shutil
 import unittest
 from contextlib import redirect_stderr
-from pathlib import Path
 from unittest import mock
 
 from tests.serve.support import (DATE, REPO, SENTINEL, TOKEN, InProc, RootCase, logbook_entries, make_logbook, make_root,

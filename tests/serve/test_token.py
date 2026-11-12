@@ -6,14 +6,13 @@ import json
 import os
 import re
 import stat
-import sys
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
 from unittest import mock
 
 from tests.serve.support import (DATE, SENTINEL, TOKEN, InProc, RootCase, TtyOut, digest, logbook_entries, make_logbook,
-                                 make_root, record, servetoken, snapshot_tree)
+                                 record, servetoken, snapshot_tree)
 from umwayi import logbook
 from umwayi.cli import main
 from umwayi.errors import UmwayiError

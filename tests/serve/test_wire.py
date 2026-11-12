@@ -9,15 +9,14 @@ import socket
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
 
 from tests.serve import gen, oracle
-from tests.serve.support import (REPO, SENTINEL, TOKEN, TOKEN2, RootCase, Server, envelope, logbook_entries, make_root,
-                                 parse_response, record, rules_text)
+from tests.serve.support import (REPO, SENTINEL, TOKEN, TOKEN2, Server, envelope, logbook_entries, make_root,
+                                 parse_response, record)
 from umwayi import logbook
 
 FUZZ_N = int(os.environ.get("UMWAYI_FUZZ_N", "5000"))

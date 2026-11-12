@@ -9,7 +9,6 @@ at once" and "SIGTERM or Ctrl-C" are real-process tests in test_wire.py.
 
 import io
 import json
-import sys
 import threading
 import unittest
 from contextlib import redirect_stderr
