@@ -74,7 +74,7 @@ export function initChecks(doc, win, { checks = CHECKS } = {}) {
       const warn = el('p', { className: 'check-warning', role: 'status' });
       warn.hidden = true;
       warnings.set(`${c.id}\u0000${s.id}`, warn);
-      const field = el('input', { type: 'text', maxlength: '500', autocomplete: 'off', spellcheck: 'false', 'aria-label': `Result for step ${s.id} of check ${c.id}` });
+      const field = el('input', { type: 'text', maxlength: '500', autocomplete: 'off', spellcheck: 'false', placeholder: 'Your result: names, exit codes, versions only', 'aria-label': `Result for step ${s.id} of check ${c.id}` });
       on(field, 'input', (ev) => {
         notes.setResult(c.id, s.id, ev.target.value);
         refreshWarning(c.id, s.id);

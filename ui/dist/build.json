@@ -42,7 +42,7 @@
     "src/stations/rules.js": "3e3f677a8b8b0e9847e1fff21566eb908049970954d04c572a0e1cd470e87764",
     "src/stations/workflows.js": "4d6ce8a1350a6302c3f1ef58f1340927ab77913bcbc7cc434c673987edff0ae5",
     "src/style.css": "16fe36b6a98cc27a8897233f0036e1a7394bc6c85d4b94fb7090192952cc14e0",
-    "src/ui/checks.js": "c749b27a4f17ad948bc7618ea3171901e5b9862f68e67c6768f93136d4109948",
+    "src/ui/checks.js": "3d90c4bdd48a32ce274f4539c7ce4598b010723602b910722c1707c2a5058ebf",
     "src/ui/fallback.js": "e2f8e971b831153ec4ab7eb205f12a7059e41636f66b8f01b3a84559836801e9",
     "src/ui/home.js": "ae27cf208097f9db277fd4b9b935ba2f9fa5be17eaffa7b508457baca6541726",
     "src/ui/labels.js": "61ad0eec0ca196afa58a9aff602334f024f095054f5dcea900e7dfb949371f98",
@@ -68,5 +68,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "42154ff1291e92fe37a8034740868126e7cceb984a4ddcb5a8679851d42be60c"
+  "page": "1e04ce981f71bfaa7735d4f67f6e7a7de05c788a34701f601c804644413d5226"
 }

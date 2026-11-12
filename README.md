@@ -17,7 +17,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
 | Whole-system test (S.1) | built | [testing](docs/testing.md) |
-| Layer 12 web interface (the view) | `umwayi view snapshot` built (UI.2, PR 41); the Kenyan highlands scene and home page with List and Standard tiers built (UI.1 and UI.1b, PR 39, merged); the shared scene module and the public site in `site/` with List and Standard built (UI.6, its own pull request); UI.3 (the page reads the snapshot, live view and site) built (its own pull request); UI.4, UI.5 and UI.7 not started | [interface](docs/interface.md) |
+| Layer 12 web interface (the view) | `umwayi view snapshot` built (UI.2, PR 41); the Kenyan highlands scene and home page with List and Standard tiers built (UI.1 and UI.1b, PR 39, merged); the shared scene module and the public site in `site/` with List and Standard built (UI.6, its own pull request); UI.3 (the page reads the snapshot, live view and site) built (its own pull request); the owner checks panel built (UI.4, its own pull request); UI.5 and UI.7 not started | [interface](docs/interface.md) |
 | Security scan (S.2) | done 2026-11-10; Python 3.10 end of life, for the owner to decide | [security](docs/security.md), [scan record](docs/SECURITY-SCAN.md) |
 | Layer 13 correction and graded autonomy | all five slices built (elections, reversal, courts and the rules change log, honest tension, graded autonomy off by default) | [corrections](docs/corrections.md), [autonomy](docs/autonomy.md) |
 
