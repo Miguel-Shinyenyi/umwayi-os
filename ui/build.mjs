@@ -39,14 +39,15 @@ const links = home.LINKS.map((l) => (l.href
 
 const bundle = await build({
   entryPoints: [join(root, 'src/main.js')], bundle: true, minify: true, format: 'iife', target: 'es2020',
-  write: false, legalComments: 'none', logLevel: 'warning',
+  write: false, legalComments: 'inline', logLevel: 'warning',
 });
 // nothing inside the script may end the script element early
 const script = bundle.outputFiles[0].text.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
 const css = (await transform(readFileSync(join(root, 'src/style.css'), 'utf8'), { loader: 'css', minify: true })).code;
 
+// W6.9: the old policy plus connect-src 'self' (requests to the origin the page came from, which is `umwayi serve`), and nothing else
 const csp = [
-  "default-src 'none'", `script-src '${cspHash(script)}'`, `style-src '${cspHash(css)}'`, 'img-src data:', "base-uri 'none'", "form-action 'none'",
+  "default-src 'none'", `script-src '${cspHash(script)}'`, `style-src '${cspHash(css)}'`, 'img-src data:', "base-uri 'none'", "form-action 'none'", "connect-src 'self'",
 ].join('; ');
 
 let html = readFileSync(join(root, 'src/index.html'), 'utf8');

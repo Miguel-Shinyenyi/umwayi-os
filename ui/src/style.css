@@ -159,6 +159,17 @@ pre.cmd code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, mon
 #checks-export { box-sizing: border-box; width: 100%; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--field-line); border-radius: 10px; padding: 10px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 #checks-export[hidden], #checks[hidden] { display: none; }
 #checks { scroll-margin-top: 72px; } /* the fixed top bar must not cover the title when the panel is scrolled to */
+/* The panel of the local backend (W6.9). Its own rules only; the section is hidden until the script shows it. */
+#backend[hidden] { display: none; }
+.backend-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
+#backend input[type="password"], #backend input[type="text"], #backend select { box-sizing: border-box; min-width: 0; min-height: 36px; flex: 1 1 200px; padding: 7px 10px; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--field-line); border-radius: 10px; font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+#backend select { flex: 0 0 auto; }
+#backend ul { list-style: none; margin: 0; padding: 0; }
+#backend li { padding: 12px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+#backend li p { margin: 0 0 4px; }
+#backend .backend-title { color: var(--ink); }
+#backend :disabled { opacity: 0.5; }
+.home .backend-msg { min-height: 1.4em; color: var(--ink); }
 .steps input[type="text"]::placeholder { color: var(--muted); opacity: 1; }
 .cmds { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .cmds li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--glass-solid); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px 8px 14px; }
