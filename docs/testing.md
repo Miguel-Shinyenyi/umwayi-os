@@ -50,7 +50,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-12 | CI runs on pull requests only, and a newer push cancels the older run of the same pull request; the names and the matrix stay; the npm download is cached on the 3.12 job; sharding is a proposal, not built | CI.1 (the owner's reviewer found two runs per push, no cancelling and 20 to 25 minutes a job), NN. It overrules S-Q13, which kept the workflow unchanged for Dec 3. |
+| 2026-11-12 | CI runs on pull requests only, and a newer push cancels the older run of the same pull request; the names and the matrix stay; the npm download is cached on the 3.12 job; sharding is a proposal, not built | CI.1 (the owner's reviewer found two runs per push, no cancelling and 20 to 25 minutes a job), PR 59. It overrules S-Q13, which kept the workflow unchanged for Dec 3. |
 | 2026-11-10 | The fault scenarios restore the day's snapshot into the same folder, not a copy elsewhere | S.1, PR 36: the day writes absolute paths (the workdir, the Kiro hook's `--root`, the unit files, logbook entries) that a copy at another path would make false. |
 | 2026-11-10 | S-Q1, S-Q2, S-Q15: the whole-system test runs in the normal suite; one ordered owner's day, then each fault in its own copy; a defect it finds is fixed in its pull request, test first | Approved in PR 34. |
 | 2026-11-08 | CI runs on Python 3.10, 3.11, 3.12 and 3.13 (H.1) | Hardening, PR 9. |
