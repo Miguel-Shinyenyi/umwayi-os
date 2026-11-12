@@ -5,7 +5,7 @@
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
     "src/app.js": "d6693cf58c7d3ac0a124d159796e0b113c7f7502f316fb1a1130c3ae98a71faa",
     "src/boot.js": "40b822a0132516cd21dfa1c12e2bcad5f54120840b069034d0f7f571de960039",
-    "src/data/checks.js": "600d5adf3f2a3ae3da05bd636901b433a1557c6fc74aae5c5dcd8d1675b9abd3",
+    "src/data/checks.js": "53ac4f145740baf00144ce4097b660a1101959b2976f9ba33eec7df4291f5321",
     "src/data/counts.js": "f76b331dd5957d53a0dafc05cd8a29ffd5128804286c49c86d40998c7cd9a6fb",
     "src/data/home.js": "ecd32380a6108b7648174e24dd339912df071d2e68d3f0ff372897951756c622",
     "src/data/notes.js": "78cd0bf540a5062660651fbdf9d2ddaf88e480729ef3519be7bf6e0790b22fc6",
@@ -68,5 +68,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "5c5029ca287c837b9b1d9dac5aa76d03db931db148c99e15d94b4f3207851f85"
+  "page": "a7348cb4fb0c574c827589c9a959e0c7e060c9eef1a32b3b756ef91642813aca"
 }

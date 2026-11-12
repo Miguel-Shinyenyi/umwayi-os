@@ -66,7 +66,7 @@ test('the panel builds the six checks in order, each "not done", with a checkbox
   assert.deepEqual(a.map((x) => x.attrs['data-check']), ['10.21', '10.31', '11.6', 'B.10', '10.37', 'UI.5']);
   assert.deepEqual(a.map(badge), Array(6).fill('not done'));
   const steps = CHECKS.reduce((s, c) => s + c.steps.length, 0);
-  assert.equal(steps, 67);
+  assert.equal(steps, 72);
   assert.equal(boxes(p).length, steps);
   assert.equal(texts(p).length, steps);
   assert.ok(boxes(p).every((b) => b.checked === false));

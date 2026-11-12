@@ -729,6 +729,16 @@ It fires on an email address, `://`, a run of 24 or more letters and digits, a h
 
 Nothing is stored (12.R2.2): a reload, a crash or closing the tab loses every tick and result, and the panel says so. Download saves the text through a link whose address holds the text, so it needs no Blob and makes no request. It saved the file in the one browser tried (headless Chromium, under the live view's policy `default-src 'none'` and under the site's); other browsers may refuse a very large data address, and then Copy is the way.
 
+## Layer 12: access and polish (found while building UI.5, first slice)
+
+### 149. The contrast check reads the CSS colours, not the pixels
+
+`ui/test/contrast.test.mjs` works out the ratio of the ink and muted text on the page, the solid panel, the glass over the page and the dark wells of the code blocks and fields, in normal and in Calm mode (the lowest is 6.0 to 1 in Calm mode, against a floor of 4.5), and of the focus ring and the field border (3 to 1). It does not check the glass panel and the name pills over the sky, which the owner cut on Nov 11, so text over a bright part of the picture is not measured, and the picture's own colours are not in it. A colour written in the CSS that is not one of the variables fails the test, but a new ground that is not in the list is not found.
+
+### 150. The keyboard and screen reader pass is read from the code, and the phone layout from one browser
+
+The names, landmarks, heading order, Tab order, live regions and target sizes are tested on the built HTML and on a fake document (`ui/test/access.test.mjs`), and the owner checks panel was measured at 390 by 844 in headless Chromium (no sideways scroll, no control under 24 pixels). No screen reader was run: how NVDA, VoiceOver or TalkBack read the hidden file input, the live regions, the picture's text alternative and a panel that opens by script is not known (step 1.12 of the interface check asks the owner). The station panel on a phone is a sheet at the bottom of the first screen (the picture area), not of the whole window. The frame rate check and the by-hand pass of the finished scene wait for UI.7.
+
 ## Layer 13: elections (found while building L13.1)
 
 ### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses

@@ -48,6 +48,7 @@ Newest first. Each row names where it was decided.
 | 2026-11-11 | `umwayi petition` uses 0, 1, 2 and 64; the same petition already open is 0 | Layer 13, L13.3 (13.R6.5, design.md "Commands and exit codes"). |
 | 2026-11-11 | `umwayi decision reopen` uses 0, 1, 2 and 64; `queue answer` gives 64 for a missing or misplaced `--revisit-if` | Layer 13, L13.2 (design.md, "Commands and exit codes"). |
 | 2026-11-11 | `umwayi rules due` uses 0, 3, 64 and 2, never 1; 3 when a rule lapsed so a scheduled job can notice (L13-Q9, proposal used) | L13.1, 13.R3.3. |
+| 2026-11-11 | UI.5: no new exit code. The page in `ui/` and `site/` is not a command and returns none; the owner checks panel only shows commands to type, and the exit codes it asks the owner to record are those of the commands in the NOTES files | 12.R7 |
 | 2026-11-11 | `umwayi view snapshot` uses 0, 1, 2 and 64 and never 3: it asks the rules nothing and the kill switch does not stop it | 12.R4.8 (UI.2). Code 1 is its tamper check refusal, as for `logbook verify`; the owner needs the counts most when the switch is on. |
 | 2026-11-10 | A path longer than the system allows is a usage error (64), not an unexpected error (2) | The security scan (S.2, PR 37). |
 | 2026-11-10 | Layer 11 and the budget governor follow the layer 10 codes: 0, 2, 3, 64, never 1 | 11.R6 and B.R3; the steering file's older code 1 for refusals is not used by new commands. |

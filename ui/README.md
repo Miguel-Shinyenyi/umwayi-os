@@ -4,6 +4,8 @@ A calm 3D hillside in one web page. Eleven stations stand around a lantern, one 
 only looks: it never writes to the repo, runs a command or calls a network (product.md, rule 10). The core `umwayi`
 package never imports anything from here, and nothing here imports `umwayi`.
 
+Status (UI.5, first slice): the docs, the access and contrast checks, the phone layout of the panels and the fault map of 12.R10.6 are done; the scan of the lockfile (held by the owner) and the scene polish, frame rate check and by-hand browser pass (after UI.7) are not. New: `test/access.test.mjs` (names, landmarks, headings, Tab order, live regions, 24 pixel targets, the phone layout of the panels), six contrast tests worked out from `src/style.css`, `test/faults.test.mjs` (the map from each planted fault to the test that kills it). The CSS now keeps the owner checks panel inside a 390 pixel screen and gives the fields a 3 to 1 border and a readable placeholder.
+
 Status (UI.4, the owner checks panel): "Owner checks" in the top bar and in the list view opens a panel with the six checks only the owner can run (`src/data/checks.js`, each step word for word from its NOTES file), a tick and a result field for each step, and an export as text with Copy and Download. A check is "not done" until every step is ticked, then "ticked by you", never "passed". The notes are kept in memory only (`src/data/notes.js`) and are lost when the page closes. A result that looks like an email, a URL, a token or a hex string is warned. The panel runs nothing, makes no request and works with no WebGL.
 
 Status (UI.3, the snapshot): the page reads a snapshot file the owner picks or drops (`src/data/snapshot.js` reads it with `FileReader.readAsText` and checks it strictly; `src/ui/snapshot.js` is the picker, the drop and the one message). A file that is not a snapshot of this version gives "This file is not a snapshot of this version" and loads nothing. A loaded snapshot sets the status strip, the date next to the scene (instead of "sample"), the footer, the panels, what each feature draws (the mapping table in `docs/interface.md`) and, through `setNeeds`, the places of Queue, Kill switch and Budget. A null part is drawn as unknown. Nothing is uploaded, sent or kept, and the page still makes no request. The real file for the tests is `test/fixtures/snapshot.json`, the output of `umwayi view snapshot` on the fixed root of `tests/test_view.py`.
@@ -63,7 +65,7 @@ down twice at most after slow frames: a lower pixel ratio, then no bloom and no 
 
 ```
 python -m unittest tests.test_ui_package       # the package, the lockfile, build.json, the built page (standard library)
-node --test                                    # in ui/ (230 tests): the engine, the layout and position function, the stations, the home content, the detail mode (no package needed)
+node --test                                    # in ui/ (261 tests): the engine, the layout and position function, the stations, the home content, the detail mode (no package needed)
 ```
 
 The Python suite needs no npm, node or browser. The browser pass (no console error, zero requests, still at rest, the
@@ -84,5 +86,5 @@ src/world/         height (the ground), river, layout (the fixed table and the p
 src/stations/      meta.js (the words), kit.js (shared parts), one module per natural feature, index.js
 src/data/          sample.js (made up counts), counts.js (counts to text), home.js (the home content)
 src/ui/            the buttons over the features, the panel, the list view fallback, the home behaviours (Copy), snapshot.js (the picker and the drop), checks.js (the owner checks panel)
-test/              node --test; test/fixtures/snapshot.json is a real snapshot
+test/              node --test; test/fixtures/snapshot.json is a real snapshot; access.test.mjs, faults.test.mjs
 ```
