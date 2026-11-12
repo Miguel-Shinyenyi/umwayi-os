@@ -743,15 +743,15 @@ The names, landmarks, heading order, Tab order, live regions and target sizes ar
 
 ### 151. High is checked only in software drawing, and its frame rate is unknown
 
-Every browser run of High was in headless Chromium with SwiftShader, which draws on the processor: High drew there, and the fallback, the switch and the wildlife worked, but a drag in High timed out and a frame took seconds. That says nothing about a real GPU. The automatic rule offers High only on a fast network, 8 or more cores, 8 GB or more where the browser says, a large screen, no reduced motion and a hardware renderer, so a visitor with a weak GPU and strong numbers can still be given High. Their way back is the switch, which keeps Standard in the address. Slow frames step the detail down inside High as in Standard (a lower pixel ratio, then no bloom, and less grass), but nothing steps down from High to Standard by itself.
+Every browser run of High was in headless Chromium with SwiftShader, which draws on the processor: High drew there, and the fallback, the switch and the wildlife worked, but a drag in High timed out and a frame took seconds. That says nothing about a real GPU. The automatic rule offers High only on a fast network, 8 or more cores, 8 GB or more where the browser says, a large screen, no reduced motion and a hardware renderer, so a visitor with a weak GPU and strong numbers can still be given High. Their way back is the switch, which keeps Standard in the address. Slow frames step the detail down inside High as in Standard (a lower pixel ratio, then no bloom, and less grass), but nothing steps down from High to Standard by itself (UI.8 in tasks.md, not built, KNOWN-LIMITS 156).
 
 ### 152. High is about 4.7 MB of photographs, and the 15 s limit is one number for every network
 
 The five photographs are 4.72 MB (JPEG does not compress further) and the High code 10 KB compressed, on top of Standard. The rule offers High only on a reported 4g network of 10 Mbit/s or more, but that is the browser's estimate. A visitor who chose High on a slow network waits up to 15 s for it and then gets Standard with the words saying why; the files that arrived late are not used, and the next visit downloads them again unless the browser cached them. The limit is not tuned to the network.
 
-### 153. The antelope is clear of trees only for the default view
+### 153. The antelope is drawn three times life size, and is clear of trees only for the default view
 
-The High forest leaves out every young tree that would stand between the default overview camera and the antelope's path (`blocksAntelope`), and every tree in the line of each station's view (`inStationView`). A camera that the visitor drags elsewhere can see the antelope behind a tree, or see none of it. The birds fly under the top bar of the default view at 1440 by 900 only; at other sizes they may be behind it.
+The antelope stands on a crest about 130 m from the default camera, where a real impala would be a speck of about 7 pixels (a back about 7 pixels high at 1440 by 750). The owner asked for it to show, so the model (a real impala) is drawn `ANTELOPE_SCALE` = 3 times larger: a back about 21 pixels high and a body about 34 pixels long in the default view, a shoulder height of about 2.5 m against 0.85 m for the animal. Nothing near it gives a size to compare with, so it reads as an antelope, but it is not the size of one. Its keep out reach, its sight line and its speed (1 m a second, 8 pixels a second at that distance) are all in the drawn size. The High forest leaves out every young tree that would stand between the default overview camera and the antelope's path (`blocksAntelope`), and every tree in the line of each station's view (`inStationView`). A camera that the visitor drags elsewhere can see the antelope behind a tree, or close up, where it is plainly too large, or not at all. The birds fly under the top bar of the default view at 1440 by 750 only; at other sizes they may be behind it.
 
 ### 154. The photographs are of other places, and High still looks made in parts
 
@@ -761,6 +761,9 @@ The grass, soil and rock photographs are CC0 from Poly Haven and are not of Laik
 
 The fallback covers a High that cannot load its code, cannot load a photograph, throws while it is built, or is too slow. A failure after High is on (a shader that does not compile on a given GPU, a lost context) shows as whatever the browser does with it: three.js logs the shader error and the object is not drawn. A lost context goes through the Standard path (List, with the words). No test or browser run here had a shader fail to compile.
 
+### 156. High does not step down to Standard by itself (not built)
+
+A device that is offered High, or whose visitor chooses it, and draws it slowly keeps High. The detail ladder lowers the pixel ratio, then the bloom and the multisampling, and thins the grass, after slow frames, but nothing takes High off when that is not enough, so a weak GPU with strong numbers can stay at a few frames a second. The visitor's way back is the switch. The owner asked for the automatic step down on PR 58 as a follow-up, not part of that pull request: it is the task UI.8 in tasks.md and is **not built**. Until it is, the sandbox runs of High in software drawing (1 to 3 frames a second) are what a slow device would show.
 
 ## Layer 13: elections (found while building L13.1)
 
