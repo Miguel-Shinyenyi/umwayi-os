@@ -37,6 +37,7 @@ export function Home() {
       h('div', { className: 'actions' },
         h('div', { className: 'tiers', id: 'tiers', role: 'group', 'aria-label': 'View' },
           tiers.map(([name, label, on]) => h('button', { key: name, type: 'button', className: 'btn', 'data-tier': name, 'aria-pressed': on ? 'true' : 'false' }, label))),
+        h('button', { type: 'button', className: 'btn', id: 'checks-open', 'aria-expanded': 'false', 'aria-controls': 'checks' }, 'Owner checks'),
         h('button', { type: 'button', className: 'btn', id: 'calm-toggle', 'aria-pressed': 'false' }, 'Calm mode'))),
     h('main', null,
       h('section', { id: 'hero', 'aria-label': 'The valley' },
@@ -78,7 +79,8 @@ export function Home() {
       h('section', { className: 'home', id: 'list-view', 'aria-labelledby': 'list-title' },
         h('h2', { id: 'list-title' }, 'The eleven stations'),
         h('p', { className: 'intro-text' }, 'The same stations as the picture, as text. This is the List view: it needs no WebGL and no script.'),
-        h('ul', { id: 'station-list' }, STATIONS.map((s) => h(Station, { key: s.id, s })))),
+        h('ul', { id: 'station-list' }, STATIONS.map((s) => h(Station, { key: s.id, s }))),
+        h('p', null, h('button', { type: 'button', className: 'btn small', id: 'checks-open-list', 'aria-expanded': 'false', 'aria-controls': 'checks' }, 'Owner checks'))),
       h('section', { className: 'home', id: 'start', 'aria-labelledby': 'start-title' },
         h('h2', { id: 'start-title' }, 'Start'),
         h('p', null, 'Python 3.10 or newer, no third party packages.'),
@@ -92,6 +94,20 @@ export function Home() {
           LINKS.map((l) => (l.href
             ? h('li', { key: l.id }, h('a', { href: l.href, rel: 'noopener noreferrer' }, l.name), h('span', { className: 'note' }, l.note))
             : h('li', { key: l.id, 'data-placeholder': '' }, h('span', { className: 'name' }, l.name), h('span', { className: 'note' }, l.note)))))),
+      h('section', { className: 'home', id: 'checks', 'aria-labelledby': 'checks-title', hidden: true },
+        h('h2', { id: 'checks-title', tabIndex: -1 }, 'Owner checks'),
+        h('p', null, 'Six checks that only you can run, on your machine. The steps are the ones in the NOTES files of the repo, word for word. This page runs nothing and cannot tell whether a check passed: when you have ticked every step of a check, it says "ticked by you".'),
+        h('p', { className: 'checks-rule', id: 'checks-rule' }, 'Record field names, exit codes and version strings, never a value.'),
+        h('p', { className: 'checks-memory', id: 'checks-memory' }, 'These notes are lost when you close this page. Export them first.'),
+        h('div', { id: 'checks-list' }),
+        h('div', { className: 'checks-tools' },
+          h('button', { type: 'button', className: 'btn small', id: 'checks-export-btn' }, 'Export as text'),
+          h('button', { type: 'button', className: 'btn small', id: 'checks-copy', 'data-copy': 'checks-export', hidden: true }, 'Copy'),
+          h('button', { type: 'button', className: 'btn small', id: 'checks-download', hidden: true }, 'Download'),
+          h('button', { type: 'button', className: 'btn small', id: 'checks-close' }, 'Close')),
+        h('p', { className: 'checks-copy-only', id: 'checks-copy-only', hidden: true }),
+        h('textarea', { id: 'checks-export', readOnly: true, rows: 14, hidden: true, 'aria-label': 'The notes as text' }),
+        h('p', { className: 'copied', id: 'checks-status', role: 'status', 'aria-live': 'polite' })),
       h('footer', { className: 'home foot' }, h('p', { id: 'foot-note' }, 'A sample world. The picture shows made up counts until you load your own.'))),
     h('p', { id: 'notice', role: 'status', hidden: true }));
 }
