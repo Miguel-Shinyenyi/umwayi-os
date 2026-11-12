@@ -227,11 +227,14 @@ class AgentCase(unittest.TestCase):
         p.chmod(0o755)
         return p
 
-    def fake_opencode(self):
-        """A fake `opencode` that answers --version and records every call (task 10.46)."""
+    def fake_opencode(self, **cfg):
+        """A fake `opencode` that answers --version and records every call (task 10.46). Its settings (version, exit,
+        hang, big, no_newline) are written to a file next to it, because umwayi gives it only an allow-listed
+        environment. Call it again to change them."""
         p = self.bin / "opencode"
         p.write_text(f"#!{sys.executable}\n" + FAKE_OPENCODE_SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
         p.chmod(0o755)
+        (self.bin / "opencode-fake.json").write_text(json.dumps({"fake_log": str(self.fake_log), **cfg}), encoding="utf-8")
         return p
 
     def write_agents(self, text: str, name: str = "agents.yaml") -> Path:

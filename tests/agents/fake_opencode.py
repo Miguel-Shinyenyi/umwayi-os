@@ -1,13 +1,14 @@
 """A fake `opencode` for the layer 10 part 8 tests. Never imported: copied behind a shebang into a PATH folder.
 
-It records every call to the JSON lines file in FAKE_LOG (argv, working folder, the names of its environment variables
-and whether it was started), like tests/agents/fake_agent.py does for claude and kiro-cli.
+umwayi gives OpenCode only an allow-listed environment (10.R13.4), so this fake cannot be steered or told where to
+log by environment variables. It reads its settings from `opencode-fake.json` next to itself: {"fake_log": PATH,
+"version": TEXT, "exit": N, "hang": bool, "big": N, "no_newline": bool}. It records every call (argv, working folder,
+the names of its environment variables and whether it was started) to the JSON lines file named by `fake_log`.
 
-* `--version` (task 10.46): records started=False and prints FAKE_OPENCODE_VERSION (default `opencode v2.2.7`), then
-  exits FAKE_OPENCODE_EXIT. FAKE_OPENCODE_HANG makes it hang; FAKE_OPENCODE_BIG makes it print that many bytes of
-  text before the version; FAKE_OPENCODE_NO_NEWLINE leaves out the newline.
+* `--version` (task 10.46): records started=False, prints `version` (default `opencode v2.2.7`), exits `exit`. `hang`
+  makes it hang. `big` makes it print that many bytes of text before the version. `no_newline` leaves out the newline.
 * Any other call is a start: it records started=True and exits at once. Until the chat is built (10.48) and the ACP
-  fake is added to this file (10.47), no test expects one; the record is how a test proves that none happened.
+  behaviour is added to this file (10.47), no test expects one; the record is how a test proves that none happened.
 """
 import json
 import os
@@ -15,27 +16,28 @@ import sys
 import time
 
 ARGS = sys.argv[1:]
+with open(os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "opencode-fake.json"), encoding="utf-8") as f:
+    CFG = json.load(f)
 
 
 def rec(**kw):
     kw.setdefault("prog", "opencode")
     kw["t"] = time.time()
-    with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as f:
+    with open(CFG["fake_log"], "a", encoding="utf-8") as f:
         f.write(json.dumps(kw) + "\n")
 
 
 if ARGS == ["--version"]:
     rec(argv=ARGS, cwd=os.getcwd(), started=False, env_keys=sorted(os.environ),
         config_content=os.environ.get("OPENCODE_CONFIG_CONTENT"))
-    if os.environ.get("FAKE_OPENCODE_HANG"):
+    if CFG.get("hang"):
         time.sleep(60)
-    big = int(os.environ.get("FAKE_OPENCODE_BIG", "0"))
-    if big:
-        sys.stdout.write("x" * big + "\n")
-    sys.stdout.write(os.environ.get("FAKE_OPENCODE_VERSION", "opencode v2.2.7"))
-    if not os.environ.get("FAKE_OPENCODE_NO_NEWLINE"):
+    if CFG.get("big"):
+        sys.stdout.write("x" * int(CFG["big"]) + "\n")
+    sys.stdout.write(CFG.get("version", "opencode v2.2.7"))
+    if not CFG.get("no_newline"):
         sys.stdout.write("\n")
-    sys.exit(int(os.environ.get("FAKE_OPENCODE_EXIT", "0")))
+    sys.exit(int(CFG.get("exit", 0)))
 
 rec(argv=ARGS, cwd=os.getcwd(), started=True, pid=os.getpid(), env_keys=sorted(os.environ))
 sys.exit(0)

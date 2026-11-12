@@ -91,6 +91,7 @@ class GateCase(AgentCase):
 
     def assert_refused(self, name, words, **kw):
         """The check `name` refuses, in `agent check` and in `agent chat`, and nothing is started either time."""
+        before = len(self.refused_entries())  # a test may refuse several times in turn
         r = self.check(**kw)
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         lines = self.lines_of(r)
@@ -101,12 +102,13 @@ class GateCase(AgentCase):
         for later in ORDER[ORDER.index(name) + 1:]:
             self.assertEqual(lines[later], ("not run", "an earlier check failed"), r.stdout)
         self.assertIn("Not gated: agent o would be refused (exit 2). Nothing was started.", r.stdout)
-        self.assertEqual(self.refused_entries(), [], "agent check writes nothing")
+        self.assertEqual(len(self.refused_entries()), before, "agent check writes nothing")
         c = self.chat(**kw)
         self.assertEqual(c.returncode, 2, c.stdout + c.stderr)
         self.assertEqual(self.lines_of(c)[name][0], "no", c.stdout)
         self.assertIn("Refused: agent o cannot be gated, so it was not started (exit 2).", c.stdout)
-        [entry] = self.refused_entries()  # one logbook entry for the refusal
+        self.assertEqual(len(self.refused_entries()), before + 1)  # one logbook entry for the refusal
+        entry = self.refused_entries()[-1]
         self.assertTrue(entry.added.startswith(f"Refused agent o: not gated ({name}: "), entry.added)
         self.assertIn(words, entry.added)
         self.assertEqual([e for e in self.run_entries() if "Started" in e.added], [])
@@ -202,37 +204,46 @@ class CommandTests(GateCase):
 
 
 class VersionTests(GateCase):
-    def say(self, text, **extra):
-        return {"FAKE_OPENCODE_VERSION": text, **extra}
+    def say(self, text, **cfg):
+        """The fake answers `text` to --version. Returns the extra environment to pass (none)."""
+        self.fake_opencode(version=text, **cfg)
+        return None
 
     def test_versions_that_pass(self):
         for text in ("opencode v2.2.3", "opencode v2.2.7", "2.2.3", "opencode 2.3.0", "v2.10.0", "opencode v3.0.0",
                      "opencode v2.2.3-beta.1", "OpenCode 2.2.7 (build 1.2.3)"):
             with self.subTest(text=text):
-                self.assert_passes(extra=self.say(text))
+                self.say(text)
+                self.assert_passes()
 
     def test_v1_and_older_v2_are_refused(self):
         for text, shown in (("opencode v1.18.30", "1.18.30"), ("opencode v2.2.2", "2.2.2"), ("opencode v2.1.9", "2.1.9"),
                             ("opencode v2.0.0", "2.0.0"), ("1.0.0", "1.0.0"), ("opencode v0.9.9", "0.9.9")):
             with self.subTest(text=text):
-                self.assert_refused("version", f"{shown} is older than 2.2.3", extra=self.say(text))
+                self.say(text)
+                self.assert_refused("version", f"{shown} is older than 2.2.3")
 
     def test_the_refusal_names_why_the_minimum_is_2_2_3(self):
-        r = self.check(extra=self.say("opencode v1.18.30"))
+        self.say("opencode v1.18.30")
+        r = self.check()
         self.assertIn("integration.use, mcp.use and plugin.use need OpenCode 2.2.3 or later", r.stdout)
 
     def test_output_that_cannot_be_read_is_refused(self):
-        for label, extra in (("no number", self.say("opencode (unknown)")), ("empty", self.say("")),
-                             ("two numbers only", self.say("opencode v2.2")), ("words", self.say("two point two three")),
-                             ("number past the first 4096 bytes", self.say("opencode v2.2.7", FAKE_OPENCODE_BIG="5000"))):
+        cases = (("no number", dict(version="opencode (unknown)")), ("empty", dict(version="")),
+                 ("two numbers only", dict(version="opencode v2.2")), ("words", dict(version="two point two three")),
+                 ("number past the first 4096 bytes", dict(version="opencode v2.2.7", big=5000)))
+        for label, cfg in cases:
             with self.subTest(case=label):
-                self.assert_refused("version", "no version number in the output of opencode --version", extra=extra)
+                self.fake_opencode(**cfg)
+                self.assert_refused("version", "no version number in the output of opencode --version")
 
     def test_a_failing_exit_code_is_refused_even_with_a_good_version(self):
-        self.assert_refused("version", "opencode --version exited 3", extra=self.say("opencode v2.2.7", FAKE_OPENCODE_EXIT="3"))
+        self.fake_opencode(version="opencode v2.2.7", exit=3)
+        self.assert_refused("version", "opencode --version exited 3")
 
     def test_a_version_that_does_not_come_in_time_is_refused(self):
-        self.assert_refused("version", "did not answer within", extra={"FAKE_OPENCODE_HANG": "1"})
+        self.fake_opencode(hang=True)
+        self.assert_refused("version", "did not answer within")
 
     def test_the_limit_is_15_seconds_and_the_flag_is_version(self):
         self.assertEqual(agents.OPENCODE_VERSION_TIMEOUT, 15.0)
@@ -240,7 +251,8 @@ class VersionTests(GateCase):
 
     def test_the_hook_files_are_not_looked_at_when_the_version_is_refused(self):
         self.index.unlink()
-        r = self.check(extra=self.say("opencode v1.0.0"))
+        self.say("opencode v1.0.0")
+        r = self.check()
         lines = self.lines_of(r)
         self.assertEqual(lines["version"][0], "no")
         self.assertEqual(lines["files"], ("not run", "an earlier check failed"))
@@ -624,8 +636,8 @@ class OrderTests(GateCase):
         self.index.unlink()
         self.managed.mkdir(parents=True)
         (self.deep / "opencode.json").write_text("{}", encoding="utf-8")
-        v1 = {"FAKE_OPENCODE_VERSION": "opencode v1.18.30"}
-        r = self.check(extra=v1)
+        self.fake_opencode(version="opencode v1.18.30")
+        r = self.check()
         lines = self.lines_of(r)
         self.assertEqual(lines["command"][0], "ok")
         self.assertEqual(lines["version"][0], "no")
@@ -637,13 +649,15 @@ class OrderTests(GateCase):
         self.index.unlink()
         self.managed.mkdir(parents=True)
         (self.deep / "opencode.json").write_text("{}", encoding="utf-8")
-        v1 = {"FAKE_OPENCODE_VERSION": "opencode v1.18.30"}
+        self.fake_opencode(version="opencode v1.18.30")
         failing = []
         for fault in ORDER[1:]:  # version, files, managed config, other config, route
-            r = self.check(extra=v1 if fault == "version" else None)
+            r = self.check()
             lines = self.lines_of(r)
             failing.append([n for n in ORDER if lines[n][0] == "no"])
-            if fault == "files":
+            if fault == "version":
+                self.fake_opencode()
+            elif fault == "files":
                 self.index.write_text("export default {}\n", encoding="utf-8")
             elif fault == "managed config":
                 self.managed.rmdir()
