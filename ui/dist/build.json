@@ -1,8 +1,9 @@
 {
   "files": {
-    "build.mjs": "d63fe287ff7807c60f0ae97a07d5b09c62944044ea1f422d15ec5f0f2bac5679",
+    "build.mjs": "5bd3d2bd79577e12a7f79da2b8d7f127d0be6f8ef34e8481f2ce7c8b898f9cc0",
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
+    "src/api/client.js": "2e7be51a5467d8117a9ca77cfa8f6bad9ffe68a50b964b4fb76f1ee70af5f18e",
     "src/app.js": "a817e9631a608805957558b6a9857adff083b5e7f932149eb164eee4d8dab5d0",
     "src/boot.js": "a661bb40c632432af70767733b67bc4594dfc5b59d9ad9a0e0ae07cbaa906a62",
     "src/data/checks.js": "53ac4f145740baf00144ce4097b660a1101959b2976f9ba33eec7df4291f5321",
@@ -32,7 +33,7 @@
     "src/high/plants.js": "9aeac2d2dc0ece6e4b063e548467d7c497990e42fc728775904b31e4285ded4d",
     "src/high/wildlife.js": "36cc32eb054a0ec3a7a80cf0f30067b84d6e2fcd8c02439855f8fed085848c65",
     "src/index.html": "27d3314b1238ca5334d6d91ecda8426d6c52b5849b56ae9a7e949be2d4fd00d8",
-    "src/main.js": "94e514fcbee0df432364c0a563805fa9e5b426de52465a7d7464b707d99a942b",
+    "src/main.js": "a32482d12c103e1bbe461eb0397a4989bf1f371dd7f08f8c68d96e8ba06f0195",
     "src/scene.js": "032b124fca50a4a5715e6c3060643e0416b0e728a33b0d5d43ad425ef81806a8",
     "src/stations/adapters.js": "fc57f901f56ae67403ebdfa40ba3c6963d923e83ed2eca14b11cba3d31c22e18",
     "src/stations/archive.js": "d32b7e882609343c11073ad930e840d58ea13ed0b632eeb2d289cacb8500ff25",
@@ -48,7 +49,8 @@
     "src/stations/queue.js": "68f036ced7192d80d14221eeefb5c5609b78baed519e662e6a81e8bbde27708b",
     "src/stations/rules.js": "3e3f677a8b8b0e9847e1fff21566eb908049970954d04c572a0e1cd470e87764",
     "src/stations/workflows.js": "4d6ce8a1350a6302c3f1ef58f1340927ab77913bcbc7cc434c673987edff0ae5",
-    "src/style.css": "411e23e8150db51a24f9860d5aeef870086c8301bda1ff8766ad7960ec138525",
+    "src/style.css": "a1e7a07a0f234b77ae681c6878bd2ab2412285c71d92b388532c059821b86416",
+    "src/ui/backend.js": "8926a0f67c181ecde1fbff06b76d069de42f86993ca4f450cae2113a1cdba725",
     "src/ui/checks.js": "3d90c4bdd48a32ce274f4539c7ce4598b010723602b910722c1707c2a5058ebf",
     "src/ui/fallback.js": "e2f8e971b831153ec4ab7eb205f12a7059e41636f66b8f01b3a84559836801e9",
     "src/ui/home.js": "ae27cf208097f9db277fd4b9b935ba2f9fa5be17eaffa7b508457baca6541726",
@@ -75,5 +77,5 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "36c5f04cc0cbefcc74720e4b504da697f0278c963d3e71ed85245c65bdba29ae"
+  "page": "5a616b9cabd16ede279b332af81b15be40b284751ba140f98a162c602892fbf2"
 }

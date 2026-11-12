@@ -45,6 +45,14 @@ test('nothing in the sources asks for an animation frame or sets a timer outside
 // ---- the map: a fault of 12.R10.6 or of this slice, and the tests that kill it (file: test title)
 export const MAP = [
   ['a fetch added to the page', ['ui/test/stations.test.mjs: no module loads a file, keeps a timer or draws by itself', 'tests/test_ui_package.py: test_a_fetch_in_the_page']],
+  ['a second place in the page that sends a request, or the client called from the public site', ['ui/test/stations.test.mjs: no module loads a file, keeps a timer or draws by itself', 'tests/test_ui_package.py: test_a_fetch_before_or_after_the_region_or_in_the_markup', 'tests/test_ui_package.py: test_a_second_fetch_inside_the_region_or_none']],
+  ['the page client runs on an address that is not http://127.0.0.1 and a port', ['ui/test/client.test.mjs: the client runs only on http://127.0.0.1 and a port; anywhere else it is closed, says so and sends nothing']],
+  ['the token kept in a second place or shown in the page', ['ui/test/client.test.mjs: the token is held in one variable of the source: one let, one Bearer, and no place it could be kept', 'ui/test/backend.test.mjs: the token is nowhere in the page: no text, no attribute, no value, at any step', 'tests/test_ui_package.py: test_the_authorization_header_made_in_a_second_place']],
+  ['a bad answer that does not stop the client', ['ui/test/client.test.mjs: every bad envelope or wrong status gives one message, forgets the token and stops all sending', 'ui/test/backend.test.mjs: a bad answer shows the one message, empties the queue, disables every control, and nothing more is sent']],
+  ['a request sent without a token', ['ui/test/client.test.mjs: a call without a token sends nothing, for every route']],
+  ['a policy that allows more than its own origin for connections', ['tests/test_ui_package.py: test_a_policy_without_connect_src_or_with_more_than_self']],
+  ['text of a response set as markup in the panel', ['ui/test/backend.test.mjs: text from a response is set as text: markup in a title is shown as typed and nothing builds an element from it']],
+  ['the panel asking by itself', ['ui/test/backend.test.mjs: Refresh asks again, by hand; the panel sets no timer and never asks by itself']],
   ['a font loaded from a CDN', ['ui/test/faults.test.mjs: no style, font, script or image comes from an address: the template, the style and the sources hold no link element, no @import and no remote url()', 'tests/test_ui_package.py: test_a_font_from_a_cdn']],
   ['a setInterval that redraws at rest', ['ui/test/stations.test.mjs: no module loads a file, keeps a timer or draws by itself', 'ui/test/faults.test.mjs: nothing in the sources asks for an animation frame or sets a timer outside the one loop and the Copy label']],
   ['an infinite animation loop in the style', ['ui/test/access.test.mjs: reduced motion removes every transition and animation, and nothing in the style loops']],

@@ -79,7 +79,10 @@ test('no module loads a file, keeps a timer or draws by itself', () => {
     const text = readFileSync(f, 'utf8');
     // the one exception (UI.7, 12.R16.4): the High asset module of the public site loads its photographs as images from the
     // site's own host. The owner's live view never imports it (ui/test/high.test.mjs checks the import graph).
-    const own = f.endsWith(join('src', 'high', 'assets.js')) ? banned.filter((re) => !/Image/.test(re.source)) : banned;
+    let own = f.endsWith(join('src', 'high', 'assets.js')) ? banned.filter((re) => !/Image/.test(re.source)) : banned;
+    // the other exception (W6.9, W6.R2.5): the page client sends the page's requests to the backend that served it, and is the one
+    // file that may. It may name the request function and nothing else in this list (ui/test/client.test.mjs, tests/test_ui_package.py).
+    if (f.endsWith(join('src', 'api', 'client.js'))) own = own.filter((re) => !/fetch/.test(re.source));
     for (const re of own) assert.ok(!re.test(text), `${f}: ${re}`);
     // only scene.js names it, to hand it to the on demand loop (it was app.js before the scene moved to a module of its own); no other module asks for a frame
     if (!f.endsWith(join('src', 'scene.js'))) assert.ok(!/requestAnimationFrame/.test(text), `${f} asks for frames by itself`);

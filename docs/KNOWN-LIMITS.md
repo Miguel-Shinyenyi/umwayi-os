@@ -1126,3 +1126,13 @@ Before W20 the required checks were `tests / test (3.10) (pull_request)` to `tes
 ### 248. A request with no `name` is capped after the check, so its entry can say Yes
 
 In an OpenCode chat, a permission request with no `name` (OpenCode had no tool for it) never gets Yes: when the rules answer Yes, umwayi asks the owner instead, as for Ask me first. The cap is applied after the check, so the `umwayi check` entry of that request still names the Yes rule, and the logbook does not say that the owner was asked. A No stays No. A request whose `name` is present but not a plain word (an MCP tool such as `mcp__x__y`) is not capped: the rules see only its kind. Only the fake sends a request with no `name`; a real OpenCode was seen to do so only in the source (10.42).
+
+## Page client (W6.9), found while building
+
+### 249. A bad answer or a failed request stops the page until it is reloaded
+
+The page client fails closed. If an answer from `umwayi serve` has the wrong shape or status, or a request fails, the client forgets the token, the panel shows one message and disables its controls, and nothing more is sent until the page is loaded again and the token is pasted again. A server that is stopped and started again therefore needs a reload.
+
+- What protects you today: nothing can be sent after a doubtful answer, and the token is not kept.
+- What it does not do: tell a short network fault from tampering, and it has no timeout (no timer in the page, W6.R14.6), so a server that never answers leaves the panel waiting. Stop everything is never held back by a request on its way.
+- Not tried in a browser here: the panel was tested against a fake document and the client against the real server from Node. A password manager may still offer to save the token field. The by-hand pass is W6.10.
