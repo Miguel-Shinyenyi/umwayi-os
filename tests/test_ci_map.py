@@ -12,6 +12,7 @@ from tools import ci_map
 
 REPO = Path(__file__).resolve().parent.parent
 DATA = ci_map.load_map()
+SCANS = (ci_map.scan_python(REPO), ci_map.scan_node(REPO))  # the tree is scanned once for all the checks below
 
 
 def tree(files):
@@ -106,7 +107,7 @@ class RealMapTests(unittest.TestCase):
         self.assertEqual(DATA["version"], 1)
 
     def test_nothing_in_the_map_is_stale(self):
-        self.assertEqual(ci_map.stale(DATA, REPO), [])
+        self.assertEqual(ci_map.stale(DATA, REPO, SCANS), [])
 
     def test_every_test_file_has_an_entry_and_no_entry_is_for_a_missing_file(self):
         have = {p.relative_to(REPO).as_posix() for p in (REPO / "tests").rglob("test*.py")}
@@ -156,20 +157,20 @@ class PlantedFaultTests(unittest.TestCase):
     def test_PLANTED_FAULT_an_entry_missing_for_a_file_that_reads_ui(self):
         bad = copy.deepcopy(DATA)
         del bad["python"]["tests/test_ui_package.py"]
-        problems = ci_map.stale(bad, REPO)
+        problems = ci_map.stale(bad, REPO, SCANS)
         self.assertTrue(any("tests/test_ui_package.py" in p and "no entry" in p for p in problems), problems)
 
     def test_PLANTED_FAULT_an_entry_that_lacks_ui(self):
         for f in ("tests/test_ui_package.py", "tests/test_checks.py", "tests/serve/test_wire.py", "tests/test_site_assets.py"):
             bad = copy.deepcopy(DATA)
             bad["python"][f] = [t for t in bad["python"][f] if t not in ("ui", "ui/dist")]
-            problems = ci_map.stale(bad, REPO)
+            problems = ci_map.stale(bad, REPO, SCANS)
             self.assertTrue(any(f in p and "'ui'" in p for p in problems), (f, problems))
 
     def test_PLANTED_FAULT_a_node_test_that_reads_a_new_path(self):
         bad = copy.deepcopy(DATA)
         bad["node"]["site/test/home.test.mjs"] = []
-        self.assertTrue(any("site/test/home.test.mjs" in p for p in ci_map.stale(bad, REPO)))
+        self.assertTrue(any("site/test/home.test.mjs" in p for p in ci_map.stale(bad, REPO, SCANS)))
 
     def test_PLANTED_FAULT_a_new_test_file_with_no_entry(self):
         tmp, root = tree({"tests/__init__.py": "", "tests/test_new.py": HEAD + 'P = REPO / "ui"\n'})
@@ -180,7 +181,7 @@ class PlantedFaultTests(unittest.TestCase):
     def test_an_entry_for_a_file_that_is_gone_is_stale(self):
         bad = copy.deepcopy(DATA)
         bad["python"]["tests/test_gone.py"] = []
-        self.assertTrue(any("test_gone.py" in p for p in ci_map.stale(bad, REPO)))
+        self.assertTrue(any("test_gone.py" in p for p in ci_map.stale(bad, REPO, SCANS)))
 
     def test_an_unknown_token_is_refused_by_the_loader(self):
         bad = copy.deepcopy(DATA)

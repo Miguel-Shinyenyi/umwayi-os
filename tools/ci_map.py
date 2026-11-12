@@ -418,11 +418,13 @@ def scan_node(root=REPO):
 
 # ---------------------------------------------------------------- the checker
 
-def stale(data, root=REPO):
-    """Every way the map no longer matches the tests. Empty means it is true."""
+def stale(data, root=REPO, scans=None):
+    """Every way the map no longer matches the tests. Empty means it is true. `scans` is a (python, node) pair of
+    earlier scan results, so a caller that checks many maps against one tree scans it once."""
     root = Path(root)
     problems = []
-    for section, scanned in (("python", scan_python(root)), ("node", scan_node(root))):
+    py, node = scans if scans is not None else (scan_python(root), scan_node(root))
+    for section, scanned in (("python", py), ("node", node)):
         entries = data[section]
         for name, reads in sorted(scanned.items()):
             if name not in entries:

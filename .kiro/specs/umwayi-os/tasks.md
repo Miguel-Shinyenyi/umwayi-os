@@ -797,7 +797,17 @@ The owner's reviewer found that each push to a pull request branch started two r
 - [x] CI.1.A (PR 59) The workflow runs on `pull_request` only, and a concurrency group (the workflow name and the pull request number) cancels the older run of the same pull request when a newer push arrives. The workflow name `tests`, the job name `test`, the matrix `3.10`, `3.11`, `3.12` and `3.13`, and every test on every version are unchanged, so the check names are unchanged. Proof is in the pull request: the workflow parses and passes `actionlint` v1.7.12, and a draft pull request (`ci1-proof`, closed without merging, its branch deleted) shows a deliberately failing test turning CI red, an older run being cancelled by a newer push, and the job names.
 - [x] CI.1.B (PR 59) The npm download cache (`~/.npm`, keyed on the two lockfiles) on the 3.12 job, with `npm ci --ignore-scripts` unchanged. The whole Node step took 0.4 minutes of a 24.9 minute job, so the gain is small; it is cached because the owner asked, and the number is in the pull request.
 - [x] CI.1.C (PR 59) Measured, not changed: the time of each test module on Python 3.12 (70 modules, 1898 tests, 1295 s in the sandbox, which is not the CI runner). The 15 slowest modules are in the pull request.
-- [ ] CI.1.D **Proposed only, not built, waits for the owner:** sharding the suite into 2 or 3 jobs per Python version with a final job that fails if any shard fails or if the shards together do not run every test. It changes the job names, so the owner decides after reading the table. The plan is in the pull request.
+- [x] CI.1.D (W20, the owner asked) Built: three shards per Python version with a final job that fails if any shard fails, did not run, or if the shards together do not run every test. The job names changed; the list is in [docs/testing.md](../../../docs/testing.md#ci-since-w20).
+
+
+## W20: faster CI without losing coverage (the owner's request, Nov 12; its own pull request)
+
+- [x] W20.A The map: for every Python and Node test file, the paths it reads outside its own area (`tools/ci_map.json`), a scanner and a checker test (`tests/test_ci_map.py`) that fails when a test reads a path the map does not list, and the table in `docs/testing.md`.
+- [x] W20.B Path filters: the decider `tools/ci_plan.py` and its tests (`tests/test_ci_plan.py`); an unknown path, an unreadable or empty diff, and a changed workflow, filter, map or shard file run everything; a push to main runs everything on Python 3.10 to 3.13; one always-on `result` job is the single check to require.
+- [x] W20.C Sharding: `tools/ci_shards.py`, `tools/ci_shards.json` (three shards, balanced by measured seconds) and `tests/test_ci_shards.py`, with planted faults for a dropped test and a test file in no shard.
+- [x] W20.D `tools/affected_tests.py`: the same decider on a laptop or in a session (`tests/test_affected_tests.py`).
+- [x] W20.E `.kiro/steering/builder-workflow.md`: the builder rules, short, read by every session (`tests/test_builder_workflow.py`).
+- [ ] W20.F The owner changes the branch rule by hand to require `tests / result (pull_request)` (the four `tests / test (3.1x) (pull_request)` names no longer exist). Waits for the owner.
 
 ## Non goals for Dec 3
 
