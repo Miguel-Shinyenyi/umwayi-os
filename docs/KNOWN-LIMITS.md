@@ -1045,3 +1045,25 @@ A failed, stopped, needs-owner or in-review task keeps its worktree, and a crash
 ### 232. Worktrees share the repository's metadata
 
 A linked worktree shares objects, refs and config with the root repository. A helper that can run git write commands in its worktree can change refs or config of the shared repository (a branch, a tag, a hook path; umwayi turns the hooks path off only for its own git calls). The gate (`rules.yaml`, which should say Ask me first for git writes) is what stops that. The scope check looks only at the files of the task branch, not at other refs.
+
+## Layer 12: the phone layout (found while building W1)
+
+### 233. The phone layout is checked in one emulated browser, not on a device
+
+The overlap, sideways and touch size checks (`ui/test/phone.test.mjs`, `site/test/phone.test.mjs`) run in headless Chromium 158 with the phone sizes 375 by 667, 390 by 844, 412 by 915 and 360 by 640 and the same four on their side, with touch and a mobile viewport emulated and the pixel ratio at 1. No real phone, real touch, real GPU, Safari (iOS) or Firefox (Android) was used. Fonts are those of the machine: a phone with wider system fonts or a larger text size setting can wrap a button label onto more lines, which the layout allows (the bar is in the page and grows) but no test measured. A layout that fits in the emulation can still differ on a device with a notch, a rounded corner or a browser bar that changes the height while scrolling (the first screen uses `100svh`, the smallest height).
+
+### 234. The phone tests need a Chromium and skip without one
+
+`ui/tools/browser.mjs` finds Google Chrome, Chromium or a Playwright headless shell on PATH or in `~/.cache/ms-playwright`, or the file named by `UMWAYI_BROWSER`. With none, the four phone tests report as skipped and print the steps for the check by hand, so a machine without a browser sees a green run that did not look at the layout. `UMWAYI_REQUIRE_BROWSER=1` makes a missing browser a failure. The CI workflow was not changed (it is outside `ui/` and `site/`); the runner image normally has Chrome, and whether the tests ran there is read from the "skipped" count of the Node step. The tests add about 50 seconds to `ui/` and 60 to `site/` (the site is also built and served on 127.0.0.1).
+
+### 235. On a phone the top bar scrolls away with the page, and the Standard first screen is shorter
+
+Below 700 pixels wide, on a touch screen and in a window under 520 pixels high the top bar is part of the page instead of floating over it, so it can never cover the title. The cost is that the View switch, Owner checks and Calm mode are not on screen once the visitor has scrolled down; there is no sticky bar. On an upright phone the bar is two rows (116 pixels), so the picture is shorter than before (at 360 by 640 about 440 pixels instead of 470) and the strip below shows a heading instead of its first row. The camera still picks its narrow framing (picture taller than wide; the hero has a minimum height of 120 per cent of the width for that reason). Wide screens with a mouse keep the floating bar: the screenshots at 1440 by 900 and 1024 by 768 are the same bytes as on main.
+
+### 236. The tick box is drawn by the page on touch screens
+
+To give the owner checks a 44 pixel target without making the box big, `appearance: none` and a drawn 24 pixel box are used below 700 pixels and on touch screens (a ticked box is filled, with an inner ring). It was seen in one browser; a browser that ignores `appearance` on a checkbox shows its own box inside a 44 pixel area. The tick box itself is the target, with negative margins to keep the text column wide, so on a 360 pixel screen it overlaps the padding of its neighbours, which holds nothing to touch.
+
+### 237. Two phone rules use `:has()`, and a short window gets the side card
+
+While a station panel is open the "sample" tag is hidden with `:has()` (Chrome 105, Safari 15.4, Firefox 121 and later); in an older browser the tag stays visible behind the panel's glass. In a window under 520 pixels high, which includes every phone on its side, the station panel is a card at the right (at most 360 pixels, 48 per cent of the width) and the title and promise are narrowed to what is left, so on a 667 pixel wide screen the promise wraps to about five lines. The side card scrolls inside itself; nothing was done for a window that is both narrow and short beyond the same rules.

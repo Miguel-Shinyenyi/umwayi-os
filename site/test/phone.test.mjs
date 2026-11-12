@@ -43,18 +43,19 @@ test.after(async () => {
   if (server) server.kill('SIGKILL');
 });
 
-for (const [name, phones] of [['portrait', PHONES], ['landscape', PHONES_LANDSCAPE]]) {
-  test(`the public site on a phone in ${name}: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order`, { skip, timeout: 240000 }, async (t) => {
-    const { results, extras } = await runPhones(browser, url, scenario, { phones });
-    for (const e of extras) for (const n of e.notes) t.diagnostic(n);
-    t.diagnostic(`${results.length} states audited in ${await browser.version()}`);
-    assert.deepEqual(problemsOf(results), []);
-    for (const r of results) assert.deepEqual(r.order.visual, r.order.dom, `${r.phone} ${r.state}: the header is drawn in a different order from Tab`);
-    for (const e of extras) {
-      assert.deepEqual(e.visited.slice(0, 4), ['list', 'standard', 'high', 'checks-open'], `${e.phone}: Tab order of the header`);
-      assert.equal(e.visited[4], 'calm-toggle', `${e.phone}: Tab order of the header`);
-      assert.equal(e.tabAfterChecksOpen, 'checks-title', `${e.phone}: the owner checks panel takes the focus when it opens`);
-      assert.equal(e.focusAfterClose, 'checks-open', `${e.phone}: and gives it back to the button that opened it`);
-    }
-  });
+async function check(t, phones) {
+  const { results, extras } = await runPhones(browser, url, scenario, { phones });
+  for (const e of extras) for (const n of e.notes) t.diagnostic(n);
+  t.diagnostic(`${results.length} states audited in ${await browser.version()}`);
+  assert.deepEqual(problemsOf(results), []);
+  for (const r of results) assert.deepEqual(r.order.visual, r.order.dom, `${r.phone} ${r.state}: the header is drawn in a different order from Tab`);
+  for (const e of extras) {
+    assert.deepEqual(e.visited.slice(0, 4), ['list', 'standard', 'high', 'checks-open'], `${e.phone}: Tab order of the header`);
+    assert.equal(e.visited[4], 'calm-toggle', `${e.phone}: Tab order of the header`);
+    assert.equal(e.tabAfterChecksOpen, 'checks-title', `${e.phone}: the owner checks panel takes the focus when it opens`);
+    assert.equal(e.focusAfterClose, 'checks-open', `${e.phone}: and gives it back to the button that opened it`);
+  }
 }
+
+test('the public site on a phone in portrait: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order', { skip, timeout: 240000 }, (t) => check(t, PHONES));
+test('the public site on a phone in landscape: no overlapping text, no sideways overflow, touch targets of 44 pixels, header in Tab order', { skip, timeout: 240000 }, (t) => check(t, PHONES_LANDSCAPE));

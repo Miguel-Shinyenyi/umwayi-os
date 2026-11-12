@@ -118,7 +118,7 @@ html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status, #
   html[data-tier="list"] #hero .intro { padding: 0 16px; }
   .links a { display: inline-block; padding: 10px 0; }
 }
-@media (hover: none) { #hint .wide { display: none; } #hint .narrow { display: inline; } }
+@media (hover: none) and (pointer: coarse) { #hint .wide { display: none; } #hint .narrow { display: inline; } }
 /* a phone held upright: the bar is two rows (the name and the View switch; Owner checks and Calm mode), the picture is tall */
 @media (max-width: 599px) {
   :root { --bar-h: 116px; --peek: 112px; }

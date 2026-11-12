@@ -80,7 +80,7 @@ export async function launch(exe, { timeoutMs = 20000 } = {}) {
       // a phone: the size, a pixel ratio of 1 by default (layout is in CSS pixels; pass scale: 2 for screenshots), touch, the mobile viewport rules, and reduced motion so that nothing is moving
       async emulate({ width, height, mobile = true, reducedMotion = true, scale = 1 }) {
         await call('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile, screenWidth: width, screenHeight: height });
-        await call('Emulation.setTouchEmulationEnabled', { enabled: mobile, maxTouchPoints: mobile ? 5 : 0 });
+        await call('Emulation.setTouchEmulationEnabled', mobile ? { enabled: true, maxTouchPoints: 5 } : { enabled: false });
         await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: reducedMotion ? 'reduce' : 'no-preference' }] });
       },
       async goto(url) {
