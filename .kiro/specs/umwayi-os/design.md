@@ -3430,3 +3430,145 @@ Not done: No address, header or body was recorded.
 ```
 
 The route and word values come from fixed lists; a test builds every possible entry and checks it against a pattern.
+
+### The chat routes (W4): what W6 must leave ready
+
+From reading `umwayi/agents.py` and `umwayi/acp.py` (Nov 12): `chat_agent` builds a `_Run` and calls `go()`. `go()` installs SIGTERM and SIGHUP handlers, which only works on the main thread, and restores the terminal. The ACP chat (`acp.Chat`) reads owner lines from a file descriptor (`_owner_input()` is `sys.stdin.fileno()`), prints text to `out`, and asks the owner "Allow once? [y/N]" by reading the next owner line. There is no public `reserve()` or `settle()`: the budget steps are `_Run._reserve` and `_Run._settle`. Two refactors make a chat drivable by the backend without a second copy. Both come first, with no change of behaviour.
+
+- **W6.7, the budget steps leave `_Run`.** `_Run._reserve` (units, ledger, the pending change entry, `budget.fit`, the `budget_check` rules call, the telemetry receiver for Claude Code, the run id, the reserve entry) and `_Run._settle` become `budget.reserve(...)` and `budget.settle(...)` with the receiver start passed in as a function, and `_Run` calls them. **Tests first, on the old code:** scripted fake-agent runs (a clean run, a stop by the kill switch, a stop by the per-run cap, a refusal by the day cap, a telemetry error, a crash) are run and their ledger entries and exit codes recorded as goldens; the same scripts must give byte-identical entries after the move. The existing budget and agent tests pass unmodified.
+- **W6.8, the owner's side leaves `_Run`.** `_Run` and `acp.Chat` take an optional `owner` (where lines come from and where an Ask me first is answered) and `sink` (where text, tool calls and notices go), and `_Run` takes `install_signals` and `terminal` flags. The defaults reproduce today's behaviour exactly: the fd reader, text lines to `out`, signal handlers, the terminal restore. A new `request_stop(reason)` on `_Run` is what the signal handlers and a web `chats.stop` both call. **Tests first, on the old code:** the transcript (the exact text written to `out`) of scripted fake ACP chats is recorded for a normal turn, a tool call, an Ask me first answered `y` and `n`, `:queue`, `:quit`, Ctrl-C and each stop reason, and must be byte-identical after the change; the existing ACP tests pass unmodified.
+
+With those two in place, a `ChatSession` (in `umwayi/servechat.py`, W4) does this:
+
+- `chats.start` checks the rules and the kill switch like any request, then starts one worker thread that calls `agents.chat_agent(..., owner=web_owner, sink=web_sink, install_signals=False, terminal=False)`. It answers 202 with the chat id; every later outcome, including a refusal of the gate checks or the budget, arrives as an event with the exit code that `agent chat` would have given.
+- `web_sink` appends events to the ring buffer under a lock and notifies a `threading.Condition`; `chats.events` waits on it for at most 25 seconds.
+- `web_owner` is a queue of owner lines. `chats.message` puts a line on it (only when the chat is between turns). A permission request that needs the owner puts a `permission_request` event in the buffer and waits on the queue for a matching `chats.permission` decision for at most 300 seconds, then answers `reject_once`.
+- `chats.cancel` calls `chat.interrupt()` (what Ctrl-C does). `chats.stop` calls `request_stop("quit")`.
+- The server's main thread owns the signals. On SIGTERM or Ctrl-C it stops accepting, calls `request_stop("quit")` on each chat, joins the worker with a 15 second limit, then writes the stop entry. A worker that does not join leaves its reservation for `umwayi budget settle-lost` and the server exits 2.
+- An idle timer thread (one for all chats, a one-second tick) stops a chat with no request for 10 minutes.
+
+The run lock is held by the worker thread through the same `runlock.held` context as on the command line, so a scheduled run, `umwayi run` or a command line chat meets the same busy answer (exit 3) while a web chat lives. The telemetry receiver for a Claude Code chat starts inside `budget.reserve` on its own port with its own secret, as today.
+
+**What the page sees of an agent.** Text through `acp.safe_text`; a tool call as a kind word and a short cleaned title; a permission request as a tool word and two buttons. Raw protocol messages, tool input, the argument list, the environment and every path are not in any event (a test plants sentinels in a scripted agent's messages and metadata and finds none in the events). The page draws agent text in a box labelled "AI helper says" and draws umwayi's own notices and permission requests in a different, labelled component, so text from an agent cannot pass for an Ask me first prompt. An answer needs a click on a button that exists only while the server has that permission id pending.
+
+### The intake step (W5): what W6 must leave ready
+
+Pure logic in `umwayi/intake.py` (W5): `assess(draft) -> (state, open_questions)`. The draft holds the kind, the intent, and the answers by question number. The questions of the first slice are a fixed list (what, why, done when, by when, does it spend money, publish, delete or touch someone else's data), so the function needs no model and can be property tested: total over any draft; an empty, whitespace, very short (under 3 characters) or over-long answer never counts as an answer; "unsure" to the last question is a question again, never a yes or no; adding an answer never reopens a question that was answered; the state `clear` needs every question answered; and no input makes `assess` return `clear` and `asking` together. The server keeps drafts in a dictionary under a lock, caps them (8 live, 24 hours idle), and drops them at stop. `intake.commit` recomputes `assess`, compares the `confirm` hash with the SHA-256 of the title and recommendation it would add, and only then calls `taskqueue.add`. The routes are `write` class for their rules check and rate, change no file before the commit, and log counts.
+
+If W5 later lets an AI helper write the questions, the helper runs as a chat (W6.R9) with its own `agent_run` check and budget reservation, its questions arrive as events, and the owner's answers go back as messages. `assess` stays the only judge of "clear", so the helper can ask but cannot declare the intent clear.
+
+### The page client (W6.9)
+
+- `ui/src/api/client.js` exports `createClient({location, fetchImpl})`. It returns a client only if `location.origin` matches `^http://127\.0\.0\.1:[0-9]{2,5}$`; otherwise it returns a frozen object whose `available` is false and the panel says "Open this page with umwayi serve". It builds every request from a table of route ids (the same ids as the server), never from text. Each call sets `Authorization`, `Content-Type: application/json` for a body, `credentials: 'omit'`, `cache: 'no-store'`, `redirect: 'error'` and `referrerPolicy: 'no-referrer'`.
+- The envelope is read strictly, the way `snapshot.js` reads a snapshot: exact keys, `schema` 1, `code` in the fixed set, `word` in the fixed list, `request` null or `R-` and 8 hex, `data` only when `ok`. Anything else shows one message, "umwayi did not answer in the expected shape", and nothing else.
+- The token is typed into a password field, copied into a closure variable, and the field is cleared. It is never written to storage, the address, history, `postMessage`, the console, or any element's text. A reload forgets it.
+- The words get plain sentences in one table: `ask` "Ask me first. The rules want you to decide; an item was added to the queue", `kill` "The kill switch is on", `budget` "The budget stops this", `token` "The token is wrong or has run out", and so on. No `word` reaches the page as markup.
+- The panel (live view only) shows the status (kill switch, token days left), the queue, forms for add, answer and close, and a "Stop everything" button for `kill.on`. There is no button for anything on the never list. A timer in the page never asks the backend for state (W6.R14.6).
+- Tests: the Node suite runs the client against a fake `fetch`, including a fake that returns every kind of bad envelope, and checks the requests it made (method, path, headers, body) against the route table; `tests/test_ui_package.py` checks the built page contains `fetch(` only in the client module's bundle region and the CSP meta tag is the old tag plus `connect-src 'self'`.
+
+### Budget governor in the web door
+
+The requests are free of UU; the chats are not. After W6.7 the web start reserves through `budget.reserve`, the same function and the same limits as the command line, and a refusal is the same text and exit code. `GET /v1/budget` is `budget.status` (a read). No route writes the limits file. See W6.R11 for the rules; the new risk is a page that starts and stops chats in a loop to churn reservations, which the `run` rate (1 a second, 6 starts an hour) and the day cap bound.
+
+### Login for a deployed interface (W7): the fit
+
+```
+today (W6):        browser ---- http://127.0.0.1:PORT ----> umwayi serve        (same machine only)
+a deployed site:   browser ---- https://site ----> site            (never calls 127.0.0.1; CSP default-src 'self')
+possible W7:       umwayi (outbound only) ----> relay <---- deployed login ---- browser
+                   the relay carries requests with channel = relay into the same gate and pipeline,
+                   through a smaller route table; nothing listens on the internet
+```
+
+W6 does three things so W7 cannot be added by loosening W6: a `channel` that is a closed set of one value; a `Principal` in the pipeline; and a refusal of any local request whose `Host` is not the exact local address. The things W7 must decide before it writes code are in W6-Q22.
+
+### Threats and what meets them
+
+| threat | what meets it | where it is tested |
+| --- | --- | --- |
+| another website in the owner's browser sends a request | no cookies, token in a header, `Origin` exact, no CORS, preflights refused | the gate matrix; the by-hand browser pass with a second local origin |
+| DNS rebinding | `Host` exact before the token | the gate matrix; the wire test with a `Host` override |
+| another user of the machine | 256 bit token, throttle, the record 0600, the raw token never on disk | token tests; a second user cannot be tested in CI, so the by-hand pass notes it |
+| a process of the same user | the raw token is not on disk and not in a child's environment; the adapters' example rules deny `umwayi serve` and the token file; the rest is a known limit | token tests; an environment test on a chat child; KNOWN-LIMITS |
+| an AI helper that reads the page or the token | the helper's environment is the allowlist of `child_env`; the page is not exposed to it; a helper that can read the owner's terminal is a known limit | environment test |
+| agent text that pretends to be umwayi | text only, a labelled box, a separate component for permissions, ids issued by the server | Node tests with hostile event text |
+| request smuggling, header tricks | own strict reader, one request per connection, no `Transfer-Encoding`, one `Content-Length`, duplicates refused | the fuzz and the mutation catalogue |
+| a flood from a local process | the 16 handler cap, the deadlines, the rates; the 17th gets 503 | the wire tests |
+| the logbook filled by refusals | summary entries; the authenticated rate bucket | entry tests |
+| token guessing | 256 bits, the throttle, the same answer for every wrong shape | token and gate properties |
+| timing and size differences | `compare_digest` on digests; the same bytes for a refusal word | gate properties |
+| a changed page | the SHA-256 against `build.json` each time | wire test; known limit that both sit together |
+| a path or a name from a request used on disk | no route takes a path; ids match patterns; names are looked up in files the core already reads | the never list test; sentinel tests |
+| the port carried out by a tunnel | `Host` exact; the docs say not to | gate matrix; known limit |
+| replay or sniffing on loopback | none beyond the token's lifetime; no TLS | known limit |
+| clickjacking | `frame-ancestors 'none'` | wire test (the header); not run in a browser here |
+
+### What can go wrong in running (failure modes)
+
+- **The server is killed with SIGKILL, or the machine loses power.** No stop entry. An open chat reservation stays until `umwayi budget settle-lost`. The next start runs the tamper check and the recovery of the logbook as every command does. The lock is a kernel lock and is released.
+- **`rules.yaml` is broken.** Every request is Ask me first. The page can still read nothing; the owner fixes the file at the terminal.
+- **The logbook is edited by hand.** The next start refuses (exit 1). While running, the next append is refused, the server goes degraded and says so in `status`.
+- **The clock is set back.** Tokens that expired stay expired; writes are refused by the logbook's date rule; the rate buckets use a monotonic clock and are not affected.
+- **The token is rotated during a chat.** The chat keeps running (it is not a request), the page's next request gets 401, the owner pastes the new token and the page continues with the same chat id.
+- **Two tabs.** Both can hold the token. Two long polls on one chat are allowed (counted against the 4); a permission answered twice is refused the second time.
+- **The port is taken.** Exit 64. A second `umwayi serve` for the same root exits 64 before it tries the port.
+- **`queue.md` is changed by the command line while the page is open.** The page shows what it was told at the last request; the next request shows the new state. Writes are atomic and logged, as when two command lines meet (KNOWN-LIMITS 9).
+
+### Hours, and what it does to the schedule
+
+Estimates, without a margin. W6.0 (this spec) is about 8 hours and is this pull request.
+
+| task | hours |
+| --- | --- |
+| W6.1 tests first: the generators, the oracle, the mutation catalogue, the golden requests | 9 |
+| W6.2 `servegate.py`: `decide`, `parse_body`, the table, the buckets | 6 |
+| W6.3 `servetoken.py` and the `serve token` commands | 6 |
+| W6.4 `serve.py`: the reader, the handler, limits, the page, start and stop, the guards | 8 |
+| W6.5 the pipeline: kill switch, rules check, command, entry, the summary, the degraded state, `serve_request` on the never list | 7 |
+| W6.6 the first routes and the differential tests against the command line | 9 |
+| W6.9 the page client and its panel, the CSP change, the page tests (the owner builds) | 8 |
+| W6.10 docs, the by-hand browser pass, the planted faults and the mutation pass, the whole-system scenarios | 8 |
+| **W6 core** | **61** |
+| W6.7 and W6.8 the two refactors (needed before W4) | 13 |
+| W4 chat routes (own spec) | about 20 |
+| W5 queue intake routes (own spec) | about 14 |
+
+The schedule to Dec 3 has no window for 61 hours: layer 12 is re-estimated at about 75 hours until Nov 22, README, demo and Devpost take Nov 23 to Nov 28, layer 13 has L13.6 on Nov 27 to 28, and the freeze starts on Nov 29. I did not place W6 in the schedule table. The owner sets its dates and says what is cut first if it must fit (W6-Q27). My suggestion is that W6.1 to W6.6 are one unit that ships whole or not at all, as layer 13's slices do, and that W6.9 follows only if the owner wants the page to use it before Dec 3.
+
+### Docs page plan
+
+`docs/serve.md` is written in this pull request as "specified, not built" with the four parts, the route table, the commands, the words and codes, the limits and the open questions. In the build pull requests: `docs/interface.md` (the page may send requests to its own backend), `docs/security.md` (the backend's guards, the token, the limits), `docs/architecture.md`, `docs/exit-codes.md`, `docs/rules.md` (`serve_request`, the never list), `docs/testing.md`, `docs/status-log.md`, `adapters/NOTES-w6.md` (the browser facts: `Origin` on same-origin non-GET requests, fetch metadata to potentially trustworthy URLs, private network preflights, with links and dates, and the by-hand results), `serve.rules.example.yaml`, and the example rules of the three adapters.
+
+### Open questions for the owner (W6-Q1 to W6-Q27)
+
+Each has a proposed answer; the build starts with the proposals unless the owner answers otherwise.
+
+1. **W6-Q1. The workstream names.** I read W4 as the chat with Claude Code, Kiro and OpenCode, W5 as the queue with the intake step, W6 as this backend and W7 as the login for a deployed interface (proposed). The repo does not define them; tell me if the numbers mean something else.
+2. **W6-Q2. Does every request get a rules check?** Yes: each request is checked as `serve_request`, stricter than the command line, where `queue add` asks no rules; `kill.on` is the one exemption, because an emergency stop does not wait for a rule (proposed). Or only where the command line asks (then queue writes need no rule).
+3. **W6-Q3. The kill switch and the page.** While the switch is on or unknown every write and run route is refused, reads and `kill.on` work, and the page can never turn the switch off (proposed). Or the page may turn it off (not proposed: a leaked token could then undo the emergency stop).
+4. **W6-Q4. Showing the token.** Rule 2 says never print secrets. `serve token create` and `rotate` print the token once, only on a terminal (proposed). Or they write it to a 0600 file that the owner reads and deletes.
+5. **W6-Q5. How long a token lives and where the page keeps it.** 30 days by default, 90 at most, and the page keeps it in memory so a reload asks again (proposed). Or `sessionStorage`, which survives a reload but can be read by any script in the page, and which the page tests forbid today.
+6. **W6-Q6. The page comes from the backend.** `umwayi serve` serves `ui/dist/index.html` from its own origin, so there is no CORS (proposed). Or the page is opened from disk and the backend allows the origin `null`, which every sandboxed frame and `data:` page also has (not proposed).
+7. **W6-Q7. Which `Host` is accepted.** Only `127.0.0.1:PORT` (proposed). Or `localhost:PORT` too, which may resolve to `::1` where nothing listens.
+8. **W6-Q8. `Origin` on `POST` and `DELETE`.** Required (proposed), so a `curl` call without it is refused and scripts use the command line. Or a second token class for scripts.
+9. **W6-Q9. The default port.** 8765, and `--port 0` takes a free one (proposed). Or a random port every start.
+10. **W6-Q10. Reads.** A read is rules-checked and logged like a write (proposed, the owner's "every request"). Or reads skip the rules check and the entry, which cuts the logbook volume.
+11. **W6-Q11. Requests with no valid token, and requests turned away by the rate limit.** Counted in one summary entry a minute (proposed). Or one entry each, which any local process could use to fill the logbook.
+12. **W6-Q12. Answering Ask me first in a chat from the page.** The page can (proposed, as the owner can at the terminal). Or the page can only reject unless a Yes rule exists. A same-user process that learns the token can answer too (KNOWN-LIMITS).
+13. **W6-Q13. The idle stop.** A chat with no request for 10 minutes is stopped (proposed). Or never, or a different time.
+14. **W6-Q14. One chat at a time.** Yes, the run lock allows it (proposed, it is how it is today).
+15. **W6-Q15. Who asks the intake questions.** A fixed list with a pure judge of "clear", no model (proposed). Or an AI helper writes them, under the full chat gate and budget.
+16. **W6-Q16. When the intent stays unclear.** After 8 rounds nothing is added and the owner may add a decision by hand (proposed). Or the unclear intent is added as a decision automatically.
+17. **W6-Q17. Touching `agents.py` and `budget.py`.** W6.7 and W6.8 change the largest and most sensitive module with goldens recorded before the change and no change of behaviour (proposed). Or the backend gets its own copy of the chat steps, which breaks "never a second copy" and is not proposed.
+18. **W6-Q18. Property based tests without a package.** Seeded generators and a shrinker in the standard library (proposed). Or `hypothesis` as a test-only package, which breaks "the normal suite stays standard library only".
+19. **W6-Q19. Rule 5 is already out of date.** It says no module of the core package imports a network library, but `umwayi/telemetry.py` does (allowed by name in the guard tests), and `umwayi/serve.py` will too. I did not change rule 5 in this pull request. Proposed: reword it to name the two loopback servers and say they import the network modules only inside the function that starts them.
+20. **W6-Q20. The other layer 12 sentences.** Only rule 10 and 12.R17.6 are reworded now; 12.R2, 12.R11 and "The view only looks" are read with the change by a pointer (W6.R2.6). Proposed: edit them in the pull request that builds `umwayi serve`. Or edit them now.
+21. **W6-Q21. The public site.** It sends nothing to any backend (my reading of "the page"; proposed). Or it may call a local backend, which needs CORS and a private network preflight and is not proposed.
+22. **W6-Q22. W7.** Decide before any code whether a deployed page should ever control a local one. Proposed shape if yes: an outbound-only relay, a smaller route table (reads first), its own credential, Ask me first for writes; and answer first whether queue text and chat text may pass through a third party. Or no remote control, only a read-only mirror of the counts.
+23. **W6-Q23. The numbers of W6.R14.** 16 handlers, 4 long polls, 10 requests a second overall (burst 30), 5 token failures a minute, a 10 second request deadline, 25 second long poll, bodies up to 9000 bytes, 500 queue rows, a chat idle stop at 10 minutes, a permission wait of 300 seconds, 6 chat starts an hour (proposed). They are guesses; the build measures the logbook cost per append and may change the rates.
+24. **W6-Q24. Which platforms chat over the web first.** Claude Code and Kiro over ACP; OpenCode when 10.48 builds its ACP chat (proposed).
+25. **W6-Q25. One server per root.** Yes, `.umwayi/serve.lock` (proposed). Or several ports.
+26. **W6-Q26. Later routes.** `decision reopen` and `petition` may be added with the owner's approval; `publish-draft`, `run`, `schedule install`, `autonomy record` and everything on the never list may not (proposed).
+27. **W6-Q27. Hours and dates.** About 61 hours for the core and 13 for the two refactors, none placed in the schedule. The owner sets the dates and what is cut first.
+
+Answers (owner, Nov 12): the decision at the top of this section. W6-Q1 to W6-Q27 are open.
