@@ -3250,3 +3250,183 @@ The owner's decisions of Nov 11 are above and are not asked again. Each question
 18. **L13-Q18. Cooldown and the daily cap.** A rejected or reverted outcome stops moves for the class for `cooldown_days` (30), and at most 5 moves a class a day (proposed). Or a revert alone triggers the cooldown.
 
 Answers (owner, Nov 11): decisions 1 to 6 above. L13-Q1 to L13-Q18 are open.
+
+## Local backend (W6): `umwayi serve` (spec in the W6.0 pull request, tasks.md W6.0; built only after the owner approves it)
+
+This section is added at the end of the file so it merges cleanly with the other branches. It designs requirements W6.R1 to W6.R18. Nothing is built. The chat routes (W4) and the intake routes (W5) are designed to the level the backend must leave room for; W4 and W5 write their own specs. W7 (login for a deployed interface) is only constrained here.
+
+### Owner decision of Nov 12 2026 (approved) and how each word lands
+
+> The rule changes from "the interface only looks" to "the page may send the same request the command line would, to a local backend." Command: `umwayi serve`, bound to 127.0.0.1 only, with a token. Every request goes through the same rules check, the same logbook and the same kill switch as the command line, by calling the same code, never a second copy. Fail closed: unclear means Ask me first or No. The core stays Python standard library only.
+
+| the owner's words | where it lands |
+| --- | --- |
+| the same request the command line would | the route table is the command table (W6.R8.1); a response is a subset of what the command prints (W6.R8.2); a differential test per route |
+| a local backend, `umwayi serve` | W6.R2; one foreground command, no daemon |
+| bound to 127.0.0.1 only | W6.R3; the literal address, read back, no flag, no config key |
+| with a token | W6.R4 and check 7 of the gate |
+| the same rules check | step 4 of the pipeline: `rules.check_and_log` with the action `serve_request` (W6.R7.1.4) |
+| the same logbook | step 5 (the core function's own entry) and step 6 (the request entry) |
+| the same kill switch | step 3 (`kill.state`), and the one-second watch for chats |
+| by calling the same code, never a second copy | W6.R1.1; the handler table below; the spy, differential and code guard tests (W6.R16.3) |
+| fail closed, unclear means Ask me first or No | the gate refuses by default; the table "The fail closed table" |
+| the core stays standard library only | `http.server` and `socket` imported inside one function; the guard tests get the name `umwayi/serve.py` |
+
+What I decided where the words left room, each asked as a question at the end: the rules check applies to every request and not only where the command line has one (W6-Q2); writes are stopped by the kill switch although the command line's owner commands are not (W6-Q3); the page is served by the backend so there is no CORS (W6-Q6); `Origin` is required on `POST` (W6-Q8); reads are logged (W6-Q10).
+
+### The shape of a request
+
+```
+browser page, served from http://127.0.0.1:PORT (same origin), fetch('/v1/...') with Authorization: Bearer TOKEN
+    |
+    v  umwayi serve, bound to 127.0.0.1 only
+ 1  read the request into Facts           own strict reader, no stdlib header parsing
+ 2  servegate.decide(facts, state)        pure: no file, no clock, no network; Allow(route) or Refuse(word)
+ 3  servegate.parse_body(route, bytes)    pure
+ 4  kill.state(root)                      the function the agents call; a stopped route needs "off"
+ 5  rules.check_and_log(serve_request)    the function `umwayi check` calls; logs its own entry
+ 6  the route's core function             the function the command line calls; writes its own entry
+ 7  logbook.append(request entry)         the function every writer calls
+ 8  response: the fixed envelope          the same bytes for the same refusal word
+```
+
+A refusal at step 2 ends the request. Nothing after step 2 runs for a request the gate refused, and nothing before step 2 reads a file, so an unauthenticated caller can make the server do the work of steps 1 and 2 only.
+
+### Files
+
+| file | what | notes |
+| --- | --- | --- |
+| `umwayi/servegate.py` | `Facts`, `State`, `Verdict`, `decide`, `parse_body`, the route table, the buckets | pure; imports only `hmac`, `hashlib`, `json`, `re` and `dataclasses`; no `os`, `socket`, `time` or `http` |
+| `umwayi/servetoken.py` | create, rotate, revoke, status, `verify` | the record file through `fsutil`; the entries through `logbook.append` |
+| `umwayi/serve.py` | the reader, the handler class, the pipeline, the handler table, the page, start and stop, the summary counters, the degraded state | `http.server` and `socket` imported inside `run_server` only |
+| `umwayi/cli.py` | a `serve` subparser (with an optional `token` sub-command) and `_cmd_serve` | the import of `umwayi.serve` is inside `_cmd_serve`; exit 2 on any unexpected error is added to `tests/test_exit_codes.py` |
+| `umwayi/rules.py` | `serve_request` added to `NEVER_AUTONOMY` | one word, with its test and the line in `docs/rules.md` |
+| `umwayi/budget.py`, `umwayi/agents.py` | W6.7 and W6.8 (refactors, no behaviour change) | before any chat route |
+| `tests/serve/` | `gen.py`, `oracle.py`, `test_gate_properties.py`, `test_wire.py`, `test_samecode.py`, `test_token.py`, `test_entries.py`, `test_failclosed.py` | standard library only |
+| `ui/src/api/client.js`, `ui/src/ui/backend.js` | the one client module and the panel | W6.9; the owner builds; the live view only |
+| `docs/serve.md`, `serve.rules.example.yaml`, `adapters/NOTES-w6.md` | the page, the example rules, the dated browser facts | `docs/serve.md` is in this pull request, the others later |
+| `.gitignore` | `.umwayi/serve.token`, `.umwayi/serve.lock` | with the test in `tests/test_docs.py` style |
+| the three adapters' example rules | deny `umwayi serve` and the token file for an AI helper | text matching, KNOWN-LIMITS 12 |
+
+### The same code: the handler table
+
+Each handler is a few lines. It reads parameters the gate and `parse_body` already checked, calls the core function named below, and returns `(code, data)` using the same mapping the command line handler uses. The "extract" column is the logic that sits in the command line handler today and moves into the core so that both call it. This list was found by reading `umwayi/cli.py`; the build checks it again.
+
+| route | core call | extract before the build |
+| --- | --- | --- |
+| status | `kill.state(root)`, `servetoken.status` | none |
+| snapshot | `logbook.read_checked_chain(root)`, `view.gather(root, when, entries, chain_length)` | none: `view.snapshot` already is "gather then write the file" |
+| queue.list | `taskqueue.list_rows(root, status, kind)` | none |
+| logbook.verify | `logbook.verify(root, None)` | the wording of the output stays in the command; the route sends counts and check names |
+| budget.status | `budget.status(root, day, today)` | none (returns `(code, lines)`) |
+| agents.list | `agents.load(root, None)`, then `name`, `platform`, `transport` | none; the route sends less than `list_agents` prints |
+| agents.check | `agents.check_agent(root, name, None, None)` | none |
+| queue.add | `taskqueue.add_once` when `if_not_open`, else `taskqueue.add` | the `if cmd == "add" and args.if_not_open` branch of `_cmd_queue` becomes one function in `taskqueue`, called by both |
+| queue.answer | `taskqueue.answer(root, id, answer, when, revisit_if=...)` | none |
+| queue.close | `taskqueue.close(root, id, when)` | none |
+| kill.on | `kill.turn_on(root, when, why)` | none |
+
+**Where the command line is thinner than the web request**, which is why "the same" needs a decision. The command line's owner commands (`queue add`, `answer`, `close`, `kill on`) ask no rules and are not stopped by the kill switch; `umwayi check` asks the kill switch only with `--kill-switch`; the agent code always passes the kill state (`agents.py`, `_Run._permission`). A request from a page is not the owner at the keyboard (a script in the page, a stolen token and a mistaken click are all possible), so the web door uses the stricter of the two: the rules check and the kill switch for every request but `kill.on`. This is W6-Q2 and W6-Q3.
+
+**The action the rules see.** `{"type": "serve_request", "route": "queue.answer", "class": "write", "platform": "web"}`. A rule can match `type`, `route`, `class` and `platform` like any other field (layer 2's matchers). `serve.rules.example.yaml` has the starter set: `serve-read` (Yes, `class` equals `read`), `serve-write` (Ask me first, `class` equals `write`), `serve-run` (Ask me first, `class` equals `run`). With no rule at all every request is Ask me first (the answer of layer 2 for no match), so the page is unusable until the owner writes a rule, and the server prints a hint at start (W6.R15.5). `review_by` (13.R2) works on these rules like any Yes rule.
+
+### The request gate in detail (`umwayi/servegate.py`)
+
+**Where the facts come from.** The stdlib `BaseHTTPRequestHandler` is used only for the socket loop. Its `parse_request` and `self.headers` are not used, because they accept an HTTP/0.9 request line, fold and merge headers and hide duplicates. The handler overrides `handle_one_request`: it reads the request line with `rfile.readline(8193)` (a longer line is refused), splits it with one regular expression (`^(GET|POST|DELETE|[A-Z]{1,16}) (\S{1,512}) (HTTP/1\.[01])\r\n$`, anything else becomes an empty `Facts` that the gate refuses with `target` or `method`), then reads header lines with `readline(4097)` until the empty line, at most 65 lines, keeping every line as a (name, value) pair in order, and refusing a line that starts with a space or tab (a fold). It never calls `email` or `http.client` header parsing. The facts are therefore exactly the bytes on the wire, and the pure gate sees what the property tests generate.
+
+**`Facts`** (frozen): `version`, `method`, `target`, `headers` (a tuple of pairs), `peer` and `server` (host and port strings), `declared_length` (an int or `None`, computed by the gate, not the reader). **`State`** (frozen, replaced under a lock): `record` (the token record or `None`), `date` (the election clock date), `mono` (monotonic seconds), `auth_bucket`, `class_buckets`, `fail_window`, `port`. **`decide(facts, state)`** returns `(verdict, next_state)`: `Allow(route, params, body_cap)` or `Refuse(status, word)`, and a new state with the buckets and the failure window updated. The server swaps the state in under one lock. The properties of W6.R16.1 are stated over this signature.
+
+**Why a token check before the route check.** Routes, methods, body limits and parameter shapes are information. A caller without a valid token gets 401 for every `/v1/` target, whether the route exists or not, so the table cannot be mapped from outside. `GET /` is the only target answered without a token.
+
+**The token comparison.** `hmac.compare_digest(sha256(presented).digest(), bytes.fromhex(record.sha256))`. A presented token is first shape-checked (48 characters, `umt1_` prefix, base64url alphabet) so the digest work is bounded; a token of the wrong shape counts as a failure and gets the same 401. The record is read by the server shell for each request, not by the gate.
+
+**Origin and Host, in a table** (a request needs all of the row to be Allow; "absent" means no such header):
+
+| Host | Origin | method | answer |
+| --- | --- | --- | --- |
+| `127.0.0.1:PORT` | absent | `GET` | pass (a browser omits `Origin` on a same-origin `GET`) |
+| `127.0.0.1:PORT` | absent | `POST`, `DELETE` | `origin` (a browser always sends it) |
+| `127.0.0.1:PORT` | `http://127.0.0.1:PORT` | any | pass |
+| `127.0.0.1:PORT` | `null`, other host, other port, `https://...`, empty, two values | any | `origin` |
+| anything else, missing or doubled | any | any | `host` |
+
+`Sec-Fetch-Site` must be `same-origin` when present (for `GET /` also `none`, which a browser sends for a typed address). The MDN pages say a browser adds `Origin` to same-origin requests other than `GET` and `HEAD`, and that fetch metadata headers go only to potentially trustworthy URLs; whether a browser treats `http://127.0.0.1` that way is not verified here, which is why those headers are checked when present and never relied on (`adapters/NOTES-w6.md`).
+
+**The page response** is the file's bytes with the headers of W6.R6.6. The page file is read once at start and again for each request (the owner may rebuild it), and its SHA-256 compared with `build.json` each time; a mismatch is 503 `page`.
+
+**What the stdlib server does that the gate cannot see.** `ThreadingHTTPServer` sets `daemon_threads` (a thread per connection, bounded by the semaphore of W6.R14.1); `allow_reuse_address` is false (a port in use is a 64 at start); `handle_error` is a no-op (no traceback with request content); `log_message` is a no-op; every response sets `Connection: close` and the handler closes the socket. A deadline timer cuts the connection at 10 seconds (30 for the long poll), as the telemetry receiver does.
+
+### Tokens in detail (`umwayi/servetoken.py`)
+
+- **Record.** `{"schema": 1, "id": "T-91ab02cd", "sha256": "<64 hex>", "created": "2026-11-12", "expires": "2026-12-12"}`, two spaces of indent, a final newline, mode 0600, through `fsutil.atomic_write(path, data, mode=0o600)`. The reader accepts exactly these keys, a date that is a real date, an `expires` after `created` and at most 90 days after it, and a `sha256` of 64 lowercase hex characters; anything else is "no valid token", which refuses every request. `.umwayi` must be a normal folder (the check `runlock.held` and `logbook._lock` already make).
+- **Create.** Refuse if stdout is not a terminal (exit 1). Refuse if a record exists (exit 1). Make the token. Write the record. Append the entry. If the append raises, remove the record and exit 2 with nothing printed. Print `Token: umt1_...`, `Id: T-...`, `Expires: DATE` and the line "Shown once. umwayi keeps only a fingerprint of it." Exit 0.
+- **Rotate.** Needs a record. Make the new token. Keep the old record text in memory. Replace the record. Append the entry. If the append raises, write the old text back and exit 2. Print as above. The running server reads the file on the next request.
+- **Revoke.** Remove the record, append the entry; if the append raises, write the record back and exit 2.
+- **Status.** Read only. Prints `Token T-...: created DATE, expires DATE, N days left` or `No token.` Exit 0. It does not check the logbook and writes nothing.
+- **Why a digest file in the repo folder is acceptable.** The digest of 32 random bytes is not reversible; an AI helper that can read `.umwayi/serve.token` learns the id and the dates and cannot make a request. The raw token exists in the owner's terminal scrollback and in the page's memory, and nowhere else.
+- **Why not a per-start token.** It would remove the file and the rotation commands. But the page could then never be bookmarked with a token, a second terminal could not call `token status`, and every restart would print a secret again. W6-Q5 keeps the stored digest as the proposal.
+
+### The pipeline's table: what happens when something is wrong
+
+The fail closed table. Each row is one test in `tests/serve/test_failclosed.py`; "no change" means the root is byte for byte the same afterwards, except the entries named.
+
+| situation | word | code | what changes |
+| --- | --- | --- | --- |
+| any gate check fails (W6.R5.2) | the gate's word | 2 | nothing; counted in the summary if no valid token |
+| the token record is missing, unreadable, malformed, expired or revoked | `token` | 2 | nothing |
+| the gate raises | `error` | 2 | nothing |
+| `rules.yaml` missing or broken | `ask` | 3 | one queue decision (`add_once`) and the check's entry |
+| the rules check says No | `rules` | 2 | the check's entry and the request entry |
+| the rules check says Ask me first | `ask` | 3 | one queue decision, the check's entry and the request entry |
+| the rules check answered Yes but could not be logged | `logbook` | 2 | nothing |
+| the kill switch is on or unknown and the route is stopped | `kill` | 3 | the check's entry (No by the switch) and the request entry |
+| the date is before the newest logbook entry | `logbook` | 2 | nothing (the append refuses) |
+| the logbook fails its tamper check | writes: `logbook` 2; `snapshot` and `logbook.verify`: `refused` 1 | | nothing |
+| `queue.md` is malformed | `refused` | 1 | nothing |
+| the core function raises `UsageError` | `usage` | 64 | nothing |
+| the core function raises `UmwayiError` | `refused` or `error`, as the command | 1 or 2 | as the command |
+| the core function raises anything else | `error` | 2 | whatever the command left (it is atomic, like the command line) |
+| the request entry cannot be written after the command | `logbook` | 2 | the command's change stays; the response says `"changed": true`; the server is degraded |
+| degraded and the request is not `GET /`, `status` or `kill.on` | `logbook` | 2 | nothing |
+| the body fails `parse_body` | `body` | 64 | nothing |
+| 17 requests at once | `busy` | 2 | nothing |
+| the write lock is not free in 5 seconds | `busy` | 2 | nothing |
+| the page file differs from `build.json` | `page` | 2 | nothing |
+| a chat start is refused by the budget | `budget` | 3 | what `agent chat` writes for the same refusal |
+| a chat start finds the run lock held | an event `stopped` with code 3 | 3 | what `agent chat` writes |
+| an agent needs a terminal (`transport: cli`) | `usage` | 64 | nothing |
+| a permission is not answered in 300 seconds | `reject_once`, an event | | one entry |
+| a chat has no request for 10 minutes | an event `stopped` (`idle`) | | the chat's own end entry |
+| SIGTERM or Ctrl-C | the server stops accepting, stops each chat, settles it, appends the stop entry | 0 | as listed |
+| the stop entry cannot be written | | 2 | the chats are already stopped |
+
+### The entries (examples, W6.R13)
+
+A read that passed:
+
+```
+Source:   umwayi serve
+Added:    Request R-0b17c2de: GET queue.list, done (exit 0), 6 ms
+Checked:  Token T-91ab02cd valid. Host and Origin exact. Kill switch off. Rules check Yes.
+Not done: The body, the headers and the token were not recorded.
+```
+
+A write the rules turned into Ask me first:
+
+```
+Source:   umwayi serve
+Added:    Request R-4d90aa13: POST queue.answer, refused (ask) (exit 3), 11 ms
+Checked:  Token T-91ab02cd valid. Host and Origin exact. Kill switch off. Rules check Ask me first.
+Not done: The body, the headers and the token were not recorded. The queue row was not changed.
+```
+
+A summary:
+
+```
+Source:   umwayi serve
+Added:    Refused 37 requests before a token was checked or after the rate limit, in the last 60 seconds: host 30, token 4, method 2, rate 1.
+Checked:  The count is from memory since the last summary. No request is named.
+Not done: No address, header or body was recorded.
+```
+
+The route and word values come from fixed lists; a test builds every possible entry and checks it against a pattern.
