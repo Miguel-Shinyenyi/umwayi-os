@@ -329,3 +329,75 @@ test('the view line test measures the distance from a tree to the segment betwee
   assert.equal(inStationView(tree(4, 7), diagonal), false); // 2.1 m from the line
   assert.equal(inStationView(tree(12, 12), diagonal), false); // past the station: 2.8 m from it
 });
+
+// Found by the mutation pass of UI.7: the figures' sizes, which no other test sees. The numbers are real ones: a Maasai man of
+// about 1.8 m, a black kite with a wingspan of about 1.5 to 1.9 m, an impala ram with its horns up, a hair coat over the body.
+const { buildHighShepherd, buildAntelope, buildBird, makeCoat, disposeCoats } = await import('../src/high/figures.js');
+const { buildHighGrass } = await import('../src/high/plants.js');
+const { heightAt } = await import('../src/world/height.js');
+const boxOf = (o) => { o.updateMatrixWorld(true); return new THREE.Box3().setFromObject(o); };
+test('the High shepherd stands on the ground in the place of the Standard figure, at a man\'s height', () => {
+  const std = new THREE.Group();
+  world.shepherd.group.children.slice(0, 8).forEach((c) => std.add(c.clone()));
+  const a = boxOf(std), b = boxOf(buildHighShepherd());
+  assert.ok(b.min.y > -0.01 && b.min.y < 0.02, `the feet are at ${b.min.y}`);
+  assert.ok(b.max.y > 1.75 && b.max.y < 1.9, `${b.max.y} m tall`);
+  assert.ok(Math.abs(b.max.y - a.max.y) < 0.05, 'not the height of the Standard figure');
+  for (const k of ['x', 'z']) assert.ok(b.min[k] > a.min[k] - 0.1 && b.max[k] < a.max[k] + 0.1, `wider than the Standard figure in ${k}`);
+  assert.ok(b.max.x - b.min.x > 0.6, 'the arm does not reach out to the staff');
+});
+
+test('the wildlife has the size of the real animals', () => {
+  const a = boxOf(buildAntelope());
+  assert.ok(a.min.y > -0.01 && a.min.y < 0.02, 'the impala does not stand on the ground');
+  assert.ok(a.max.y > 1.4 && a.max.y < 2.0, `the impala is ${a.max.y} m to the horn tips`);
+  assert.ok(a.max.z - a.min.z > 1.2 && a.max.z - a.min.z < 1.8, 'the impala is not the length of one');
+  assert.ok(a.max.x - a.min.x < 0.45, 'the impala is too wide');
+  const b = boxOf(buildBird(new THREE.MeshBasicMaterial()));
+  assert.ok(b.max.x - b.min.x > 1.5 && b.max.x - b.min.x < 2.0, `a wingspan of ${b.max.x - b.min.x} m`);
+  assert.ok(b.max.y - b.min.y < 0.2, 'the kite is not flat in a glide');
+  assert.ok(Math.abs(b.max.x + b.min.x) < 1e-6, 'the wings are not the same');
+});
+
+test('a coat sits on the body of its sheep or goat, not beside it or far outside it', () => {
+  for (const kind of ['dorper', 'redmaasai', 'goat']) {
+    let animal = null;
+    world.scene.traverse((o) => { if (!animal && o.userData && o.userData.kind === kind) animal = o; });
+    assert.ok(animal, kind);
+    const a = animal.clone(); a.position.set(0, 0, 0); a.rotation.set(0, 0, 0); a.scale.set(1, 1, 1);
+    const body = boxOf(a), coat = boxOf(makeCoat(kind));
+    assert.ok(coat.min.y > 0.1, `${kind}: the coat reaches the ground`);
+    for (const k of ['x', 'y', 'z']) assert.ok(coat.min[k] > body.min[k] - 0.05 && coat.max[k] < body.max[k] + 0.05, `${kind}: the coat sticks out in ${k}`);
+    assert.ok(coat.max.x - coat.min.x > (body.max.x - body.min.x) * 0.8, `${kind}: the coat is thinner than the body`);
+  }
+  disposeCoats();
+});
+
+test('the High grass: every blade on the ground, none in the river, each with its own colour', () => {
+  const grass = buildHighGrass();
+  assert.equal(grass.count, HIGH_GRASS);
+  assert.ok(grass.instanceColor && grass.geometry.attributes.color, 'the blades have no colour of their own');
+  const m = new THREE.Matrix4(), p = new THREE.Vector3(), seen = new Set();
+  for (let i = 0; i < grass.count; i += 7) {
+    grass.getMatrixAt(i, m); p.setFromMatrixPosition(m);
+    assert.ok(Math.abs(p.y - heightAt(p.x, p.z)) < 0.3, `a blade floats at (${p.x}, ${p.z})`);
+    assert.ok(nearestOnRiver({ x: p.x, z: p.z }).distance >= RIVER_HALF_WIDTH, `a blade in the river at (${p.x}, ${p.z})`);
+    seen.add(grass.instanceColor.getX(i).toFixed(2));
+  }
+  assert.ok(seen.size > 20, 'every blade has the same colour');
+  grass.geometry.dispose();
+});
+
+test('the High ground covers the Standard ground, follows the same heights everywhere, and faces up', () => {
+  const ground = buildHighTerrain(fakeTextures());
+  const hi = boxOf(ground), std = boxOf(world.terrain.mesh.clone());
+  for (const k of ['x', 'z']) assert.ok(hi.min[k] <= std.min[k] + 0.5 && hi.max[k] >= std.max[k] - 0.5 && hi.max[k] - hi.min[k] < (std.max[k] - std.min[k]) * 1.2, `the High ground is not the size of the Standard ground in ${k}`);
+  const p = ground.geometry.attributes.position, n = ground.geometry.attributes.normal;
+  for (const i of [0, 1, 2, p.count >> 1, p.count - 2, p.count - 1, 12345, 98765]) {
+    assert.ok(Math.abs(p.getY(i) - heightAt(p.getX(i), p.getZ(i))) < 1e-4, `vertex ${i} is off the ground`);
+    assert.ok(n.getY(i) > 0.3, `vertex ${i} faces down`);
+  }
+  assert.equal(ground.geometry.attributes.uv, undefined, 'the photographs are placed by world position, not by uv');
+  assert.equal(ground.material.roughness, 1);
+  ground.geometry.dispose();
+});
