@@ -729,6 +729,28 @@ It fires on an email address, `://`, a run of 24 or more letters and digits, a h
 
 Nothing is stored (12.R2.2): a reload, a crash or closing the tab loses every tick and result, and the panel says so. Download saves the text through a link whose address holds the text, so it needs no Blob and makes no request. It saved the file in the one browser tried (headless Chromium, under the live view's policy `default-src 'none'` and under the site's); other browsers may refuse a very large data address, and then Copy is the way.
 
+## Layer 12: the High tier of the public site (found while building UI.7)
+
+### 149. High is checked only in software drawing, and its frame rate is unknown
+
+Every browser run of High was in headless Chromium with SwiftShader, which draws on the processor: High drew there, and the fallback, the switch and the wildlife worked, but a drag in High timed out and a frame took seconds. That says nothing about a real GPU. The automatic rule offers High only on a fast network, 8 or more cores, 8 GB or more where the browser says, a large screen, no reduced motion and a hardware renderer, so a visitor with a weak GPU and strong numbers can still be given High. Their way back is the switch, which keeps Standard in the address. Slow frames step the detail down inside High as in Standard (a lower pixel ratio, then no bloom, and less grass), but nothing steps down from High to Standard by itself.
+
+### 150. High is about 4.7 MB of photographs, and the 15 s limit is one number for every network
+
+The five photographs are 4.72 MB (JPEG does not compress further) and the High code 10 KB compressed, on top of Standard. The rule offers High only on a reported 4g network of 10 Mbit/s or more, but that is the browser's estimate. A visitor who chose High on a slow network waits up to 15 s for it and then gets Standard with the words saying why; the files that arrived late are not used, and the next visit downloads them again unless the browser cached them. The limit is not tuned to the network.
+
+### 151. The antelope is clear of trees only for the default view
+
+The High forest leaves out every young tree that would stand between the default overview camera and the antelope's path (`blocksAntelope`), and every tree in the line of each station's view (`inStationView`). A camera that the visitor drags elsewhere can see the antelope behind a tree, or see none of it. The birds fly under the top bar of the default view at 1440 by 900 only; at other sizes they may be behind it.
+
+### 152. The photographs are of other places, and High still looks made in parts
+
+The grass, soil and rock photographs are CC0 from Poly Haven and are not of Laikipia; the shaders tint them towards the Standard palette. Up close the ground and the rocks read as real surfaces, but the shepherd, the animals and the trees are still shapes made from code: the shuka is a lathe with folds, the coats are smooth shells, the tree crowns are lumps, and the far forest is the Standard forest. The screenshots in the pull request show where.
+
+### 153. A High that fails after it is on is not caught
+
+The fallback covers a High that cannot load its code, cannot load a photograph, throws while it is built, or is too slow. A failure after High is on (a shader that does not compile on a given GPU, a lost context) shows as whatever the browser does with it: three.js logs the shader error and the object is not drawn. A lost context goes through the Standard path (List, with the words). No test or browser run here had a shader fail to compile.
+
 ## Layer 13: elections (found while building L13.1)
 
 ### 160. `review_by` depends on the owner renewing honestly, and a rule with none never lapses

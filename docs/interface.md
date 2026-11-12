@@ -8,6 +8,16 @@ The view is a calm 3D hillside in a web page. Eleven stations stand around a lan
 
 **Round 2 (Nov 11, UI-Q17 to UI-Q22), being built.** The owner decided three tiers chosen in the browser (List, Standard, High) with a visible switch; a public site in `site/` (Next.js on the Vercel free tier, server rendered home text, no analytics, no tracking, device hints never sent) beside the owner's live view, which stays the static one file page of `ui/` with no network request; one scene module shared by both; fixes to the Standard scene (the rest of the page shows at the bottom of the first screen, stations further out, the river and trails visible, no name over the hero text, less low poly rocks and walls); and a dense forest across the river, flowing water over rocks, a Maasai silhouette shepherd, a mixed flock of sheep and goats and a herding dog. The order is UI.1b in PR 39 (merged), then UI.6 (the site, List and Standard; built), then UI.7 (High). The owner keeps the timeline and no scope is cut.
 
+**UI.7 is built (Nov 12, its own pull request): High, tier 3, on the public site only.** The owner's live view is unchanged: it still offers List and Standard (`maxTier: 2`, `local: true`), never imports `ui/src/high/` (`ui/test/high.test.mjs` walks its imports from `main.js`), and gives the same behaviour log and the same screenshot byte for byte as main. Its built page changed (838 bytes) only because `ui/src/boot.js` changed. On the site the switch offers List, Standard and High. High is chosen by itself only by the unchanged rule of `ui/src/engine/tier.js` (a fast network, 8 or more cores, 8 GB or more, a large screen, no reduced motion, a hardware renderer). A visitor can ask for it with the switch or `#tier=high`, with the words "You chose High. It loads more and may be slow on this device." when it is above the automatic choice. Standard always draws first. Then `boot.js` loads the High code (`ui/src/high/`, its own 10 KB file) and five photographs from the site's own host under `/high/`, and `applyHigh` builds High on top of the drawn Standard scene:
+- a ground mesh with 480 by 480 segments, with the grass, laterite soil and rock photographs at two scales and their normal maps;
+- the rock photograph in three planes on every stone;
+- a finer ripple and glint on the same water;
+- 48000 blades of grass in clumps (Standard has 9000), 1800 trees in the same band along the river (Standard has 800, all kept where they stand), and new acacia crowns and cedars;
+- a finer shepherd (a shuka with folds, a second cloth knotted on one shoulder, collar rings as shapes, no face), and a short hair coat on every sheep and goat;
+- seven black kites far off and an impala on a crest about 150 m away.
+
+The wildlife and the river are the only things that move by themselves. They run on the water's flow clock, so they stop with reduced motion, in Calm mode, off screen and with the page hidden, and no part of them is ever within 25 m of a station (2000 random need sets and the edge cases, `ui/test/wildlife.test.mjs`). If the High code or a photograph fails, if building High throws, or if High is not ready in 15 s, the page stays Standard and says why ("High could not start in this browser, so this is Standard." or "High took too long to load, so this is Standard."). A late High is not put on. Switching from High to Standard or List removes it and puts the Standard world back exactly. The photographs are CC0 from Poly Haven, listed with source, author, licence, size and SHA-256 in `site/high-assets.json` and [adapters/NOTES-layer12.md](../adapters/NOTES-layer12.md), and checked by `tests/test_site_assets.py`. Limits: KNOWN-LIMITS 149 to 153.
+
 **UI.4 is built (Nov 11, its own pull request): the owner checks panel.** A button "Owner checks" in the top bar and one in the list view open a panel (hidden until then) on the live view and on the public site, with or without WebGL. It lists the six checks of 12.R7.1 in order (10.21, 10.31, 11.6, B.10, 10.37, the interface check), 67 steps in all. `ui/src/data/checks.js` holds them; each step is a line of the NOTES file named for its check, word for word (`tests/test_checks.py` finds every text, code block, command and "what to record" cell in that file, and every check id in tasks.md). Each step has a tick, its commands in code blocks and a place to type a result. A check says "not done" until every step is ticked and then "ticked by you", never "passed" or "verified". The notes live in the page's memory (`ui/src/data/notes.js`), with no storage, cookie or IndexedDB, and the panel says "These notes are lost when you close this page. Export them first." and "Record field names, exit codes and version strings, never a value."
 
 - **Export:** "Export as text" fills a read only box with the text of all six checks (status, `[x]` or `[ ]`, each step, the typed result) and selects it; Copy (the page's one clipboard call, `ui/src/ui/home.js`, now also reads the notes box) and Download (a link whose address holds the text, named `umwayi-owner-checks.txt`) appear. The box follows later ticks and typing. The text ends with the line "These are your notes. umwayi did not run or verify anything." A browser that cannot save a file gets "This browser cannot save a file from this page. Copy only." The design said Download makes a Blob; I used a data address because the page tests forbid `createObjectURL` and a Blob needs no more than this.
@@ -122,6 +132,23 @@ The screenshots are described here and are not committed (the design does not sa
 
 **Not verified:** the 30 frames a second on an integrated GPU (the sandbox draws in software at 1 to 3 frames a second, so frame times say nothing about a real GPU), Firefox, Safari, a real touch screen, a screen reader, and the owner's eyes. The look is judged on the screenshots in the pull request; it is a first realism pass, not a photograph.
 
+**UI.7 browser pass, Nov 12 2026**: Chrome headless shell of Playwright's chromium-1232 on Linux, SwiftShader, `next start` of a production build of this branch merged with main, driven by a script kept outside the repo; every request logged with its method, address, headers and body, and every change of `data-tier`, `data-high` and the notice with its time.
+
+| check | result |
+| --- | --- |
+| a capable device (61 cores, 31.5 GB, 4g at 83.7 Mbit/s, a renderer named "Fakevendor GPU 4242"), the photographs held back 4 s | the tier is High with "Loading High. This is Standard until it is ready." at 0.1 s; Standard had drawn 8 frames with no High object in the scene; High was on at 10.8 s with no notice; 17 requests, 5 of them the photographs |
+| one photograph refused | Standard, "High could not start in this browser, so this is Standard.", at 4.7 s; the picture kept drawing |
+| the High code refused | the same words at 5.1 s; no photograph was asked for |
+| one photograph held 20 s | still loading at 11 s; Standard, "High took too long to load, so this is Standard.", at 16 s; when the photograph came, High was not put on |
+| the switch on a software device | Standard, High (with the warning), Standard, List, High again; the Rules panel opens in High; only `tier=` is written to the fragment |
+| reduced motion, `#tier=high` | High with the warning; the birds did not move in 2.5 s |
+| the wildlife, High on a capable device | the birds moved while the water flowed and stood still in Calm mode, off screen and with the page hidden. In 8 s of software drawing the antelope did not move, because it was grazing still at one end of its path |
+| requests in every run | all to the site's own origin, all `GET`, none with a body, no `Referer`, no cookie, nothing in local or session storage. The only console messages are the browser's own line for each request the pass refused |
+| device hints | none of the faked values, the renderer text or any hint name is in any address, header or body of any request |
+| List (Save-Data, `#tier=list`) and JavaScript off | List; 9 requests (main: 9) and 3 (main: 3); no High file |
+| Standard | 11 requests (main: 10); 1.197 MB, 332 KB compressed (main: 1.188 MB, 328 KB). The 4.4 KB compressed is the High path of `boot.js` and the way the bundler now splits three.js in two files, because the High file shares it. No High file is fetched |
+| High | the High code is 26 KB, 10 KB compressed; the photographs are 4.72 MB, which JPEG does not compress further |
+
 **UI.4 browser pass, Nov 11 2026**: Chrome headless shell of Playwright's chromium-1232 (Chrome for Testing 151) on Linux, driven by a script kept outside the repo; every request logged with method, address, body and headers. Five runs, each from a clean page: the live view from disk at Standard (software WebGL2), at List, and with WebGL switched off by flags (36 checks each), and the public site (`next start` of a production build) at Standard and at List (35 checks each). Values typed: an email address, a URL, a 34 letter token and a hex string, all made up.
 
 | check | result |
@@ -187,7 +214,8 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
-- UI.1 and UI.1b are merged (PR 39), UI.2 is merged (PR 41) and UI.6 is built in its own pull request. UI.3, UI.4, UI.5 and UI.7 are not built.
+- UI.1 and UI.1b are merged (PR 39), UI.2 (PR 41), UI.6 (PR 50), UI.3 (PR 52) and UI.4 (PR 54) are merged, and UI.7 (High) is built in its own pull request. UI.5 is not built.
+- High is checked only in software drawing; its frame rate on a real GPU is unknown (KNOWN-LIMITS 149).
 - The site's script policy allows inline scripts (KNOWN-LIMITS 140); a nonce would be stricter and makes every page render per visit. The owner chooses.
 - The owner keeps the timeline (UI-Q22); no scope is cut.
 - The public site's host sees which files a browser asks for, so its logs can tell which tier was loaded. Nothing else about the device is sent.
