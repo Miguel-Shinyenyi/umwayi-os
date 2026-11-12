@@ -5,6 +5,8 @@ and the list of the eleven stations, all written into the HTML by the server, an
 Next.js app. It is not part of the `umwayi` package: nothing here imports `umwayi`, and umwayi never runs npm, node or this
 site. The owner builds it and the owner deploys it (nothing here deploys anything or touches Vercel).
 
+Status (UI.4): the page has the owner checks panel, the same code as the live view (`ui/src/ui/checks.js`, started by `ui/src/boot.js`). It is built in the browser from `ui/src/data/checks.js`, keeps its notes in memory only, reads nothing of the visitor's device or files and sends nothing. The server sends its empty frame (hidden) in `app/home.js`. A visitor can use it as a checklist for their own machine; Copy and Download make a text file in the browser.
+
 Status (UI.3): a visitor can open a snapshot file of their own with the button in the status section, or drop it on the page. It is read in the browser with `FileReader` and checked strictly (`ui/src/data/snapshot.js`); nothing is uploaded, no request carries it, and nothing is stored. A file that is not a snapshot of this version gives one message and loads nothing. Without a file the page shows the sample world and says "sample". The only change in `site/` is the picker markup and the footer id in `app/home.js`, so it matches `ui/src/index.html`.
 
 Status (UI.6): List and Standard. The 3D scene and the page behaviour are the ones in `ui/src`, used through the shared modules

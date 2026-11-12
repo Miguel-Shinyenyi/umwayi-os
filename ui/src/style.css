@@ -50,7 +50,7 @@ html[data-tier="list"] #hero { height: auto; min-height: 0; padding: 70px 0 8px;
 html[data-tier="list"] #hero .intro { position: static; padding: 0 32px; max-width: 760px; }
 html[data-tier="list"] :is(#scene, #labels, #hint, #panel, #sample-tag, #calm-toggle) { display: none; }
 html:not([data-tier="list"]) #list-view { display: none; }
-html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status, #snapshot) { display: none; }
+html:not([data-js]) :is(#tiers, #calm-toggle, button[data-copy], #copy-status, #snapshot, #checks-open, #checks-open-list) { display: none; }
 .tiers { display: flex; gap: 0; }
 .tiers .btn { border-radius: 0; }
 .tiers .btn:first-child { border-radius: 999px 0 0 999px; }
@@ -133,6 +133,29 @@ html[data-tier="list"] .status-head .more { display: none; }
 .snapshot .snapshot-help { flex: 1 1 320px; margin: 0; font-size: 13.5px; }
 .snapshot .snapshot-help code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); }
 .snapshot .snapshot-msg { flex-basis: 100%; margin: 0; min-height: 1.4em; font-size: 13.5px; color: var(--ink); }
+.check { background: var(--glass-solid); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 0 0 14px; }
+.check-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; }
+.check-head h3 { margin: 0; }
+.check-status { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.check-reason, .check-source { margin: 6px 0 0; font-size: 13.5px; }
+.steps { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 14px; }
+.steps li { border-top: 1px solid var(--line); padding-top: 12px; }
+.step-head { display: flex; gap: 10px; align-items: flex-start; }
+.step-head input[type="checkbox"] { margin-top: 5px; width: 18px; height: 18px; flex: none; accent-color: var(--ink); }
+.step-id { flex: none; min-width: 2.4em; color: var(--ink); font-size: 13px; padding-top: 2px; }
+.step-text { min-width: 0; }
+.step-line { margin: 0 0 4px; color: var(--muted); overflow-wrap: anywhere; }
+.step-line code { color: var(--ink); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+pre.cmd { margin: 8px 0 0 28px; padding: 8px 10px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+pre.cmd code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); white-space: pre; }
+.step-record { margin: 8px 0 0 28px; font-size: 13px; }
+.steps input[type="text"] { display: block; box-sizing: border-box; width: calc(100% - 28px); margin: 8px 0 0 28px; padding: 7px 10px; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.check-warning { margin: 6px 0 0 28px; font-size: 13px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px; }
+.check-warning[hidden] { display: none; }
+.checks-memory { color: var(--ink); }
+.checks-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+#checks-export { box-sizing: border-box; width: 100%; background: rgba(0, 0, 0, 0.28); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+#checks-export[hidden], #checks[hidden] { display: none; }
 .cmds { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .cmds li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--glass-solid); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px 8px 14px; }
 .cmds code { flex: 1 1 280px; min-width: 0; overflow-wrap: anywhere; font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); }

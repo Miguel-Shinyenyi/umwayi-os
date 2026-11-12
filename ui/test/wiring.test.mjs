@@ -43,7 +43,7 @@ function stage({ webgl = true, hash = '' } = {}) {
   const gl = { getExtension: () => null, getParameter: () => '' };
   const doc = {
     documentElement: el(), handlers: {},
-    getElementById: get, querySelector: () => null, querySelectorAll: () => [],
+    getElementById: (id) => (id.startsWith('checks') ? null : get(id)), querySelector: () => null, querySelectorAll: () => [],
     addEventListener(t, f) { (doc.handlers[t] ||= []).push(f); }, removeEventListener() {},
     createElement: () => ({ getContext: () => (webgl ? gl : null) }),
   };
