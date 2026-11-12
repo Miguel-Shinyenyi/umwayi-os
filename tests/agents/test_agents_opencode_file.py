@@ -6,7 +6,7 @@ checking or refusing an OpenCode agent never starts a program. Only the table of
 
 What 10.43 builds: `opencode` in the platform table (command word `opencode`, transport acp only), the keys
 `provider` and `model` (required for OpenCode, refused for every other platform), and `agent run` and `agent login`
-refused with 64. Task 10.46 added the gate checks (test_agents_opencode_gate.py); the chat (10.48) is not built, and nothing here starts it.
+refused with 64. Task 10.46 added the gate checks (test_agents_opencode_gate.py); the chat (10.48) is tested in test_agents_opencode_chat.py.
 """
 
 import unittest
