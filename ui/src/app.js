@@ -33,6 +33,15 @@ export function createApp(win, view = viewOf(null)) {
     introBox = { x0: a.left - b.left - 6, y0: a.top - b.top - 6, x1: a.right - b.left + 6, y1: a.bottom - b.top + 6 };
   }
 
+  // the same for the open station panel (a bottom sheet upright, a card at the side on its side): the name of the selected feature
+  // moves out from under it instead of over its text. Read only while the panel is open, once for each frame.
+  function panelBox() {
+    const el = $('panel');
+    if (!el || !el.hasAttribute('data-open') || !el.getBoundingClientRect) return null;
+    const a = el.getBoundingClientRect(), b = hero.getBoundingClientRect();
+    return { x0: a.left - b.left - 6, y0: a.top - b.top - 6, x1: a.right - b.left + 6, y1: a.bottom - b.top + 6 };
+  }
+
   scene = createScene(canvas, {
     win, host: hero, counts: view.counts, sample: view.sample,
     onSelect(id, info) {
@@ -53,13 +62,19 @@ export function createApp(win, view = viewOf(null)) {
     onHover: (id) => labels.setHover(id),
     onPose: ({ index, total, caption }) => panel.setCaption(caption, index, total),
     onFrame({ w, anchors }) {
+      const pb = panelBox();
       for (const a of anchors) {
         const sz = labels.size(a.id);
-        const x = a.x - sz.w / 2;
+        let x = a.x - sz.w / 2;
         let y = a.y - sz.h - 6;
         if (introBox && x < introBox.x1 && x + sz.w > introBox.x0 && y < introBox.y1 && y + sz.h > introBox.y0) y = introBox.y1 + 4;
+        if (pb && x < pb.x1 && x + sz.w > pb.x0 && y < pb.y1 && y + sz.h > pb.y0) {
+          if (pb.x1 - pb.x0 < w * 0.9) x = Math.max(0, pb.x0 - sz.w); // a card at the side: the name goes to its left
+          else y = Math.max(0, pb.y0 - sz.h - 4); // a sheet at the bottom: the name goes above it
+        }
         labels.place(a.id, x, y);
       }
+      labels.placed();
     },
     onCalm(on) {
       doc.documentElement.setAttribute('data-calm', on ? '1' : '0');
