@@ -1,37 +1,95 @@
 name: tests
 
-# CI.1: one run for each push to a pull request, and a newer push cancels the older run of the same pull request.
-# Before, the workflow also ran on every push to a branch, so each push to a pull request branch started two runs
-# (eight jobs). The workflow name, the job name and the matrix are unchanged, because a branch rule may require the
-# checks by their names ("tests / test (3.10) (pull_request)" and so on).
+# W20: faster CI without losing coverage. Four jobs.
+#   plan   always runs. It reads the diff and decides which test jobs run (python -m tools.ci_plan). A push to main, an
+#          unreadable or empty diff, a changed workflow, filter, map or shard file, and any path it does not know run
+#          everything.
+#   test   the Python suite, split into shards by test file (tools/ci_shards.json) on each Python version the plan names.
+#   node   the Node tests of ui/ and site/, only when the plan says so.
+#   result always runs, after the other three. It is the one check to require: it fails when a planned job failed, did
+#          not run or was cancelled, when a shard has no report, and when the shards together did not run every test
+#          that discovery found in the files the plan selected. A job the plan skipped on purpose is listed in its
+#          summary as NOT RUN, so a skipped job is never shown as a pass of something that did not run.
+# The checks (names) are listed in docs/testing.md and in the pull request that introduced this file.
 on:
   pull_request:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
+# A newer push to a pull request cancels the older run of that pull request (CI.1). A push to main has its own group
+# (the commit) and is never cancelled: every push to main runs the full suite.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      python: ${{ steps.plan.outputs.python }}
+      node: ${{ steps.plan.outputs.node }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Decide which tests run
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.sha }}
+        run: |
+          set -e
+          if [ "$EVENT" = "pull_request" ]; then
+            python -m tools.ci_plan --event "$EVENT" --base "$BASE" --head "$HEAD" --github-output "$GITHUB_OUTPUT"
+          else
+            python -m tools.ci_plan --event "$EVENT" --github-output "$GITHUB_OUTPUT"
+          fi
+
   test:
+    name: test (${{ matrix.python-version }}, shard ${{ matrix.shard }}/${{ matrix.of }})
+    needs: plan
+    if: needs.plan.outputs.python == 'true'
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Run tests
-        run: python -m unittest discover -s tests -t . -v
-      # The npm download cache of the two Node test steps below (the 3.12 job only). It holds what npm downloads,
-      # never node_modules, and `npm ci --ignore-scripts` still runs from the lockfiles. It uses the Node the runner
-      # already has, so which Node runs does not change.
+      - name: Run the tests of this shard
+        env:
+          CI_PLAN: ${{ needs.plan.outputs.plan }}
+        run: python -m tools.ci_shards run --shard ${{ matrix.shard }} --python-version ${{ matrix.python-version }} --report reports/report-${{ matrix.python-version }}-${{ matrix.shard }}.json
+      - name: Upload the shard report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ matrix.python-version }}-${{ matrix.shard }}
+          path: reports/
+          if-no-files-found: error
+
+  node:
+    name: node
+    needs: plan
+    if: needs.plan.outputs.node == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The npm download cache of the two Node test steps below. It holds what npm downloads, never node_modules, and
+      # `npm ci --ignore-scripts` still runs from the lockfiles. It uses the Node the runner already has.
       - name: Cache the npm download of ui/ and site/
-        if: matrix.python-version == '3.12'
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -39,8 +97,33 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - name: Node tests of ui/ and site/
-        if: matrix.python-version == '3.12'
         run: |
           set -e
           (cd ui && npm ci --ignore-scripts && node --test)
           (cd site && npm ci --ignore-scripts && node --test)
+
+  result:
+    name: result
+    needs: [plan, test, node]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # If no shard ran there is nothing to download; the check below then decides whether that is allowed.
+      - name: Download the shard reports
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: report-*
+          merge-multiple: true
+          path: reports
+      - name: Check that every planned job ran and every test ran
+        env:
+          CI_PLAN: ${{ needs.plan.outputs.plan }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          NODE_RESULT: ${{ needs.node.result }}
+        run: python -m tools.ci_shards verify --reports reports
