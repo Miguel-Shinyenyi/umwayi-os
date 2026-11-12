@@ -29,6 +29,13 @@ export async function scenario(page, check, phone) {
     await page.evaluate(() => { document.documentElement.dataset.tier = 'standard'; });
   }
   await check('Standard', null);
+  // the keyboard, Tab from the top of the Standard page (the body takes the starting point back) visits the header in the order it is drawn (owner checks 1.11)
+  await page.evaluate(() => { window.scrollTo(0, 0); const b = document.body; b.setAttribute('tabindex', '-1'); b.focus(); b.removeAttribute('tabindex'); });
+  const visited = [];
+  for (let i = 0; i < 5; i++) {
+    await page.key('Tab');
+    visited.push(await page.evaluate(() => { const e = document.activeElement; return e ? (e.dataset.tier || e.id || e.tagName.toLowerCase()) : null; }));
+  }
   await check('Standard, Calm mode', async () => { await click(page, '#calm-toggle'); await sleep(200); });
   await click(page, '#calm-toggle');
   await check('Standard, Owner checks open', async () => { await click(page, '#checks-open'); await sleep(300); });
@@ -45,13 +52,6 @@ export async function scenario(page, check, phone) {
       await page.evaluate(() => window.scrollTo(0, 0));
       await sleep(100);
     }
-  }
-  // the keyboard: Tab from the top visits the header in the order it is drawn
-  await page.evaluate(() => { window.scrollTo(0, 0); document.activeElement && document.activeElement.blur(); });
-  const visited = [];
-  for (let i = 0; i < 5; i++) {
-    await page.key('Tab');
-    visited.push(await page.evaluate(() => { const e = document.activeElement; return e ? (e.dataset.tier || e.id || e.tagName.toLowerCase()) : null; }));
   }
   return { notes, tabAfterChecksOpen: tab.focus, focusAfterClose: back.focus, expandedAfterClose: back.expanded, visited, standard };
 }

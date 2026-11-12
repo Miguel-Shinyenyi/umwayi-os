@@ -182,18 +182,22 @@ test('reduced motion removes every transition and animation, and nothing in the 
 
 // the size of a control, from the CSS: font-size x line-height 1.5 + padding + 2 borders
 const px = (s) => Number(String(s).replace('px', ''));
-test('every control is at least 24 by 24 CSS pixels (WCAG 2.2, 2.5.8): buttons, the tick boxes and the text fields', () => {
+test('every control is at least 24 by 24 CSS pixels (WCAG 2.2, 2.5.8) on a mouse screen and 44 by 44 on a phone or touch screen (W1)', () => {
   const lh = 1.5;
   const btn = rule('.btn {'); const small = rule('.btn.small');
   const fs = px(/font-size:\s*([\d.]+)px/.exec(btn)[1]), pad = px(/padding:\s*([\d.]+)px/.exec(btn)[1]);
   assert.ok(fs * lh + 2 * pad + 2 >= 24, 'a button');
   const sfs = px(/font-size:\s*([\d.]+)px/.exec(small)[1]), spad = px(/padding:\s*([\d.]+)px/.exec(small)[1]);
   assert.ok(sfs * lh + 2 * spad + 2 >= 24, 'a small button');
-  const phone = css.slice(css.indexOf('@media (max-width: 700px)'));
-  const pb = /\.btn \{ padding: ([\d.]+)px [\d.]+px; font-size: ([\d.]+)px/.exec(phone);
-  assert.ok(px(pb[2]) * lh + 2 * px(pb[1]) + 2 >= 24, 'a button on a phone');
+  const compact = css.slice(css.indexOf('@media (max-width: 700px), (max-height: 520px), (pointer: coarse)'));
+  const pb = /\.btn \{ min-height: (\d+)px; min-width: (\d+)px;/.exec(compact);
+  assert.ok(pb && px(pb[1]) >= 44 && px(pb[2]) >= 44, 'a button on a phone or a touch screen is 44 by 44');
   const box = rule('.step-head input[type="checkbox"]');
   assert.ok(px(/width:\s*([\d.]+)px/.exec(box)[1]) >= 24 && px(/height:\s*([\d.]+)px/.exec(box)[1]) >= 24, 'a tick box is 24 by 24 or more');
+  const touch = css.slice(css.indexOf('@media (max-width: 700px), (pointer: coarse)'));
+  const tb = /input\[type="checkbox"\] \{[^}]*width: (\d+)px; height: (\d+)px/.exec(touch);
+  assert.ok(tb && px(tb[1]) >= 44 && px(tb[2]) >= 44, 'a tick box on a touch screen is 44 by 44');
+  assert.match(touch, /\.steps input\[type="text"\] \{ min-height: 44px; font-size: 16px; \}/);
   const field = rule('.steps input[type="text"]');
   const ffs = px(/font:\s*([\d.]+)px/.exec(field)[1]), fpad = px(/padding:\s*([\d.]+)px/.exec(field)[1]);
   assert.ok(ffs * 1.4 + 2 * fpad + 2 >= 24, 'a result field');

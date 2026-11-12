@@ -101,7 +101,8 @@ export function audit(opts) {
   // touch targets
   const small = [];
   for (const el of document.querySelectorAll('button, input[type="text"], textarea, summary')) {
-    if (!shown(el)) continue;
+    // the name tag of a feature is a button for the keyboard and a screen reader; a finger never lands on it (pointer-events: none)
+    if (!shown(el) || getComputedStyle(el).pointerEvents === 'none') continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1) continue;
     if (r.height < opts.minTouch - 0.5 || r.width < opts.minTouch - 0.5) small.push(`${label(el)} "${(el.textContent || '').trim().slice(0, 20)}" is ${Math.round(r.width)} x ${Math.round(r.height)}`);
