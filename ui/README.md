@@ -95,3 +95,4 @@ test/              node --test; test/fixtures/snapshot.json is a real snapshot; 
 imports from `src/main.js`), so `dist/index.html` has no part of it. `src/high/assets.js` is the only module of `src/`
 that loads a file: five photographs, from the site's own host under `/high/`, as images. High may use only the
 three.js classes Standard already uses (`test/high.test.mjs`), so Standard visitors download no more of three.js.
+
