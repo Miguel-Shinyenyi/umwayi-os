@@ -1341,3 +1341,18 @@ The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbud
 - The two readers (one in `ui/src/data/progress.js`, one in the test) are separate code that has to agree. If they ever differ on a source, the test fails at once, which is noise and not a wrong page. A matching hash shows the build ran after the last change of what the page shows. It does not show the page text is right for it.
 - The date is the day of the build and is not checked against anything, so a rebuild of unchanged sources changes the page and the hash.
 - The page was not looked at in a real phone or browser, and no phone audit was run on it.
+
+## Goal orchestration (W9), found while building W9.6b
+
+### 266. A worktree is proven by its place, name and repo, git is given 20 seconds, and an undone start leaves a branch
+
+`agent run --workdir` and `agent check --workdir` take only a path that `umwayi/goalgit.py` would make, and the module makes, checks and removes the worktrees of a goal. These are the limits of that proof and of the lifecycle.
+
+- "Made by umwayi" is proven by place, not by a record. The path is the exact `<root>-worktrees/g-0007-t-02`, a real folder, in a root of mode 0700, whose toplevel is itself and whose common dir is the root repo's. A worktree that the owner made by hand with `git worktree add` under that exact name passes too. The check also looks at the folder at one moment: a folder swapped between the check and the start is not seen.
+- The folder is only the working folder. A helper's tools can still read and write anywhere its rules allow, and the `.git` metadata is shared with the root repo (KNOWN-LIMITS 232). `--workdir` does not confine a helper to its worktree.
+- Every git command has 20 seconds and 1 MB. A `worktree add` of a very large repo can run past that. The command is then stopped, the start is `config`, and a half-made folder, registration or branch may be left. The next start of that task finds it as a leftover and stops; the owner removes it by hand. Whether the three writes should get a longer limit is open for W9.7.
+- When a new worktree does not check out right, umwayi removes the worktree without force but never deletes a branch. The task's branch at BASE stays, and the next start of that task is a `leftover` until the owner deletes the branch with git.
+- A task file of any goal that cannot be read stops every start (`leftover`, kind `task-file`), because umwayi cannot show that the path and branch are free. A folder or file that someone put in the worktree root, and a worktree that git lists there, count toward the cap of eight; so does a registration whose folder was deleted, until `git worktree prune` is run by the owner (umwayi never runs prune).
+- The worktree root must be exactly mode 0700 and owned by the user who runs umwayi. One made with a looser or narrower mode is refused as `config`; umwayi never changes the mode of an existing folder. A path must be spelled with the real path of the root: the same folder reached through a link is refused.
+- This task builds the git list, the path and cleanup functions and the two options. The entries, events, queue rows and exit 3 that a refusal becomes, the child process, and the list of left over worktrees with their disk use in `status` and `report` belong to W9.7 and W9.8 and are not built yet. A start that is refused here is an error (`Refused`) that the supervisor must turn into `needs owner`.
+- Tested with the system `git` of a Linux machine only. Windows paths, a case-insensitive file system, a root on a network drive and a git older than 2.17 were not tried.

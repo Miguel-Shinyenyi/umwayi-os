@@ -1,0 +1,440 @@
+{
+ "check-kill-on-claude": {
+  "calls": [
+   {
+    "argv": [
+     "-v"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "auth",
+     "status",
+     "--json"
+    ],
+    "cwd": "WORK",
+    "probe": "auth",
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 0,
+  "entries": [],
+  "stderr": "",
+  "stdout": "Agent reviewer: claude-code, transport cli, workdir WORK\nkill switch: on (a start would stop now with exit 3)\nok: command: claude found at TMP/bin/claude\nok: version: 2.1.300 (at least 2.1.295)\nok: login: Claude subscription (plan: max)\nok: hook script: REPO/adapters/claude_code/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nrun would start: [\"TMP/bin/claude\", \"-p\", \"--permission-mode\", \"default\", \"--settings\", \"{\\\"disableAllHooks\\\":false,\\\"forceLoginMethod\\\":\\\"claudeai\\\",\\\"hooks\\\":{\\\"PreToolUse\\\":[{\\\"matcher\\\":\\\"*\\\",\\\"hooks\\\":[{\\\"type\\\":\\\"command\\\",\\\"command\\\":\\\"PYTHON\\\",\\\"args\\\":[\\\"REPO/adapters/claude_code/hook.py\\\",\\\"--root\\\",\\\"ROOT\\\"],\\\"timeout\\\":30,\\\"onFailure\\\":\\\"block\\\"}]}]}}\", \"PROMPT\"]\nchat would start: [\"TMP/bin/claude\", \"--permission-mode\", \"default\", \"--settings\", \"{\\\"disableAllHooks\\\":false,\\\"forceLoginMethod\\\":\\\"claudeai\\\",\\\"hooks\\\":{\\\"PreToolUse\\\":[{\\\"matcher\\\":\\\"*\\\",\\\"hooks\\\":[{\\\"type\\\":\\\"command\\\",\\\"command\\\":\\\"PYTHON\\\",\\\"args\\\":[\\\"REPO/adapters/claude_code/hook.py\\\",\\\"--root\\\",\\\"ROOT\\\"],\\\"timeout\\\":30,\\\"onFailure\\\":\\\"block\\\"}]}]}}\"]\nGated: agent reviewer can be started. Nothing was started.\n"
+ },
+ "check-no-hook-file-kiro": {
+  "calls": [
+   {
+    "argv": [
+     "--version"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "whoami"
+    ],
+    "cwd": "WORK",
+    "probe": "whoami",
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 2,
+  "entries": [],
+  "stderr": "",
+  "stdout": "Agent helper: kiro, transport cli, workdir WORK\nkill switch: off\nok: command: kiro-cli found at TMP/bin/kiro-cli\nok: version: 2.40.0 (at least 2.27.1)\nok: login: Kiro is signed in (kiro-cli whoami exited 0)\nok: hook script: REPO/adapters/kiro/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nno: kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself\nNot gated: agent helper would be refused (exit 2). Nothing was started.\n"
+ },
+ "check-ok-claude": {
+  "calls": [
+   {
+    "argv": [
+     "-v"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "auth",
+     "status",
+     "--json"
+    ],
+    "cwd": "WORK",
+    "probe": "auth",
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 0,
+  "entries": [],
+  "stderr": "",
+  "stdout": "Agent reviewer: claude-code, transport cli, workdir WORK\nkill switch: off\nok: command: claude found at TMP/bin/claude\nok: version: 2.1.300 (at least 2.1.295)\nok: login: Claude subscription (plan: max)\nok: hook script: REPO/adapters/claude_code/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nrun would start: [\"TMP/bin/claude\", \"-p\", \"--permission-mode\", \"default\", \"--settings\", \"{\\\"disableAllHooks\\\":false,\\\"forceLoginMethod\\\":\\\"claudeai\\\",\\\"hooks\\\":{\\\"PreToolUse\\\":[{\\\"matcher\\\":\\\"*\\\",\\\"hooks\\\":[{\\\"type\\\":\\\"command\\\",\\\"command\\\":\\\"PYTHON\\\",\\\"args\\\":[\\\"REPO/adapters/claude_code/hook.py\\\",\\\"--root\\\",\\\"ROOT\\\"],\\\"timeout\\\":30,\\\"onFailure\\\":\\\"block\\\"}]}]}}\", \"PROMPT\"]\nchat would start: [\"TMP/bin/claude\", \"--permission-mode\", \"default\", \"--settings\", \"{\\\"disableAllHooks\\\":false,\\\"forceLoginMethod\\\":\\\"claudeai\\\",\\\"hooks\\\":{\\\"PreToolUse\\\":[{\\\"matcher\\\":\\\"*\\\",\\\"hooks\\\":[{\\\"type\\\":\\\"command\\\",\\\"command\\\":\\\"PYTHON\\\",\\\"args\\\":[\\\"REPO/adapters/claude_code/hook.py\\\",\\\"--root\\\",\\\"ROOT\\\"],\\\"timeout\\\":30,\\\"onFailure\\\":\\\"block\\\"}]}]}}\"]\nGated: agent reviewer can be started. Nothing was started.\n"
+ },
+ "check-ok-kiro": {
+  "calls": [
+   {
+    "argv": [
+     "--version"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "whoami"
+    ],
+    "cwd": "WORK",
+    "probe": "whoami",
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 0,
+  "entries": [],
+  "stderr": "",
+  "stdout": "Agent helper: kiro, transport cli, workdir WORK\nkill switch: off\nok: command: kiro-cli found at TMP/bin/kiro-cli\nok: version: 2.40.0 (at least 2.27.1)\nok: login: Kiro is signed in (kiro-cli whoami exited 0)\nok: hook script: REPO/adapters/kiro/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nok: kiro hook file: WORK/.kiro/hooks/umwayi.json\nrun would start: [\"TMP/bin/kiro-cli\", \"chat\", \"--v3\", \"--no-interactive\", \"--trust-tools=read_file\"] with the prompt on stdin\nchat would start: [\"TMP/bin/kiro-cli\", \"chat\", \"--v3\"]\nGated: agent helper can be started. Nothing was started.\n"
+ },
+ "check-old-version-claude": {
+  "calls": [
+   {
+    "argv": [
+     "-v"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 2,
+  "entries": [],
+  "stderr": "",
+  "stdout": "Agent reviewer: claude-code, transport cli, workdir WORK\nkill switch: off\nok: command: claude found at TMP/bin/claude\nno: version: 0.0.1 is older than 2.1.295 (onFailure: block needs Claude Code 2.1.295 or later)\nnot run: login: an earlier check failed\nnot run: hook script: an earlier check failed\nnot run: hook self-test: an earlier check failed\nNot gated: agent reviewer would be refused (exit 2). Nothing was started.\n"
+ },
+ "check-old-version-kiro": {
+  "calls": [
+   {
+    "argv": [
+     "--version"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 2,
+  "entries": [],
+  "stderr": "",
+  "stdout": "Agent helper: kiro, transport cli, workdir WORK\nkill switch: off\nok: command: kiro-cli found at TMP/bin/kiro-cli\nno: version: 0.0.1 is older than 2.27.1 (V3 headless runs load hooks from Kiro CLI 2.27.1)\nnot run: login: an earlier check failed\nnot run: hook script: an earlier check failed\nnot run: hook self-test: an earlier check failed\nnot run: kiro hook file: an earlier check failed\nNot gated: agent helper would be refused (exit 2). Nothing was started.\n"
+ },
+ "check-unknown-name": {
+  "calls": [],
+  "code": 64,
+  "entries": [],
+  "stderr": "umwayi: error: agent: there is no agent named nobody in the agents file\n",
+  "stdout": ""
+ },
+ "run-bad-word": {
+  "calls": [],
+  "code": 64,
+  "entries": [],
+  "stderr": "umwayi: error: agent run: the only word allowed after the name is - (read the prompt from stdin)\n",
+  "stdout": ""
+ },
+ "run-clean-claude": {
+  "calls": [
+   {
+    "argv": [
+     "-v"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "auth",
+     "status",
+     "--json"
+    ],
+    "cwd": "WORK",
+    "probe": "auth",
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "-p",
+     "--permission-mode",
+     "default",
+     "--settings",
+     "{\"disableAllHooks\":false,\"forceLoginMethod\":\"claudeai\",\"hooks\":{\"PreToolUse\":[{\"matcher\":\"*\",\"hooks\":[{\"type\":\"command\",\"command\":\"PYTHON\",\"args\":[\"REPO/adapters/claude_code/hook.py\",\"--root\",\"ROOT\"],\"timeout\":30,\"onFailure\":\"block\"}]}]}}",
+     "Do the task"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": true,
+    "stdin": ""
+   }
+  ],
+  "code": 0,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent reviewer (claude-code): 1000000 micros (100 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent reviewer (claude-code, cli): TMP/bin/claude",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Agent reviewer exited with code 0 after N s",
+    "the agent ran with every tool call checked by the layer 9 hook",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent reviewer (claude-code): unknown 1000000 micros (100 UU); models none; tokens input 0, output 0, cache_read 0, cache_creation 0; requests 0; released 0 micros",
+    "units.yaml sha256 none (no units.yaml); reading: no report arrived; reports accepted 0, refused 0",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stderr": "",
+  "stdout": "Agent reviewer finished (exit 0) after N s.\nBudget: run RUNID settled, unknown 100 UU (1000000 micros).\n"
+ },
+ "run-clean-kiro": {
+  "calls": [
+   {
+    "argv": [
+     "--version"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "whoami"
+    ],
+    "cwd": "WORK",
+    "probe": "whoami",
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "chat",
+     "--v3",
+     "--no-interactive",
+     "--trust-tools=read_file"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": true,
+    "stdin": "Do the task"
+   }
+  ],
+  "code": 0,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent helper (kiro): 1000000 micros (100 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent helper (kiro, cli): TMP/bin/kiro-cli",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Agent helper exited with code 0 after N s",
+    "the agent ran with every tool call checked by the layer 9 hook",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent helper (kiro): unknown 1000000 micros (100 UU); models none; tokens input 0, output 0, cache_read 0, cache_creation 0; requests 0; released 0 micros",
+    "units.yaml sha256 none (no units.yaml); reading: units.yaml declares nothing for kiro; no telemetry receiver for this platform",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stderr": "",
+  "stdout": "Agent helper finished (exit 0) after N s.\nBudget: run RUNID settled, unknown 100 UU (1000000 micros).\n"
+ },
+ "run-gate-refused-claude": {
+  "calls": [
+   {
+    "argv": [
+     "-v"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 2,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Refused agent reviewer: not gated (version: 0.0.1 is older than 2.1.295 (onFailure: block needs Claude Code 2.1.295 or later))",
+    "the kill switch, the rules (Yes), the run lock, then the gate checks",
+    "Nothing was started."
+   ]
+  ],
+  "stderr": "",
+  "stdout": "ok: command: claude found at TMP/bin/claude\nno: version: 0.0.1 is older than 2.1.295 (onFailure: block needs Claude Code 2.1.295 or later)\nnot run: login: an earlier check failed\nnot run: hook script: an earlier check failed\nnot run: hook self-test: an earlier check failed\nRefused: agent reviewer cannot be gated, so it was not started (exit 2).\n"
+ },
+ "run-gate-refused-kiro": {
+  "calls": [
+   {
+    "argv": [
+     "--version"
+    ],
+    "cwd": "WORK",
+    "probe": null,
+    "started": false,
+    "stdin": null
+   },
+   {
+    "argv": [
+     "whoami"
+    ],
+    "cwd": "WORK",
+    "probe": "whoami",
+    "started": false,
+    "stdin": null
+   }
+  ],
+  "code": 2,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Refused agent helper: not gated (kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adap...",
+    "the kill switch, the rules (Yes), the run lock, then the gate checks",
+    "Nothing was started."
+   ]
+  ],
+  "stderr": "",
+  "stdout": "ok: command: kiro-cli found at TMP/bin/kiro-cli\nok: version: 2.40.0 (at least 2.27.1)\nok: login: Kiro is signed in (kiro-cli whoami exited 0)\nok: hook script: REPO/adapters/kiro/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nno: kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself\nRefused: agent helper cannot be gated, so it was not started (exit 2).\n"
+ },
+ "run-kill-on-kiro": {
+  "calls": [],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi agent run",
+    "Agent helper did not start: the kill switch is on",
+    "the kill switch was checked before anything else",
+    "Nothing was started. No rule was asked and no queue item was added."
+   ]
+  ],
+  "stderr": "",
+  "stdout": "Ask me first\nRule: (none)\nReason: The kill switch is on (.umwayi/KILL exists). Turn it off with 'umwayi kill off'.\nAgent helper was not started.\n"
+ },
+ "run-no-prompt": {
+  "calls": [],
+  "code": 64,
+  "entries": [],
+  "stderr": "umwayi: error: agent: give the prompt in exactly one way: --prompt TEXT, --prompt-file PATH, or - to read it from stdin\n",
+  "stdout": ""
+ },
+ "run-stdin-word-claude": {
+  "calls": [],
+  "code": 64,
+  "entries": [],
+  "stderr": "umwayi: error: agent: the prompt is empty\n",
+  "stdout": ""
+ },
+ "run-unknown-name": {
+  "calls": [],
+  "code": 64,
+  "entries": [],
+  "stderr": "umwayi: error: agent: there is no agent named nobody in the agents file\n",
+  "stdout": ""
+ }
+}
