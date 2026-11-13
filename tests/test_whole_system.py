@@ -667,3 +667,374 @@ class SupportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------------------------------- W9.10: umwayi goal
+
+from tests.goal import wholesupport as gw  # noqa: E402
+
+SENTINEL = "SENTINEL-HELPER-OUTPUT-never-in-a-record"
+
+
+class GoalWholeSystemTests(unittest.TestCase):
+    """W9.10 (W9.R21.4): the owner's day through `umwayi goal`, then one fault scenario for each pitfall of the design.
+
+    Every step is a real child process. The owner's commands run as `python -m umwayi goal ...`; below them the
+    supervisor starts `python -m umwayi agent run NAME - --workdir PATH`, which starts a fake `kiro-cli`. Git is real
+    (the system `git`, a temporary repo with a local main). Three commands need a terminal and get a pseudo terminal.
+    After every scenario: `logbook verify` and `budget status` are ok, nothing a scenario started is still alive, only
+    the codes each command may give appeared (0, 2, 3 or 64 for `goal`), and no planted word is in the logbook.
+    """
+
+    def setUp(self):
+        self.w = gw.GoalWorld()
+        self.addCleanup(self.w.cleanup)
+
+    # ---- helpers
+
+    def goal_cmd(self, *args, code=None, **kw):
+        r = self.w.u("goal", *args, **kw)
+        if code is not None:
+            self.assertEqual(r.returncode, code, f"umwayi goal {' '.join(args)}\n{r.stdout}\n{r.stderr}")
+        self.assertNotIn("Traceback", r.stdout + r.stderr)
+        return r
+
+    def start(self, tasks=1, size=40):
+        self.w.script(guide=[gw.plan_line(tasks, size)])
+        r = self.goal_cmd("start", gw.GOAL_TEXT, "--guide", "kiro-guide", "--plan-budget-uu", "20", code=0)
+        goal = self.w.goals()[-1]
+        self.assertIn(f"Goal {goal} has a plan that waits for you.", r.stdout)
+        return goal
+
+    def approve(self, goal, code=0, **kw):
+        a = ["--builder", "kiro-build", "--tester", "kiro-test", "--model", "sonnet", "--effort", "high",
+             "--task-budget-uu", "30", "--goal-budget-uu", "100"]
+        for key, val in kw.items():
+            a[a.index("--" + key.replace("_", "-")) + 1] = str(val)
+        rc, out = self.w.tty("goal", "approve", goal, *a)
+        self.assertEqual(rc, code, out)
+        return out
+
+    def approved(self, tasks=1, **kw):
+        goal = self.start(tasks)
+        self.approve(goal, **kw)
+        return goal
+
+    def good(self, goal, task, n, builder_extra=(), tester=("pass",), check="accept"):
+        self.w.script(builder=gw.builder_steps(goal, task, n, extra=builder_extra), tester=gw.tester_steps(tester),
+                      check=gw.check_steps(check))
+
+    def roles(self):
+        return [d["role"] for d in self.w.starts()]
+
+    def merge(self, goal, task="T-01"):
+        self.w.git("merge", "-q", "--no-ff", "-m", "merge", f"umwayi/{goal.lower()}-{task.lower()}")
+
+    def wait_for_role(self, role, timeout=120):
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            if role in self.roles():
+                return
+            time.sleep(0.2)
+        self.fail(f"the {role} never started: {self.w.starts()}")
+
+    def end_checks(self, verify=0, budget=0):
+        """After every scenario (S.R1.5, W9.R21.4)."""
+        w = self.w
+        r = w.u("logbook", "verify")
+        self.assertEqual(r.returncode, verify, r.stdout + r.stderr)
+        self.assertEqual(w.u("budget", "status").returncode, budget)
+        w.wait_quiet()
+        self.assertEqual(w.alive(), [], "a process the scenario started is still alive")
+        bad = [(c, rc) for c, rc in w.seen if rc not in gw.GOAL_CODES]
+        self.assertEqual(bad, [], "a goal command gave a code it may not give")
+        for word in (gw.SECRET, SENTINEL):
+            self.assertNotIn(word, w.logbook_text())
+
+    # ---- the owner's day (W9.R21.4)
+
+    def test_01_the_owners_day_from_a_goal_to_every_task_merged(self):
+        w = self.w
+        goal = self.start(tasks=2)
+        r = self.goal_cmd("status", code=0)
+        self.assertIn(f"Goal {goal} has a plan that waits for you.", r.stdout)
+        self.assertIn("Waiting for you", r.stdout.splitlines()[0])
+        self.goal_cmd("show", goal, code=0)
+        self.approve(goal)
+        self.assertEqual([w.state(goal, t)[0] for t in ("T-01", "T-02")], ["queued", "queued"])
+        self.assertEqual(self.roles(), ["guide"])  # approving started nothing
+        # the first task, run to in review
+        self.good(goal, "T-01", 1, builder_extra=[{"print": SENTINEL}])
+        r = self.goal_cmd("run", goal, code=0)
+        self.assertEqual(w.state(goal), ("in review", "checked"))
+        self.assertEqual(self.roles(), ["guide", "builder", "tester", "check"])
+        self.assertIn(f"# Report of goal {goal}", r.stdout)  # run prints the report at its end
+        self.assertNotIn(SENTINEL, r.stdout + r.stderr)
+        self.assertEqual(w.state(goal, "T-02"), ("queued", "approved"))  # one task per run
+        # a run before the owner merges does nothing new
+        self.goal_cmd("run", goal, code=0)
+        self.assertEqual(len(self.roles()), 4)
+        # the owner merges; the next run observes it, cleans up, and runs the second task from the new main
+        self.merge(goal)
+        main_tip = w.git("rev-parse", "main")
+        self.good(goal, "T-02", 2)
+        self.goal_cmd("run", goal, code=0)
+        self.assertEqual(w.state(goal), ("merged", "observed"))
+        self.assertEqual(w.state(goal, "T-02"), ("in review", "checked"))
+        self.assertEqual(w.task(goal, "T-02")["base"], main_tip)
+        self.assertFalse((Path(str(w.root) + "-worktrees") / f"{goal.lower()}-t-01").exists())
+        self.assertIn(f"umwayi/{goal.lower()}-t-01", w.git("branch", "--list"))
+        self.assertTrue((Path(str(w.root) + "-worktrees") / f"{goal.lower()}-t-02" / "umwayi" / "piece1.py").exists())
+        self.merge(goal, "T-02")
+        r = self.goal_cmd("run", goal, code=0)
+        self.assertEqual(w.state(goal, "T-02"), ("merged", "observed"))
+        r = self.goal_cmd("status", goal, code=0)
+        self.assertIn("2 of 2 tasks merged", r.stdout)
+        r = self.goal_cmd("report", goal, code=0)
+        self.assertIn("## T-02: merged (observed)", r.stdout)
+        self.assertTrue((w.root / ".umwayi" / "goals" / goal / "report.md").exists())
+        self.assertEqual(w.git("status", "--porcelain", "--untracked-files=no"), "")  # the owner's copy was never touched
+        self.assertEqual(len(self.roles()), 7)
+        self.end_checks()
+
+    def test_02_the_owner_commands_need_a_terminal_and_change_nothing_without_one(self):
+        w = self.w
+        goal = self.start()
+        before = w.snapshot()
+        for args in (("approve", goal, "--builder", "kiro-build", "--tester", "kiro-test", "--model", "m", "--effort", "high",
+                      "--task-budget-uu", "30", "--goal-budget-uu", "100"),
+                     ("answer", goal, "T-01", "yes"), ("merged", goal, "T-01")):
+            with self.subTest(command=args[0]):
+                r = self.goal_cmd(*args, code=2)
+                self.assertIn("needs a terminal", r.stderr)
+        self.assertEqual(w.snapshot(), before)
+        self.assertEqual(self.roles(), ["guide"])
+        self.end_checks()
+
+    def test_03_with_no_rule_for_goal_start_nothing_starts_and_the_owner_is_asked(self):
+        w = self.w
+        goal = self.approved()
+        (w.root / "rules.yaml").write_text(gw.RULES.replace("goal_start", "goal_other"), encoding="utf-8")
+        self.good(goal, "T-01", 1)
+        r = self.goal_cmd("run", goal, code=3)
+        self.assertEqual(self.roles(), ["guide"])
+        self.assertEqual(w.state(goal), ("needs owner", "ask"))
+        self.assertIn(f"Answer with: umwayi goal answer {goal} T-01 yes", r.stdout)
+        q = w.u("queue", "list", "--status", "open")
+        self.assertIn(f"Goal {goal} task T-01 needs you (ask)", q.stdout)
+        self.end_checks()
+
+    # ---- pitfall 1: an approval that waits silently
+
+    def test_10_an_approval_nobody_answers_is_visible_and_then_denied_by_the_next_command(self):
+        w = self.w
+        goal = self.approved()
+        (w.root / "rules.yaml").write_text(gw.RULES.replace("goal_start", "goal_other"), encoding="utf-8")
+        self.good(goal, "T-01", 1)
+        self.goal_cmd("run", goal, code=3)
+        # visible in four places: the entry, the queue row, status, the terminal of run
+        self.assertIn("Approval requested: task T-01", w.logbook_text())
+        self.assertIn(f"Goal {goal} task T-01 needs you", w.u("queue", "list").stdout)
+        r = self.goal_cmd("status", extra={"UMWAYI_TEST_TIME_OFFSET": str(3 * 3600)}, code=0)
+        self.assertIn(f"Goal {goal} task T-01 needs you (ask). Asked 3 h ago, denied in 21 h.", r.stdout)
+        # an answer 25 hours later is refused, and the denial is written once, though no process ran in between
+        late = {"UMWAYI_TEST_TIME_OFFSET": str(25 * 3600)}
+        rc, out = w.tty("goal", "answer", goal, "T-01", "yes", extra=late)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("timed out", out)
+        rc, out = w.tty("goal", "answer", goal, "T-01", "yes", extra=late)
+        self.assertEqual(rc, 2, out)
+        self.assertEqual(w.state(goal), ("stopped", "unanswered"))
+        self.assertEqual(w.logbook_text().count("Approval denied"), 1)
+        self.assertEqual(self.roles(), ["guide"])
+        self.end_checks()
+
+    # ---- pitfall 2: a stalled or looping builder
+
+    def test_11_a_silent_builder_is_stopped_as_stalled_and_nothing_is_left_running(self):
+        w = self.w
+        goal = self.approved()
+        w.script(builder=[{"silent": 120}])
+        self.goal_cmd("run", goal, code=2, extra={"UMWAYI_TEST_STALL_SECONDS": "5"})
+        self.assertEqual(w.state(goal), ("failed", "stalled"))
+        self.assertEqual(self.roles(), ["guide", "builder"])  # no tester after a stalled builder
+        self.end_checks()
+
+    def test_12_the_same_error_twice_is_looping(self):
+        w = self.w
+        goal = self.approved()
+        w.script(builder=[{"error": "Error: could not open file 12"}, {"error": "Error: could not open file 99"},
+                          {"silent": 120}])
+        self.goal_cmd("run", goal, code=2)
+        self.assertEqual(w.state(goal), ("failed", "looping"))
+        self.end_checks()
+
+    # ---- pitfall 3: a status that shows only "connected"
+
+    def test_13_status_while_a_builder_works_shows_the_last_real_event_and_none_of_its_words(self):
+        w = self.w
+        goal = self.approved()
+        w.script(builder=[{"print": SENTINEL}, {"error": f"Error: {SENTINEL} 77"}, {"change": "README.md", "every": 1, "times": 6},
+                          {"exit": 0}])
+        p = w.bg("goal", "run", goal)
+        self.wait_for_role("builder")
+        time.sleep(3)
+        r = self.goal_cmd("status", goal, code=0)
+        text = r.stdout
+        self.assertIn("Task T-01  running", text)
+        self.assertIn("Last event:", text)
+        self.assertLess(text.index("Last event:"), text.index("Supervisor:"))  # the process line is never alone
+        self.assertIn("Supervisor: alive", text)
+        self.assertNotIn(SENTINEL, text)
+        rc, _out, _err = w.finish(p)
+        self.assertEqual(rc, 2)  # the builder made no commit: failed (outcome)
+        self.assertEqual(w.state(goal), ("failed", "outcome"))
+        self.end_checks()
+
+    # ---- pitfall 4: one malformed log line stalling the log
+
+    def test_14_a_bad_line_in_an_event_log_is_skipped_counted_and_never_stalls_status_or_report(self):
+        w = self.w
+        goal = self.approved()
+        self.good(goal, "T-01", 1)
+        self.goal_cmd("run", goal, code=0)
+        events = w.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl"
+        with open(events, "ab") as f:
+            f.write(b"this is not an event\n\xff\xfe\x00 binary noise\n")
+        r = self.goal_cmd("status", goal, code=0)
+        self.assertIn("Skipped log lines: 2", r.stdout)
+        r = self.goal_cmd("report", goal, code=0)
+        self.assertIn("Skipped log lines: 2", r.stdout)
+        self.assertEqual(w.state(goal), ("in review", "checked"))
+        self.end_checks()
+
+    # ---- pitfall 5: a failed log write that lets work continue
+
+    def test_15_a_goal_that_cannot_write_its_event_log_starts_no_helper(self):
+        w = self.w
+        goal = self.approved()
+        os.mkdir(w.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl")  # a folder where the log must be
+        self.good(goal, "T-01", 1)
+        self.goal_cmd("run", goal, code=2)
+        self.assertEqual(self.roles(), ["guide"])  # the builder never got its prompt
+        self.assertNotIn(w.state(goal), (("in review", "checked"), ("merged", "observed")))
+        self.end_checks()
+
+    def test_16_a_hand_edited_logbook_stops_every_goal_command_that_writes(self):
+        w = self.w
+        goal = self.approved()
+        with open(w.root / "LOGBOOK.md", "a", encoding="utf-8") as f:
+            f.write("\nedited by hand\n")
+        self.good(goal, "T-01", 1)
+        before = w.snapshot()
+        self.goal_cmd("run", goal, code=2)
+        self.assertEqual(self.roles(), ["guide"])
+        self.goal_cmd("stop", goal, code=2)
+        self.assertEqual(w.snapshot(), before, "a refused command wrote something")
+        self.goal_cmd("status", code=0)  # reading still works and says why
+        v = w.u("logbook", "verify").returncode
+        self.assertIn(v, (1, 2))  # the edit is found, never passed
+        self.end_checks(verify=v, budget=2)  # and the budget ledger refuses a logbook it cannot trust
+
+    # ---- pitfall 6: parallel edits of shared files
+
+    def test_17_a_task_that_edits_a_shared_docs_file_fails_on_scope_and_the_owners_copy_is_untouched(self):
+        w = self.w
+        goal = self.approved()
+        w.script(builder=gw.builder_steps(goal, "T-01", 1, files={"umwayi/piece1.py": "x = 1\n", "docs/status-log.md": "edited\n"}),
+                 tester=gw.tester_steps(), check=gw.check_steps())
+        self.goal_cmd("run", goal, code=2)
+        self.assertEqual(w.state(goal), ("failed", "scope"))
+        self.assertEqual(self.roles(), ["guide", "builder"])
+        self.assertEqual((w.root / "docs" / "status-log.md").read_text(), "shared\n")
+
+        self.end_checks()
+
+    # ---- pitfall 7: cost growing with autonomy
+
+    def test_18_a_task_budget_that_cannot_pay_for_the_next_run_stops_it_and_total_spend_stays_inside_the_goal(self):
+        w = self.w
+        goal = self.start()
+        self.approve(goal, task_budget_uu=15, goal_budget_uu=40)
+        self.good(goal, "T-01", 1)
+        self.goal_cmd("run", goal, code=3)  # the tester's cap is 5 UU and a Kiro run is declared at 10: refused
+        self.assertEqual(w.state(goal), ("needs owner", "ask"))
+        self.assertEqual(self.roles(), ["guide", "builder"])
+        led = w.u("budget", "status").stdout
+        self.assertIn("20 UU", led)  # the plan and the builder, 10 each, and nothing more
+        self.assertEqual(w.task(goal)["spent_uu"], 10)
+        self.end_checks()
+
+    # ---- the kill switch and stop (W9.R16)
+
+    def test_20_the_kill_switch_stops_a_running_builder_and_nothing_restarts_after_it(self):
+        w = self.w
+        goal = self.approved(tasks=2)
+        w.script(builder=[{"silent": 120}])
+        p = w.bg("goal", "run", goal)
+        self.wait_for_role("builder")
+        t0 = time.monotonic()
+        self.assertEqual(w.u("kill", "on").returncode, 0)
+        rc, _o, _e = w.finish(p, timeout=60)
+        self.assertEqual(rc, 2)
+        self.assertLess(time.monotonic() - t0, 40)  # within a second, the stop grace and room for a slow machine
+        self.assertEqual(w.state(goal), ("stopped", "kill"))
+        self.assertEqual(w.state(goal, "T-02")[0], "queued")  # queued tasks stay queued
+        self.assertEqual(w.u("kill", "off").returncode, 0)
+        n = len(self.roles())
+        self.goal_cmd("run", goal, code=2)  # a stopped goal does not run again by itself
+        self.assertEqual(len(self.roles()), n)
+        self.end_checks()
+
+    def test_21_goal_stop_ends_a_running_goal_and_its_queued_tasks(self):
+        w = self.w
+        goal = self.approved(tasks=2)
+        w.script(builder=[{"silent": 120}])
+        p = w.bg("goal", "run", goal)
+        self.wait_for_role("builder")
+        self.goal_cmd("stop", goal, code=0)  # open to everyone: no terminal
+        rc, _o, _e = w.finish(p, timeout=60)
+        self.assertEqual(rc, 2)
+        self.assertEqual(w.state(goal), ("stopped", "owner"))
+        self.assertEqual(w.state(goal, "T-02"), ("stopped", "owner"))
+        self.goal_cmd("stop", goal, code=0)  # idempotent
+        self.end_checks()
+
+    # ---- the tester, the guide and the owner's merge
+
+    def test_30_a_failed_check_fails_the_task_and_an_unclear_one_waits_for_the_owner_who_says_no(self):
+        w = self.w
+        goal = self.approved(tasks=2)
+        self.good(goal, "T-01", 1, tester=("fail",))
+        self.goal_cmd("run", goal, code=2)
+        self.assertEqual(w.state(goal), ("failed", "tests"))
+        self.assertEqual(self.roles(), ["guide", "builder", "tester"])  # the guide's check never ran
+        w2 = self.approved()  # a second goal in the same root, its own worktree
+        self.good(w2, "T-01", 1, tester=("unclear",))
+        self.goal_cmd("run", w2, code=3)
+        self.assertEqual(w.state(w2), ("needs owner", "unclear"))
+        rc, out = w.tty("goal", "answer", w2, "T-01", "no")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(w.state(w2), ("stopped", "owner"))
+        self.end_checks()
+
+    def test_31_a_squash_merge_is_declared_with_its_commit_and_the_worktree_goes(self):
+        w = self.w
+        goal = self.approved()
+        self.good(goal, "T-01", 1)
+        self.goal_cmd("run", goal, code=0)
+        w.git("merge", "-q", "--squash", f"umwayi/{goal.lower()}-t-01")
+        w.git("commit", "-q", "-m", "squashed")
+        sha = w.git("rev-parse", "HEAD")
+        self.goal_cmd("run", goal, code=0)  # the check cannot see a squash
+        self.assertEqual(w.state(goal), ("in review", "checked"))
+        rc, out = w.tty("goal", "merged", goal, "T-01", "--commit", "a" * 40)
+        self.assertEqual(rc, 2, out)  # not a commit
+        rc, out = w.tty("goal", "merged", goal, "T-01", "--commit", sha)
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(w.state(goal), ("merged", "declared"))
+        self.assertFalse((Path(str(w.root) + "-worktrees") / f"{goal.lower()}-t-01").exists())
+        self.end_checks()
+
+
+from pathlib import Path  # noqa: E402

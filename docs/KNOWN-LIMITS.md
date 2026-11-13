@@ -1440,3 +1440,15 @@ Since W24 a pull request runs the Python suite on 3.10 and 3.13 only, and a push
 - `goal stop` does not take the goal lock. It records the stop and marks the queued tasks; a running `run` reads the goal file every second and stops its child with the reason `owner`. A run that holds the lock and has no child at that moment sees the stop at its next start step.
 - The report shows the tester's verdict words and the guide's word but not their reasons or evidence, because the supervisor keeps no text of a helper. W9.R20.3 allows that text, cut and cleaned; nothing records it to show.
 - `status` shows the spend of the goal as the planning budget plus what each task spent, because the planning run's real spend is not recorded (the W9.7 entry).
+
+## Goal orchestration (W9), found while building W9.10
+
+### 273. The whole-system scenarios use a fake Kiro for every role, and a stall is tested with a lowered time
+
+The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run the real commands and the real `agent run`, but not a real helper.
+
+- Every role is a Kiro agent, because a Kiro run has a declared cost (10 UU) and so the budget scenarios are exact. A Claude Code run settles from the helper's own report, which the fake does not send, so no whole-system scenario starts Claude Code. The unit tests of the supervisor cover its argument list and caps only.
+- A stall is tested with a stall time of a few seconds, set through a test-only sitecustomize that replaces `goalwatch.Policy.for_role`. The real time of 1800 seconds is only tested by the unit tests of `goalwatch` (the judge is pure) and by the mutation pass, never by waiting for it.
+- An approval that passes its deadline is tested by moving `time.time` forward in the child with a test-only sitecustomize. The date of the entries comes from the election clock, which also reads the system date, so a deadline moved by days would show a date that is not the logbook's newest.
+- The mutation pass was run by a script kept outside the repository. It changed the code 48 times and 47 were caught. One survivor is equivalent: removing the tamper-checked read at the start of `supervise` changes nothing, because `goalstate.repair` reads the logbook with the same check on the next line.
+- The fake agent prints its script; it never tries to act against its rules. What a real helper does with its tools is checked only by the rules and the adapters, not by these scenarios.
