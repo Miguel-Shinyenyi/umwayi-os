@@ -13,6 +13,7 @@ Exit codes:
   umwayi autonomy: record 0, 1 (refused), 2 or 64; status 0, 2 or 64; validate 0 (valid), 2 or 64 (layer 13)
   umwayi concerns check: 0 well formed, 2 any failure or error, 64 for usage; never 1 or 3 (W19)
   umwayi routing check: 0 well formed, 2 any failure or error, 64 for usage; never 1 or 3 (W19 part 3b)
+  umwayi stalls check EVENTS.json: 0 nothing found, 3 a finding (Ask me first), 2 unreadable or malformed, 64 usage; never 1 (W19 part 5)
   umwayi goal docs: build and check 0 or 2, 64 for usage; never 1 or 3 (W9.9)
   umwayi guidance list|verify: 0, 2, 3 or 64, never 1 (W19.1)
   umwayi goal guard [TASKFILE]: 0 Yes, 3 Ask me first, 64 a bad guidance.yaml, 2 a crash; never 1 (W19.1)
@@ -30,7 +31,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, goaldocs, guidance, jobs, kill, logbook,
-                    petition, publish, report, routing, rules, schedule, servegate, servetoken, taskqueue, units, view, workflow)
+                    petition, publish, report, routing, rules, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -353,6 +354,15 @@ def build_parser() -> argparse.ArgumentParser:
     rtc.add_argument("path", help="the table, a markdown file (a relative path is read from the current folder)")
     rtc.add_argument("--date", type=_date_arg, help="today, YYYY-MM-DD (default: the system clock); a review_by "
                                                     "date before it, or a record dated after it, fails")
+
+    sl = sub.add_parser("stalls", help="the Kiro Crew lessons as checks (W19 part 5)")
+    slsub = sl.add_subparsers(dest="stalls_command", parser_class=_Parser)
+    slc = slsub.add_parser("check", help="read a JSON list of builder events and report, one line per finding: a stall "
+                                         "(30 minutes with no push or event), the same error twice in a row, an owner "
+                                         "approval past its deadline (counts as No), a status with no last event time; "
+                                         "exit 0 nothing found, 3 a finding, 2 unreadable or malformed; run by the "
+                                         "owner, never on a schedule (changes nothing)")
+    slc.add_argument("path", help="the events file, one JSON list (a relative path is read from the current folder)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -751,6 +761,29 @@ def _cmd_routing(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_stalls(args, out) -> int:
+    """W19 part 5. `umwayi stalls check EVENTS.json`. Its own error handling: 0, 2, 3 or 64, never 1. It reads one
+    file and writes nothing but the report; it never prints text from the file."""
+    try:
+        findings = stalls.check_file(Path(args.path), stalls.utc_now())
+        if findings:
+            out.write("".join(f.line + "\n" for f in findings))
+            return 3
+        out.write("Nothing found.\n")
+        return 0
+    except stalls.Malformed as e:
+        sys.stderr.write(f"umwayi: the events file was not accepted: {e}. Exit {EXIT_CRASH}.\n")
+        return EXIT_CRASH
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _is_terminal(out) -> bool:
     try:
         return bool(out.isatty())
@@ -873,6 +906,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_concerns(args, out)
         if args.command == "routing" and getattr(args, "routing_command", None) == "check":
             return _cmd_routing(args, out)
+        if args.command == "stalls" and getattr(args, "stalls_command", None) == "check":
+            return _cmd_stalls(args, out)
         if args.command == "guidance" and getattr(args, "guidance_command", None):
             return _cmd_guidance(args, out)
         if args.command == "goal" and getattr(args, "goal_command", None) == "guard":

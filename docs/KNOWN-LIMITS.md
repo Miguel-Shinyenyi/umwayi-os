@@ -1239,3 +1239,18 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - What protects you today: the allow list of fields, the tests that plant private text in a title, body, comment and file name and search the whole output, and exit 2 on any failure.
 - What it does not protect against: private text placed in a label name that looks like a plain tag, a wrong task kind, a pull request changed on GitHub between two runs.
 - A later fix: an optional token read from the environment (a decision for the owner), and a cache so a run can carry on without repeating requests.
+
+## Stall checks (W19 part 5), found while building
+
+### 258. The stall checker judges a file nobody writes yet, and a finding is only as good as the events in it
+
+`umwayi stalls check` reads a JSON list of builder events and reports four kinds of finding. It trusts the file.
+
+- Nothing produces the events file yet. The W9 event log is not built, so today the owner or a script writes the file by hand. The shape in `docs/stalls.md` is the builder's choice, approved by the owner, and may change when the log is built.
+- It cannot tell whether the events are true. A file that leaves out an event can hide a stall, a loop or an unanswered approval. A file with an invented push can reset the stall timer.
+- The error signature is given to it. It does not compute one, so it cannot tell whether two different errors were given different signatures by mistake.
+- A stall is measured against the system clock when the command runs. A wrong clock gives wrong ages. A time in the file that is in the future gives exit 2, not an age.
+- A builder is checked for a stall and a loop only while its last state, started or stopped event says it runs. A builder with no such event counts as running.
+- The limits (30 minutes, two errors, 1,000,000 bytes, 20,000 events) are starting values from the W9 spec and the builder, not measured ones.
+- It reports and exits. It does not stop a builder, answer an approval or tell anyone. Any finding gives exit 3, so a script that treats 3 as Ask me first sends it to the owner.
+- A later fix: none planned until the W9 supervisor and event log exist.
