@@ -1,6 +1,6 @@
 {
   "files": {
-    "build.mjs": "1d1bb3c2fe5fed2415d701cfbbade7147f95f889f9002bcc34baee68307bf530",
+    "build.mjs": "8c80e614471b85fbe90bc9bfcb58700ddf3ced48a94c31b6f87a4a7f9890584f",
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
     "src/api/client.js": "2e7be51a5467d8117a9ca77cfa8f6bad9ffe68a50b964b4fb76f1ee70af5f18e",
@@ -13,6 +13,7 @@
     "src/data/counts.js": "f76b331dd5957d53a0dafc05cd8a29ffd5128804286c49c86d40998c7cd9a6fb",
     "src/data/home.js": "ecd32380a6108b7648174e24dd339912df071d2e68d3f0ff372897951756c622",
     "src/data/notes.js": "78cd0bf540a5062660651fbdf9d2ddaf88e480729ef3519be7bf6e0790b22fc6",
+    "src/data/progress.js": "f64c8397b492fccf9ba8ba3baba95beb604b4f8ce7ed3fe929eae8cdca3fc278",
     "src/data/sample.js": "4e3c9c35d900787b763d13871e9e1dca0db9e92a90daf84ef2fa7c82aacf6b6e",
     "src/data/snapshot.js": "afe88848c88fff94414e4862cf1da14148c7aa3422cad7ff5c3ed49a484228d4",
     "src/engine/detail.js": "e3a7ee835c60ceb4aa43946fe598be0a7a9d713b6c9521dfc5ae7e2ddee189f3",
@@ -37,6 +38,8 @@
     "src/high/wildlife.js": "36cc32eb054a0ec3a7a80cf0f30067b84d6e2fcd8c02439855f8fed085848c65",
     "src/index.html": "27d3314b1238ca5334d6d91ecda8426d6c52b5849b56ae9a7e949be2d4fd00d8",
     "src/main.js": "a32482d12c103e1bbe461eb0397a4989bf1f371dd7f08f8c68d96e8ba06f0195",
+    "src/progress.css": "a3f20e77ae9b8eac9c36a53b38eb78e9a9d41c31aabeb250013ab99dae90c70c",
+    "src/progress.html": "292afc915b8e3d206c9d60baba889c64c6cdcd1e5214ccbd5b1ca0617914e4a8",
     "src/scene.js": "032b124fca50a4a5715e6c3060643e0416b0e728a33b0d5d43ad425ef81806a8",
     "src/stations/adapters.js": "fc57f901f56ae67403ebdfa40ba3c6963d923e83ed2eca14b11cba3d31c22e18",
     "src/stations/archive.js": "d32b7e882609343c11073ad930e840d58ea13ed0b632eeb2d289cacb8500ff25",
@@ -81,5 +84,11 @@
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
   "page": "5a616b9cabd16ede279b332af81b15be40b284751ba140f98a162c602892fbf2",
-  "cliMapPage": "37e5694ead6d8475ee0b018e4e29b57221b506fb3cd1ccb455daaf76ab763dc5"
+  "cliMapPage": "37e5694ead6d8475ee0b018e4e29b57221b506fb3cd1ccb455daaf76ab763dc5",
+  "progressPage": "ae702bf5ea0d22bf4eb6ea18f8d994cbca2dc2af81bed4077b354401f876cc40",
+  "progressSources": {
+    "docs/status-log.md": "5cd633a4cccd268cab58ee34877c57b2d242f98aaf15f8e5fd14660c1261e053",
+    "docs/KNOWN-LIMITS.md": "2e014f3178d5386770e0bf08650b5b1172222ecdaea3e6ff7702eae989c88c8b",
+    ".kiro/specs/umwayi-os/tasks.md": "40e758636099e96dd2f7d1a67ceadcc7c59de3b0584bb18235741264f6fcf58d"
+  }
 }

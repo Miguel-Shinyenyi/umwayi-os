@@ -384,6 +384,10 @@
    "seconds": 62.1,
    "shard": 3
   },
+  "tests/test_progress_page.py": {
+   "seconds": 0.1,
+   "shard": 1
+  },
   "tests/test_queue.py": {
    "seconds": 3.5,
    "shard": 2
