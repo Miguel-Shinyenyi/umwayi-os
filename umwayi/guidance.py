@@ -398,8 +398,10 @@ def guard(root: Path, task_file: str | None) -> Result:
     entries = load(root)
     if task_file is None:
         n = len(entries)
-        return Result(0, [f"Yes: guidance.yaml is well formed, {n} {'entry' if n == 1 else 'entries'}, "
-                          f"every source matches."])
+        hub = sum(1 for e in entries if e.source_repo == "hub")
+        return Result(0, [f"Yes: guidance.yaml is well formed, {n} {'entry' if n == 1 else 'entries'}, every "
+                          f"umwayi-os source matches, {hub} hub {'entry' if hub == 1 else 'entries'} not verified "
+                          f"here (umwayi guidance verify --hub PATH)."])
     try:
         raw = fsutil.read_regular(Path(task_file), MAX_RECORD_BYTES)
         record = json.loads(raw.decode("utf-8"))

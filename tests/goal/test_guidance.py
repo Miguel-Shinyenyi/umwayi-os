@@ -778,6 +778,8 @@ class Command(Base):
         code, out, _ = run(["goal", "guard"], self.root)
         self.assertEqual(code, 0)
         self.assertIn("2 entries", out)
+        self.assertIn("0 hub entries not verified", out)
+        self.assertNotIn("every source matches", out)
 
     def test_crash_is_2(self):
         self.put(GOOD)
