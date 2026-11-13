@@ -1002,3 +1002,10 @@ When W9 is approved and built, this row moves into the main status table as its 
 ## History backfill (W19)
 
 - [x] **W19 built** (Nov 13 2026, its own pull request) `tools/backfill_history.py` and `tests/test_backfill_history.py`: a read only script that turns public pull request and CI history into derived records (counts and durations only) in a JSON lines file. In `tools/ci_map.json` and `tools/ci_shards.json`. Docs through `docs-parts`. Not built: a model field (GitHub does not record it), a token, any use of the records by rules or a routing table.
+
+## W19: guidance.yaml and the enforce checks (the owner's task, Nov 13; two stages)
+
+- [x] W19.1 Stage 1 (own pull request): `guidance.yaml` and `umwayi/guidance.py` (the strict loader that fails closed, the tier and `overrides` fields and `resolve`, the registry of four checks, `check_task`), `umwayi goal guard [TASKFILE]`, `tests/goal/test_guidance.py`, the docs parts and KNOWN-LIMITS 256. Design: "Guidance (W19), stage 1".
+  - Also in this pull request: a required `tier` (1 to 6), `overrides`, `resolve`, a required `source_repo` (`umwayi-os` or `hub`), and the owner commands `umwayi guidance list` and `umwayi guidance verify --hub PATH`. Nine entries: four enforce, four advise, one owner. **Open:** the owner asked for six advise and three owner examples and named four and one; more wait for the owner's rule numbers. The hub hashes are those of hub commit 658a799 and `verify` may report a mismatch against a newer hub, which is correct.
+  - Not done: calling `guard` from `goal start` and `goal run` (those commands are W9.8).
+- W19.2 Stage 2: the concerns record checker is built in its own pull request (see "W19 part 2" above). The security checklist checks are a later task, not started here.
