@@ -2221,7 +2221,7 @@ class _Run:
         if self._shares_terminal():
             self._stop_chat()
             return
-        if self._claude_acp():
+        if self._claude_acp() or self._opencode():  # the 7b stop (design.md part 8: "the 7b stop")
             self._stop_group_and_seen()
             return
         if self.mode == CHAT and p.stdin is not None:
@@ -2249,7 +2249,7 @@ class _Run:
             pass
 
     def _stop_group_and_seen(self) -> None:
-        """Claude Code ACP chat (10.R11.11): close its stdin, then SIGTERM its process group and every descendant
+        """Claude Code ACP chat (10.R11.11) and OpenCode chat (10.R13, item 8): close its stdin, then SIGTERM its process group and every descendant
         seen in /proc, SIGKILL after STOP_GRACE. Background commands outlive session/cancel and may leave the group."""
         p = self.proc
         if p.stdin is not None:
