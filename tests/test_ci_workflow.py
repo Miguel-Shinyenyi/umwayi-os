@@ -1,6 +1,10 @@
 """W20: the shape of .github/workflows/ci.yml that the design rules depend on. A workflow cannot be run here, so
 these tests read its text; the real run on GitHub is the record."""
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -68,6 +72,17 @@ class JobTests(unittest.TestCase):
         self.assertIn("(cd ui && npm ci --ignore-scripts && node --test)", j)
         self.assertIn("(cd site && npm ci --ignore-scripts && node --test)", j)
 
+    def test_the_node_job_requires_a_browser_on_both_node_test_runs(self):
+        """CI.2: a runner without Chrome must fail the phone tests, not skip them."""
+        j = job("node")
+        steps = ["      - " + x for x in j.split("      - ")[1:]]
+        runs = [x for x in steps if "node --test" in x]
+        self.assertTrue(runs, "no step runs node --test")
+        for cmd in ("(cd ui && npm ci --ignore-scripts && node --test)", "(cd site && npm ci --ignore-scripts && node --test)"):
+            covering = [x for x in runs if cmd in x]
+            self.assertEqual(len(covering), 1, cmd)
+            self.assertRegex(covering[0], re.compile(r"^\s+env:\n(?:\s+\w+: .*\n)*?\s+UMWAYI_REQUIRE_BROWSER: \"?1\"?\s*$", re.M), cmd)
+
     def test_the_result_job_is_always_on_and_waits_for_everything(self):
         j = job("result")
         self.assertIn("if: always()", j)
@@ -98,6 +113,32 @@ class JobTests(unittest.TestCase):
         used = set(re.findall(r"uses: ([\w./-]+@v\d+)", CODE))
         self.assertTrue(used <= {"actions/checkout@v4", "actions/setup-python@v5", "actions/cache@v4",
                                  "actions/upload-artifact@v4", "actions/download-artifact@v4"}, used)
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class RequireBrowserTests(unittest.TestCase):
+    """CI.2: with UMWAYI_REQUIRE_BROWSER=1 and no browser, the phone tests throw the how-to-run message."""
+
+    def run_phone(self, rel, require):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, UMWAYI_BROWSER=os.path.join(tmp, "no-such-browser"), HOME=tmp)
+            env.pop("UMWAYI_REQUIRE_BROWSER", None)
+            if require:
+                env["UMWAYI_REQUIRE_BROWSER"] = "1"
+            return subprocess.run(["node", "--test", rel], cwd=REPO, env=env, capture_output=True, text=True, timeout=120)
+
+    def test_a_missing_browser_fails_the_phone_tests_when_required(self):
+        for rel in ("ui/test/phone.test.mjs", "site/test/phone.test.mjs"):
+            with self.subTest(rel):
+                r = self.run_phone(rel, True)
+                self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertIn("No Chromium found", r.stdout + r.stderr)
+
+    def test_a_missing_browser_only_skips_when_not_required(self):
+        r = self.run_phone("ui/test/phone.test.mjs", False)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        # the summary line differs between Node versions and reporters, so only the skip message is read
+        self.assertIn("No Chromium found", r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

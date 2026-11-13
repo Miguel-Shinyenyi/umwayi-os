@@ -97,6 +97,9 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - name: Node tests of ui/ and site/
+        # CI.2: a runner without Chrome fails the phone tests of both folders instead of skipping them.
+        env:
+          UMWAYI_REQUIRE_BROWSER: "1"
         run: |
           set -e
           (cd ui && npm ci --ignore-scripts && node --test)
