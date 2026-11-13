@@ -36,6 +36,8 @@ A failure line names the line of the file and the row number. It never repeats t
 What it does not do: it never claims the content is true. A reason that is wrong passes, and a file that exists is not
 proof that the concern is met. It only shows that the record is complete and well formed.
 
+The first draft of the record is [concerns-record.md](concerns-record.md), for the owner to review.
+
 It is a command the owner runs. No job, timer, workflow or schedule entry runs it, and a test checks that none names it.
 
 ## Decisions log
