@@ -499,8 +499,8 @@ def _section(name, entries):
 
 
 def _merged(old, scanned, covered):
-    """The entries for one section: the old order kept for old files that stay, a new file put before the first old
-    file that sorts after it (or last), an old entry kept when `covered` says it is still true."""
+    """The entries for one section: the old order kept for old files that stay (the file is not strictly sorted), a new
+    file put before the first old file that sorts after it (or last), an old entry kept when `covered` says it is still true."""
     out = {}
     for name, tokens in old.items():
         if name in scanned:
@@ -520,8 +520,6 @@ def update_text(text, data, scans):
         raise MapError("tools/ci_map.json does not have the layout the update reads (a python section after the routes)")
     ok = lambda reads: (lambda name, tokens: all(any(reads_match(t, r) for t in tokens) for r in reads[name]))  # noqa: E731
     python = _merged(data["python"], py, ok(py))
-    # the python section is kept sorted by name
-    python = dict(sorted(python.items()))
     nodes = _merged(data["node"], node, ok(node))
     return text[:at + 1] + _section("python", python) + ",\n" + _section("node", nodes) + "\n}\n"
 

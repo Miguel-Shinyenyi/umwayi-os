@@ -240,7 +240,8 @@ class UpdateAndBlockTests(unittest.TestCase):
         py = {**SCANS[0], "tests/test_aaa_new.py": {"ui", "docs"}}
         data = json.loads(self.update(py=py))
         self.assertEqual(data["python"]["tests/test_aaa_new.py"], ["docs", "ui"])
-        self.assertEqual(list(data["python"]), sorted(data["python"]))
+        self.assertEqual(list(data["python"]).index("tests/test_aaa_new.py"),
+                         next(i for i, k in enumerate(DATA["python"]) if k > "tests/test_aaa_new.py"))
         del data["python"]["tests/test_aaa_new.py"]
         self.assertEqual(data["python"], DATA["python"])
         self.assertEqual(data["routes"], DATA["routes"])
