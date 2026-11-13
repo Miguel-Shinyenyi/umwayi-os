@@ -1,0 +1,515 @@
+{
+ "argv": {
+  "claude": {
+   "argv": [
+    "/bin/prog",
+    "-p",
+    "--permission-mode",
+    "default",
+    "--settings",
+    "{\"disableAllHooks\":false,\"forceLoginMethod\":\"claudeai\",\"hooks\":{\"PreToolUse\":[{\"matcher\":\"*\",\"hooks\":[{\"type\":\"command\",\"command\":\"/usr/bin/python3\",\"args\":[\"REPO/adapters/claude_code/hook.py\",\"--root\",\"/golden/root\"],\"timeout\":30,\"onFailure\":\"block\"}]}]}}",
+    "Do the task"
+   ],
+   "stdin": null
+  },
+  "claude-turns": {
+   "argv": [
+    "/bin/prog",
+    "-p",
+    "--permission-mode",
+    "default",
+    "--settings",
+    "{\"disableAllHooks\":false,\"forceLoginMethod\":\"claudeai\",\"hooks\":{\"PreToolUse\":[{\"matcher\":\"*\",\"hooks\":[{\"type\":\"command\",\"command\":\"/usr/bin/python3\",\"args\":[\"REPO/adapters/claude_code/hook.py\",\"--root\",\"/golden/root\"],\"timeout\":30,\"onFailure\":\"block\"}]}]}}",
+    "--max-turns",
+    "20",
+    "Do the task"
+   ],
+   "stdin": null
+  },
+  "kiro": {
+   "argv": [
+    "/bin/prog",
+    "chat",
+    "--v3",
+    "--no-interactive"
+   ],
+   "stdin": "Do the task"
+  },
+  "kiro-agent": {
+   "argv": [
+    "/bin/prog",
+    "chat",
+    "--v3",
+    "--no-interactive",
+    "--agent",
+    "coder",
+    "--trust-tools=read_file,grep_search"
+   ],
+   "stdin": "Do the task"
+  }
+ },
+ "cap-stop-claude": {
+  "argv": [
+   [
+    "-p",
+    "--permission-mode",
+    "default",
+    "--settings",
+    "{\"disableAllHooks\":false,\"forceLoginMethod\":\"claudeai\",\"hooks\":{\"PreToolUse\":[{\"matcher\":\"*\",\"hooks\":[{\"type\":\"command\",\"command\":\"PYTHON\",\"args\":[\"REPO/adapters/claude_code/hook.py\",\"--root\",\"TMP/root\"],\"timeout\":30,\"onFailure\":\"block\"}]}]}}",
+    "A long task"
+   ]
+  ],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "units.yaml changed (sha256 8f8f5af831060461867a86f184ac2e40fc385561be7c680b2b7bd6910e420b1b): limits.per_run none to 10",
+    "units.yaml was read and validated before the reservation; this entry is written before the new values are first used",
+    "Only names and numbers are logged. Nothing was started by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent reviewer (claude-code): 100000 micros (10 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent reviewer (claude-code, cli): TMP/bin/claude",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Agent reviewer was stopped: it passed its budget of 10 UU for one run",
+    "the agent's own report was checked every second against limits.per_run",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent reviewer (claude-code): measured 150000 micros (15 UU); models claude-sonnet-5; tokens input 100, output 20, cache_read 5, cache_creation 1; requests 1; released 0 micros",
+    "units.yaml sha256 8f8f5af831060461867a86f184ac2e40fc385561be7c680b2b7bd6910e420b1b; reading: the api_request events of the agent's own report; reports accepted 1, refused 0",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stdin": [
+   ""
+  ],
+  "stdout": "Agent reviewer was stopped: it passed its budget of 10 UU for one run (exit 3).\nBudget: run RUNID settled, measured 15 UU (150000 micros).\n"
+ },
+ "cap-stop-kiro": {
+  "argv": [
+   [
+    "chat",
+    "--v3",
+    "--no-interactive",
+    "--trust-tools=read_file"
+   ]
+  ],
+  "code": 0,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "units.yaml changed (sha256 8f8f5af831060461867a86f184ac2e40fc385561be7c680b2b7bd6910e420b1b): limits.per_run none to 10",
+    "units.yaml was read and validated before the reservation; this entry is written before the new values are first used",
+    "Only names and numbers are logged. Nothing was started by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent helper (kiro): 100000 micros (10 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent helper (kiro, cli): TMP/bin/kiro-cli",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Agent helper exited with code 0 after N s",
+    "the agent ran with every tool call checked by the layer 9 hook",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent helper (kiro): unknown 1000000 micros (100 UU); models none; tokens input 0, output 0, cache_read 0, cache_creation 0; requests 0; released 0 micros",
+    "units.yaml sha256 8f8f5af831060461867a86f184ac2e40fc385561be7c680b2b7bd6910e420b1b; reading: units.yaml declares nothing for kiro; no telemetry receiver for this platform",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stdin": [
+   "Do the task"
+  ],
+  "stdout": "Agent helper finished (exit 0) after N s.\nBudget: run RUNID settled, unknown 100 UU (1000000 micros).\n"
+ },
+ "clean-claude": {
+  "argv": [
+   [
+    "-p",
+    "--permission-mode",
+    "default",
+    "--settings",
+    "{\"disableAllHooks\":false,\"forceLoginMethod\":\"claudeai\",\"hooks\":{\"PreToolUse\":[{\"matcher\":\"*\",\"hooks\":[{\"type\":\"command\",\"command\":\"PYTHON\",\"args\":[\"REPO/adapters/claude_code/hook.py\",\"--root\",\"TMP/root\"],\"timeout\":30,\"onFailure\":\"block\"}]}]}}",
+    "Do the task"
+   ]
+  ],
+  "code": 0,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent reviewer (claude-code): 1000000 micros (100 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent reviewer (claude-code, cli): TMP/bin/claude",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Agent reviewer exited with code 0 after N s",
+    "the agent ran with every tool call checked by the layer 9 hook",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent reviewer (claude-code): measured 12345 micros (2 UU); models claude-sonnet-5; tokens input 100, output 20, cache_read 5, cache_creation 1; requests 1; released 987655 micros",
+    "units.yaml sha256 none (no units.yaml); reading: the api_request events of the agent's own report; reports accepted 1, refused 0",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stdin": [
+   ""
+  ],
+  "stdout": "Agent reviewer finished (exit 0) after N s.\nBudget: run RUNID settled, measured 2 UU (12345 micros).\n"
+ },
+ "clean-kiro": {
+  "argv": [
+   [
+    "chat",
+    "--v3",
+    "--no-interactive",
+    "--trust-tools=read_file"
+   ]
+  ],
+  "code": 0,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent helper (kiro): 1000000 micros (100 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent helper (kiro, cli): TMP/bin/kiro-cli",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "Agent helper exited with code 0 after N s",
+    "the agent ran with every tool call checked by the layer 9 hook",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent helper (kiro): unknown 1000000 micros (100 UU); models none; tokens input 0, output 0, cache_read 0, cache_creation 0; requests 0; released 0 micros",
+    "units.yaml sha256 none (no units.yaml); reading: units.yaml declares nothing for kiro; no telemetry receiver for this platform",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stdin": [
+   "Do the task"
+  ],
+  "stdout": "Agent helper finished (exit 0) after N s.\nBudget: run RUNID settled, unknown 100 UU (1000000 micros).\n"
+ },
+ "day-cap-claude": {
+  "argv": [],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "units.yaml changed (sha256 2de48e746577da602ef641f3b4bd585fb2730baac20cdd7404e0ae3edcd6c972): limits.per_day none to 50",
+    "units.yaml was read and validated before the reservation; this entry is written before the new values are first used",
+    "Only names and numbers are logged. Nothing was started by this entry."
+   ],
+   [
+    "umwayi agent run",
+    "Refused agent reviewer: the budget limit per_day has 50 UU left, a run needs 100 UU",
+    "the kill switch, the rules (Yes), the run lock, the gate checks, then the budget limits",
+    "Nothing was started."
+   ]
+  ],
+  "stdin": [],
+  "stdout": "Refused agent reviewer: the budget limit per_day has 50 UU left, a run needs 100 UU. Agent reviewer was not started. (exit 3) See umwayi budget status.\n"
+ },
+ "day-cap-kiro": {
+  "argv": [],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "units.yaml changed (sha256 2de48e746577da602ef641f3b4bd585fb2730baac20cdd7404e0ae3edcd6c972): limits.per_day none to 50",
+    "units.yaml was read and validated before the reservation; this entry is written before the new values are first used",
+    "Only names and numbers are logged. Nothing was started by this entry."
+   ],
+   [
+    "umwayi agent run",
+    "Refused agent helper: the budget limit per_day has 50 UU left, a run needs 100 UU",
+    "the kill switch, the rules (Yes), the run lock, the gate checks, then the budget limits",
+    "Nothing was started."
+   ]
+  ],
+  "stdin": [],
+  "stdout": "Refused agent helper: the budget limit per_day has 50 UU left, a run needs 100 UU. Agent helper was not started. (exit 3) See umwayi budget status.\n"
+ },
+ "kill-before-claude": {
+  "argv": [],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi agent run",
+    "Agent reviewer did not start: the kill switch is on",
+    "the kill switch was checked before anything else",
+    "Nothing was started. No rule was asked and no queue item was added."
+   ]
+  ],
+  "stdin": [],
+  "stdout": "Ask me first\nRule: (none)\nReason: The kill switch is on (.umwayi/KILL exists). Turn it off with 'umwayi kill off'.\nAgent reviewer was not started.\n"
+ },
+ "kill-before-kiro": {
+  "argv": [],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi agent run",
+    "Agent helper did not start: the kill switch is on",
+    "the kill switch was checked before anything else",
+    "Nothing was started. No rule was asked and no queue item was added."
+   ]
+  ],
+  "stdin": [],
+  "stdout": "Ask me first\nRule: (none)\nReason: The kill switch is on (.umwayi/KILL exists). Turn it off with 'umwayi kill off'.\nAgent helper was not started.\n"
+ },
+ "kill-during-claude": {
+  "argv": [
+   [
+    "-p",
+    "--permission-mode",
+    "default",
+    "--settings",
+    "{\"disableAllHooks\":false,\"forceLoginMethod\":\"claudeai\",\"hooks\":{\"PreToolUse\":[{\"matcher\":\"*\",\"hooks\":[{\"type\":\"command\",\"command\":\"PYTHON\",\"args\":[\"REPO/adapters/claude_code/hook.py\",\"--root\",\"TMP/root\"],\"timeout\":30,\"onFailure\":\"block\"}]}]}}",
+    "A long task"
+   ]
+  ],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent reviewer (claude-code): 1000000 micros (100 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent reviewer (claude-code, cli): TMP/bin/claude",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "The kill switch stopped agent reviewer",
+    "kill switch: on, checked every second",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent reviewer (claude-code): unknown 1000000 micros (100 UU); models none; tokens input 0, output 0, cache_read 0, cache_creation 0; requests 0; released 0 micros",
+    "units.yaml sha256 none (no units.yaml); reading: no report arrived; reports accepted 0, refused 0",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stdin": [
+   ""
+  ],
+  "stdout": "Ask me first\nRule: (none)\nReason: The kill switch is on (.umwayi/KILL exists). Turn it off with 'umwayi kill off'.\nThe kill switch stopped agent reviewer (exit 3).\nBudget: run RUNID settled, unknown 100 UU (1000000 micros).\n"
+ },
+ "kill-during-kiro": {
+  "argv": [
+   [
+    "chat",
+    "--v3",
+    "--no-interactive",
+    "--trust-tools=read_file"
+   ]
+  ],
+  "code": 3,
+  "entries": [
+   [
+    "umwayi rules",
+    "rules.yaml first logged (sha256 fb1f12582d952dd69ff3bd0e3ee848be328981cac85bbe55d98caa25c974515b); rules 4",
+    "rules.yaml was read and parsed before this entry; this entry is written before the new rules are first used; state: agents-yes yes; budget-yes yes; budget-no no; read-yes yes",
+    "Only rule ids, verdicts, dates and counts are logged, not rule text. No action was checked by this entry."
+   ],
+   [
+    "umwayi check",
+    "Rule agents-yes gave Yes; action type: agent_run",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: agents-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi check",
+    "Rule budget-yes gave Yes; action type: budget_check",
+    "action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (4 rules); rules matched: budget-yes; kill switch: off",
+    "The action was not run. The action JSON was not stored in the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Reserved run RUNID for agent helper (kiro): 1000000 micros (100 UU)",
+    "the limits per_day, per_agent_per_day and per_platform_per_day fit; rule budget-yes gave Yes for budget_check",
+    "Nothing is spent until the agent runs; the rest is released when the run is settled."
+   ],
+   [
+    "umwayi agent run",
+    "Started agent helper (kiro, cli): TMP/bin/kiro-cli",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0)",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi agent run",
+    "The kill switch stopped agent helper",
+    "kill switch: on, checked every second",
+    "The prompt and the conversation are not written to the logbook."
+   ],
+   [
+    "umwayi budget",
+    "Settled run RUNID for agent helper (kiro): unknown 1000000 micros (100 UU); models none; tokens input 0, output 0, cache_read 0, cache_creation 0; requests 0; released 0 micros",
+    "units.yaml sha256 none (no units.yaml); reading: units.yaml declares nothing for kiro; no telemetry receiver for this platform",
+    "No prompt, response or other telemetry content was kept or logged."
+   ]
+  ],
+  "stdin": [
+   "A long task"
+  ],
+  "stdout": "Ask me first\nRule: (none)\nReason: The kill switch is on (.umwayi/KILL exists). Turn it off with 'umwayi kill off'.\nThe kill switch stopped agent helper (exit 3).\nBudget: run RUNID settled, unknown 100 UU (1000000 micros).\n"
+ }
+}

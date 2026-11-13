@@ -204,10 +204,26 @@ class Fit:
         return min(self.left_uu(n) for n in DAY_LIMITS)
 
 
-def fit(led: Ledger, u: units.Units, agent: str, platform: str, day: str) -> Fit:
-    """Does a reservation of per_run fit per_day, per_agent_per_day and per_platform_per_day? (B.R1.6)"""
+def cap_problem(u: units.Units, cap_uu) -> str | None:
+    """Why --cap-uu CAP_UU is not allowed (exit 64), or None. A whole number from 1 to limits.per_run (W9.R15.3)."""
+    if isinstance(cap_uu, bool) or not isinstance(cap_uu, int) or cap_uu < 1:
+        return "the cap must be a whole number of UU, at least 1"
+    if cap_uu > u.limits["per_run"]:
+        return f"the cap of {cap_uu} UU is above limits.per_run ({u.limits['per_run']} UU)"
+    return None
+
+
+def fit(led: Ledger, u: units.Units, agent: str, platform: str, day: str, cap_uu: int | None = None) -> Fit:
+    """Does a reservation of per_run fit per_day, per_agent_per_day and per_platform_per_day? (B.R1.6)
+
+    cap_uu (W9.6) replaces per_run for this one reservation; the three day limits are checked against it as before.
+    A cap that is not allowed is a usage error (64), never a larger reservation."""
     t = day_totals(led, day)
-    need = units.limit_micros(u.limits["per_run"])
+    if cap_uu is not None:
+        problem = cap_problem(u, cap_uu)
+        if problem is not None:
+            raise UsageError(f"budget: {problem}")
+    need = units.limit_micros(u.limits["per_run"] if cap_uu is None else cap_uu)
     a = t.by_agent.get(agent, [0, 0])
     p = t.by_platform.get(platform, [0, 0])
     left = {"per_day": units.limit_micros(u.limits["per_day"]) - t.used - t.reserved,
@@ -222,6 +238,13 @@ def fit(led: Ledger, u: units.Units, agent: str, platform: str, day: str) -> Fit
 def refused_text(agent: str, f: Fit) -> str:
     return (f"Refused agent {agent}: the budget limit {f.limit} has {f.left_uu(f.limit)} UU left, a run needs "
             f"{units.uu(f.need)} UU")
+
+
+def cap_refused_text(agent: str, platform: str, cap_uu: int, reading: units.Reading) -> str:
+    """W9.R15.5: a platform whose cost umwayi cannot watch (the cap is only the reservation) and whose declared or
+    worst-case reading is above the cap. Nothing is reserved."""
+    return (f"Refused agent {agent}: the cap of {cap_uu} UU is below the {units.uu(reading.micros)} UU that umwayi "
+            f"counts for a {platform} run ({reading.tag}), and umwayi cannot watch its cost while it runs")
 
 
 def reserve_text(run: str, agent: str, platform: str, micros: int) -> str:

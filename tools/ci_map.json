@@ -70,6 +70,8 @@
   "tests/budget/test_ledger.py": ["adapters"],
   "tests/budget/test_limits.py": ["adapters"],
   "tests/budget/test_readings.py": ["adapters"],
+  "tests/budget/test_run_golden.py": ["adapters"],
+  "tests/budget/test_run_options.py": ["adapters"],
   "tests/budget/test_status.py": ["adapters"],
   "tests/budget/test_telemetry.py": ["adapters"],
   "tests/budget/test_units.py": ["adapters"],

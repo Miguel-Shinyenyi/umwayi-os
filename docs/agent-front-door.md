@@ -13,6 +13,7 @@ umwayi agent validate [--agents PATH]      check agents.yaml, every problem with
 umwayi agent list [--agents PATH]          the agents in the file
 umwayi agent check NAME [--agents PATH]    can NAME be gated? runs every gate check, starts no agent
 umwayi agent run NAME --prompt TEXT        start NAME once (Claude Code or Kiro, never OpenCode); or --prompt-file PATH, or - for stdin
+                 [--cap-uu N] [--model M] [--effort E]      optional: a lower budget for this run, a model word, an effort level
 umwayi agent chat NAME                     a chat with NAME on your terminal (transport cli), or over ACP (Kiro, Claude Code or OpenCode, transport acp)
 ```
 
@@ -48,6 +49,8 @@ OpenCode over ACP (part 8, built Nov 11 and 12, tasks 10.43 to 10.50; the owner'
 | the run lock | one logbook entry | 3 |
 | every gate check, again | one logbook entry "Refused agent NAME: not gated (...)" | 2 |
 | the start entry, then in `workdir`: Claude Code `claude -p --permission-mode default --settings HOOK ... PROMPT`; Kiro `kiro-cli chat --v3 --no-interactive [--agent A] [--trust-tools=...]` with the prompt on stdin | | |
+
+`agent run` takes three optional flags (W9.6); without them nothing about a run changes, byte for byte. `--cap-uu N` is a whole number of UU from 1 to `limits.per_run` in `units.yaml`; it replaces `per_run` in the reservation and in the per-run watch of that one run, and the three day limits are checked against it. `--model M` is 1 to 64 characters from letters, digits and `. _ : / -`, not starting with `-`; `--effort E` is `low`, `medium`, `high`, `xhigh` or `max`. Claude Code gets `--model M --effort E` just before the prompt, and Kiro gets them right after `chat --v3 --no-interactive`. A value that is not allowed, a cap above `per_run`, or an `--effort` for a platform that has none (OpenCode, which `agent run` refuses anyway) is exit 64 before the kill switch, the rules or the logbook, and nothing is started. A platform whose cost umwayi cannot watch (Kiro) has no stop for a cap, so the cap is only its reservation: a run whose declared or worst-case reading is above the cap is refused at the start with exit 3 (`Ask me first`, one entry, nothing reserved). The start entry then says `options: cap N UU, model M, effort E`. The flags are from the vendors' documentation and were not tried on a real install ([adapters/NOTES-w9.md](../adapters/NOTES-w9.md), KNOWN-LIMITS 223).
 
 Every start also reserves a budget first and is settled when it ends (see [Budget governor](budget-governor.md)). While it runs, umwayi checks the kill switch, the logbook and the per-run budget every second and watches `timeout_minutes`. The kill switch stops the agent with exit 3; a logbook that can no longer be written, or the timeout, with exit 2. Stopping means SIGTERM to the agent's whole process group, then SIGKILL after 10 seconds, and it happens on every way out, including when umwayi itself gets SIGTERM, SIGHUP or Ctrl-C (exit 2). The run exits 0 only when the agent exited 0; an agent that fails is exit 2. Every start, end, stop and refusal is one logbook entry; the prompt and the conversation never are. Answering the queue item does not start the agent: add a Yes rule for `agent_run` instead.
 

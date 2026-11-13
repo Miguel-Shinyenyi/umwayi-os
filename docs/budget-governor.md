@@ -17,6 +17,7 @@ umwayi budget settle-lost --by YOU        settle the reservations a killed umway
 
 - **Limits** (in UU, placeholders until you calibrate): `per_run` 100, `per_day` 500, `per_agent_per_day` 300, `per_platform_per_day` 400, and `unknown_worst_case` 100. A day is the logbook date.
 - **Before a start**, after the gate checks: `units.yaml` is validated (64), any change to it is logged first (2 if it cannot be), the reservation of `per_run` must fit the three day limits (otherwise exit 3, one entry, nothing started), then the rules are asked for `budget_check`. Yes goes on, No is exit 2, and Ask me first is exit 3 with one queue item "Spend up to N UU on agent NAME?". The kill switch and a broken logbook are checked first and still win. A start then writes one reserve entry before its start entry.
+- **A lower cap for one run** (W9.6): `umwayi agent run NAME --cap-uu N` (N from 1 to `per_run`) reserves N UU instead of `per_run`, checks the three day limits against N, shows N in the `budget_check` action (`reserve_uu`) and the queue item, and stops a Claude Code run that passes N UU like the `per_run` stop (exit 3). N above `per_run` is exit 64 and starts nothing. For a platform whose cost is not read while it runs (Kiro) a reading above N (declared, or `unknown_worst_case`) is refused at the start (exit 3, nothing reserved). Without the flag nothing changes.
 - **The rules.** No rule for `budget_check` means Ask me first, so add one next to your `agent_run` rule, for example:
 
   ```yaml

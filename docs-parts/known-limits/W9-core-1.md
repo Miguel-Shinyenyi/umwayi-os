@@ -1,6 +1,6 @@
 section: Goal orchestration (W9), found while building W9.1 to W9.5
 title: Four readings in the pure core that are choices, not facts
-number: 263
+number: 264
 
 The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbudget`) makes four choices where the spec left room. 1. `goalwatch.signature` masks a hex word as `H` only when it holds both a letter and a digit, and does it before digits become `#` (W9.R10.4 lists digits first, which would spoil a hash). 2. `goalpacket.parse_result_line` refuses two different tagged lines (`doubled`), so a forged line cannot win by being first or last. 3. `goalpacket.roles_ok` requires the tester and the guide each to differ from the builder, as W9.R2.2 is written, and does not require the guide to differ from the tester. 4. `goalstate.start_goal` writes `goal.json` first and the `started` entry second.
 

@@ -68,6 +68,11 @@ MAX_FILE_BYTES = 64 * 1024
 MAX_AGENTS = 50
 MAX_PATH = 1024
 MAX_PROMPT_BYTES = 100 * 1024
+# W9.6: the three options of `agent run`. A model word and an effort level are the only new words an argument list may
+# hold; both are checked here and again in _assert_allowed.
+MODEL_RE = re.compile(r"[A-Za-z0-9._:/-]{1,64}")
+CAP_RE = re.compile(r"[1-9][0-9]{0,8}")
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
 MAX_HOOK_FILE_BYTES = 256 * 1024
 VERSION_TIMEOUT = 10.0  # seconds for `claude -v` or `kiro-cli --version`
 SELFTEST_TIMEOUT = 5.0  # seconds for the hook self-test
@@ -843,6 +848,55 @@ def claude_settings(python: str, hook: Path, root: Path) -> str:
     return json.dumps(settings, separators=(",", ":"))
 
 
+@dataclass(frozen=True)
+class RunOptions:
+    """--cap-uu, --model and --effort of `agent run` (W9.6). All None: the run is exactly what it was before."""
+    cap_uu: int | None = None
+    model: str | None = None
+    effort: str | None = None
+
+    @property
+    def used(self) -> bool:
+        return self.cap_uu is not None or self.model is not None or self.effort is not None
+
+    def text(self) -> str:
+        parts = [f"cap {self.cap_uu} UU" if self.cap_uu is not None else None,
+                 f"model {self.model}" if self.model is not None else None,
+                 f"effort {self.effort}" if self.effort is not None else None]
+        return ", ".join(p for p in parts if p)
+
+
+def check_model(model) -> str:
+    if not isinstance(model, str) or not MODEL_RE.fullmatch(model) or model.startswith("-") \
+            or any(t in model for t in FORBIDDEN_TEXT):
+        raise UsageError("agent: --model must be 1 to 64 characters from letters, digits and . _ : / - "
+                         "and must not start with '-'. Nothing was started.")
+    return model
+
+
+def check_effort(effort) -> str:
+    if effort not in EFFORTS:
+        raise UsageError("agent: --effort must be one of " + ", ".join(EFFORTS) + ". Nothing was started.")
+    return effort
+
+
+def check_options(agent: Agent, cap_uu=None, model=None, effort=None) -> RunOptions:
+    """The options of one `agent run` as given on the command line (text), or a usage error (64) before anything is
+    read or started. The cap against limits.per_run is checked by the caller that can read units.yaml."""
+    cap = None
+    if cap_uu is not None:
+        if not isinstance(cap_uu, str) or not CAP_RE.fullmatch(cap_uu):
+            raise UsageError("agent: --cap-uu must be a whole number of UU, at least 1. Nothing was started.")
+        cap = int(cap_uu)
+    if model is not None:
+        check_model(model)
+    if effort is not None:
+        check_effort(effort)
+        if agent.platform not in ("claude-code", "kiro"):
+            raise UsageError(f"agent: --effort is not offered for a {agent.platform} agent. Nothing was started.")
+    return RunOptions(cap, model, effort)
+
+
 def check_prompt(prompt, platform: str) -> str:
     """A prompt that can be passed safely, or a usage error (exit 64)."""
     if not isinstance(prompt, str) or not prompt.strip():
@@ -866,14 +920,31 @@ def _assert_allowed(argv: list, skip: int | None = None) -> list:
             raise RuntimeError("agent: an argument list held a forbidden flag; nothing was started")
         if word.split("=", 1)[0] in LOGIN_FORBIDDEN:
             raise RuntimeError("agent: an argument list held a forbidden login word; nothing was started")
+        if word in ("--model", "--effort"):  # W9.6: the only new words, each followed by a checked value
+            value = argv[i + 1] if i + 1 < len(argv) and i + 1 != skip else None
+            try:
+                check_model(value) if word == "--model" else check_effort(value)
+            except UsageError:
+                raise RuntimeError("agent: an argument list held a model or effort that is not allowed; "
+                                   "nothing was started") from None
     return argv
 
 
 def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: str,
-               prompt: str | None = None, src: Path | None = None) -> tuple:
-    """(argument list, stdin text or None). The only place an agent's command line is made."""
+               prompt: str | None = None, src: Path | None = None, model: str | None = None,
+               effort: str | None = None) -> tuple:
+    """(argument list, stdin text or None). The only place an agent's command line is made.
+
+    model and effort (W9.6) are for `agent run` of Claude Code and Kiro only; None adds nothing."""
     if mode not in (RUN, CHAT, LOGIN):
         raise UsageError("agent: the mode must be run, chat or login")
+    if (model is not None or effort is not None) and (mode != RUN or agent.platform not in ("claude-code", "kiro")):
+        raise UsageError("agent: --model and --effort are only for agent run of a Claude Code or Kiro agent")
+    extra = []
+    if model is not None:
+        extra += ["--model", check_model(model)]
+    if effort is not None:
+        extra += ["--effort", check_effort(effort)]
     root = Path(root)
     if mode == LOGIN:  # the sign-in, never an agent (10.R12.9, 10.R12.13)
         if agent.platform == "claude-code" and agent.transport == ACP:
@@ -895,12 +966,13 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
             argv = [command_path, "-p", "--permission-mode", "default", "--settings", settings]
             if agent.max_turns is not None:
                 argv += ["--max-turns", str(agent.max_turns)]
+            argv += extra
             argv.append(check_prompt(prompt, agent.platform))
             return _assert_allowed(argv, skip=len(argv) - 1), None
         return _assert_allowed([command_path, "--permission-mode", "default", "--settings", settings]), None
     if agent.platform == "kiro":
         if mode == RUN:
-            argv = [command_path, "chat", "--v3", "--no-interactive"]
+            argv = [command_path, "chat", "--v3", "--no-interactive", *extra]
             if agent.kiro_agent:
                 argv += ["--agent", agent.kiro_agent]
             if agent.trust_tools:
@@ -1645,7 +1717,9 @@ class _Run:
           has no pipe to it, so it never sees what it prints; afterwards the login check decides.
     """
 
-    def __init__(self, root: Path, agent: Agent, prompt: str | None, clock, mode: str = RUN, out=None):
+    def __init__(self, root: Path, agent: Agent, prompt: str | None, clock, mode: str = RUN, out=None,
+                 options: RunOptions | None = None):
+        self.options = options or RunOptions()  # W9.6: all None unless `agent run` was given an option
         self.root = root
         self.agent = agent
         self.prompt = prompt
@@ -1834,14 +1908,16 @@ class _Run:
             return refused
 
         # 6. the argument list, from the platform table only
-        argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt)
+        argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt,
+                                      model=self.options.model, effort=self.options.effort)
 
         # 7. the start entry first, then the start
         how = f"{a.platform}, {a.transport}" + (", chat" if self.mode == CHAT else "")
         why = self.log(f"Started agent {a.name} ({how}): {gate.command_path}",
                        f"rule {decision.rule_id or '(none)'} gave Yes for agent_run ({self.mode}); the run lock is held; "
                        f"every gate check passed (version {_show(gate.version)}"
-                       + (f", plan: {gate.plan})" if gate.plan else ")"), NOT_LOGGED)
+                       + (f", plan: {gate.plan})" if gate.plan else ")")
+                       + (f"; options: {self.options.text()}" if self.options.used else ""), NOT_LOGGED)
         if why is not None:
             return self.result(2, [f"{not_started} The logbook could not record the start, so nothing is started "
                                    "(exit 2)."], why)
@@ -1880,6 +1956,13 @@ class _Run:
             why = self.log(f"Refused agent {a.name}: units.yaml is not valid", "the gate checks passed, then units.yaml "
                            "was validated", "Nothing was started.")
             return self.result(64, [str(e)], why)
+        cap_uu = self.options.cap_uu
+        if cap_uu is not None:  # units.yaml may have changed since run_agent read it: the cap is checked again
+            problem = budget.cap_problem(u, cap_uu)
+            if problem is not None:
+                why = self.log(f"Refused agent {a.name}: {problem}", "the gate checks passed, then --cap-uu was "
+                               "checked against units.yaml", "Nothing was started.")
+                return self.result(64, [f"agent: {problem}. {not_started}"], why)
         try:
             led = budget.read_ledger(root)
         except UmwayiError as e:
@@ -1892,12 +1975,22 @@ class _Run:
                                   f"are not used. {not_started} (exit 2)"])
         # 3. the reservation against per_day, per_agent_per_day and per_platform_per_day (3)
         day = self.clock()
-        f = budget.fit(led, u, a.name, a.platform, day)
+        f = budget.fit(led, u, a.name, a.platform, day, cap_uu)
         if not f.ok:
             text = budget.refused_text(a.name, f)
             why = self.log(text, "the kill switch, the rules (Yes), the run lock, the gate checks, then the budget "
                            "limits", "Nothing was started.")
             return self.result(3, [f"{text}. {not_started} (exit 3) See umwayi budget status."], why)
+        if cap_uu is not None and a.platform != "claude-code":
+            # W9.R15.5: umwayi reads no cost from this platform, so the cap is only the reservation. A run whose
+            # declared or worst-case reading is above the cap is refused here, before the budget_check rule.
+            reading = units.reading(u, a.platform, None, True, f.need)
+            if reading.micros > f.need:
+                text = budget.cap_refused_text(a.name, a.platform, cap_uu, reading)
+                why = self.log(text, "the kill switch, the rules (Yes), the run lock, the gate checks, the budget "
+                               "limits, then the reading of this platform against the cap", "Nothing was started.")
+                return self.result(3, [rules.ASK, "Rule: (none)", f"Reason: {text}", f"{not_started} (exit 3) See "
+                                       "umwayi budget status."], why)
         # 4. budget_check in the rules (Yes on; No 2; Ask me first 3 with one queue item, once)
         need_uu = units.uu(f.need)
         action = {"type": "budget_check", "agent": a.name, "platform": a.platform, "reserve_uu": need_uu,
@@ -2323,7 +2416,9 @@ class _Run:
         if token[0] == "budget":  # B.R1.9: the measured cost passed the per-run cap; stopped like the timeout
             cap = units.uu(self.budget["micros"])
             why = self.log(f"Agent {a.name} was stopped: it passed its budget of {cap} UU for one run",
-                           "the agent's own report was checked every second against limits.per_run", NOT_LOGGED)
+                           "the agent's own report was checked every second against "
+                           + (f"the cap of this run (--cap-uu {self.options.cap_uu})" if self.options.cap_uu is not None
+                              else "limits.per_run"), NOT_LOGGED)
             return self.result(3, [f"Agent {a.name} was stopped: it passed its budget of {cap} UU for one run "
                                    "(exit 3)."], why)
         if token[0] == "telemetry":  # B.R2: a report umwayi will not count; the run is settled at the full reservation
@@ -2579,12 +2674,23 @@ def login_agent(root, name: str, clock, given: str | None = None) -> Result:
     return _Run(root, agent, None, clock, mode=LOGIN).go()
 
 
-def run_agent(root, name: str, prompt: str, clock, given: str | None = None) -> Result:
-    """`umwayi agent run NAME`, for Claude Code (part 3) and Kiro (part 4). The same steps for both."""
+def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap_uu: str | None = None,
+              model: str | None = None, effort: str | None = None) -> Result:
+    """`umwayi agent run NAME`, for Claude Code (part 3) and Kiro (part 4). The same steps for both.
+
+    cap_uu, model and effort (W9.6) are the text of the options; none given means the run is as it was before."""
     root = _root(root)
     agent = find(load(root, given), name)
     _opencode_chat_only(agent, "agent run")
     if agent.platform not in PLATFORMS:
         raise UsageError("agent: unknown platform. Nothing was started.")
     prompt = check_prompt(prompt, agent.platform)
-    return _Run(root, agent, prompt, clock).go()
+    options = check_options(agent, cap_uu, model, effort)
+    if options.cap_uu is not None:  # above limits.per_run is 64, before the kill switch, the rules or the logbook
+        try:
+            problem = budget.cap_problem(units.load(root, clock()), options.cap_uu)
+        except ConfigError:
+            problem = None  # an invalid units.yaml is refused (64, one entry) by the run itself
+        if problem is not None:
+            raise UsageError(f"agent: {problem}. Nothing was started.")
+    return _Run(root, agent, prompt, clock, options=options).go()

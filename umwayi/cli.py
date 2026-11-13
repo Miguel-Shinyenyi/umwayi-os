@@ -250,6 +250,11 @@ def build_parser() -> argparse.ArgumentParser:
     agr.add_argument("source", nargs="?", help="- to read the prompt from stdin")
     agr.add_argument("--prompt", help="the prompt text (at most 100 KB; never written to the logbook)")
     agr.add_argument("--prompt-file", help="a file that holds the prompt (at most 100 KB)")
+    agr.add_argument("--cap-uu", help="spend at most N UU on this run (1 to limits.per_run); lowers the reservation "
+                                      "and the per-run watch of this run only")
+    agr.add_argument("--model", help="the model word to hand to the agent (Claude Code or Kiro)")
+    agr.add_argument("--effort", help="the effort level to hand to the agent: low, medium, high, xhigh or max "
+                                      "(Claude Code or Kiro)")
     agch = agsub.add_parser("chat", help="a chat with an agent on your terminal (transport cli); 0, 2, 3 or 64")
     agch.add_argument("name", help="the agent name from agents.yaml")
     aglog = agsub.add_parser("login", help="sign in on your terminal (Claude Code ACP: claude.ai; Kiro: kiro-cli "
@@ -576,7 +581,8 @@ def _cmd_agent(args, out) -> int:
             if args.source not in (None, "-"):
                 raise UsageError("agent run: the only word allowed after the name is - (read the prompt from stdin)")
             prompt = agents.read_prompt(args.prompt, args.prompt_file, args.source == "-", sys.stdin.buffer)
-            return _cmd_helper(agents.run_agent(Path(args.root), args.name, prompt, _today, args.agents), out)
+            return _cmd_helper(agents.run_agent(Path(args.root), args.name, prompt, _today, args.agents,
+                                                cap_uu=args.cap_uu, model=args.model, effort=args.effort), out)
         if args.agent_command == "chat":
             return _cmd_helper(agents.chat_agent(Path(args.root), args.name, _today, args.agents, out), out)
         if args.agent_command == "login":
