@@ -58,7 +58,21 @@ class WorkdirGoldenCase(BudgetCase):
             return
         want = _load()
         self.assertIn(key, want, f"no golden for {key}")
-        self.assertEqual(snap, want[key])
+        golden = want[key]
+        self.assertEqual(len(snap["entries"]), len(golden["entries"]))
+        # umwayi cuts a logbook line at 300 characters and adds "...", and the cut falls before the paths are replaced
+        # by their names, so where it falls depends on the length of the repo and temporary paths of the machine. A
+        # field cut this way is compared up to the shorter cut; every other field and byte is compared exactly.
+        got = dict(snap, entries=[[self.same_cut(g, w) for g, w in zip(ge, we)] for ge, we in
+                                  zip(snap["entries"], golden["entries"])])
+        self.assertEqual(got, golden)
+
+    def same_cut(self, got: str, want: str) -> str:
+        if got != want and got.endswith("...") and want.endswith("..."):
+            a, b = got[:-3], want[:-3]
+            if a.startswith(b) or b.startswith(a):
+                return want
+        return got
 
     def agent(self, which) -> str:
         return dict(PLATFORMS)[which]
