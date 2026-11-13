@@ -372,6 +372,10 @@
    "seconds": 2.7,
    "shard": 2
   },
+  "tests/test_feedback.py": {
+   "seconds": 17.2,
+   "shard": 1
+  },
   "tests/test_frontier_practices.py": {
    "seconds": 0.1,
    "shard": 3
@@ -430,7 +434,7 @@
   },
   "tests/test_quickstart.py": {
    "seconds": 17.2,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_reopen.py": {
    "seconds": 20.5,
