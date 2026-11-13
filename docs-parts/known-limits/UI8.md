@@ -1,5 +1,6 @@
 section: Web interface (UI.8), found while building
 title: The High step down is a frame time rule, so it can step down a good device and miss a bad one
+number: 275
 
 `ui/src/engine/stage.js` takes High off after a slow window (KNOWN-LIMITS 156). The rule is small on purpose, and it is wrong in both directions sometimes.
 
