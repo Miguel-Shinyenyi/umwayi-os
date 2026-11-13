@@ -328,6 +328,44 @@ class VerifyTests(unittest.TestCase):
             problems = self.check(plan=full_plan(node=True), results={**OK, "node": state})
             self.assertEqual(bool(problems), bad, state)
 
+    def event_plan(self, event, versions):
+        plan = full_plan(versions)
+        plan["event"] = event
+        return plan
+
+    def test_a_pull_request_with_its_two_versions_passes_and_a_push_with_four(self):
+        few, four = ("3.10", "3.13"), ("3.10", "3.11", "3.12", "3.13")
+        self.assertEqual(self.check(plan=self.event_plan("pull_request", few), reports=good_reports(few)), [])
+        self.assertEqual(self.check(plan=self.event_plan("push", four), reports=good_reports(four)), [])
+
+    def test_a_missing_or_failed_shard_fails_for_either_matrix(self):
+        few, four = ("3.10", "3.13"), ("3.10", "3.11", "3.12", "3.13")
+        for event, vs in (("pull_request", few), ("push", four)):
+            for v in vs:
+                with self.subTest(event=event, version=v, fault="missing"):
+                    reps = good_reports(vs)
+                    del reps[(v, 2)]
+                    self.assertTrue(self.check(plan=self.event_plan(event, vs), reports=reps))
+                with self.subTest(event=event, version=v, fault="failed"):
+                    reps = good_reports(vs)
+                    reps[(v, 1)]["ok"] = False
+                    self.assertTrue(self.check(plan=self.event_plan(event, vs), reports=reps))
+                with self.subTest(event=event, version=v, fault="test job failed"):
+                    self.assertTrue(self.check(plan=self.event_plan(event, vs), reports=good_reports(vs),
+                                               results={**OK, "test": "failure"}))
+
+    def test_a_plan_that_does_not_match_its_event_fails(self):
+        few, four = ("3.10", "3.13"), ("3.10", "3.11", "3.12", "3.13")
+        self.assertTrue(self.check(plan=self.event_plan("push", few), reports=good_reports(few)))
+        self.assertTrue(self.check(plan=self.event_plan("pull_request", four), reports=good_reports(four)))
+        self.assertTrue(self.check(plan=self.event_plan("pull_request", ("3.10",)), reports=good_reports(("3.10",))))
+
+    def test_a_dropped_matrix_cell_fails(self):
+        few = ("3.10", "3.13")
+        plan = self.event_plan("pull_request", few)
+        plan["matrix"]["include"] = [c for c in plan["matrix"]["include"] if (c["python-version"], c["shard"]) != ("3.13", 2)]
+        self.assertTrue(self.check(plan=plan, reports=good_reports(few)))
+
     def test_node_not_expected_must_be_skipped(self):
         self.assertEqual(self.check(), [])
         self.assertTrue(self.check(results={**OK, "node": "failure"}))

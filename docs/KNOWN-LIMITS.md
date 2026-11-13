@@ -1405,3 +1405,15 @@ Since W22 `ui/dist/progress.html` is not in git. These are the limits of that.
 - A task that the owner answers `yes` after its builder ran goes back to `queued` with its worktree and branch still there, so the next start is `leftover` until the owner removes them with `git worktree remove`. W9.R9.6 and W9.R8.12 together say this and neither says what the owner should expect.
 - A planning run that is refused before it has a plan (a rule, the lock, `stale`, a config problem) leaves the goal in `plan` with no packets and one queue row, and there is no way to run it again: the owner starts a new goal.
 - The guard that names the modules allowed to start a program (`tests/test_automation.py`, the subprocess list) was widened by the owner's decision of Nov 13 2026 (option A) to add `umwayi/goalrun.py`, for its one child `umwayi agent run`. The list is now `agents.py`, `goalgit.py`, `goalrun.py` and `report.py`. What keeps that start narrow is `tests/goal/test_goalrun.py`: one `Popen`, `shell=False`, the fixed prefix `[sys.executable, "-m", "umwayi", "agent", "run"]`, and no git word that writes. A later change to `goalrun.py` could start another program and that list would not catch it; only those guards would.
+
+## CI (W24)
+
+### 270. A pull request is tested on Python 3.10 and 3.13 only, so 3.11 and 3.12 run only after the merge
+
+Since W24 a pull request runs the Python suite on 3.10 and 3.13 only, and a push to main runs it on 3.10, 3.11, 3.12 and 3.13. This cuts the wait on a pull request, and it moves two of the four versions to after the merge.
+
+- A change that fails only on 3.11 or only on 3.12 can pass `tests / result` on its pull request, be merged, and fail on main. The merge is then already done, and the fix is a new pull request. The oldest and the newest version catch most such faults, because a behaviour that changed between 3.10 and 3.13 usually shows at one of the two ends, but a fault inside the range is not caught before the merge.
+- The main run is the only record for 3.11 and 3.12. Someone has to look at it after a merge. A red main for a version that no pull request ran is the expected way this limit shows itself.
+- A full local run before a merge still covers every version that is installed (`python tools/affected_tests.py --run --python python3.11 --python python3.12`). Nothing makes a session do it.
+- The versions are chosen in `tools/ci_plan.py`, not in the workflow, and `tools/ci_shards.py verify` refuses a plan whose versions do not match its event. A third kind of event (a manual run) runs all four.
+- The required check is still only `tests / result (pull_request)`. A branch rule that required a name of a 3.11 or 3.12 job on a pull request would wait for ever, because those jobs are no longer created there.

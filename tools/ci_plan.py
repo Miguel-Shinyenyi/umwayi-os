@@ -8,7 +8,8 @@ Standard library only. Rules, in this order:
   3. Otherwise each changed path follows the longest route that matches it: the whole Python suite, only the Python
      test files that read that path (the map), or none; and the Node job, always, never, or only if a Node test reads it.
      The answers of all paths are added together.
-  4. The Python versions are 3.10 to 3.13 unless the Python part is a selection of files; then 3.10 and 3.13 only.
+  4. The Python versions are 3.10 to 3.13 for a push to main (and any event that is not a pull request); a pull request
+     runs 3.10 and 3.13 only, whatever it changes (W24). 3.11 and 3.12 then run only after the merge.
 
 Usage: python -m tools.ci_plan --event EVENT [--base REV] [--head REV] [--github-output FILE]
 Prints the plan as one line of JSON. Exit codes: 0 plan printed, 2 unexpected error (nothing is skipped by a crash,
@@ -173,7 +174,7 @@ def build_plan(paths, event, data, assign):
         py_all, node = True, True
     files = None if py_all else sorted(py_files)
     run_python = py_all or bool(py_files)
-    versions = (ALL_VERSIONS if py_all else REDUCED_VERSIONS) if run_python else []
+    versions = (ALL_VERSIONS if event != "pull_request" else REDUCED_VERSIONS) if run_python else []
     shards = _shards_for(files, assign) if run_python else []
     n = assign["shards"]
     matrix = [{"python-version": v, "shard": s, "of": n} for v in versions for s in shards]
