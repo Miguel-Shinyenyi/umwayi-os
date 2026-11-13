@@ -1451,3 +1451,15 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The logbook summary export (counts per entry kind, counts per verdict, the date range, the chain status, the budget spent in UU, and no path, command text or rule text) does not exist. `docs/feedback.md` says Not yet available. `umwayi view snapshot` is not a substitute: it has no per kind or per verdict count and no date range, and it writes a logbook entry.
 - The template cannot make GitHub require the answers: a tester can delete any question, and a blank issue stays allowed on purpose. `tests/test_feedback.py` checks the template file, not what a tester sends.
 - The template has no label, so a report is not found by label. The template was not opened on GitHub in this task, so how GitHub shows it was not seen.
+
+## Progress page artifact (W27), found while building
+
+### 274. The progress page workflow was never run here, and its artifact is not a public page
+
+`.github/workflows/progress-page.yml` keeps the progress page as a workflow artifact on a push to main. These are its limits.
+
+- A workflow cannot run in this environment. `tests/test_progress_workflow.py` reads the file as text and pins what it must and must not contain. Whether the first run on main builds the page, uploads it and shows it in the Artifacts list was not seen.
+- The artifact is not a public page. A person with read access to the repository downloads a zip from the Actions tab. It has no stable address, and it expires after 30 days. Publishing is the owner's decision and is not built.
+- The workflow runs the build on every push to main, even a push that changes nothing the page shows. It also runs `npm ci`, which reads the npm registry or its cache.
+- The build writes `ui/dist/index.html`, `cli-map.html` and `build.json` too, but only `progress.html` is uploaded. If the build wrote a different `progress.html` path, the step would fail (`if-no-files-found: error`) and no page would be kept.
+- The page shows the sources as they are on main at that push, with the build date. A run that is cancelled or fails leaves the last artifact of an earlier run as the newest, so an old page can look current.
