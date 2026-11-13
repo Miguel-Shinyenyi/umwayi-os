@@ -69,9 +69,33 @@ const dist = join(root, 'dist');
 mkdirSync(dist, { recursive: true });
 writeFileSync(join(dist, 'index.html'), html);
 
+// W2: the command map, a second page. It has no script at all (the groups open and close with the browser's own details element),
+// so its policy has no script-src, no connect-src and no img-src: default-src 'none' covers them. Its words come from
+// src/data/cli-map.json, which ui/tools/cli_map.py writes from the real argparse tree.
+const cliMap = JSON.parse(readFileSync(join(root, 'src/data/cli-map.json'), 'utf8'));
+const NONE = 'no help line yet';
+const countNodes = (nodes) => nodes.reduce((a, n) => { const c = countNodes(n.children); return { groups: a.groups + c.groups + (n.children.length ? 1 : 0), commands: a.commands + c.commands + (n.children.length ? 0 : 1) }; }, { groups: 0, commands: 0 });
+const what = (n) => (n.line ? `<span class="what">${escapeHtml(n.line)}</span>` : `<span class="what none">${NONE}</span>`);
+const branch = (nodes, pad) => `${pad}<ul>\n${nodes.map((n) => {
+  const head = `<span class="name">${escapeHtml(n.name)}</span>${what(n)}`;
+  if (!n.children.length) return `${pad}  <li data-path="${escapeHtml(n.path.join(' '))}"><span class="row">${head}</span></li>`;
+  return `${pad}  <li data-path="${escapeHtml(n.path.join(' '))}"><details><summary class="row">${head}</summary>\n${branch(n.children, pad + '    ')}\n${pad}  </details></li>`;
+}).join('\n')}\n${pad}</ul>`;
+const mapCss = (await transform(readFileSync(join(root, 'src/cli-map.css'), 'utf8'), { loader: 'css', minify: true })).code;
+const mapCsp = ["default-src 'none'", `style-src '${cspHash(mapCss)}'`, "base-uri 'none'", "form-action 'none'"].join('; ');
+const total = countNodes(cliMap.children);
+let mapHtml = readFileSync(join(root, 'src/cli-map.html'), 'utf8')
+  .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${mapCsp}">`)
+  .replace('<!--@style-->', () => mapCss)
+  .replace('<!--@program-->', () => escapeHtml(cliMap.program))
+  .replace('<!--@tree-->', () => branch(cliMap.children, '    '))
+  .replace('<!--@counts-->', () => `${total.groups} groups and ${total.commands} commands.`);
+if (/<!--@/.test(mapHtml)) throw new Error('a placeholder was not replaced in the command map');
+writeFileSync(join(dist, 'cli-map.html'), mapHtml);
+
 // what the page was built from: tests recompute these without npm
 const inputs = ['build.mjs', 'package.json', 'package-lock.json', ...walk(join(root, 'src')).map((f) => relative(root, f).split('\\').join('/'))];
 const files = {};
 for (const name of [...new Set(inputs)].sort()) files[name] = sha256(readFileSync(join(root, name)));
-writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))) }, null, 2) + '\n');
+writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))) }, null, 2) + '\n');
 console.log(`built ui/dist/index.html (${Math.round(html.length / 1024)} KB)`);

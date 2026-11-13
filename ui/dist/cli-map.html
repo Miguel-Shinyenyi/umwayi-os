@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>umwayi command map</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'sha256-7JoxfZ54ryiTuj9sDBYfdKMJma4KH9bKO32F8RuqQro='; base-uri 'none'; form-action 'none'">
+<style>:root{--base: #0e1310;--ink: #eee8db;--muted: #b3ada0;--amber: #e0a965;--mint: #9cc39a;--line: rgba(238, 232, 219, .28);--sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;--mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}*{box-sizing:border-box}html,body{margin:0;background:var(--base);color:var(--ink);font:16px/1.45 var(--sans)}body{overflow-x:hidden}main{max-width:46rem;margin:0 auto;padding:18px 14px 40px}:focus-visible{outline:2px solid var(--amber);outline-offset:2px}.center{text-align:center;margin:0 0 18px}h1{margin:0 0 8px;font-size:1rem;font-weight:400}.hub{display:inline-block;padding:12px 28px;border:2px solid var(--amber);border-radius:999px;font:700 1.4rem/1.2 var(--mono);color:var(--amber)}.lead{margin:0;color:var(--muted)}nav{overflow-wrap:anywhere}ul{list-style:none;margin:0;padding:0}nav>ul{border-left:2px solid var(--line);margin-left:8px}ul ul{margin-left:14px;border-left:2px solid var(--line)}li{position:relative;padding-left:16px}li:before{content:"";position:absolute;left:0;top:22px;width:12px;border-top:2px solid var(--line)}.row{display:block;padding:6px 0;min-height:44px}summary.row{cursor:pointer;list-style:none;position:relative;padding-right:30px}summary.row::-webkit-details-marker{display:none}summary.row:after{content:"";position:absolute;right:8px;top:19px;width:8px;height:8px;border-right:2px solid var(--amber);border-bottom:2px solid var(--amber);transform:rotate(-45deg)}details[open]>summary.row:after{transform:rotate(45deg);top:16px}.name{display:block;font:700 1rem/1.3 var(--mono);color:var(--mint)}summary .name{color:var(--amber)}.what{display:block;color:var(--muted);font-size:.9375rem}.what.none{font-style:italic}footer{margin-top:28px;color:var(--muted);font-size:.875rem}footer p{margin:0 0 8px}code{font-family:var(--mono);color:var(--ink)}@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header class="center">
+    <h1><span class="hub">umwayi</span></h1>
+    <p class="lead">Every command, from the real command line. Tap a group to open it.</p>
+  </header>
+  <nav aria-label="Command map">
+    <ul>
+      <li data-path="memory"><details><summary class="row"><span class="name">memory</span><span class="what">memory commands</span></summary>
+        <ul>
+          <li data-path="memory bundle"><span class="row"><span class="name">bundle</span><span class="what">print the context bundle for an AI helper</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="queue"><details><summary class="row"><span class="name">queue</span><span class="what">queue commands (queue.md)</span></summary>
+        <ul>
+          <li data-path="queue list"><span class="row"><span class="name">list</span><span class="what">list rows of the queue</span></span></li>
+          <li data-path="queue add"><span class="row"><span class="name">add</span><span class="what">add an open task or decision</span></span></li>
+          <li data-path="queue answer"><span class="row"><span class="name">answer</span><span class="what">mark an open row as answered</span></span></li>
+          <li data-path="queue close"><span class="row"><span class="name">close</span><span class="what">close a row</span></span></li>
+          <li data-path="queue migrate"><span class="row"><span class="name">migrate</span><span class="what">convert an old six column queue.md to the current layout (once)</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="decision"><details><summary class="row"><span class="name">decision</span><span class="what">decision commands (layer 13): reopen a closed decision as a new question</span></summary>
+        <ul>
+          <li data-path="decision reopen"><span class="row"><span class="name">reopen</span><span class="what">reopen an answered or closed decision: one new logbook entry that links the old entry by its hash, and one new open decision in the queue</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="petition"><span class="row"><span class="name">petition</span><span class="what">an AI helper objects to a No rule (layer 13): one open queue item for the owner</span></span></li>
+      <li data-path="autonomy"><details><summary class="row"><span class="name">autonomy</span><span class="what">graded autonomy (layer 13): the owner's record, the score per class and autonomy.yaml</span></summary>
+        <ul>
+          <li data-path="autonomy status"><span class="row"><span class="name">status</span><span class="what">per class: the counts, the score, the thresholds and the first gate that holds it (changes nothing)</span></span></li>
+          <li data-path="autonomy validate"><span class="row"><span class="name">validate</span><span class="what">check autonomy.yaml and the opt-in rules, every problem with a line number (changes nothing)</span></span></li>
+          <li data-path="autonomy record"><span class="row"><span class="name">record</span><span class="what">record one outcome of the owner for a class: one chained logbook entry</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="archive"><details><summary class="row"><span class="name">archive</span><span class="what">archive commands</span></summary>
+        <ul>
+          <li data-path="archive move"><span class="row"><span class="name">move</span><span class="what">move a block of text out of a file into the archive</span></span></li>
+          <li data-path="archive verify"><span class="row"><span class="name">verify</span><span class="what">recompute every SHA-256 fingerprint and compare with archive/INDEX.md</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="check"><span class="row"><span class="name">check</span><span class="what">check an action (JSON) against the rules: Yes (0), No (2), Ask me first (3)</span></span></li>
+      <li data-path="rules"><details><summary class="row"><span class="name">rules</span><span class="what">rules commands</span></summary>
+        <ul>
+          <li data-path="rules due"><span class="row"><span class="name">due</span><span class="what">list the rules that have lapsed or are due for review (changes nothing)</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="run"><span class="row"><span class="name">run</span><span class="what">run one job from a jobs file (asks the rules first)</span></span></li>
+      <li data-path="report"><span class="row"><span class="name">report</span><span class="what">write a progress report draft from git history</span></span></li>
+      <li data-path="publish-draft"><span class="row"><span class="name">publish-draft</span><span class="what">copy a draft to outbox/ for the owner to post by hand</span></span></li>
+      <li data-path="steward"><span class="row"><span class="name">steward</span><span class="what">AI helper Steward: read the queue and write a proposal draft</span></span></li>
+      <li data-path="social"><details><summary class="row"><span class="name">social</span><span class="what">AI helper social: turn an article into post drafts</span></summary>
+        <ul>
+          <li data-path="social draft"><span class="row"><span class="name">draft</span><span class="what">write one post draft per channel in umwayi.json</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="workflow"><details><summary class="row"><span class="name">workflow</span><span class="what">workflow commands (workflows/NAME.yaml)</span></summary>
+        <ul>
+          <li data-path="workflow validate"><span class="row"><span class="name">validate</span><span class="what">check a workflow file, report every problem with a line number</span></span></li>
+          <li data-path="workflow run"><span class="row"><span class="name">run</span><span class="what">run the steps of a workflow in order (asks the rules for every step)</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="kill"><details><summary class="row"><span class="name">kill</span><span class="what">the kill switch: stops every AI helper, job and workflow</span></summary>
+        <ul>
+          <li data-path="kill on"><span class="row"><span class="name">on</span><span class="what">turn the kill switch on (creates .umwayi/KILL)</span></span></li>
+          <li data-path="kill off"><span class="row"><span class="name">off</span><span class="what">turn the kill switch off (removes .umwayi/KILL)</span></span></li>
+          <li data-path="kill status"><span class="row"><span class="name">status</span><span class="what">show the kill switch: off (exit 0), on or unknown (exit 3)</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="agent"><details><summary class="row"><span class="name">agent</span><span class="what">the front door for AI agents (agents.yaml)</span></summary>
+        <ul>
+          <li data-path="agent validate"><span class="row"><span class="name">validate</span><span class="what">check agents.yaml, report every problem with a line number</span></span></li>
+          <li data-path="agent list"><span class="row"><span class="name">list</span><span class="what">list the agents in agents.yaml (starts nothing)</span></span></li>
+          <li data-path="agent check"><span class="row"><span class="name">check</span><span class="what">can this agent be gated? runs every gate check, starts no agent</span></span></li>
+          <li data-path="agent run"><span class="row"><span class="name">run</span><span class="what">start an agent once with a prompt (Claude Code or Kiro)</span></span></li>
+          <li data-path="agent chat"><span class="row"><span class="name">chat</span><span class="what">a chat with an agent on your terminal (transport cli)</span></span></li>
+          <li data-path="agent login"><span class="row"><span class="name">login</span><span class="what">sign in on your terminal (Claude Code ACP: claude.ai; Kiro: kiro-cli login), then the login check</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="schedule"><details><summary class="row"><span class="name">schedule</span><span class="what">scheduled runs through systemd user timers (layer 11)</span></summary>
+        <ul>
+          <li data-path="schedule validate"><span class="row"><span class="name">validate</span><span class="what">check schedule.yaml, every problem with a line number (writes nothing)</span></span></li>
+          <li data-path="schedule show"><span class="row"><span class="name">show</span><span class="what">print the unit files (or --cron lines) install would write (writes nothing)</span></span></li>
+          <li data-path="schedule check"><span class="row"><span class="name">check</span><span class="what">compare the installed unit files with what umwayi would write (writes nothing)</span></span></li>
+          <li data-path="schedule install"><span class="row"><span class="name">install</span><span class="what">write the two unit files of one entry (asks the rules)</span></span></li>
+          <li data-path="schedule remove"><span class="row"><span class="name">remove</span><span class="what">remove the two unit files umwayi wrote for one entry (asks the rules)</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="budget"><details><summary class="row"><span class="name">budget</span><span class="what">the budget governor (units.yaml, the ledger in the logbook)</span></summary>
+        <ul>
+          <li data-path="budget validate"><span class="row"><span class="name">validate</span><span class="what">check units.yaml, every problem with a line number (writes nothing)</span></span></li>
+          <li data-path="budget status"><span class="row"><span class="name">status</span><span class="what">used, reserved and left per limit, and the measured, declared and unknown shares (writes nothing)</span></span></li>
+          <li data-path="budget calibrate"><span class="row"><span class="name">calibrate</span><span class="what">propose per_run and per_day from 20 measured runs over 7 days (changes nothing)</span></span></li>
+          <li data-path="budget settle-lost"><span class="row"><span class="name">settle-lost</span><span class="what">settle every reservation that has no settle (after a SIGKILL or a crash), as unknown at the worst case</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="view"><details><summary class="row"><span class="name">view</span><span class="what">the web interface (layer 12)</span></summary>
+        <ul>
+          <li data-path="view snapshot"><span class="row"><span class="name">snapshot</span><span class="what">write one JSON file of counts for the page, and one logbook entry (no text, path or secret of any file)</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="serve"><details><summary class="row"><span class="name">serve</span><span class="what">the local backend for the web page (W6)</span></summary>
+        <ul>
+          <li data-path="serve token"><details><summary class="row"><span class="name">token</span><span class="what">the token of the local backend: shown once, kept only as a SHA-256</span></summary>
+            <ul>
+              <li data-path="serve token create"><span class="row"><span class="name">create</span><span class="what">make the first token and show it once (on a terminal only)</span></span></li>
+              <li data-path="serve token rotate"><span class="row"><span class="name">rotate</span><span class="what">make a new token, show it once</span></span></li>
+              <li data-path="serve token revoke"><span class="row"><span class="name">revoke</span><span class="what">remove the token: every request is refused until a new one is created</span></span></li>
+              <li data-path="serve token status"><span class="row"><span class="name">status</span><span class="what">the id, the dates and the days left</span></span></li>
+            </ul>
+          </details></li>
+        </ul>
+      </details></li>
+      <li data-path="goal"><details><summary class="row"><span class="name">goal</span><span class="what">goal orchestration (W9)</span></summary>
+        <ul>
+          <li data-path="goal docs"><details><summary class="row"><span class="name">docs</span><span class="what">build or check docs/status-log.md and docs/KNOWN-LIMITS.md from docs-parts/ (W9.R14)</span></summary>
+            <ul>
+              <li data-path="goal docs build"><span class="row"><span class="name">build</span><span class="what">write the two files from the frozen base and the part files, and write the number of each new limit into its part (nothing is written if any part is bad)</span></span></li>
+              <li data-path="goal docs check"><span class="row"><span class="name">check</span><span class="what">exit 0 if the two files equal the build, 2 if not (writes nothing)</span></span></li>
+            </ul>
+          </details></li>
+          <li data-path="goal guard"><span class="row"><span class="name">guard</span><span class="what">load guidance.yaml and, given a task record (a JSON file), refuse a task that breaks an enforce rule (W19.1)</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="guidance"><details><summary class="row"><span class="name">guidance</span><span class="what">guidance.yaml: list the entries, verify the hub hashes (W19.1)</span></summary>
+        <ul>
+          <li data-path="guidance list"><span class="row"><span class="name">list</span><span class="what">one line per entry: kind, tier, source repo and whether it is verified (a hub entry is unverified unless --hub is given and its file matches)</span></span></li>
+          <li data-path="guidance verify"><span class="row"><span class="name">verify</span><span class="what">compare the stored hub hashes with the real hub files</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="concerns"><details><summary class="row"><span class="name">concerns</span><span class="what">the project concerns record (W19)</span></summary>
+        <ul>
+          <li data-path="concerns check"><span class="row"><span class="name">check</span><span class="what">check that a concerns record has one well formed row for each of the 111 engineering concepts</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="routing"><details><summary class="row"><span class="name">routing</span><span class="what">the model routing table and the task log (W19 part 3b)</span></summary>
+        <ul>
+          <li data-path="routing check"><span class="row"><span class="name">check</span><span class="what">check that a model routing table or a task log is well formed</span></span></li>
+        </ul>
+      </details></li>
+      <li data-path="logbook"><details><summary class="row"><span class="name">logbook</span><span class="what">logbook commands</span></summary>
+        <ul>
+          <li data-path="logbook verify"><span class="row"><span class="name">verify</span><span class="what">check the format, the hash record and the hash chain of LOGBOOK.md (changes nothing)</span></span></li>
+          <li data-path="logbook anchor"><span class="row"><span class="name">anchor</span><span class="what">print COUNT:HEX of the hash chain, to keep outside this machine (changes nothing)</span></span></li>
+          <li data-path="logbook seal"><span class="row"><span class="name">seal</span><span class="what">record the hash of LOGBOOK.md as it is now (explicit, never automatic)</span></span></li>
+          <li data-path="logbook recover"><span class="row"><span class="name">recover</span><span class="what">cut back the torn tail an interrupted write left (explicit, never automatic)</span></span></li>
+        </ul>
+      </details></li>
+    </ul>
+  </nav>
+  <footer>
+    <p>21 groups and 56 commands.</p>
+    <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
+  </footer>
+</main>
+</body>
+</html>

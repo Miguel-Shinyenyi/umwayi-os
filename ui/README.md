@@ -3,7 +3,9 @@
 A calm 3D hillside in one web page. Eleven stations stand around a lantern, one for each main part of umwayi-os. Opened from
 disk the page only looks: it never writes to the repo, runs a command or makes a request. Served by `umwayi serve` it may ask
 that one local backend, at the address it came from and nowhere else, to do what the command line would do (product.md,
-rule 10, W6). The core `umwayi` package never imports anything from here, and nothing here imports `umwayi`.
+rule 10, W6). The core `umwayi` package never imports anything from here. The page and the Node code here import nothing from `umwayi`; the one script that reads the command line is `tools/cli_map.py` (W2, below).
+
+Status (W2, the command map): a second page, `dist/cli-map.html`, shows the real umwayi command line as a mind map. The centre is `umwayi`, each group is a branch you tap to open, each command is one line (the first sentence of its help). A command with no help line is listed as "no help line yet". The words come from `src/data/cli-map.json`, which `tools/cli_map.py` writes from the real argparse tree (`python ui/tools/cli_map.py` from the repo root; `--check` writes nothing and exits 2 if the file is old). `node build.mjs` then builds both pages. The map page has no script and no link: its policy is `default-src 'none'` plus the hash of its one style, so it can make no request. It adds no package. `tests/test_cli_map.py` fails when a command or group of the real command line is missing from the data file (or the page), `test/climap.test.mjs` checks the file and the built page, and `test/climap-phone.test.mjs` runs the phone audit on it (needs a Chromium, skips without one). `dist/index.html` is byte for byte what it was. What was not done: the by-hand look in a real phone; `test/climap-phone.test.mjs` was not run in the build sandbox (see the pull request).
 
 Status (W6.9 and W6.10, the page client and its docs): the page has one module that sends a request, `src/api/client.js`, and one
 panel that uses it, `src/ui/backend.js` ("Local backend", live view only). See "The local backend" below. What was not done: the
@@ -45,12 +47,13 @@ node build.mjs
 ```
 
 `--ignore-scripts` is enough for esbuild: its program comes from an optional platform package, not from a script.
-**umwayi never runs npm, node or a browser.** The build writes two files, and both are committed:
+**umwayi never runs npm, node or a browser.** The build writes three files, and all are committed:
 
 | file | what it is |
 | --- | --- |
 | `dist/index.html` | the whole page: script, styles and every shape inline, about 680 KB (the limit is about 2 MB). No other file is loaded and nothing is downloaded. |
-| `dist/build.json` | the SHA-256 of every file the page was built from and of the page, so `tests/test_ui_package.py` finds a source changed without a rebuild, or a page edited by hand, without npm |
+| `dist/cli-map.html` | the command map page (W2), also built by `node build.mjs`, about 20 KB, no script |
+| `dist/build.json` | the SHA-256 of every file the pages were built from and of both pages, so `tests/test_ui_package.py` finds a source changed without a rebuild, or a page edited by hand, without npm |
 
 Open `dist/index.html` from disk. No server is needed.
 
@@ -111,7 +114,9 @@ look and the labels) is run by hand with a headless browser kept outside the rep
 ## Files
 
 ```
-build.mjs          bundles src/ into dist/index.html and writes dist/build.json
+build.mjs          bundles src/ into dist/index.html and dist/cli-map.html and writes dist/build.json
+src/cli-map.html   the command map page template (W2); src/cli-map.css its style; src/data/cli-map.json its words (written by tools/cli_map.py)
+tools/cli_map.py   writes src/data/cli-map.json from the real argparse tree (standard library Python)
 src/index.html     the page template (labels and the list view are made from stations/meta.js)
 src/style.css      the palette, Calm mode, reduced motion
 src/main.js        entry of the live view; calls boot with a highest tier of Standard and the network ignored

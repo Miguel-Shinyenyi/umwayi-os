@@ -1,0 +1,779 @@
+{
+  "schema": 1,
+  "program": "umwayi",
+  "description": "umwayi-os: an AI operating system for one person and their AI helpers.",
+  "children": [
+    {
+      "name": "memory",
+      "path": [
+        "memory"
+      ],
+      "help": "memory commands",
+      "line": "memory commands",
+      "children": [
+        {
+          "name": "bundle",
+          "path": [
+            "memory",
+            "bundle"
+          ],
+          "help": "print the context bundle for an AI helper",
+          "line": "print the context bundle for an AI helper",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "queue",
+      "path": [
+        "queue"
+      ],
+      "help": "queue commands (queue.md)",
+      "line": "queue commands (queue.md)",
+      "children": [
+        {
+          "name": "list",
+          "path": [
+            "queue",
+            "list"
+          ],
+          "help": "list rows of the queue",
+          "line": "list rows of the queue",
+          "children": []
+        },
+        {
+          "name": "add",
+          "path": [
+            "queue",
+            "add"
+          ],
+          "help": "add an open task or decision",
+          "line": "add an open task or decision",
+          "children": []
+        },
+        {
+          "name": "answer",
+          "path": [
+            "queue",
+            "answer"
+          ],
+          "help": "mark an open row as answered",
+          "line": "mark an open row as answered",
+          "children": []
+        },
+        {
+          "name": "close",
+          "path": [
+            "queue",
+            "close"
+          ],
+          "help": "close a row",
+          "line": "close a row",
+          "children": []
+        },
+        {
+          "name": "migrate",
+          "path": [
+            "queue",
+            "migrate"
+          ],
+          "help": "convert an old six column queue.md to the current layout (once)",
+          "line": "convert an old six column queue.md to the current layout (once)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "decision",
+      "path": [
+        "decision"
+      ],
+      "help": "decision commands (layer 13): reopen a closed decision as a new question",
+      "line": "decision commands (layer 13): reopen a closed decision as a new question",
+      "children": [
+        {
+          "name": "reopen",
+          "path": [
+            "decision",
+            "reopen"
+          ],
+          "help": "reopen an answered or closed decision: one new logbook entry that links the old entry by its hash, and one new open decision in the queue; the old entry and the old row are not changed",
+          "line": "reopen an answered or closed decision: one new logbook entry that links the old entry by its hash, and one new open decision in the queue",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "petition",
+      "path": [
+        "petition"
+      ],
+      "help": "an AI helper objects to a No rule (layer 13): one open queue item for the owner; it never changes the rule or any answer",
+      "line": "an AI helper objects to a No rule (layer 13): one open queue item for the owner",
+      "children": []
+    },
+    {
+      "name": "autonomy",
+      "path": [
+        "autonomy"
+      ],
+      "help": "graded autonomy (layer 13): the owner's record, the score per class and autonomy.yaml; off by default",
+      "line": "graded autonomy (layer 13): the owner's record, the score per class and autonomy.yaml",
+      "children": [
+        {
+          "name": "status",
+          "path": [
+            "autonomy",
+            "status"
+          ],
+          "help": "per class: the counts, the score, the thresholds and the first gate that holds it (changes nothing)",
+          "line": "per class: the counts, the score, the thresholds and the first gate that holds it (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "validate",
+          "path": [
+            "autonomy",
+            "validate"
+          ],
+          "help": "check autonomy.yaml and the opt-in rules, every problem with a line number (changes nothing)",
+          "line": "check autonomy.yaml and the opt-in rules, every problem with a line number (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "record",
+          "path": [
+            "autonomy",
+            "record"
+          ],
+          "help": "record one outcome of the owner for a class: one chained logbook entry",
+          "line": "record one outcome of the owner for a class: one chained logbook entry",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "archive",
+      "path": [
+        "archive"
+      ],
+      "help": "archive commands",
+      "line": "archive commands",
+      "children": [
+        {
+          "name": "move",
+          "path": [
+            "archive",
+            "move"
+          ],
+          "help": "move a block of text out of a file into the archive",
+          "line": "move a block of text out of a file into the archive",
+          "children": []
+        },
+        {
+          "name": "verify",
+          "path": [
+            "archive",
+            "verify"
+          ],
+          "help": "recompute every SHA-256 fingerprint and compare with archive/INDEX.md",
+          "line": "recompute every SHA-256 fingerprint and compare with archive/INDEX.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "check",
+      "path": [
+        "check"
+      ],
+      "help": "check an action (JSON) against the rules: Yes (0), No (2), Ask me first (3)",
+      "line": "check an action (JSON) against the rules: Yes (0), No (2), Ask me first (3)",
+      "children": []
+    },
+    {
+      "name": "rules",
+      "path": [
+        "rules"
+      ],
+      "help": "rules commands",
+      "line": "rules commands",
+      "children": [
+        {
+          "name": "due",
+          "path": [
+            "rules",
+            "due"
+          ],
+          "help": "list the rules that have lapsed or are due for review (changes nothing); 0, or 3 when a rule has lapsed",
+          "line": "list the rules that have lapsed or are due for review (changes nothing)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "run",
+      "path": [
+        "run"
+      ],
+      "help": "run one job from a jobs file (asks the rules first)",
+      "line": "run one job from a jobs file (asks the rules first)",
+      "children": []
+    },
+    {
+      "name": "report",
+      "path": [
+        "report"
+      ],
+      "help": "write a progress report draft from git history",
+      "line": "write a progress report draft from git history",
+      "children": []
+    },
+    {
+      "name": "publish-draft",
+      "path": [
+        "publish-draft"
+      ],
+      "help": "copy a draft to outbox/ for the owner to post by hand",
+      "line": "copy a draft to outbox/ for the owner to post by hand",
+      "children": []
+    },
+    {
+      "name": "steward",
+      "path": [
+        "steward"
+      ],
+      "help": "AI helper Steward: read the queue and write a proposal draft",
+      "line": "AI helper Steward: read the queue and write a proposal draft",
+      "children": []
+    },
+    {
+      "name": "social",
+      "path": [
+        "social"
+      ],
+      "help": "AI helper social: turn an article into post drafts",
+      "line": "AI helper social: turn an article into post drafts",
+      "children": [
+        {
+          "name": "draft",
+          "path": [
+            "social",
+            "draft"
+          ],
+          "help": "write one post draft per channel in umwayi.json",
+          "line": "write one post draft per channel in umwayi.json",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "workflow",
+      "path": [
+        "workflow"
+      ],
+      "help": "workflow commands (workflows/NAME.yaml)",
+      "line": "workflow commands (workflows/NAME.yaml)",
+      "children": [
+        {
+          "name": "validate",
+          "path": [
+            "workflow",
+            "validate"
+          ],
+          "help": "check a workflow file, report every problem with a line number",
+          "line": "check a workflow file, report every problem with a line number",
+          "children": []
+        },
+        {
+          "name": "run",
+          "path": [
+            "workflow",
+            "run"
+          ],
+          "help": "run the steps of a workflow in order (asks the rules for every step)",
+          "line": "run the steps of a workflow in order (asks the rules for every step)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "kill",
+      "path": [
+        "kill"
+      ],
+      "help": "the kill switch: stops every AI helper, job and workflow",
+      "line": "the kill switch: stops every AI helper, job and workflow",
+      "children": [
+        {
+          "name": "on",
+          "path": [
+            "kill",
+            "on"
+          ],
+          "help": "turn the kill switch on (creates .umwayi/KILL)",
+          "line": "turn the kill switch on (creates .umwayi/KILL)",
+          "children": []
+        },
+        {
+          "name": "off",
+          "path": [
+            "kill",
+            "off"
+          ],
+          "help": "turn the kill switch off (removes .umwayi/KILL)",
+          "line": "turn the kill switch off (removes .umwayi/KILL)",
+          "children": []
+        },
+        {
+          "name": "status",
+          "path": [
+            "kill",
+            "status"
+          ],
+          "help": "show the kill switch: off (exit 0), on or unknown (exit 3)",
+          "line": "show the kill switch: off (exit 0), on or unknown (exit 3)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "agent",
+      "path": [
+        "agent"
+      ],
+      "help": "the front door for AI agents (agents.yaml); exit 0, 2, 3 or 64, never 1",
+      "line": "the front door for AI agents (agents.yaml)",
+      "children": [
+        {
+          "name": "validate",
+          "path": [
+            "agent",
+            "validate"
+          ],
+          "help": "check agents.yaml, report every problem with a line number",
+          "line": "check agents.yaml, report every problem with a line number",
+          "children": []
+        },
+        {
+          "name": "list",
+          "path": [
+            "agent",
+            "list"
+          ],
+          "help": "list the agents in agents.yaml (starts nothing)",
+          "line": "list the agents in agents.yaml (starts nothing)",
+          "children": []
+        },
+        {
+          "name": "check",
+          "path": [
+            "agent",
+            "check"
+          ],
+          "help": "can this agent be gated? runs every gate check, starts no agent",
+          "line": "can this agent be gated? runs every gate check, starts no agent",
+          "children": []
+        },
+        {
+          "name": "run",
+          "path": [
+            "agent",
+            "run"
+          ],
+          "help": "start an agent once with a prompt (Claude Code or Kiro); 0, 2, 3 or 64",
+          "line": "start an agent once with a prompt (Claude Code or Kiro)",
+          "children": []
+        },
+        {
+          "name": "chat",
+          "path": [
+            "agent",
+            "chat"
+          ],
+          "help": "a chat with an agent on your terminal (transport cli); 0, 2, 3 or 64",
+          "line": "a chat with an agent on your terminal (transport cli)",
+          "children": []
+        },
+        {
+          "name": "login",
+          "path": [
+            "agent",
+            "login"
+          ],
+          "help": "sign in on your terminal (Claude Code ACP: claude.ai; Kiro: kiro-cli login), then the login check; 0, 2, 3 or 64",
+          "line": "sign in on your terminal (Claude Code ACP: claude.ai; Kiro: kiro-cli login), then the login check",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "schedule",
+      "path": [
+        "schedule"
+      ],
+      "help": "scheduled runs through systemd user timers (layer 11); 0, 2, 3 or 64, never 1",
+      "line": "scheduled runs through systemd user timers (layer 11)",
+      "children": [
+        {
+          "name": "validate",
+          "path": [
+            "schedule",
+            "validate"
+          ],
+          "help": "check schedule.yaml, every problem with a line number (writes nothing)",
+          "line": "check schedule.yaml, every problem with a line number (writes nothing)",
+          "children": []
+        },
+        {
+          "name": "show",
+          "path": [
+            "schedule",
+            "show"
+          ],
+          "help": "print the unit files (or --cron lines) install would write (writes nothing)",
+          "line": "print the unit files (or --cron lines) install would write (writes nothing)",
+          "children": []
+        },
+        {
+          "name": "check",
+          "path": [
+            "schedule",
+            "check"
+          ],
+          "help": "compare the installed unit files with what umwayi would write (writes nothing)",
+          "line": "compare the installed unit files with what umwayi would write (writes nothing)",
+          "children": []
+        },
+        {
+          "name": "install",
+          "path": [
+            "schedule",
+            "install"
+          ],
+          "help": "write the two unit files of one entry (asks the rules); starts nothing",
+          "line": "write the two unit files of one entry (asks the rules)",
+          "children": []
+        },
+        {
+          "name": "remove",
+          "path": [
+            "schedule",
+            "remove"
+          ],
+          "help": "remove the two unit files umwayi wrote for one entry (asks the rules)",
+          "line": "remove the two unit files umwayi wrote for one entry (asks the rules)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "budget",
+      "path": [
+        "budget"
+      ],
+      "help": "the budget governor (units.yaml, the ledger in the logbook); 0, 2, 3 or 64, never 1",
+      "line": "the budget governor (units.yaml, the ledger in the logbook)",
+      "children": [
+        {
+          "name": "validate",
+          "path": [
+            "budget",
+            "validate"
+          ],
+          "help": "check units.yaml, every problem with a line number (writes nothing)",
+          "line": "check units.yaml, every problem with a line number (writes nothing)",
+          "children": []
+        },
+        {
+          "name": "status",
+          "path": [
+            "budget",
+            "status"
+          ],
+          "help": "used, reserved and left per limit, and the measured, declared and unknown shares (writes nothing)",
+          "line": "used, reserved and left per limit, and the measured, declared and unknown shares (writes nothing)",
+          "children": []
+        },
+        {
+          "name": "calibrate",
+          "path": [
+            "budget",
+            "calibrate"
+          ],
+          "help": "propose per_run and per_day from 20 measured runs over 7 days (changes nothing)",
+          "line": "propose per_run and per_day from 20 measured runs over 7 days (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "settle-lost",
+          "path": [
+            "budget",
+            "settle-lost"
+          ],
+          "help": "settle every reservation that has no settle (after a SIGKILL or a crash), as unknown at the worst case",
+          "line": "settle every reservation that has no settle (after a SIGKILL or a crash), as unknown at the worst case",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "view",
+      "path": [
+        "view"
+      ],
+      "help": "the web interface (layer 12); 0, 1, 2 or 64, never 3",
+      "line": "the web interface (layer 12)",
+      "children": [
+        {
+          "name": "snapshot",
+          "path": [
+            "view",
+            "snapshot"
+          ],
+          "help": "write one JSON file of counts for the page, and one logbook entry (no text, path or secret of any file)",
+          "line": "write one JSON file of counts for the page, and one logbook entry (no text, path or secret of any file)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "serve",
+      "path": [
+        "serve"
+      ],
+      "help": "the local backend for the web page (W6); exit 0, 1, 2 or 64, never 3",
+      "line": "the local backend for the web page (W6)",
+      "children": [
+        {
+          "name": "token",
+          "path": [
+            "serve",
+            "token"
+          ],
+          "help": "the token of the local backend: shown once, kept only as a SHA-256",
+          "line": "the token of the local backend: shown once, kept only as a SHA-256",
+          "children": [
+            {
+              "name": "create",
+              "path": [
+                "serve",
+                "token",
+                "create"
+              ],
+              "help": "make the first token and show it once (on a terminal only)",
+              "line": "make the first token and show it once (on a terminal only)",
+              "children": []
+            },
+            {
+              "name": "rotate",
+              "path": [
+                "serve",
+                "token",
+                "rotate"
+              ],
+              "help": "make a new token, show it once; the old one stops working at the next request",
+              "line": "make a new token, show it once",
+              "children": []
+            },
+            {
+              "name": "revoke",
+              "path": [
+                "serve",
+                "token",
+                "revoke"
+              ],
+              "help": "remove the token: every request is refused until a new one is created",
+              "line": "remove the token: every request is refused until a new one is created",
+              "children": []
+            },
+            {
+              "name": "status",
+              "path": [
+                "serve",
+                "token",
+                "status"
+              ],
+              "help": "the id, the dates and the days left; no digest, no token (changes nothing)",
+              "line": "the id, the dates and the days left",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "goal",
+      "path": [
+        "goal"
+      ],
+      "help": "goal orchestration (W9); only 'docs' and 'guard' are built so far",
+      "line": "goal orchestration (W9)",
+      "children": [
+        {
+          "name": "docs",
+          "path": [
+            "goal",
+            "docs"
+          ],
+          "help": "build or check docs/status-log.md and docs/KNOWN-LIMITS.md from docs-parts/ (W9.R14); exit 0 or 2, 64 for usage, never 1 or 3",
+          "line": "build or check docs/status-log.md and docs/KNOWN-LIMITS.md from docs-parts/ (W9.R14)",
+          "children": [
+            {
+              "name": "build",
+              "path": [
+                "goal",
+                "docs",
+                "build"
+              ],
+              "help": "write the two files from the frozen base and the part files, and write the number of each new limit into its part (nothing is written if any part is bad)",
+              "line": "write the two files from the frozen base and the part files, and write the number of each new limit into its part (nothing is written if any part is bad)",
+              "children": []
+            },
+            {
+              "name": "check",
+              "path": [
+                "goal",
+                "docs",
+                "check"
+              ],
+              "help": "exit 0 if the two files equal the build, 2 if not (writes nothing)",
+              "line": "exit 0 if the two files equal the build, 2 if not (writes nothing)",
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "guard",
+          "path": [
+            "goal",
+            "guard"
+          ],
+          "help": "load guidance.yaml and, given a task record (a JSON file), refuse a task that breaks an enforce rule (W19.1); exit 0, 2, 3 or 64, never 1",
+          "line": "load guidance.yaml and, given a task record (a JSON file), refuse a task that breaks an enforce rule (W19.1)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "guidance",
+      "path": [
+        "guidance"
+      ],
+      "help": "guidance.yaml: list the entries, verify the hub hashes (W19.1); exit 0, 2, 3 or 64, never 1",
+      "line": "guidance.yaml: list the entries, verify the hub hashes (W19.1)",
+      "children": [
+        {
+          "name": "list",
+          "path": [
+            "guidance",
+            "list"
+          ],
+          "help": "one line per entry: kind, tier, source repo and whether it is verified (a hub entry is unverified unless --hub is given and its file matches)",
+          "line": "one line per entry: kind, tier, source repo and whether it is verified (a hub entry is unverified unless --hub is given and its file matches)",
+          "children": []
+        },
+        {
+          "name": "verify",
+          "path": [
+            "guidance",
+            "verify"
+          ],
+          "help": "compare the stored hub hashes with the real hub files; exit 3 (Ask me first) on a mismatch",
+          "line": "compare the stored hub hashes with the real hub files",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "concerns",
+      "path": [
+        "concerns"
+      ],
+      "help": "the project concerns record (W19)",
+      "line": "the project concerns record (W19)",
+      "children": [
+        {
+          "name": "check",
+          "path": [
+            "concerns",
+            "check"
+          ],
+          "help": "check that a concerns record has one well formed row for each of the 111 engineering concepts; one line per failure; exit 0, or 2 on any failure; run by the owner, never on a schedule (changes nothing)",
+          "line": "check that a concerns record has one well formed row for each of the 111 engineering concepts",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "routing",
+      "path": [
+        "routing"
+      ],
+      "help": "the model routing table and the task log (W19 part 3b)",
+      "line": "the model routing table and the task log (W19 part 3b)",
+      "children": [
+        {
+          "name": "check",
+          "path": [
+            "routing",
+            "check"
+          ],
+          "help": "check that a model routing table or a task log is well formed; one line per failure; exit 0, or 2 on any failure; it never picks a model; run by the owner, never on a schedule (changes nothing)",
+          "line": "check that a model routing table or a task log is well formed",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "logbook",
+      "path": [
+        "logbook"
+      ],
+      "help": "logbook commands",
+      "line": "logbook commands",
+      "children": [
+        {
+          "name": "verify",
+          "path": [
+            "logbook",
+            "verify"
+          ],
+          "help": "check the format, the hash record and the hash chain of LOGBOOK.md (changes nothing)",
+          "line": "check the format, the hash record and the hash chain of LOGBOOK.md (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "anchor",
+          "path": [
+            "logbook",
+            "anchor"
+          ],
+          "help": "print COUNT:HEX of the hash chain, to keep outside this machine (changes nothing)",
+          "line": "print COUNT:HEX of the hash chain, to keep outside this machine (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "seal",
+          "path": [
+            "logbook",
+            "seal"
+          ],
+          "help": "record the hash of LOGBOOK.md as it is now (explicit, never automatic)",
+          "line": "record the hash of LOGBOOK.md as it is now (explicit, never automatic)",
+          "children": []
+        },
+        {
+          "name": "recover",
+          "path": [
+            "logbook",
+            "recover"
+          ],
+          "help": "cut back the torn tail an interrupted write left (explicit, never automatic)",
+          "line": "cut back the torn tail an interrupted write left (explicit, never automatic)",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
