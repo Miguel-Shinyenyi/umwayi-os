@@ -542,6 +542,8 @@ class Committed(unittest.TestCase):
             self.assertEqual((es[i].kind, es[i].tier), ("enforce", 3))
         self.assertEqual((es["one-open-pr-per-task"].kind, es["one-open-pr-per-task"].tier), ("enforce", 4))
         for e in es.values():
+            if e.source_repo != "hub":
+                continue  # W19 part 3a: the pins below are for hub entries; umwayi-os tiers are pinned in test_guidance_coverage.py
             if e.kind == "advise":
                 self.assertEqual(e.tier, 6)
             if e.kind == "owner":

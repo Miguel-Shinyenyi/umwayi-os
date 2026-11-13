@@ -106,3 +106,21 @@ W9.9 moved the text of `docs/status-log.md` and `docs/KNOWN-LIMITS.md` into `doc
 ## Guidance checks (W19.1)
 
 `guidance.yaml` at the repo root lists rules for the goal flow, each marked enforce, advise or owner. `umwayi goal guard [TASKFILE]` loads it and, given a task record (a JSON file with `goal`, `consequences`, `undo`, `acceptance_checks` and `open_prs`), refuses a task that breaks an enforce rule: exit 3 Ask me first and one line with the reason. A malformed `guidance.yaml` is exit 64, and a missing file or a source that changed since its hash was taken is exit 3, stop and ask the owner. The checks look at whether a field is there and well formed, never whether it is true ([KNOWN-LIMITS 256](KNOWN-LIMITS.md)). Design: "Guidance (W19), stage 1" in `.kiro/specs/umwayi-os/design.md`. Each entry says where its source lives: `source_repo: umwayi-os` (checked against the file in this repo) or `hub` (the owner's private hub repo, whose files are never copied here; the loader reads nothing for it). `umwayi guidance list [--hub PATH]` shows every entry with its tier and status, and a hub entry is `unverified` unless `--hub` is given and its file matches. `umwayi guidance verify --hub PATH` compares the stored hub hashes with the real files and exits 3 Ask me first on a mismatch. Every entry also has a `tier` from 1 to 6, the lower number wins (see the design). Not built yet: the call from `goal start` and `goal run` (W9.8).
+
+### Task record fields (W19 part 3a)
+
+The task record is a JSON object that `umwayi goal guard TASKFILE` reads. These are its fields.
+
+- `goal`: the goal in one sentence. Checked: it must be there and not empty.
+- `consequences`: what the task will likely change. Checked together with `undo`.
+- `undo`: how to take the change back. Checked together with `consequences`.
+- `acceptance_checks`: a list of one or more checks, written before the work starts. Checked: the list is there and no item is empty.
+- `open_prs`: a list of the open pull requests of the task, filled in by the caller because umwayi makes no network call. Checked: at most one.
+- `worktree`: the path of the git worktree made for the task. Recorded only. No check reads it yet.
+- `model`: the model the owner chose for the task. Recorded only. No check reads it yet, and umwayi never picks it.
+
+Only the first five are read by the four enforce checks. The guard looks at whether a field is there and well formed, never whether it is true.
+
+### Entries for the steering rules (W19 part 3a)
+
+`guidance.yaml` has one entry for each numbered rule of `.kiro/steering/builder-workflow.md` (tier 4) and for steering rules 1 to 13 of `.kiro/steering/product.md` (tier 1, and tier 2 for rules 5 and 10, which name the owner's decision). Rule 1 of the builder workflow is the enforce check `one_open_pr`. Every other entry is advise, because none of the four checks can check it. A meta test, `tests/goal/test_guidance_coverage.py`, fails when a numbered rule of either file has no entry and is not in its exclusion list, so a new rule must be covered. The loader now accepts spaces before the rule number, which steering rules 11 to 13 need.

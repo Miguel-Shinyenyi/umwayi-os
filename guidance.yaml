@@ -90,3 +90,201 @@ guidance:
     applies_to: task
     tier: 2
     source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"
+  - id: merge-main-before-push
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#2"
+    text: "Merge the newest origin/main into the branch before every push and before opening the pull request."
+    kind: advise
+    prompt_line: "Merge the newest origin/main before every push and before you open the pull request, and confirm GitHub shows no conflicts."
+    applies_to: pr
+    tier: 4
+    source_hash: "4f9e36466af3921690f20827c6e28a1c5dc06e0bbaafa2f09f012c288ba66640"
+  - id: known-limits-next-free-number
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#3"
+    text: "Take the next free KNOWN-LIMITS number after merging main, or use the docs part files."
+    kind: advise
+    prompt_line: "After merging main, take the next free KNOWN-LIMITS number, or add a docs part file instead of editing the generated file."
+    applies_to: pr
+    tier: 4
+    source_hash: "5129c4b3820f7fe81a4f16718873e2f0808f1e5549771362de337b629b637487"
+  - id: tests-first-affected-only
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#4"
+    text: "Write tests first for new behaviour and run only the affected tests before each push."
+    kind: advise
+    prompt_line: "Write tests first for new behaviour. Before each push run only the affected tests, and the full suite only when told."
+    applies_to: task
+    tier: 4
+    source_hash: "566bfe1cac7e1002f0e5eac6cd5527391886b2446679bedeb1b96e047ff14291"
+  - id: no-em-dash-anywhere
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#5"
+    text: "No em dash in code, docs, commit messages or pull request text."
+    kind: advise
+    prompt_line: "Do not use an em dash anywhere: code, docs, commit messages or pull request text."
+    applies_to: task
+    tier: 4
+    source_hash: "7437571ad5afa514c2fb666f3d30384d89cb004dfb1c0dd458d5765982f34bb7"
+  - id: questions-carry-recommendation
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#6"
+    text: "Every question to the owner comes with the helper's recommendation."
+    kind: advise
+    prompt_line: "Every question you ask the owner must come with your recommendation."
+    applies_to: task
+    tier: 4
+    source_hash: "a4efbe6b330059475b24ae9ffc6b25298e3e17d14d4236327ddb772e86ae1b1f"
+  - id: do-it-yourself-first
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#7"
+    text: "Try to do a thing yourself before asking the owner for it."
+    kind: advise
+    prompt_line: "Do it yourself first before you ask the owner for something."
+    applies_to: task
+    tier: 4
+    source_hash: "3bb98a7d0501affd023402d44b00f71e48aade2818742101cf88f976fdc764db"
+  - id: pr-description-sections
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#8"
+    text: "A pull request description lists what was built, not built, could not be verified, test counts and open questions."
+    kind: advise
+    prompt_line: "Write the pull request description with Built, Not built, Could not verify, test counts per Python version and open questions with recommendations."
+    applies_to: pr
+    tier: 4
+    source_hash: "11307f33009ca00b0ed021347b18912e609249ab86f8483ff43684a9bb21636c"
+  - id: ask-before-changing-safety-rule
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#9"
+    text: "Ask the owner before changing a safety rule, the rules gate or the exit codes, and never change what a test means."
+    kind: advise
+    prompt_line: "Ask the owner before you change any safety rule, the rules gate or the exit codes. Never change what an existing test means."
+    applies_to: task
+    tier: 4
+    source_hash: "096ce8475f5ae63761cfbb7de6763ffd95debbf8bde5577f830bd5dd4877df18"
+  - id: stop-when-stuck
+    source_repo: umwayi-os
+    source: ".kiro/steering/builder-workflow.md#10"
+    text: "Stop and report if the same error happens twice or work is stuck for 30 minutes."
+    kind: advise
+    prompt_line: "If the same error happens twice, or you are stuck for 30 minutes, stop and report."
+    applies_to: task
+    tier: 4
+    source_hash: "1edc3405653d7a6a4210abad2ebc41bf05682f1d1b821aea03c4984fb0e697d2"
+  - id: safety-fail-closed
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#1"
+    text: "Unknown, missing, malformed or ambiguous input means Ask me first."
+    kind: advise
+    prompt_line: "Fail closed: unknown, missing, malformed or unclear input means Ask me first."
+    applies_to: task
+    tier: 1
+    source_hash: "86fa0b6e9003c3d8809b6c1b5f0ae90f64f51c5a7fd80895b9578c2ba30f196d"
+  - id: safety-never-print-secrets
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#2"
+    text: "Secrets are never printed, private paths stay out of a context bundle and errors do not echo file content."
+    kind: advise
+    prompt_line: "Never print secrets. Keep private paths out of a context bundle, and do not echo file content in errors."
+    applies_to: task
+    tier: 1
+    source_hash: "15c9b5f697d6ff31bccb1b87485bc2545529e7d6cba37475ff3cb20789b287e6"
+  - id: safety-never-push-to-main
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#3"
+    text: "Never push to main: work on a feature branch and open a pull request."
+    kind: advise
+    prompt_line: "Never push to main. Work on a feature branch and open a pull request."
+    applies_to: pr
+    tier: 1
+    source_hash: "946afd06eb0444b99903be8f34c89fc04edf7bf7164840079e91aff6e0dcdc20"
+  - id: safety-helpers-draft-only
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#4"
+    text: "An AI helper only drafts: it never publishes, holds bank or card credentials or moves money."
+    kind: advise
+    prompt_line: "You only draft. Never publish, never hold bank or card credentials and never move money."
+    applies_to: task
+    tier: 1
+    source_hash: "27e04158ddead063a4fe4a1aca486a00e6b46ee931862bce0e2f5c356c9ccfe3"
+  - id: safety-no-network-layers-1-5
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#5"
+    text: "Layers 1 to 5 make no network calls, except two named loopback servers on 127.0.0.1 the owner approved."
+    kind: advise
+    prompt_line: "Layers 1 to 5 make no network calls. Only the two approved loopback servers on 127.0.0.1 may listen."
+    applies_to: task
+    tier: 2
+    source_hash: "8dce0e771ba5eea9c36424d93744afa8011dd0654edd1ccb838fce1951b564de"
+  - id: safety-no-secrets-in-repo
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#6"
+    text: "No secrets are kept in the repo."
+    kind: advise
+    prompt_line: "Never put a secret in the repo."
+    applies_to: task
+    tier: 1
+    source_hash: "f4ed03f9268d19b6d1e65aed4e99a8adc52ac568fdad9c24ed72c1af73c4612f"
+  - id: safety-helper-action-passes-check
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#7"
+    text: "Every helper action passes umwayi check first."
+    kind: advise
+    prompt_line: "Every action you take must pass umwayi check first."
+    applies_to: task
+    tier: 1
+    source_hash: "1a74127eff274de8d0cab29062685147558de97d086fbdc0b68fdefccb43ea70"
+  - id: safety-a-crash-blocks
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#8"
+    text: "A crash blocks: every unexpected error exits 2 and an adapter catches every error and blocks."
+    kind: advise
+    prompt_line: "A crash must block: every unexpected error exits 2, and an adapter catches every error and blocks."
+    applies_to: task
+    tier: 1
+    source_hash: "93634443dc32c82102cdffc443f25c2fc8187300993dc49b1c94c854ab08b5ee"
+  - id: safety-core-standard-library-only
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#9"
+    text: "The core umwayi package uses the standard library only, with named exceptions outside the package."
+    kind: advise
+    prompt_line: "Keep the core umwayi package standard library only. Third party packages belong only in the named places outside it."
+    applies_to: task
+    tier: 1
+    source_hash: "6a744866b3f128d48f4f67917de9bd9c85961e175a5871ad3925596a0c0389c8"
+  - id: safety-web-interface-local-backend-only
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Safety rules#10"
+    text: "The web interface talks only to the local backend, through the same checks as the command line."
+    kind: advise
+    prompt_line: "The web interface may talk only to the local backend umwayi serve, through the same rules check, logbook and kill switch."
+    applies_to: task
+    tier: 2
+    source_hash: "1330cb9ad5f469eac63c702615cc29c7a13e3a3be364f55b66ee4d642dbbd8ff"
+  - id: safety-layer13-append-only
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Layer 13: correction#11"
+    text: "Layer 13 never changes a No and only appends new logbook entries."
+    kind: advise
+    prompt_line: "Layer 13 never changes a No and only appends new logbook entries. A correction is a new entry, never an edit."
+    applies_to: task
+    tier: 1
+    source_hash: "58884e3ee5b3ff12dd8189cd3c64c28ae3e16a4f7531b58a65e489dd947ab839"
+  - id: safety-graded-autonomy-fails-closed
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Layer 13: correction#12"
+    text: "Graded autonomy only moves Ask me first to Yes where a rule opts in, and fails closed."
+    kind: advise
+    prompt_line: "Graded autonomy may only move Ask me first to Yes where a rule opts in. If anything is unclear it stays Ask me first."
+    applies_to: task
+    tier: 1
+    source_hash: "08294286a67dbfb8d0251041840744ddb71f6216f0b42bc88a1782b3a8be2081"
+  - id: safety-no-claim-of-perfection
+    source_repo: umwayi-os
+    source: ".kiro/steering/product.md#Layer 13: correction#13"
+    text: "Nothing claims a state is perfect, safe or proven."
+    kind: advise
+    prompt_line: "Never claim that a state is perfect, safe or proven."
+    applies_to: task
+    tier: 1
+    source_hash: "0e0b1b0a9f74ca0e416944012853ff6ed2854986fc1b25b1e894d7d3777c79c7"

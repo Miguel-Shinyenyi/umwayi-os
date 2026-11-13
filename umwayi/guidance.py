@@ -28,7 +28,7 @@ that same run.
 
 Source and source_hash for `umwayi-os`. `source` is `PATH#N` or `PATH#HEADING#N`: the repo relative file, optionally the section
 whose heading starts with HEADING, and the numbered rule `N. ...` in it. The rule must be on exactly one line
-(lines inside a code fence do not count). `source_hash` is the SHA-256 of that line, trailing spaces removed, in
+(lines inside a code fence do not count). Spaces before the number are allowed (an indented rule); the hash keeps them. `source_hash` is the SHA-256 of that line, trailing spaces removed, in
 lower case hex. If the line is edited, moved to another number or removed, the hash no longer matches and the
 loader stops. Nobody has to re-hash by hand without reading the change: `compute_hash` prints the new value.
 
@@ -195,7 +195,7 @@ def _rule_line(root: Path, source: str) -> str:
             continue
         if re.match(r"^#{1,6} ", ln):
             marks.append((i, "h"))
-        elif ln.startswith(f"{n}. "):
+        elif re.match(rf"^ *{n}\. ", ln):
             marks.append((i, "r"))
     lo, hi = 0, len(lines)
     if heading is not None:

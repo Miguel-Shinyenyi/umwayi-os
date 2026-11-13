@@ -1223,3 +1223,15 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - What protects you today: a missing, malformed or changed guidance file stops everything (exit 64 or 3), and a task record that cannot be read is Ask me first.
 - What it does not protect against: a task record whose fields are filled with meaningless text, and a caller that hides an open pull request.
 - A later fix: add the two missing enforce entries and the advise and owner examples once their source file is in the repo, and call `guard` from `goal start` and `goal run` when W9.8 is built.
+
+## Guidance (W19)
+
+### 257. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
+
+W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. Only builder rule 1 is enforced. The other 22 are advise entries.
+
+- What protects you today: each entry is tied to its rule by a hash of the rule line, so an edited, moved or removed rule stops the loader (Ask me first, exit 3). A test lists the numbered rules of both files and fails when one has no entry and is not on a reasoned exclusion list, so a new rule cannot be added unseen.
+- What it does not protect against: an entry whose one sentence says something different from its rule (the wording is ours and nobody checks it by machine), an advise line that an AI helper ignores, a rule added in a form the test does not read (a numbered line outside the builder file, the section "Safety rules" and the indented rules of the Layer 13 section of the product file), and a hash that is updated by hand without reading the change. Tiers are as the owner decided: builder 4, safety 1, rules 5 and 10 tier 2. Nothing checks that a tier is the right one.
+- The loader now accepts spaces before a rule number. A section that holds both a flush and an indented rule of one number is refused as ambiguous.
+- Fields `worktree` and `model` of the task record are written down but no check reads them.
+- A later fix: new enforce checks (only the owner decides them), and the call from `goal start` and `goal run` (W9.8).
