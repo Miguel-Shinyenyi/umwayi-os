@@ -100,11 +100,12 @@ const progress = await import(pathToFileURL(join(root, 'src/data/progress.js')).
 const repo = join(root, '..');
 const progressSources = { 'docs/status-log.md': null, 'docs/KNOWN-LIMITS.md': null, '.kiro/specs/umwayi-os/tasks.md': null };
 for (const name of Object.keys(progressSources)) progressSources[name] = readFileSync(join(repo, name));
-const parts = progress.render(progress.model({
+const progressModel = progress.model({
   statusLog: progressSources['docs/status-log.md'].toString('utf8'),
   limits: progressSources['docs/KNOWN-LIMITS.md'].toString('utf8'),
   tasks: progressSources['.kiro/specs/umwayi-os/tasks.md'].toString('utf8'),
-}), process.env.UMWAYI_BUILD_DATE || new Date().toISOString().slice(0, 10));
+});
+const parts = progress.render(progressModel, process.env.UMWAYI_BUILD_DATE || new Date().toISOString().slice(0, 10));
 const progressCss = (await transform(readFileSync(join(root, 'src/progress.css'), 'utf8'), { loader: 'css', minify: true })).code;
 const progressCsp = ["default-src 'none'", `style-src '${cspHash(progressCss)}'`, "base-uri 'none'", "form-action 'none'"].join('; ');
 const progressHtml = readFileSync(join(root, 'src/progress.html'), 'utf8')
@@ -122,5 +123,5 @@ writeFileSync(join(dist, 'progress.html'), progressHtml);
 const inputs = ['build.mjs', 'package.json', 'package-lock.json', ...walk(join(root, 'src')).map((f) => relative(root, f).split('\\').join('/'))];
 const files = {};
 for (const name of [...new Set(inputs)].sort()) files[name] = sha256(readFileSync(join(root, name)));
-writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))), progressPage: sha256(readFileSync(join(dist, 'progress.html'))), progressSources: Object.fromEntries(Object.entries(progressSources).map(([k, v]) => [k, sha256(v)])) }, null, 2) + '\n');
+writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))), progressPage: sha256(readFileSync(join(dist, 'progress.html'))), progressShown: sha256(progress.shown(progressModel)) }, null, 2) + '\n');
 console.log(`built ui/dist/index.html (${Math.round(html.length / 1024)} KB)`);

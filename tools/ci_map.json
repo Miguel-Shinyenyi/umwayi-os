@@ -157,6 +157,7 @@
   "ui/test/boot.test.mjs": [],
   "ui/test/checksview.test.mjs": [],
   "ui/test/client.test.mjs": ["umwayi/serve.py", "umwayi/servegate.py"],
+  "ui/test/browserclose.test.mjs": [],
   "ui/test/climap-phone.test.mjs": [],
   "ui/test/climap.test.mjs": [],
   "ui/test/contrast.test.mjs": [],

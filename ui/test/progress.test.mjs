@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { render, taskGroups, statusRows, highestLimit, firstSentence } from '../src/data/progress.js';
+import { model, shown, render, taskGroups, statusRows, highestLimit, firstSentence } from '../src/data/progress.js';
 
 const ui = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(ui, 'dist/progress.html'), 'utf8');
@@ -58,4 +58,13 @@ test('the page has no http fetch, no form and no script src', () => {
 test('the page code reads nothing of the logbook or .umwayi', () => {
   const code = readFileSync(join(ui, 'src/data/progress.js'), 'utf8');
   assert.ok(!/logbook|\.umwayi|readFile|fetch|import\(/i.test(code.replace(/^\/\/.*$/gm, '')));
+});
+
+test('shown() changes with what the page shows and not with other lines of the sources', () => {
+  const src = { statusLog: '| 2026-11-13 | 1 | a. b | x |\n', tasks: '## G\n- [x] 1\n- [ ] 2\n', limits: '### 5. t\n' };
+  const base = shown(model(src));
+  assert.equal(shown(model({ statusLog: `words\n${src.statusLog}`, tasks: `intro\n${src.tasks}text\n`, limits: `${src.limits}\nmore words\n` })), base);
+  assert.notEqual(shown(model({ ...src, statusLog: '| 2026-11-13 | 1 | changed | x |\n' })), base);
+  assert.notEqual(shown(model({ ...src, tasks: '## G\n- [x] 1\n- [x] 2\n' })), base);
+  assert.notEqual(shown(model({ ...src, limits: '### 6. t\n' })), base);
 });

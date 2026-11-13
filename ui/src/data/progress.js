@@ -50,6 +50,11 @@ export function model({ statusLog, tasks, limits }) {
   return { groups: taskGroups(tasks), rows: statusRows(statusLog).slice(0, 10), limit: highestLimit(limits) };
 }
 
+// what the page shows and nothing else, as one string. build.mjs keeps its SHA-256 in dist/build.json, and
+// tests/test_progress_page.py works out the same string from the three files with its own reader (any difference is a stale page).
+// Lines of the sources that the page does not show are not in it.
+export const shown = (m) => JSON.stringify({ groups: m.groups, rows: m.rows, limit: m.limit });
+
 // the pieces the template takes. date is YYYY-MM-DD.
 export function render(m, date) {
   const done = m.groups.reduce((a, g) => a + g.done, 0);
