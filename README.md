@@ -68,6 +68,7 @@ How they fit together: [docs/architecture.md](docs/architecture.md). Requirement
 
 - What umwayi protects, what it only makes visible, and how it is checked: [docs/security.md](docs/security.md). The dated scan, its tools and findings: [docs/SECURITY-SCAN.md](docs/SECURITY-SCAN.md).
 - Every limit that is known and not fixed, numbered: [docs/KNOWN-LIMITS.md](docs/KNOWN-LIMITS.md).
+- Tried umwayi and something went wrong, or you have a thought: [docs/feedback.md](docs/feedback.md) (how to report it, and what to leave out).
 
 ## Contributing
 
