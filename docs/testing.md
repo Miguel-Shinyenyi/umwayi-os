@@ -44,6 +44,7 @@ python -m unittest discover -s tests -t .
 - `tests/test_elections.py` (layer 13, slice 1) runs `check`, `run`, `steward` and `rules due` as child processes with the system date set by a `sitecustomize.py` (`UMWAYI_TEST_TODAY`): the day after `review_by`, the last day, the three clocks, bad dates, a golden file of the bytes of a rules file with no `review_by`, the exact output of `rules due`, a snapshot of the root before and after (nothing written), and a code guard on the imports.
 - `tests/test_docs.py` checks the docs: every relative link resolves, the README is at most 120 lines, no em dash, every component doc has its four parts and is under 300 lines.
 - `tests/test_frontier_practices.py` (W10) reads the table of [frontier-practices.md](frontier-practices.md) and fails on a missing or repeated row, a state outside the four, an evidence file that is not there or a guidance id that is not in `guidance.yaml`. It checks form and that evidence exists, never that a state is true; planted faults prove each failure.
+- Problems found while building, and what to do next time: [kiro-issues-log.md](kiro-issues-log.md).
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. The results are listed in each layer's pull request.
 
 ### CI since W20

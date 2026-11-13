@@ -20,5 +20,6 @@ Read this before any work in this repo. It is how every session works. It does n
 8. Every pull request description has: Built, Not built, Could not verify, test counts per Python version, and open
    questions, each with a recommendation.
 9. Ask before changing any safety rule (steering rules 1 to 13, the rules gate, the exit codes). Never change what an
-   existing test means.
+   existing test means. When you change a steering line that `guidance.yaml` pins by hash, change its entry (text,
+   prompt_line and source_hash) in the same commit.
 10. If the same error happens twice, or you are stuck for 30 minutes, stop and report.

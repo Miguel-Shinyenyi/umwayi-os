@@ -156,9 +156,9 @@ guidance:
   - id: ask-before-changing-safety-rule
     source_repo: umwayi-os
     source: ".kiro/steering/builder-workflow.md#9"
-    text: "Ask the owner before changing a safety rule, the rules gate or the exit codes, and never change what a test means."
+    text: "Ask the owner before changing a safety rule, the rules gate or the exit codes, never change what a test means, and change a pinned steering line and its guidance entry in one commit."
     kind: advise
-    prompt_line: "Ask the owner before you change any safety rule, the rules gate or the exit codes. Never change what an existing test means."
+    prompt_line: "Ask the owner before you change any safety rule, the rules gate or the exit codes. Never change what a test means. Change a pinned steering line and its guidance entry in the same commit."
     applies_to: task
     tier: 4
     source_hash: "096ce8475f5ae63761cfbb7de6763ffd95debbf8bde5577f830bd5dd4877df18"

@@ -1418,9 +1418,19 @@ Since W24 a pull request runs the Python suite on 3.10 and 3.13 only, and a push
 - The versions are chosen in `tools/ci_plan.py`, not in the workflow, and `tools/ci_shards.py verify` refuses a plan whose versions do not match its event. A third kind of event (a manual run) runs all four.
 - The required check is still only `tests / result (pull_request)`. A branch rule that required a name of a 3.11 or 3.12 job on a pull request would wait for ever, because those jobs are no longer created there.
 
+## Steering and guidance (W23), found while building
+
+### 271. The guidance hash covers only the first line of a steering rule
+
+`guidance.yaml` pins a steering rule by the SHA-256 of one line. These are the limits of that.
+
+- The hash is of the first line of the rule only. A sentence added on a later line of the same rule (as W23 did to rule 9) changes no hash, so the loader does not stop and no test fails if the sentence and the guidance entry drift apart. Keeping them together depends on the rule 9 sentence being followed.
+- Rule 9 itself cannot be enforced by a check: nothing finds a steering edit that has no matching guidance edit when the edited line is not the pinned one.
+- `docs/kiro-issues-log.md` is written by hand from pull requests and CI logs. Nothing checks it against them.
+
 ## Goal orchestration (W9), found while building W9.8
 
-### 271. The goal commands call the guard without a task record, and an AI helper is not yet denied the owner commands by the example rules
+### 272. The goal commands call the guard without a task record, and an AI helper is not yet denied the owner commands by the example rules
 
 `umwayi/goal.py` is built. These are the choices it made where the spec was open, and what waits for the owner.
 
