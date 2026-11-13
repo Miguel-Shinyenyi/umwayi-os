@@ -1,6 +1,6 @@
 {
   "files": {
-    "build.mjs": "ca1514ed01de9f604ee6f40e9b2d1b754eeb00367cbd016a991521dcf2742280",
+    "build.mjs": "2cdaea3a78aca480b40798af62caf8e235cee44633f74be47ebad6fb872ccfe6",
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
     "src/api/client.js": "2e7be51a5467d8117a9ca77cfa8f6bad9ffe68a50b964b4fb76f1ee70af5f18e",
@@ -84,7 +84,5 @@
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
   "page": "5a616b9cabd16ede279b332af81b15be40b284751ba140f98a162c602892fbf2",
-  "cliMapPage": "37e5694ead6d8475ee0b018e4e29b57221b506fb3cd1ccb455daaf76ab763dc5",
-  "progressPage": "9fe516a621af7cd7bf1beeb298fe646b84ac9ee99c520a6b12d261924f787a2b",
-  "progressShown": "ad3d8ce4d6667dc346efa6a8a96df63f199edf57bb9a5cc14910b66f380cc6dc"
+  "cliMapPage": "37e5694ead6d8475ee0b018e4e29b57221b506fb3cd1ccb455daaf76ab763dc5"
 }

@@ -131,7 +131,7 @@
   "tests/test_merge_main.py": [".kiro", "docs", "docs-parts", "tools", "ui"],
   "tests/test_miniyaml.py": [],
   "tests/test_petition.py": ["rules.yaml"],
-  "tests/test_progress_page.py": [".kiro", "docs", "ui", "ui/dist"],
+  "tests/test_progress_page.py": [".gitignore", ".kiro", "docs", "ui", "ui/dist"],
   "tests/test_queue.py": [],
   "tests/test_reopen.py": ["adapters", "rules.yaml"],
   "tests/test_routing.py": [".github", ".kiro", "docs", "jobs.yaml", "schedule.example.yaml", "workflows"],

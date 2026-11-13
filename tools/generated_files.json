@@ -30,21 +30,12 @@
    "verify": [{"argv": ["python", "-m", "tools.ci_map", "table", "--check"]}]
   },
   {
-   "path": "ui/dist/progress.html",
-   "regenerate": [
-    {"argv": ["npm", "ci", "--ignore-scripts"], "cwd": "ui"},
-    {"argv": ["node", "build.mjs"], "cwd": "ui"}
-   ],
-   "verify": [{"argv": ["python", "-m", "unittest", "tests.test_progress_page"]}],
-   "writes": ["ui/dist"]
-  },
-  {
    "path": "ui/dist/build.json",
    "regenerate": [
     {"argv": ["npm", "ci", "--ignore-scripts"], "cwd": "ui"},
     {"argv": ["node", "build.mjs"], "cwd": "ui"}
    ],
-   "verify": [{"argv": ["python", "-m", "unittest", "tests.test_progress_page"]}],
+   "verify": [{"argv": ["python", "-m", "unittest", "tests.test_ui_package"]}],
    "writes": ["ui/dist"]
   }
  ]
