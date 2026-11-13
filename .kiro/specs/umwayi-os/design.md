@@ -4106,3 +4106,12 @@ Answers (owner, Nov 12), recorded as given:
 - Nothing was changed by the answers of the first round except as follows (the worktree rule above is the one change after them). Q1 changed the wording of the name note (requirements, `docs/goals.md`). Q13 and Q14 were applied (steering paragraph, schedule note). The W17 note and the quiet moment were added to W9.R14.9, W9.9, the hours section above and `docs/goals.md`. No requirement, packet field, state, number or exit code changed.
 
 Where each answer landed (the worktree rule, Q3, is listed in the changed bullet above and in W9.R8, tasks.md W9.6b and W9.12, KNOWN-LIMITS 215, 221, 225 and 229 to 232, and `docs/goals.md`): Q1 in requirements (the intro of the W9 section) and `docs/goals.md`; Q13 in `.kiro/steering/product.md` (build order, one bullet, rules 1 to 13 untouched); Q14 and W17 in tasks.md (the schedule table, W9.9, the W9 plan row), `docs/schedule.md`, the hours section above, requirements W9.R14.9 and `docs/goals.md`; the status of all fourteen in this list, tasks.md, `docs/goals.md` and the status log.
+
+## History backfill (W19)
+
+`tools/backfill_history.py` reads the public pull request and CI history of this repository and writes derived records, so later rules and a model routing table can use them as evidence. It has the shape and limits of `tools/board_status.py`: standard library only, https to api.github.com only, 15 second timeout, no token and no environment read, no redirect followed, 60 requests an hour honored, exit 2 on any failure, exit 64 for usage. It is read only: the one file it writes is the output file the caller names.
+
+- One fetch function per kind of fact (`fetch_pr_list`, `fetch_pr`, `fetch_reviews`, `fetch_check_runs`), so tests use a fake server on 127.0.0.1 by replacing only the address resolver.
+- Output: JSON lines, a header object (`schema_version`, `date`, `complete`), then one object per pull request sorted by number with the fixed keys of `FIELDS`. Counts, durations, dates, label names and a task kind from the title prefix only. No title, body, comment, branch, file or author text is ever written.
+- A value GitHub does not give is the string `unknown`. There is no model field because GitHub does not record it.
+- A rate limit stop writes the finished pull requests with `complete` false and exits 2; `--after NUMBER` carries on.

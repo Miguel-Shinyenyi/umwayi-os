@@ -983,3 +983,7 @@ Order and pull requests: **(a) W9.9 first, its own pull request** (the docs scri
 | Goal orchestration (W9) | W9.0 spec written Nov 12; the owner answered W9-Q1 to W9-Q14 on Nov 12 (all as recommended); W9.9 (the shared docs builder, `umwayi goal docs build` and `check`) built Nov 12 in its own pull request; W9.1 to W9.8 and W9.6b (about 61 hours) not started; the worktree per task is core (the owner, Nov 12, superseding the answer to W9-Q3); only W9.9 (the docs script, also the owner's task W17) may go before the Nov 29 freeze, at a quiet moment right after the W6 first batch PR merges, and the rest comes after Dec 3; no dates set | W9.0: PR 63; W9.9: see the pull request | |
 
 When W9 is approved and built, this row moves into the main status table as its last row.
+
+## History backfill (W19)
+
+- [x] **W19 built** (Nov 13 2026, its own pull request) `tools/backfill_history.py` and `tests/test_backfill_history.py`: a read only script that turns public pull request and CI history into derived records (counts and durations only) in a JSON lines file. In `tools/ci_map.json` and `tools/ci_shards.json`. Docs through `docs-parts`. Not built: a model field (GitHub does not record it), a token, any use of the records by rules or a routing table.
