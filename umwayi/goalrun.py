@@ -590,6 +590,14 @@ class _Run:
         kill_all(self.env)
         raise _Done(Outcome(3, self.t["state"], "kill", "kill_switch"))
 
+    def platform_of(self, agent):
+        """The platform of an agent, read from agents.yaml only after the kill switch and the state were checked. An
+        agents file that cannot be read or does not hold the name is a config problem (needs owner), never a Yes."""
+        try:
+            return agents.find(agents.load(self.root), agent).platform
+        except (UsageError, ConfigError):
+            self.finish("agent_cannot_be_gated")
+
     def step_signal(self):
         """SIGTERM, SIGHUP or Ctrl-C between two runs, or while waiting for the run lock (W9.R16.3): nothing starts."""
         if self.env.stop.is_set():
@@ -660,10 +668,23 @@ class _Run:
             self.say("main is behind origin/main: update main, then answer")
             self.finish("main_behind_origin")
         problem = git.leftover(self.root, self.goal, self.task, other_tasks=self.other_task_paths())
+        if problem is None and self.branch_claimed_elsewhere():
+            problem = "leftover"
         if problem is not None:
             self.say(f"A worktree, branch or folder is left over: remove it with git worktree remove, then answer ({problem}).")
             self.finish("worktree_cap" if problem == "cap" else "worktree_leftover")
         self.base = base
+
+    def branch_claimed_elsewhere(self):
+        """Two tasks never share a worktree (W9.R8.14): the task files of every goal are read, and another task file that
+        names this branch stops the start. The path and the branch come from ids, so only a file that was changed can."""
+        for goal, task in self.other_task_paths():
+            try:
+                if gs.read_task(self.root, goal, task).get("branch") == self.branch:
+                    return True
+            except gs.GoalError:
+                return True  # a task file that cannot be read cannot be shown not to share: closed
+        return False
 
     def other_task_paths(self):
         """(goal, task) of every other task file in the root: two tasks never share a worktree (W9.R8.14)."""
@@ -709,9 +730,9 @@ class _Run:
     def start_role(self, role, prompt):
         """Steps 1 to 8, then the child and its watch. Returns a RoleResult. Raises _Done when the run ends here."""
         agent = self.agent_of(role)
-        platform = agents.find(agents.load(self.root), agent).platform
         self.step_kill()
         self.step_state(role)
+        platform = self.platform_of(agent)
         self.step_rules(role, agent, platform)
         self.step_gate(agent)
         self.step_roles()
@@ -767,7 +788,8 @@ class _Run:
         try:
             if not git.status(path) and git.head(path) == self.base:
                 git.worktree_remove(self.root, path)
-                logbook.append(self.root, gs.worktree_entry(self.env.when(), self.goal, self.task, "removed", how="observed"))
+                # no logbook entry: the entry of a removal is the one "after merged"; this is an undo of our own step
+                self.events().append("worktree", {"action": "removed", "base": self.base[:8]})
         except (UmwayiError, ValueError):
             pass  # left over: the next start says so (`leftover`)
 
@@ -1254,10 +1276,10 @@ class _PlanRun(_Run):
     def run(self):
         e = self.env
         agent = self.agent_of("guide")
-        platform = agents.find(agents.load(self.root), agent).platform
         nonce = e.nonce()
         self.step_kill()
         self.step_state("guide")
+        platform = self.platform_of(agent)
         self.step_rules("guide", agent, platform)
         self.step_gate(agent)
         self.step_lock()
@@ -1446,6 +1468,7 @@ def supervise(env, goal):
     approvals, a lost supervisor, the kill switch, the merge observation, the pick, and one task. The caller prints
     the report and maps an unexpected error to exit 2. A held goal lock raises `GoalLockBusy` (exit 3)."""
     with gs.lock(env.root):
+        logbook.read_checked_chain(env.root)  # a broken chain or record stops everything (exit 2 by the caller)
         gs.view(env.root)
         when, now = env.when(), env.now()
         gs.repair(env.root, when=when, now=now)

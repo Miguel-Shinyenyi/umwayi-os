@@ -416,6 +416,29 @@ class StartRefusalTests(StartCase):
         self.assertEqual((out.exit, out.reason), (3, "kill"))
         self.assert_no_child()
 
+    def test_a_broken_agents_file_is_needs_owner_config_and_is_read_after_the_kill_switch(self):
+        goal = self.approved(1)
+        (self.root / "agents.yaml").write_text("agents: [", encoding="utf-8")
+        out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual((out.exit, out.state, out.reason), (3, "needs owner", "config"))
+        self.assert_no_child()
+        self.setUp()
+        goal = self.approved(1)
+        (self.root / "agents.yaml").write_text("agents: [", encoding="utf-8")
+        kill.turn_on(self.root, self.when)
+        out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual((out.exit, out.reason), (3, "kill"))  # the switch came first: the agents file was never read
+        self.assertNotIn("goal_start", self.logbook_text())
+
+    def test_an_agent_name_that_is_not_in_agents_yaml_is_config_too(self):
+        goal = self.approved(1)
+        g = gs.read_goal(self.root, goal)
+        g["builder"] = "nobody-here"
+        gs.write_goal(self.root, goal, g)
+        out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual((out.exit, out.reason), (3, "config"))
+        self.assert_no_child()
+
     def test_a_task_that_is_not_queued_is_not_started(self):
         goal = self.approved(1)
         self.move(goal, "T-01", "running", "start")
@@ -534,6 +557,9 @@ class StartRefusalTests(StartCase):
         self.assertFalse(Path(self.port.worktree_path(self.root, goal, "T-01")).exists())
         self.assertNotIn("g-0001-t-01", rs.git(self.root, "worktree", "list"))
         self.assertIn("umwayi/g-0001-t-01", rs.git(self.root, "branch", "--list"))  # the branch is never deleted
+        self.assertNotIn("worktree removed", " ".join(self.logbook_kinds()))  # no entry says it was merged
+        events, _ = goallog.read((self.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl").read_bytes())
+        self.assertEqual([e["data"]["action"] for e in events if e["kind"] == "worktree"], ["made", "removed"])
 
     def test_the_tester_and_the_guide_must_not_be_the_builder(self):
         for builder, tester, guide in (("claude-build", "claude-build", "claude-guide"),
@@ -625,6 +651,25 @@ class WorktreePreconditionTests(StartCase):
             self.port.worktree_add(self.root, f"umwayi/g-0009-t-{i + 1:02d}", self.port.worktree_path(self.root, "G-0009", f"T-{i + 1:02d}"), head)
         self.refused(goal, "leftover")
 
+    def test_another_task_file_that_names_the_same_branch_stops_the_start(self):
+        g1, g2 = self.approved(1), self.approved(1)
+        t = gs.read_task(self.root, g2, "T-01")
+        t["branch"] = "umwayi/g-0001-t-01"
+        gs.write_task(self.root, g2, "T-01", t)
+        self.refused(g1, "leftover")
+
+    def test_tasks_with_the_same_number_in_three_goals_have_three_worktrees_and_branches(self):
+        goals = [self.approved(1) for _ in range(3)]
+        for g in goals:
+            scripts = [{"steps": rs.builder_steps(g, "T-01"), "spend": 3}, {"steps": rs.tester_steps()}, {"steps": rs.check_steps()}]
+            self.assertEqual(self.run_task(g, "T-01", scripts).exit, 0)
+        paths = {self.port.worktree_path(self.root, g, "T-01") for g in goals}
+        branches = {gs.read_task(self.root, g, "T-01")["branch"] for g in goals}
+        self.assertEqual((len(paths), len(branches)), (3, 3))
+        registered = rs.git(self.root, "worktree", "list", "--porcelain")
+        for p in paths:
+            self.assertEqual(registered.count(f"worktree {os.path.realpath(p)}"), 1)
+
     def test_the_branch_is_made_at_base_in_its_own_worktree_and_the_owners_copy_is_untouched(self):
         goal = self.approved(1)
         owner_head = rs.git(self.root, "rev-parse", "HEAD")
@@ -639,6 +684,8 @@ class WorktreePreconditionTests(StartCase):
         self.assertEqual(gs.read_task(self.root, goal, "T-01")["base"], owner_head)
         self.assertIn(f"base {owner_head}", [e.added for e in self.entries() if "queued to running" in e.added][0])
         self.assertFalse((self.worktree_root() / "g-0001-t-01" / "owner-scratch.txt").exists())
+        for ignored in (".umwayi", "LOGBOOK.md", "queue.md"):  # nothing ignored or untracked of the owner's folder is there
+            self.assertFalse((self.worktree_root() / "g-0001-t-01" / ignored).exists(), ignored)
 
     def test_no_helper_ever_runs_in_the_root(self):
         goal = self.approved(1)
@@ -892,10 +939,10 @@ class BuilderTests(StartCase):
         self.assertEqual(names, ["claude-build", "kiro-test", "claude-guide"])
 
     def test_two_goals_get_two_worktrees(self):
-        g1 = self.approved(1)
-        self.run_task(g1, "T-01", self.good_scripts())
-        g2 = self.approved(1)
-        self.run_task(g2, "T-01", self.good_scripts())
+        g1, g2 = self.approved(1), self.approved(1)
+        for g in (g1, g2):
+            scripts = [{"steps": rs.builder_steps(g, "T-01"), "spend": 3}, {"steps": rs.tester_steps()}, {"steps": rs.check_steps()}]
+            self.assertEqual(self.run_task(g, "T-01", scripts).exit, 0)
         a, b = (self.port.worktree_path(self.root, g, "T-01") for g in (g1, g2))
         self.assertNotEqual(a, b)
         self.assertTrue(os.path.isdir(a) and os.path.isdir(b))
