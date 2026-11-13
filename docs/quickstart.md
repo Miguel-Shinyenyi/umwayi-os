@@ -248,7 +248,9 @@ Budget: run RUNID settled, unknown 100 UU (1000000 micros).
 
 ### What to send back
 
-Not yet available: the feedback path (an issue template and an export of a logbook summary with no file contents) is being built as W26. Until it is there, tell the owner in your own words what you ran, what you expected and what happened. Do not send `LOGBOOK.md`, `rules.yaml` or any file from a real project.
+Open an issue on GitHub with the Tester feedback template and say what you ran, what you expected, what happened, your `umwayi --version`, your Python version and the exit code as a number. How, and what to leave out, is in [feedback](feedback.md). Read everything you paste first, and leave out secrets, private paths, the text of your rules and anything from your logbook or memory.
+
+Not yet available: an export of a logbook summary with no file contents. Until it exists, do not paste your logbook or its lines.
 
 ### The goal commands
 
@@ -281,9 +283,9 @@ The full list is [KNOWN-LIMITS](KNOWN-LIMITS.md). The layers behind each command
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-13 | The quickstart documents only commands that run on main, marks the feedback path as not yet available, shows `umwayi goal` only as far as it was run (W9.8 merged, PR 96), and a test parses every quoted command against the real command line | W25. A tester must not be given a command that does not exist, and a command in the page that stops parsing should fail a test. |
+| 2026-11-13 | The quickstart documents only commands that run on main, points to the feedback page (W26), marks the logbook export as not yet available, shows `umwayi goal` only as far as it was run (W9.8 merged, PR 96), and a test parses every quoted command against the real command line | W25. A tester must not be given a command that does not exist, and a command in the page that stops parsing should fail a test. |
 
 ## Open questions
 
-- Replace the feedback placeholder with the real path when W26 merges.
+- Replace the logbook export line when the exporter is built (it is a task after W9.8).
 - There is no `umwayi init`. Recommendation: add one later, so a tester does not copy three files by hand.
