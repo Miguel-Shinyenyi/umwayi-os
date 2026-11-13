@@ -91,7 +91,9 @@ The generated list, in the order the commands run (a file that feeds another com
 | `tools/ci_map.json` | `python -m tools.ci_map update` | `python -m tools.ci_map check` |
 | `tools/ci_shards.json` | `python -m tools.ci_shards assign-missing` | `python -m tools.ci_shards check` |
 | the table block of `docs/testing.md` | `python -m tools.ci_map table --write` | `python -m tools.ci_map table --check` |
-| `ui/dist/progress.html`, `ui/dist/build.json` | `npm ci --ignore-scripts` then `node build.mjs`, both in `ui/` | `python -m unittest tests.test_progress_page` |
+| `ui/dist/build.json` | `npm ci --ignore-scripts` then `node build.mjs`, both in `ui/` | `python -m unittest tests.test_ui_package` |
+
+The progress page `ui/dist/progress.html` is not on the list: since W22 it is built by the same `node build.mjs` and is not committed (it is in `.gitignore`), so it cannot be stale and cannot conflict.
 
 An entry may also list `writes` (other paths its command may write, such as the part files the docs build numbers). A command that changes any other file is a failure. The reader of the list is strict: an unknown key, a repeated path, a path that is not a plain relative path, a missing file or a command that starts a shell is exit 64. A test that fails because a generated file is stale ends its message with the exact command from the list (`tools/generated_files.py`).
 
