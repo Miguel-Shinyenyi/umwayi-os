@@ -2,7 +2,7 @@
  "files": {
   "tests/adapters/test_claude_code.py": {
    "seconds": 16.6,
-   "shard": 2
+   "shard": 1
   },
   "tests/adapters/test_core_for_adapters.py": {
    "seconds": 3.7,
@@ -10,27 +10,27 @@
   },
   "tests/adapters/test_kiro.py": {
    "seconds": 12.6,
-   "shard": 1
+   "shard": 3
   },
   "tests/adapters/test_opencode_plugin.py": {
    "seconds": 43.5,
-   "shard": 3
+   "shard": 1
   },
   "tests/adapters/test_opencode_rules.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 3
   },
   "tests/adapters/test_stdio.py": {
    "seconds": 8.1,
-   "shard": 1
+   "shard": 2
   },
   "tests/agents/test_agents_acp.py": {
    "seconds": 55.5,
-   "shard": 2
+   "shard": 1
   },
   "tests/agents/test_agents_chain.py": {
    "seconds": 4.0,
-   "shard": 3
+   "shard": 2
   },
   "tests/agents/test_agents_chat.py": {
    "seconds": 129.8,
@@ -42,31 +42,31 @@
   },
   "tests/agents/test_agents_claude_acp_gate.py": {
    "seconds": 28.3,
-   "shard": 3
+   "shard": 1
   },
   "tests/agents/test_agents_claude_acp_turns.py": {
    "seconds": 8.3,
-   "shard": 3
+   "shard": 2
   },
   "tests/agents/test_agents_claude_login.py": {
    "seconds": 21.5,
-   "shard": 3
+   "shard": 2
   },
   "tests/agents/test_agents_file.py": {
    "seconds": 22.2,
-   "shard": 1
+   "shard": 2
   },
   "tests/agents/test_agents_gate.py": {
    "seconds": 32.0,
-   "shard": 1
+   "shard": 3
   },
   "tests/agents/test_agents_kiro_run.py": {
    "seconds": 31.6,
-   "shard": 3
+   "shard": 1
   },
   "tests/agents/test_agents_login.py": {
    "seconds": 30.7,
-   "shard": 3
+   "shard": 2
   },
   "tests/agents/test_agents_opencode_chat.py": {
    "seconds": 197.3,
@@ -78,19 +78,19 @@
   },
   "tests/agents/test_agents_opencode_faults.py": {
    "seconds": 10.0,
-   "shard": 2
+   "shard": 3
   },
   "tests/agents/test_agents_opencode_file.py": {
    "seconds": 18.8,
-   "shard": 2
+   "shard": 1
   },
   "tests/agents/test_agents_opencode_gate.py": {
    "seconds": 46.9,
-   "shard": 1
+   "shard": 3
   },
   "tests/agents/test_agents_opencode_turns.py": {
    "seconds": 23.0,
-   "shard": 1
+   "shard": 3
   },
   "tests/agents/test_agents_run.py": {
    "seconds": 49.2,
@@ -102,11 +102,11 @@
   },
   "tests/agents/test_fake_opencode.py": {
    "seconds": 10.4,
-   "shard": 2
+   "shard": 1
   },
   "tests/agents/test_opencode_mutants.py": {
    "seconds": 11.0,
-   "shard": 3
+   "shard": 1
   },
   "tests/autonomy/test_gates.py": {
    "seconds": 46.3,
@@ -114,11 +114,11 @@
   },
   "tests/autonomy/test_guards.py": {
    "seconds": 6.3,
-   "shard": 1
+   "shard": 3
   },
   "tests/autonomy/test_inputs.py": {
    "seconds": 19.1,
-   "shard": 2
+   "shard": 3
   },
   "tests/autonomy/test_off.py": {
    "seconds": 14.6,
@@ -126,11 +126,11 @@
   },
   "tests/autonomy/test_score.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 3
   },
   "tests/autonomy/test_status.py": {
    "seconds": 6.0,
-   "shard": 2
+   "shard": 1
   },
   "tests/autonomy/test_text_blind.py": {
    "seconds": 2.8,
@@ -142,19 +142,19 @@
   },
   "tests/budget/test_capture.py": {
    "seconds": 1.9,
-   "shard": 3
+   "shard": 1
   },
   "tests/budget/test_end_to_end.py": {
    "seconds": 13.0,
-   "shard": 3
+   "shard": 2
   },
   "tests/budget/test_ledger.py": {
    "seconds": 8.4,
-   "shard": 2
+   "shard": 3
   },
   "tests/budget/test_limits.py": {
    "seconds": 18.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/budget/test_readings.py": {
    "seconds": 7.3,
@@ -162,11 +162,11 @@
   },
   "tests/budget/test_run_golden.py": {
    "seconds": 6.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/budget/test_run_options.py": {
    "seconds": 17.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/budget/test_status.py": {
    "seconds": 3.5,
@@ -174,11 +174,11 @@
   },
   "tests/budget/test_telemetry.py": {
    "seconds": 55.7,
-   "shard": 1
+   "shard": 2
   },
   "tests/budget/test_units.py": {
    "seconds": 5.3,
-   "shard": 2
+   "shard": 3
   },
   "tests/goal/test_approvals.py": {
    "seconds": 0.2,
@@ -194,7 +194,7 @@
   },
   "tests/goal/test_entries.py": {
    "seconds": 0.2,
-   "shard": 2
+   "shard": 1
   },
   "tests/goal/test_failwrite.py": {
    "seconds": 3.2,
@@ -202,35 +202,39 @@
   },
   "tests/goal/test_files.py": {
    "seconds": 0.2,
-   "shard": 1
+   "shard": 3
   },
   "tests/goal/test_gen.py": {
    "seconds": 0.5,
+   "shard": 2
+  },
+  "tests/goal/test_goalrun.py": {
+   "seconds": 90.0,
    "shard": 3
   },
   "tests/goal/test_guidance.py": {
    "seconds": 0.7,
-   "shard": 2
+   "shard": 3
   },
   "tests/goal/test_guidance_coverage.py": {
    "seconds": 0.1,
-   "shard": 2
+   "shard": 1
   },
   "tests/goal/test_log.py": {
    "seconds": 1.5,
-   "shard": 1
+   "shard": 3
   },
   "tests/goal/test_packet.py": {
    "seconds": 1.4,
-   "shard": 3
+   "shard": 1
   },
   "tests/goal/test_roles.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 3
   },
   "tests/goal/test_verdict.py": {
    "seconds": 0.2,
-   "shard": 3
+   "shard": 2
   },
   "tests/goal/test_watch.py": {
    "seconds": 0.4,
@@ -238,7 +242,7 @@
   },
   "tests/goal/test_worktree.py": {
    "seconds": 22.0,
-   "shard": 2
+   "shard": 3
   },
   "tests/goal/test_worktree_golden.py": {
    "seconds": 4.0,
@@ -246,59 +250,59 @@
   },
   "tests/serve/test_entries.py": {
    "seconds": 14.2,
-   "shard": 3
+   "shard": 1
   },
   "tests/serve/test_failclosed.py": {
    "seconds": 0.2,
-   "shard": 2
+   "shard": 1
   },
   "tests/serve/test_gaps.py": {
    "seconds": 0.5,
-   "shard": 1
+   "shard": 2
   },
   "tests/serve/test_gate_properties.py": {
    "seconds": 30.7,
-   "shard": 1
+   "shard": 3
   },
   "tests/serve/test_gen.py": {
    "seconds": 0.2,
-   "shard": 1
+   "shard": 3
   },
   "tests/serve/test_mutation.py": {
    "seconds": 10.0,
-   "shard": 3
+   "shard": 2
   },
   "tests/serve/test_samecode.py": {
    "seconds": 3.2,
-   "shard": 2
+   "shard": 1
   },
   "tests/serve/test_scenarios.py": {
    "seconds": 60.0,
-   "shard": 2
+   "shard": 1
   },
   "tests/serve/test_token.py": {
    "seconds": 0.9,
-   "shard": 1
+   "shard": 3
   },
   "tests/serve/test_wire.py": {
    "seconds": 48.6,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_affected_tests.py": {
    "seconds": 1.0,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_archive.py": {
    "seconds": 4.9,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_automation.py": {
    "seconds": 3.1,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_backfill_history.py": {
    "seconds": 1.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_board_status.py": {
    "seconds": 0.5,
@@ -306,23 +310,23 @@
   },
   "tests/test_builder_workflow.py": {
    "seconds": 0.1,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_check_log.py": {
    "seconds": 2.2,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_checks.py": {
    "seconds": 0.2,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_ci_map.py": {
    "seconds": 6.0,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_ci_plan.py": {
    "seconds": 1.0,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_ci_shards.py": {
    "seconds": 2.0,
@@ -330,7 +334,7 @@
   },
   "tests/test_ci_workflow.py": {
    "seconds": 0.1,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_cli_map.py": {
    "seconds": 0.3,
@@ -342,7 +346,7 @@
   },
   "tests/test_docs.py": {
    "seconds": 1.2,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_elections.py": {
    "seconds": 14.3,
@@ -350,11 +354,11 @@
   },
   "tests/test_exit_codes.py": {
    "seconds": 2.7,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_frontier_practices.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_generated_files.py": {
    "seconds": 16.6,
@@ -362,7 +366,7 @@
   },
   "tests/test_helpers.py": {
    "seconds": 2.0,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_honest.py": {
    "seconds": 15.5,
@@ -370,7 +374,7 @@
   },
   "tests/test_logbook.py": {
    "seconds": 1.7,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_logbook_chain.py": {
    "seconds": 19.0,
@@ -378,15 +382,15 @@
   },
   "tests/test_logbook_crash.py": {
    "seconds": 13.5,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_logbook_integration.py": {
    "seconds": 0.9,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_merge_main.py": {
    "seconds": 16.6,
@@ -394,15 +398,15 @@
   },
   "tests/test_miniyaml.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_petition.py": {
    "seconds": 62.1,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_progress_page.py": {
    "seconds": 0.1,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_queue.py": {
    "seconds": 3.5,
@@ -418,11 +422,11 @@
   },
   "tests/test_rulelog.py": {
    "seconds": 35.8,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_rules.py": {
    "seconds": 0.7,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_runlock.py": {
    "seconds": 13.8,
@@ -438,19 +442,19 @@
   },
   "tests/test_scan_secrets.py": {
    "seconds": 7.5,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_schedule.py": {
    "seconds": 22.7,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_site_assets.py": {
    "seconds": 0.9,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_site_package.py": {
    "seconds": 2.0,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_stalls.py": {
    "seconds": 1.0,
@@ -462,7 +466,7 @@
   },
   "tests/test_system.py": {
    "seconds": 47.0,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_ui_package.py": {
    "seconds": 9.5,
@@ -478,7 +482,7 @@
   },
   "tests/test_whole_system.py": {
    "seconds": 40.5,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_workflows.py": {
    "seconds": 3.3,
