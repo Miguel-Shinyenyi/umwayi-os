@@ -6,7 +6,7 @@ This is the builder's reading, for the owner to review. The owner has not read i
 
 A coverage view of the ten practices on [kiro.dev/topics/frontier-engineering](https://kiro.dev/topics/frontier-engineering) against what this repo already does. It builds nothing new. The builder read the page and the steering, guidance, docs and tools of this repo, and marked a row Covered only where a real file or test shows it. Anything the builder could not show is Partly covered or Not covered.
 
-`tests/test_frontier_practices.py` checks the form of the table and that each evidence file and guidance id exists. It does not check that a state is true or that the evidence proves it. No job or schedule runs it beyond the normal test run, and nothing in `umwayi/` reads this file. See [KNOWN-LIMITS](KNOWN-LIMITS.md), the limit named "Frontier practices tracker (W10)".
+`tests/test_frontier_practices.py` checks the form of the table and that each evidence file and guidance id exists. It does not check that a state is true or that the evidence proves it. No job or schedule runs it beyond the normal test run, and nothing in `umwayi/` reads this file. See [KNOWN-LIMITS 262](KNOWN-LIMITS.md).
 
 ## Current state
 
