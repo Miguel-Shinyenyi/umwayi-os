@@ -1427,3 +1427,15 @@ Since W24 a pull request runs the Python suite on 3.10 and 3.13 only, and a push
 - The hash is of the first line of the rule only. A sentence added on a later line of the same rule (as W23 did to rule 9) changes no hash, so the loader does not stop and no test fails if the sentence and the guidance entry drift apart. Keeping them together depends on the rule 9 sentence being followed.
 - Rule 9 itself cannot be enforced by a check: nothing finds a steering edit that has no matching guidance edit when the edited line is not the pinned one.
 - `docs/kiro-issues-log.md` is written by hand from pull requests and CI logs. Nothing checks it against them.
+
+## Tester quickstart (W25)
+
+### 272. The quickstart is checked against the command line, not against a real agent, and a tester copies three files by hand
+
+`docs/quickstart.md` is for a stranger who installs umwayi-os from the public repo. `tests/test_quickstart.py` keeps every quoted command real, and the page was run command by command on a fresh clone. That proves less than it sounds.
+
+- The test proves that each quoted command line parses against the real command line, not that it works or that the output in the page is the output you get. The outputs were checked by hand on one day, on Linux, and the page can go stale when a message changes.
+- The agent section was run with a stand-in program for Claude Code, not a real one, so what a real `agent check`, `agent run` and cost report print was not seen (KNOWN-LIMITS 117 and the owner's real runs 10.21 and 10.31 are still open). The page says so.
+- There is no `umwayi init`. A tester copies `rules.yaml`, `umwayi.json` and `jobs.yaml` into a scratch folder by hand, and a worktree for `--workdir` is made by hand with `git worktree add` under the exact name `ROOT-worktrees/g-NNNN-t-NN`. A wrong mode or name gives exit 64 with one fixed sentence and no hint which part was wrong.
+- The page tells a tester that `umwayi goal` and the feedback path are not available. When W9.8 or W26 merges, nothing fails until someone reads the page; the open questions of the page say so.
+- Only Linux was tried. macOS, Windows and a Python older than 3.10 were not.
