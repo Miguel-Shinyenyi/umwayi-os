@@ -817,6 +817,13 @@ The owner's reviewer found that each push to a pull request branch started two r
 - [x] W20.E `.kiro/steering/builder-workflow.md`: the builder rules, short, read by every session (`tests/test_builder_workflow.py`).
 - [ ] W20.F The owner changes the branch rule by hand to require `tests / result (pull_request)` (the four `tests / test (3.1x) (pull_request)` names no longer exist). Waits for the owner.
 
+## W19 part 2: the concerns record checker (the owner's task, Nov 13; its own pull request)
+
+- [x] W19.2.A Tests first: `tests/test_concerns.py`, one for each failure case (a missing, duplicate or out of range number, a bad answer, an empty reason, an Applies row with a missing evidence path, a malformed date), a valid record, exit 0 on valid and 2 on invalid, the 111 names numbered 1 to 111 with no gap, and evidence that cannot leave the repo (no `..`, no absolute path, no link out).
+- [x] W19.2.B `umwayi/concerns.py`: a strict parser and checker for the table `number, concept, answer, reason, evidence, date`, and the fixed list of the 111 concept names. Standard library only. It checks the form and never claims the content is true.
+- [x] W19.2.C `umwayi concerns check PATH`: one line per failure, exit 0, 2 or 64, never 1 or 3. Run by the owner; no job, timer or workflow starts it (a test checks).
+- [x] W19.2.D Docs: `docs/concerns.md`, a status part and a limits part in `docs-parts/` built with `umwayi goal docs build`, `docs/exit-codes.md`, `docs/architecture.md`, `docs/testing.md`, PROJECT.md.
+
 ## Non goals for Dec 3
 
 Finance and marketing loops, shared rule packs (after Dec 3). The web interface was a non goal until Nov 10; it is layer 12 now. File watching, an SQLite index, tmux sessions and a sandbox (layer 11 proposes to cut or defer them, 11.R8).

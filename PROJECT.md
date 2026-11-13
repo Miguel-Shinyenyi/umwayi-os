@@ -48,6 +48,7 @@ umwayi-os/
     autonomy.md             layer 13: graded autonomy, the score and its gates (built, off by default)
     serve.md                W6: umwayi serve, the local backend the page may send requests to (the core and the page client are built; the by-hand browser pass is not run)
     goals.md                W9: umwayi goal, a goal split into task packets and run one at a time through the gate (specified; only the docs builder `goal docs` is built)
+    concerns.md             W19: umwayi concerns check, the 111 concepts record (built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
     KNOWN-LIMITS.md         every known limit, numbered

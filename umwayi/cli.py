@@ -11,6 +11,7 @@ Exit codes:
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
   umwayi autonomy: record 0, 1 (refused), 2 or 64; status 0, 2 or 64; validate 0 (valid), 2 or 64 (layer 13)
+  umwayi concerns check: 0 well formed, 2 any failure or error, 64 for usage; never 1 or 3 (W19)
   umwayi goal docs: build and check 0 or 2, 64 for usage; never 1 or 3 (W9.9; no other goal command is built)
   umwayi serve token: create and rotate 0 or 1 (refused) or 2 or 64; revoke 0, 1, 2 or 64; status 0, 2 or 64; never 3 (W6)
 """
@@ -25,7 +26,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, autonomy, budget, decisions, elections, goaldocs, jobs, kill, logbook,
+from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, goaldocs, jobs, kill, logbook,
                     petition, publish, report, rules, schedule, servegate, servetoken, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
@@ -319,6 +320,13 @@ def build_parser() -> argparse.ArgumentParser:
     gldsub.add_parser("build", help="write the two files from the frozen base and the part files, and write the number "
                                     "of each new limit into its part (nothing is written if any part is bad)")
     gldsub.add_parser("check", help="exit 0 if the two files equal the build, 2 if not (writes nothing)")
+
+    cn = sub.add_parser("concerns", help="the project concerns record (W19)")
+    cnsub = cn.add_subparsers(dest="concerns_command", parser_class=_Parser)
+    cnc = cnsub.add_parser("check", help="check that a concerns record has one well formed row for each of the 111 "
+                                         "engineering concepts; one line per failure; exit 0, or 2 on any failure; "
+                                         "run by the owner, never on a schedule (changes nothing)")
+    cnc.add_argument("path", help="the record, a markdown table (a relative path is read from the current folder; evidence paths are checked against --root)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -633,6 +641,26 @@ def _cmd_goal_docs(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_concerns(args, out) -> int:
+    """W19. `umwayi concerns check PATH`. Its own error handling: 0, 2 or 64, never 1 or 3. A failure is 2."""
+    try:
+        failures = concerns.check_file(Path(args.path), Path(args.root))
+        if failures:
+            sys.stderr.write("\n".join(failures) + "\n")
+            return EXIT_CRASH
+        out.write(f"Yes: the concerns record has one well formed row for each of the {len(concerns.CONCEPTS)} "
+                  "concepts. This checks the form only, not whether the answers are true.\n")
+        return 0
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _is_terminal(out) -> bool:
     try:
         return bool(out.isatty())
@@ -751,6 +779,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
         if args.command == "goal" and getattr(args, "goal_command", None) == "docs" \
                 and getattr(args, "docs_command", None):
             return _cmd_goal_docs(args, out)
+        if args.command == "concerns" and getattr(args, "concerns_command", None) == "check":
+            return _cmd_concerns(args, out)
         if args.command == "petition":
             r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
             out.write("\n".join(petition.render(r)) + "\n")
