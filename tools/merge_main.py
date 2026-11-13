@@ -283,7 +283,10 @@ def merge_and_repair(git, root):
         raise Stop(FAILED, ["a command wrote a file that is not on the list:", *[f"  {p}" for p in stray],
                             "The tree was put back as it was."])
     for e in entries:
-        lines.append(outcome[e["path"]])
+        line = outcome[e["path"]]
+        if line.startswith("kept ") and e["path"] in wrote:  # written by a command that ran for another entry
+            line = f"regenerated {e['path']}: written by the same command as an earlier file; ran {' then '.join(show(c) for c in e['regenerate'])}"
+        lines.append(line)
     if merging and conflicted:
         if wrote and git.run("add", "--", *wrote).returncode != 0:
             raise Stop(FAILED, ["could not stage the regenerated files", "The tree was put back as it was."])

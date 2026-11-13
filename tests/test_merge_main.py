@@ -174,6 +174,7 @@ class PartsTests(MergeMainBase):
         rb = self.merge_main(self.b)
         self.assertEqual(rb.returncode, 0, rb.stdout + rb.stderr)
         self.assertRegex(rb.stdout, r"(?m)^regenerated docs/status-log.md: ")
+        self.assertRegex(rb.stdout, r"(?m)^regenerated docs/KNOWN-LIMITS.md: ")
         status = (self.b / "docs" / "status-log.md").read_text(encoding="utf-8")
         limits = (self.b / "docs" / "KNOWN-LIMITS.md").read_text(encoding="utf-8")
         self.assertEqual(status.count("Task Wa-one is done."), 1)
