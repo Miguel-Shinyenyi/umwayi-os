@@ -4,7 +4,8 @@ It is built by `node build.mjs` from three files: docs/status-log.md, docs/KNOWN
 ui/dist/build.json holds the SHA-256 of those three files and of the page. These tests fail when:
 - one of the three sources changed since the page was built, or the page was edited by hand (run the build),
 - the page has a script, a form, a link, a request or a policy that is not default-src 'none'.
-Standard library only, no npm. ui/test/progress.test.mjs also compares the page with a fresh render.
+Standard library only, no npm. A matching hash shows the build was run after the last change of a source; it does not show the
+page text is right for the sources, because only the build reads them.
 """
 from __future__ import annotations
 

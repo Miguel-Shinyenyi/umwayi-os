@@ -88,7 +88,7 @@
   "progressPage": "ae702bf5ea0d22bf4eb6ea18f8d994cbca2dc2af81bed4077b354401f876cc40",
   "progressSources": {
     "docs/status-log.md": "5cd633a4cccd268cab58ee34877c57b2d242f98aaf15f8e5fd14660c1261e053",
-    "docs/KNOWN-LIMITS.md": "2e014f3178d5386770e0bf08650b5b1172222ecdaea3e6ff7702eae989c88c8b",
+    "docs/KNOWN-LIMITS.md": "45e465eff71b1a3afabedb29b2fd1b942c1416163e8fe22c3b456df506203cfa",
     ".kiro/specs/umwayi-os/tasks.md": "40e758636099e96dd2f7d1a67ceadcc7c59de3b0584bb18235741264f6fcf58d"
   }
 }

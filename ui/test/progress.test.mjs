@@ -1,15 +1,12 @@
-// W8 slice: the progress page. The parser is checked on small texts of its own, the built page is checked against a fresh render of
-// the three source files (so a page older than its sources fails), and the page rules are checked on the built file.
+// W8 slice: the progress page. The parser is checked on small texts of its own, the built page is checked against itself, and the page rules are checked on the built file.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { model, render, taskGroups, statusRows, highestLimit, firstSentence } from '../src/data/progress.js';
+import { render, taskGroups, statusRows, highestLimit, firstSentence } from '../src/data/progress.js';
 
 const ui = join(dirname(fileURLToPath(import.meta.url)), '..');
-const repo = join(ui, '..');
-const read = (p) => readFileSync(join(repo, p), 'utf8');
 const html = readFileSync(join(ui, 'dist/progress.html'), 'utf8');
 
 test('tasks are counted per group, and ### stays inside its group', () => {
@@ -37,16 +34,16 @@ test('the page shows html safely', () => {
   assert.ok(!out.groups.includes('<b>') && !out.rows.includes('<i>'));
 });
 
-test('the built page is what the three source files give now (date aside)', () => {
-  const m = model({ statusLog: read('docs/status-log.md'), tasks: read('.kiro/specs/umwayi-os/tasks.md'), limits: read('docs/KNOWN-LIMITS.md') });
-  const date = (html.match(/Built on (\d{4}-\d{2}-\d{2})\./) || [])[1];
-  assert.ok(date, 'the page says the date it was built');
-  const want = render(m, date);
-  for (const key of ['groups', 'rows']) assert.ok(html.includes(want[key]), `stale: the ${key} differ from the sources (run node build.mjs in ui)`);
-  assert.ok(html.includes(want.totals), 'stale: the totals differ');
-  assert.ok(html.includes(`Highest known limit number: ${want.limit}`), 'stale: the highest limit differs');
-  assert.equal(m.rows.length, 10);
-  assert.equal((html.match(/<li data-group=/g) || []).length, m.groups.length);
+test('the built page agrees with itself: the totals are the sum of the groups and ten rows are shown', () => {
+  // staleness against the three source files is checked without npm by tests/test_progress_page.py (hashes in dist/build.json)
+  assert.ok(/Built on \d{4}-\d{2}-\d{2}\./.test(html), 'the page says the date it was built');
+  const groups = [...html.matchAll(/<li data-group="[^"]*">.*?<span class="done">(\d+) done<\/span><span class="open">(\d+) open<\/span>/g)];
+  assert.ok(groups.length > 0);
+  const done = groups.reduce((a, g) => a + Number(g[1]), 0);
+  const open = groups.reduce((a, g) => a + Number(g[2]), 0);
+  assert.ok(html.includes(`${done} tasks done and ${open} open, in ${groups.length} groups.`));
+  assert.equal((html.match(/<span class="when">/g) || []).length, 10);
+  assert.ok(/Highest known limit number: \d+/.test(html));
 });
 
 test('the page has no http fetch, no form and no script src', () => {

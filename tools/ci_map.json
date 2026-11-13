@@ -169,7 +169,7 @@
   "ui/test/notes.test.mjs": [],
   "ui/test/phone.test.mjs": [],
   "ui/test/placement.test.mjs": [],
-  "ui/test/progress.test.mjs": [".kiro/specs/umwayi-os/tasks.md", "docs/KNOWN-LIMITS.md", "docs/status-log.md"],
+  "ui/test/progress.test.mjs": [],
   "ui/test/scene.test.mjs": [],
   "ui/test/shared.test.mjs": [],
   "ui/test/shots.test.mjs": [],

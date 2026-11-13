@@ -183,7 +183,6 @@ Node test files that read a path outside their own package (the others read noth
 | `site/test/phone.test.mjs` | `ui/tools/browser.mjs`, `ui/tools/phone-audit.mjs`, `ui/tools/phone-scenario.mjs` |
 | `ui/test/client.test.mjs` | `umwayi/serve.py`, `umwayi/servegate.py` |
 | `ui/test/faults.test.mjs` | `site/test/phone.test.mjs`, `tests/test_ui_package.py` |
-| `ui/test/progress.test.mjs` | `.kiro/specs/umwayi-os/tasks.md`, `docs/KNOWN-LIMITS.md`, `docs/status-log.md` |
 
 Which changed path runs which jobs (the longest matching prefix wins; a path matching none runs everything):
 
@@ -216,6 +215,7 @@ Which changed path runs which jobs (the longest matching prefix wins; a path mat
 | `workflows/` | all of them | only if a node test reads it |
 | anything else | all of them (everything, every version) | yes |
 
+<!-- ci-map:end -->
 <!-- ci-map:end -->
 <!-- ci-map:end -->
 <!-- ci-map:end -->

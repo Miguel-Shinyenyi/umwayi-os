@@ -18,7 +18,7 @@
   },
   "tests/adapters/test_opencode_rules.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/adapters/test_stdio.py": {
    "seconds": 8.1,
@@ -126,7 +126,7 @@
   },
   "tests/autonomy/test_score.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/autonomy/test_status.py": {
    "seconds": 6.0,
@@ -378,7 +378,7 @@
   },
   "tests/test_miniyaml.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_petition.py": {
    "seconds": 62.1,
