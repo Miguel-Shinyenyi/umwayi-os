@@ -1,12 +1,15 @@
-// W8 slice: the progress page. The parser is checked on small texts of its own, the built page is checked against itself, and the page rules are checked on the built file.
+// W8 slice, W22: the progress page. The parser is checked on small texts of its own, the page the build writes is checked against itself, and the page rules are checked on that file.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { model, shown, render, taskGroups, statusRows, highestLimit, firstSentence } from '../src/data/progress.js';
 
 const ui = join(dirname(fileURLToPath(import.meta.url)), '..');
+// W22: the progress page is not committed. It is made by the build, so this test runs the build and reads what it wrote.
+execFileSync(process.execPath, ['build.mjs'], { cwd: ui, stdio: 'pipe' });
 const html = readFileSync(join(ui, 'dist/progress.html'), 'utf8');
 
 test('tasks are counted per group, and ### stays inside its group', () => {
@@ -35,7 +38,7 @@ test('the page shows html safely', () => {
 });
 
 test('the built page agrees with itself: the totals are the sum of the groups and ten rows are shown', () => {
-  // staleness against the three source files is checked without npm by tests/test_progress_page.py (hashes in dist/build.json)
+  // the page is built from the sources just now, so it cannot be stale; tests/test_progress_page.py checks the second reader against this one
   assert.ok(/Built on \d{4}-\d{2}-\d{2}\./.test(html), 'the page says the date it was built');
   const groups = [...html.matchAll(/<li data-group="[^"]*">.*?<span class="done">(\d+) done<\/span><span class="open">(\d+) open<\/span>/g)];
   assert.ok(groups.length > 0);

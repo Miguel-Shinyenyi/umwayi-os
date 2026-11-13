@@ -12,7 +12,7 @@ The first word `python` stands for the Python that runs the tool.
 The reader is strict. A key it does not know, a repeated path, a path that is not a plain relative path, a command that
 starts a shell, or a wrong type is a ListError, and `python -m tools.merge_main` turns that into exit 64.
 
-Used by: tools/merge_main.py (to merge), and tests/test_progress_page.py, tests/test_ci_map.py, tests/test_ci_shards.py and
+Used by: tools/merge_main.py (to merge), and tests/test_ci_map.py, tests/test_ci_shards.py and
 tests/test_docs.py (to end a stale message with the command, through `stale_message`).
 """
 import json

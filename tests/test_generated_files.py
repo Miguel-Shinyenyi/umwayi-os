@@ -23,7 +23,10 @@ class RealListTests(unittest.TestCase):
     def test_the_real_list_loads_and_names_the_seven_files_in_this_order(self):
         self.assertEqual([e["path"] for e in self.entries],
                          ["docs/status-log.md", "docs/KNOWN-LIMITS.md", "tools/ci_map.json", "tools/ci_shards.json", "docs/testing.md",
-                          "ui/dist/progress.html", "ui/dist/build.json"])
+                          "ui/dist/build.json"])
+
+    def test_the_progress_page_is_not_listed_because_it_is_built_and_not_committed(self):
+        self.assertNotIn("ui/dist/progress.html", [e["path"] for e in self.entries])
 
     def test_every_listed_file_exists(self):
         for e in self.entries:
@@ -37,9 +40,9 @@ class RealListTests(unittest.TestCase):
         self.assertEqual([c["argv"] for c in by["docs/testing.md"]["regenerate"]], [["python", "-m", "tools.ci_map", "table", "--write"]])
         self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["regenerate"]], [["python", "-m", "tools.ci_shards", "assign-missing"]])
         self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["verify"]], [["python", "-m", "tools.ci_shards", "check"]])
-        self.assertEqual([(c["argv"], c["cwd"]) for c in by["ui/dist/progress.html"]["regenerate"]],
+        self.assertEqual([(c["argv"], c["cwd"]) for c in by["ui/dist/build.json"]["regenerate"]],
                          [(["npm", "ci", "--ignore-scripts"], "ui"), (["node", "build.mjs"], "ui")])
-        self.assertEqual([c["argv"] for c in by["ui/dist/build.json"]["verify"]], [["python", "-m", "unittest", "tests.test_progress_page"]])
+        self.assertEqual([c["argv"] for c in by["ui/dist/build.json"]["verify"]], [["python", "-m", "unittest", "tests.test_ui_package"]])
 
     def test_the_testing_md_entry_is_a_block_and_the_markers_are_in_the_file(self):
         block = next(e for e in self.entries if e["path"] == "docs/testing.md")["block"]
@@ -115,7 +118,7 @@ class HintTests(unittest.TestCase):
         self.assertEqual(gf.regenerate_hint("tools/ci_map.json"), "To fix it, run: python -m tools.ci_map update")
         self.assertEqual(gf.regenerate_hint("docs/testing.md"), "To fix it, run: python -m tools.ci_map table --write")
         self.assertEqual(gf.regenerate_hint("docs/status-log.md"), "To fix it, run: python -m umwayi goal docs build")
-        self.assertEqual(gf.regenerate_hint("ui/dist/progress.html"),
+        self.assertEqual(gf.regenerate_hint("ui/dist/build.json"),
                          "To fix it, run: (cd ui && npm ci --ignore-scripts && node build.mjs)")
 
     def test_the_message_ends_with_the_command(self):
