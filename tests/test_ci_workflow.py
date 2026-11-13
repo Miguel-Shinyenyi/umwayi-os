@@ -137,7 +137,8 @@ class RequireBrowserTests(unittest.TestCase):
     def test_a_missing_browser_only_skips_when_not_required(self):
         r = self.run_phone("ui/test/phone.test.mjs", False)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertRegex(r.stdout, r"# skipped [1-9]")
+        # the summary line differs between Node versions and reporters, so only the skip message is read
+        self.assertIn("No Chromium found", r.stdout + r.stderr)
 
 
 if __name__ == "__main__":
