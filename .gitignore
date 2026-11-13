@@ -32,3 +32,7 @@ outbox/
 # the local backend (W6): the SHA-256 record of its token, and its one-server-per-root lock
 .umwayi/serve.token
 .umwayi/serve.lock
+
+# goal orchestration (W9): the state of the goals and the one-supervisor lock
+.umwayi/goals/
+.umwayi/goal.lock
