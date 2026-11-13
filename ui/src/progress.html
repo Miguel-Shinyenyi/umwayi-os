@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>umwayi progress</title>
+<!--@csp-->
+<style><!--@style--></style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>umwayi progress</h1>
+    <p class="lead">Read only. Made from files in the repo when the page was built.</p>
+  </header>
+  <section aria-labelledby="groups-h">
+    <h2 id="groups-h">Work items</h2>
+    <p><!--@totals--></p>
+    <ul>
+<!--@groups-->
+    </ul>
+  </section>
+  <section aria-labelledby="rows-h">
+    <h2 id="rows-h">Latest ten status log rows</h2>
+    <ul>
+<!--@rows-->
+    </ul>
+  </section>
+  <footer>
+    <p>Highest known limit number: <!--@limit--></p>
+    <p>Built on <!--@date-->.</p>
+    <p>Counts come from <code>.kiro/specs/umwayi-os/tasks.md</code>, rows from <code>docs/status-log.md</code>, the limit from <code>docs/KNOWN-LIMITS.md</code>. To refresh it, run <code>node build.mjs</code> in <code>ui</code>.</p>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,34 @@
+/* The progress page (W8 slice). Same palette as the command map. Phones first: one column, no sideways scroll. */
+:root {
+  --base: #0e1310;
+  --ink: #eee8db;
+  --muted: #b3ada0;
+  --amber: #e0a965;
+  --mint: #9cc39a;
+  --line: rgba(238, 232, 219, 0.28);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--base); color: var(--ink); font: 16px/1.45 var(--sans); }
+body { overflow-x: hidden; }
+main { max-width: 46rem; margin: 0 auto; padding: 18px 14px 40px; }
+header { text-align: center; margin: 0 0 18px; }
+h1 { margin: 0 0 8px; font: 700 1.4rem/1.2 var(--mono); color: var(--amber); }
+h2 { margin: 26px 0 8px; font-size: 1.1rem; color: var(--amber); }
+.lead { margin: 0; color: var(--muted); }
+ul { list-style: none; margin: 0; padding: 0; overflow-wrap: anywhere; }
+li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.name { display: block; font: 700 1rem/1.3 var(--mono); color: var(--mint); }
+.nums { display: block; color: var(--muted); font-size: 0.9375rem; }
+.done { color: var(--mint); margin-right: 14px; }
+.open { color: var(--amber); }
+progress { display: block; width: 100%; height: 6px; margin-top: 6px; appearance: none; border: 0; border-radius: 3px; background: var(--line); overflow: hidden; }
+progress::-webkit-progress-bar { background: var(--line); }
+progress::-webkit-progress-value { background: var(--mint); }
+progress::-moz-progress-bar { background: var(--mint); }
+.when, .pr { font: 0.875rem/1.3 var(--mono); color: var(--muted); margin-right: 10px; }
+.what { display: block; margin-top: 2px; }
+footer { margin-top: 28px; color: var(--muted); font-size: 0.875rem; }
+footer p { margin: 0 0 8px; }
+code { font-family: var(--mono); color: var(--ink); }

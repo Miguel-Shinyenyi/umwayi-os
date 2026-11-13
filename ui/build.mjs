@@ -93,9 +93,35 @@ let mapHtml = readFileSync(join(root, 'src/cli-map.html'), 'utf8')
 if (/<!--@/.test(mapHtml)) throw new Error('a placeholder was not replaced in the command map');
 writeFileSync(join(dist, 'cli-map.html'), mapHtml);
 
+// W8 slice: the progress page, a third page. No script, so the policy is the map's: default-src 'none' plus the style hash.
+// Its words come from three files of the repo, read here and nowhere else: docs/status-log.md, docs/KNOWN-LIMITS.md and
+// .kiro/specs/umwayi-os/tasks.md. The date is the day of the build (UMWAYI_BUILD_DATE sets it for a repeatable build).
+const progress = await import(pathToFileURL(join(root, 'src/data/progress.js')).href);
+const repo = join(root, '..');
+const progressSources = { 'docs/status-log.md': null, 'docs/KNOWN-LIMITS.md': null, '.kiro/specs/umwayi-os/tasks.md': null };
+for (const name of Object.keys(progressSources)) progressSources[name] = readFileSync(join(repo, name));
+const progressModel = progress.model({
+  statusLog: progressSources['docs/status-log.md'].toString('utf8'),
+  limits: progressSources['docs/KNOWN-LIMITS.md'].toString('utf8'),
+  tasks: progressSources['.kiro/specs/umwayi-os/tasks.md'].toString('utf8'),
+});
+const parts = progress.render(progressModel, process.env.UMWAYI_BUILD_DATE || new Date().toISOString().slice(0, 10));
+const progressCss = (await transform(readFileSync(join(root, 'src/progress.css'), 'utf8'), { loader: 'css', minify: true })).code;
+const progressCsp = ["default-src 'none'", `style-src '${cspHash(progressCss)}'`, "base-uri 'none'", "form-action 'none'"].join('; ');
+const progressHtml = readFileSync(join(root, 'src/progress.html'), 'utf8')
+  .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${progressCsp}">`)
+  .replace('<!--@style-->', () => progressCss)
+  .replace('<!--@totals-->', () => escapeHtml(parts.totals))
+  .replace('<!--@groups-->', () => parts.groups)
+  .replace('<!--@rows-->', () => parts.rows)
+  .replace('<!--@limit-->', () => parts.limit)
+  .replace('<!--@date-->', () => parts.date);
+if (/<!--@/.test(progressHtml)) throw new Error('a placeholder was not replaced in the progress page');
+writeFileSync(join(dist, 'progress.html'), progressHtml);
+
 // what the page was built from: tests recompute these without npm
 const inputs = ['build.mjs', 'package.json', 'package-lock.json', ...walk(join(root, 'src')).map((f) => relative(root, f).split('\\').join('/'))];
 const files = {};
 for (const name of [...new Set(inputs)].sort()) files[name] = sha256(readFileSync(join(root, name)));
-writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))) }, null, 2) + '\n');
+writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))), progressPage: sha256(readFileSync(join(dist, 'progress.html'))), progressShown: sha256(progress.shown(progressModel)) }, null, 2) + '\n');
 console.log(`built ui/dist/index.html (${Math.round(html.length / 1024)} KB)`);
