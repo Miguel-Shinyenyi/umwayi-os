@@ -93,21 +93,21 @@ guidance:
   - id: merge-main-before-push
     source_repo: umwayi-os
     source: ".kiro/steering/builder-workflow.md#2"
-    text: "Merge the newest origin/main into the branch before every push and before opening the pull request."
+    text: "Merge main with python -m tools.merge_main, never a raw git merge, before every push and whenever main moves. Exit 3 means stop and ask the guide."
     kind: advise
-    prompt_line: "Merge the newest origin/main before every push and before you open the pull request, and confirm GitHub shows no conflicts."
+    prompt_line: "Merge main with python -m tools.merge_main, never raw git merge. Exit 3 means stop and ask the guide with the printed paths. Confirm GitHub shows no conflicts."
     applies_to: pr
     tier: 4
-    source_hash: "4f9e36466af3921690f20827c6e28a1c5dc06e0bbaafa2f09f012c288ba66640"
+    source_hash: "657488dd6c6e7d0e7f8902e1dd0fe6b826ef1c2af1956bf12342a8b3978960f3"
   - id: known-limits-next-free-number
     source_repo: umwayi-os
     source: ".kiro/steering/builder-workflow.md#3"
-    text: "Take the next free KNOWN-LIMITS number after merging main, or use the docs part files."
+    text: "Leave a limits part unnumbered so the builder assigns the number, and never edit the generated docs files by hand."
     kind: advise
-    prompt_line: "After merging main, take the next free KNOWN-LIMITS number, or add a docs part file instead of editing the generated file."
+    prompt_line: "Add a docs part file and leave a limits part unnumbered, so the builder assigns the number. Never edit docs/status-log.md or docs/KNOWN-LIMITS.md by hand."
     applies_to: pr
     tier: 4
-    source_hash: "5129c4b3820f7fe81a4f16718873e2f0808f1e5549771362de337b629b637487"
+    source_hash: "d91dc194caf2b6d9f9abf18a33c984ebdd2fff5c2079875331fa614ec9cdd38d"
   - id: tests-first-affected-only
     source_repo: umwayi-os
     source: ".kiro/steering/builder-workflow.md#4"
