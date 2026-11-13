@@ -987,6 +987,6 @@ When W9 is approved and built, this row moves into the main status table as its 
 ## W19: guidance.yaml and the enforce checks (the owner's task, Nov 13; two stages)
 
 - [x] W19.1 Stage 1 (own pull request): `guidance.yaml` and `umwayi/guidance.py` (the strict loader that fails closed, the tier and `overrides` fields and `resolve`, the registry of four checks, `check_task`), `umwayi goal guard [TASKFILE]`, `tests/goal/test_guidance.py`, the docs parts and KNOWN-LIMITS 254. Design: "Guidance (W19), stage 1".
-  - Built with two of the four enforce entries (goal sentence, one open pull request). **Open:** the entries for consequences and undo, and for acceptance checks, and the six advise and three owner examples wait for the `understanding-first` file (its rule numbers and text), which is not in the repository.
+  - Also in this pull request: a required `tier` (1 to 6), `overrides`, `resolve`, a required `source_repo` (`umwayi-os` or `hub`), and the owner commands `umwayi guidance list` and `umwayi guidance verify --hub PATH`. Nine entries: four enforce, four advise, one owner. **Open:** the owner asked for six advise and three owner examples and named four and one; more wait for the owner's rule numbers. The hub hashes are those of hub commit 658a799 and `verify` may report a mismatch against a newer hub, which is correct.
   - Not done: calling `guard` from `goal start` and `goal run` (those commands are W9.8).
 - [ ] W19.2 Stage 2 (a later task, not started): the concerns record checker for the 111 concepts and the security checklist checks.

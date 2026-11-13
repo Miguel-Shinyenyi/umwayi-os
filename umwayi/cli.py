@@ -12,6 +12,7 @@ Exit codes:
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
   umwayi autonomy: record 0, 1 (refused), 2 or 64; status 0, 2 or 64; validate 0 (valid), 2 or 64 (layer 13)
   umwayi goal docs: build and check 0 or 2, 64 for usage; never 1 or 3 (W9.9)
+  umwayi guidance list|verify: 0, 2, 3 or 64, never 1 (W19.1)
   umwayi goal guard [TASKFILE]: 0 Yes, 3 Ask me first, 64 a bad guidance.yaml, 2 a crash; never 1 (W19.1)
   umwayi serve token: create and rotate 0 or 1 (refused) or 2 or 64; revoke 0, 1, 2 or 64; status 0, 2 or 64; never 3 (W6)
 """
@@ -324,6 +325,16 @@ def build_parser() -> argparse.ArgumentParser:
                                          "breaks an enforce rule (W19.1); exit 0, 2, 3 or 64, never 1")
     glg.add_argument("task_file", nargs="?", help="the task record: goal, consequences, undo, acceptance_checks, "
                                                   "open_prs (without it, only guidance.yaml is checked)")
+
+    gd = sub.add_parser("guidance", help="guidance.yaml: list the entries, verify the hub hashes (W19.1); "
+                                         "exit 0, 2, 3 or 64, never 1")
+    gdsub = gd.add_subparsers(dest="guidance_command", parser_class=_Parser)
+    gdl = gdsub.add_parser("list", help="one line per entry: kind, tier, source repo and whether it is verified "
+                                        "(a hub entry is unverified unless --hub is given and its file matches)")
+    gdl.add_argument("--hub", help="a checkout of the owner's hub repo, to verify the hub entries in this run")
+    gdv = gdsub.add_parser("verify", help="compare the stored hub hashes with the real hub files; exit 3 (Ask me "
+                                          "first) on a mismatch")
+    gdv.add_argument("--hub", required=True, help="the folder of a hub checkout")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -658,6 +669,29 @@ def _cmd_goal_guard(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_guidance(args, out) -> int:
+    """W19.1. `umwayi guidance list|verify`. 0 done, 3 Ask me first (a hub mismatch, a missing file or a changed
+    source), 64 a bad guidance.yaml or wrong use, 2 any unexpected error; never 1."""
+    try:
+        if args.guidance_command == "verify":
+            r = guidance.verify_hub(Path(args.root), args.hub)
+        else:
+            r = guidance.listing(Path(args.root), args.hub)
+        (out if r.code == 0 else sys.stderr).write("\n".join(r.lines) + "\n")
+        return r.code
+    except guidance.AskFirst as e:
+        sys.stderr.write(f"Ask me first: {e}\n")
+        return 3
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _is_terminal(out) -> bool:
     try:
         return bool(out.isatty())
@@ -776,6 +810,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
         if args.command == "goal" and getattr(args, "goal_command", None) == "docs" \
                 and getattr(args, "docs_command", None):
             return _cmd_goal_docs(args, out)
+        if args.command == "guidance" and getattr(args, "guidance_command", None):
+            return _cmd_guidance(args, out)
         if args.command == "goal" and getattr(args, "goal_command", None) == "guard":
             return _cmd_goal_guard(args, out)
         if args.command == "petition":

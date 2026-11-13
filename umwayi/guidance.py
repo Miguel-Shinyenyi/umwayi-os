@@ -18,7 +18,15 @@ ten); 6 advisory prompt lines. An entry may list `overrides` (ids of other entri
 higher one: an entry whose `overrides` names an entry with a lower tier number, an unknown id, itself, or the same
 id twice is refused. `resolve` picks the winner of two entries.
 
-Source and source_hash. `source` is `PATH#N` or `PATH#HEADING#N`: the repo relative file, optionally the section
+Source repo. Every entry says where its source lives, `source_repo`: `umwayi-os` (this repo) or `hub` (the owner's
+private hub repo, whose files are never copied here). For `umwayi-os` the loader checks `source_hash` against the
+file, as below. For `hub` the loader reads nothing: `source` is `FILE.md#N` (the hub file name and the rule number;
+a few practices have a name instead of a number, such as `verification-first`) and `source_hash` is the SHA-256 of
+the whole hub file, as the owner recorded it. `umwayi guidance verify --hub PATH` compares it with the real file
+(Ask me first on a mismatch), and `umwayi guidance list` shows a hub entry as unverified unless it was verified in
+that same run.
+
+Source and source_hash for `umwayi-os`. `source` is `PATH#N` or `PATH#HEADING#N`: the repo relative file, optionally the section
 whose heading starts with HEADING, and the numbered rule `N. ...` in it. The rule must be on exactly one line
 (lines inside a code fence do not count). `source_hash` is the SHA-256 of that line, trailing spaces removed, in
 lower case hex. If the line is edited, moved to another number or removed, the hash no longer matches and the
@@ -38,7 +46,7 @@ from pathlib import Path
 from typing import Callable
 
 from umwayi import fsutil, miniyaml
-from umwayi.errors import ConfigError, UmwayiError
+from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 EM_DASH = "\u2014"
 FILE_NAME = "guidance.yaml"
@@ -53,7 +61,9 @@ RUN_FOR_TASK = ("goal", "task", "pr")  # a task record is checked at these level
 _ID = re.compile(r"^[a-z][a-z0-9-]{2,47}$")
 _HASH = re.compile(r"^[0-9a-f]{64}$")
 _NUMBER = re.compile(r"^[1-9][0-9]{0,2}$")
-_COMMON = ("id", "source", "text", "kind", "applies_to", "source_hash", "tier")
+_COMMON = ("id", "source", "text", "kind", "applies_to", "source_hash", "tier", "source_repo")
+SOURCE_REPOS = ("umwayi-os", "hub")
+_HUB_SOURCE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]{0,63}\.md)#([1-9][0-9]{0,2}|[a-z][a-z0-9-]{1,47})$")
 OPTIONAL = ("overrides",)
 TIER_MIN, TIER_MAX = 1, 6
 MAX_OVERRIDES = 20
@@ -80,6 +90,7 @@ class Entry:
     applies_to: str
     source_hash: str
     tier: int
+    source_repo: str = "umwayi-os"
     check: str | None = None
     prompt_line: str | None = None
     overrides: tuple = ()
@@ -237,8 +248,14 @@ def parse(text: str, root: Path, registry: dict | None = None) -> list[Entry]:
     for it in items:
         entries.append(_entry(it, registry, seen))
     _check_overrides(entries)
+    hub_hash: dict[str, str] = {}
+    for e in entries:  # one hub file has one hash, whatever rule of it an entry names
+        if e.source_repo == "hub":
+            name = e.source.split("#")[0]
+            if hub_hash.setdefault(name, e.source_hash) != e.source_hash:
+                raise GuidanceError("guidance.yaml: two hub entries give different hashes for one hub file")
     for e in entries:  # sources last: a malformed file is 64 before any file is read
-        if compute_hash(root, e.source) != e.source_hash:
+        if e.source_repo == "umwayi-os" and compute_hash(root, e.source) != e.source_hash:
             raise SourceChanged("a source of guidance.yaml no longer matches its source_hash: stop and ask the owner")
     return entries
 
@@ -280,11 +297,17 @@ def _entry(it, registry: dict, seen: set) -> Entry:
         raise GuidanceError("guidance.yaml: a prompt_line is not one printable line of 10 to 200 characters")
     if extra == "check" and it["check"] not in registry:
         raise GuidanceError("guidance.yaml: an enforce entry names a check that is not registered")
+    if it["source_repo"] not in SOURCE_REPOS:
+        raise GuidanceError("guidance.yaml: source_repo is not umwayi-os or hub")
     if not _HASH.match(it["source_hash"]):
         raise GuidanceError("guidance.yaml: a source_hash is not 64 lower case hex characters")
-    _parse_source(it["source"])
+    if it["source_repo"] == "hub":
+        if not _HUB_SOURCE.match(it["source"]):
+            raise GuidanceError("guidance.yaml: a hub source is not FILE.md#N")
+    else:
+        _parse_source(it["source"])
     return Entry(id=it["id"], source=it["source"], text=it["text"], kind=kind, applies_to=it["applies_to"],
-                 source_hash=it["source_hash"], tier=tier, check=it.get("check"),
+                 source_hash=it["source_hash"], tier=tier, source_repo=it["source_repo"], check=it.get("check"),
                  prompt_line=it.get("prompt_line"), overrides=tuple(overrides))
 
 
@@ -389,3 +412,66 @@ def guard(root: Path, task_file: str | None) -> Result:
         i, reason = broken[0]
         return Result(3, [f"Ask me first: {reason} (guidance {i})."])
     return Result(0, ["Yes: the task record passes every enforce rule."])
+
+
+# ---------------------------------------------------------------- the hub (owner commands)
+
+HUB_MAX_BYTES = 4 * 1024 * 1024
+
+
+def hub_status(entries: list, hub_root: Path | None) -> dict:
+    """For each entry id: `verified` (a hub file whose SHA-256 equals the stored one, or an umwayi-os entry, which
+    the loader already checked), `unverified` (a hub entry and no hub checkout was given), or `mismatch` (the hub
+    file is missing, is not a plain file in the checkout, or has another hash). Reads only the named hub files."""
+    out: dict[str, str] = {}
+    cache: dict[str, str] = {}
+    base = Path(hub_root).resolve() if hub_root is not None else None
+    for e in entries:
+        if e.source_repo != "hub":
+            out[e.id] = "verified"
+        elif base is None:
+            out[e.id] = "unverified"
+        else:
+            name = e.source.split("#")[0]
+            if name not in cache:
+                try:
+                    full = (base / name).resolve()
+                    full.relative_to(base)
+                    cache[name] = hashlib.sha256(fsutil.read_regular(full, HUB_MAX_BYTES)).hexdigest()
+                except (OSError, ValueError):
+                    cache[name] = ""
+            out[e.id] = "verified" if cache[name] == e.source_hash else "mismatch"
+    return out
+
+
+def verify_hub(root: Path, hub_path: str) -> Result:
+    """`umwayi guidance verify --hub PATH`: compare the stored hub hashes with the real files. Ask me first (3) on
+    any mismatch, with one line that names entry ids and no file text. A path that is not a folder is a usage error."""
+    entries = load(root)
+    hub = Path(hub_path)
+    if not hub.is_dir():
+        raise UsageError("--hub must be the folder of a hub checkout")
+    status = hub_status(entries, hub)
+    hub_ids = [e.id for e in entries if e.source_repo == "hub"]
+    bad = [i for i in hub_ids if status[i] != "verified"]
+    if bad:
+        return Result(3, [f"Ask me first: {len(bad)} of {len(hub_ids)} hub entries do not match the hub files "
+                          f"({', '.join(bad)}). The hub checkout may be behind, or the file changed."])
+    return Result(0, [f"Yes: all {len(hub_ids)} hub entries match the hub files."])
+
+
+def listing(root: Path, hub_path: str | None = None) -> Result:
+    """`umwayi guidance list [--hub PATH]`: one line per entry with kind, tier, source repo and status. A hub entry is
+    unverified unless the hub checkout was given and its file matches; it is never shown as verified otherwise."""
+    entries = load(root)
+    hub = None
+    if hub_path is not None:
+        hub = Path(hub_path)
+        if not hub.is_dir():
+            raise UsageError("--hub must be the folder of a hub checkout")
+    status = hub_status(entries, hub)
+    lines = [f"{e.id}  {e.kind}  tier {e.tier}  {e.source_repo}  {status[e.id]}" for e in entries]
+    n_un = sum(1 for e in entries if status[e.id] == "unverified")
+    n_bad = sum(1 for e in entries if status[e.id] == "mismatch")
+    lines.append(f"{len(entries)} entries, {n_un} unverified, {n_bad} mismatch.")
+    return Result(3 if n_bad else 0, lines)

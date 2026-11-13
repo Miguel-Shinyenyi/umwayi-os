@@ -1,20 +1,44 @@
 # guidance.yaml (W19.1): rules for the goal flow, each marked enforce, advise or owner.
 # Read by umwayi/guidance.py. Strict: a bad file is exit 64, a source that changed is Ask me first (exit 3).
+# source_repo is umwayi-os (this repo) or hub (the owner's private hub repo, never copied here).
+#   umwayi-os: source is PATH#N or PATH#HEADING#N and source_hash is the SHA-256 of that numbered line.
+#   hub: source is FILE.md#N, source_hash is the SHA-256 of the whole hub file as the owner recorded it (hub commit
+#   658a799, a local clone that may be behind). The loader does not read hub files: `umwayi guidance verify --hub PATH`
+#   does, and `umwayi guidance list` shows a hub entry as unverified until then.
 # tier is a whole number from 1 to 6, the lower number wins: 1 safety, 2 owner decisions, 3 hub hard rules,
 # 4 builder rules, 5 practices, 6 advisory prompt lines. overrides (optional) lists ids; never of a lower tier number.
-# source is PATH#N or PATH#HEADING#N, source_hash is the SHA-256 of that numbered line of the source file.
 # Never edit a source_hash by hand: read the change in the source first, then ask the owner.
 version: 1
 guidance:
   - id: goal-sentence-present
-    source: ".kiro/specs/umwayi-os/requirements.md#W9.R4#3"
-    text: "Every task has a goal in one sentence."
+    source_repo: hub
+    source: "understanding-first.md#3"
+    text: "A task states its goal in one sentence before any work starts."
     kind: enforce
     check: goal_sentence_present
     applies_to: task
     tier: 3
-    source_hash: "b81c210d47cb0ad02ec0185988f89b0a09fb978f9100d2cb222f13b0658f86b2"
+    source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"
+  - id: consequences-and-undo-present
+    source_repo: hub
+    source: "understanding-first.md#13"
+    text: "A task states its likely consequences and how to undo it."
+    kind: enforce
+    check: consequences_and_undo_present
+    applies_to: task
+    tier: 3
+    source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"
+  - id: acceptance-checks-present
+    source_repo: hub
+    source: "agent-practices.md#verification-first"
+    text: "A task has its acceptance checks written before the work starts."
+    kind: enforce
+    check: acceptance_checks_present
+    applies_to: task
+    tier: 3
+    source_hash: "a0086e0806ce824a5ace7a9a9c3d102eaadab07c7644c41f0c7f74565af715be"
   - id: one-open-pr-per-task
+    source_repo: umwayi-os
     source: ".kiro/steering/builder-workflow.md#1"
     text: "A task has at most one open pull request."
     kind: enforce
@@ -22,3 +46,47 @@ guidance:
     applies_to: pr
     tier: 4
     source_hash: "4acf1490a3f19363b6721b521981e402fa2152c4fdde6a96d37153f61fd4a6fd"
+  - id: record-state-before-change
+    source_repo: hub
+    source: "understanding-first.md#12"
+    text: "Record what is true now before a change is made."
+    kind: advise
+    prompt_line: "Before you change anything, write down what is true now."
+    applies_to: task
+    tier: 6
+    source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"
+  - id: check-output-against-goal
+    source_repo: hub
+    source: "understanding-first.md#4"
+    text: "After the work, check the output against the goal sentence and record the result."
+    kind: advise
+    prompt_line: "When you finish, check your output against the goal sentence and record the result."
+    applies_to: task
+    tier: 6
+    source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"
+  - id: explain-ai-output
+    source_repo: hub
+    source: "understanding-first.md#1"
+    text: "Do not accept AI output that you cannot explain."
+    kind: advise
+    prompt_line: "Do not accept any output you cannot explain in plain words."
+    applies_to: task
+    tier: 6
+    source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"
+  - id: rewrite-broken-base
+    source_repo: hub
+    source: "understanding-first.md#7"
+    text: "If the base is broken, rewrite it instead of patching it."
+    kind: advise
+    prompt_line: "If the code you build on is broken, say so and rewrite it, do not patch around it."
+    applies_to: task
+    tier: 6
+    source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"
+  - id: batch-interruptions
+    source_repo: hub
+    source: "understanding-first.md#8"
+    text: "Questions for the owner are batched so they are interrupted once."
+    kind: owner
+    applies_to: task
+    tier: 2
+    source_hash: "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0"

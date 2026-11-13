@@ -53,6 +53,7 @@ def entry(**kw) -> str:
         "applies_to": "task",
         "source_hash": sha("1. first rule of A"),
         "tier": 3,
+        "source_repo": "umwayi-os",
     }
     d.update(kw)
     lines = []
@@ -144,7 +145,7 @@ class LoaderFailClosed(Base):
             self.load(doc(entry(colour="blue")))
 
     def test_missing_key(self):
-        for k in ("id", "source", "text", "kind", "applies_to", "source_hash", "tier"):
+        for k in ("id", "source", "text", "kind", "applies_to", "source_hash", "tier", "source_repo"):
             with self.subTest(k=k):
                 with self.assertRaises(guidance.GuidanceError):
                     self.load(doc(entry(**{k: None})))
@@ -536,28 +537,185 @@ class Committed(unittest.TestCase):
         self.assertTrue(all(1 <= e.tier <= 6 for e in es))
 
     def test_committed_tiers_follow_the_brief(self):
-        tiers = {e.id: e.tier for e in guidance.load(REPO)}
-        self.assertEqual(tiers["goal-sentence-present"], 3)
-        self.assertEqual(tiers["one-open-pr-per-task"], 4)
+        es = {e.id: e for e in guidance.load(REPO)}
+        for i in ("goal-sentence-present", "consequences-and-undo-present", "acceptance-checks-present"):
+            self.assertEqual((es[i].kind, es[i].tier), ("enforce", 3))
+        self.assertEqual((es["one-open-pr-per-task"].kind, es["one-open-pr-per-task"].tier), ("enforce", 4))
+        for e in es.values():
+            if e.kind == "advise":
+                self.assertEqual(e.tier, 6)
+            if e.kind == "owner":
+                self.assertEqual(e.tier, 2)
 
-    def test_every_enforce_entry_has_a_registered_check(self):
+    def test_committed_hub_entries_use_the_recorded_hashes(self):
+        want = {"understanding-first.md": "2f0405e879b6615f34c5168161153363896e26eab43981dc6db1d96b0c1f6bc0",
+                "agent-practices.md": "a0086e0806ce824a5ace7a9a9c3d102eaadab07c7644c41f0c7f74565af715be"}
+        sources = {}
         for e in guidance.load(REPO):
-            if e.kind == "enforce":
-                self.assertIn(e.check, guidance.CHECKS)
+            if e.source_repo == "hub":
+                name, rule = e.source.split("#")
+                self.assertEqual(e.source_hash, want[name])
+                sources[e.id] = (name, rule)
+        self.assertEqual(sources["goal-sentence-present"], ("understanding-first.md", "3"))
+        self.assertEqual(sources["consequences-and-undo-present"], ("understanding-first.md", "13"))
+        self.assertEqual(sources["record-state-before-change"], ("understanding-first.md", "12"))
+        self.assertEqual(sources["check-output-against-goal"], ("understanding-first.md", "4"))
+        self.assertEqual(sources["explain-ai-output"], ("understanding-first.md", "1"))
+        self.assertEqual(sources["rewrite-broken-base"], ("understanding-first.md", "7"))
+        self.assertEqual(sources["batch-interruptions"], ("understanding-first.md", "8"))
+        self.assertEqual(sources["acceptance-checks-present"][0], "agent-practices.md")
 
     def test_a_hand_edited_hash_in_the_committed_file_is_refused(self):
         text = (REPO / "guidance.yaml").read_text(encoding="utf-8")
-        h = guidance.load(REPO)[0].source_hash
-        bad = text.replace(h, "0" * 64, 1)
+        mine = [e for e in guidance.load(REPO) if e.source_repo == "umwayi-os"]
+        self.assertTrue(mine)
+        bad = text.replace(mine[0].source_hash, "0" * 64, 1)
+        self.assertNotEqual(bad, text)
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
             (root / "guidance.yaml").write_text(bad, encoding="utf-8")
-            for e in guidance.load(REPO):
+            for e in mine:
                 rel = e.source.split("#")[0]
                 (root / rel).parent.mkdir(parents=True, exist_ok=True)
                 (root / rel).write_bytes((REPO / rel).read_bytes())
             with self.assertRaises(guidance.SourceChanged):
                 guidance.load(root)
+
+
+class HubEntries(Base):
+    HUB_TEXT = "the pretend hub file\n1. a rule\n"
+
+    def hub(self, **kw):
+        h = hashlib.sha256(self.HUB_TEXT.encode()).hexdigest()
+        d = dict(source_repo="hub", source="core-rules.md#3", source_hash=h)
+        d.update(kw)
+        return entry(**d)
+
+    def hubdir(self, text=None):
+        t = tempfile.TemporaryDirectory()
+        self.addCleanup(t.cleanup)
+        if text is not None:
+            (Path(t.name) / "core-rules.md").write_text(text, encoding="utf-8")
+        return t.name
+
+    def test_hub_entry_loads_without_reading_any_file(self):
+        es = self.load(doc(self.hub()))
+        self.assertEqual((es[0].source_repo, es[0].source), ("hub", "core-rules.md#3"))
+
+    def test_source_repo_is_required_and_closed(self):
+        with self.assertRaises(guidance.GuidanceError):
+            self.load(doc(entry(source_repo=None)))
+        for bad in ("private", "HUB", "", "umwayi", "RAW:3"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(guidance.GuidanceError):
+                    self.load(doc(entry(source_repo=bad)))
+
+    def test_hub_source_shapes(self):
+        for ok in ("understanding-first.md#13", "agent-practices.md#verification-first"):
+            self.assertEqual(len(self.load(doc(self.hub(source=ok)))), 1)
+        for bad in ("core-rules.md", "core-rules#3", "../core-rules.md#3", "a/b.md#3", "/core-rules.md#3",
+                    "core-rules.md#0", "core-rules.md#", "core-rules.md#A", ".md#3", "core-rules.md#3#4"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(guidance.GuidanceError):
+                    self.load(doc(self.hub(source=bad)))
+
+    def test_hub_hash_shape_is_checked(self):
+        with self.assertRaises(guidance.GuidanceError):
+            self.load(doc(self.hub(source_hash="abc")))
+
+    def test_two_hashes_for_one_hub_file_are_refused(self):
+        a = self.hub(id="rule-aaa", source="core-rules.md#1")
+        b = self.hub(id="rule-bbb", source="core-rules.md#2", source_hash="1" * 64)
+        with self.assertRaises(guidance.GuidanceError):
+            self.load(doc(a, b))
+        c = self.hub(id="rule-bbb", source="core-rules.md#2")
+        self.assertEqual(len(self.load(doc(a, c))), 2)
+
+    def test_a_umwayi_os_source_does_not_accept_a_hub_shape_and_the_other_way(self):
+        with self.assertRaises(guidance.GuidanceError):
+            self.load(doc(entry(source="core-rules.md#verification-first")))
+
+    def test_hub_entry_never_touches_the_source_file_check(self):
+        (self.root / "rules.md").unlink()
+        self.assertEqual(len(self.load(doc(self.hub()))), 1)
+
+    def test_status_unverified_verified_mismatch(self):
+        es = self.load(doc(self.hub(), entry(id="local-rule")))
+        self.assertEqual(guidance.hub_status(es, None), {"goal-sentence-present": "unverified",
+                                                          "local-rule": "verified"})
+        self.assertEqual(guidance.hub_status(es, Path(self.hubdir(self.HUB_TEXT)))["goal-sentence-present"],
+                         "verified")
+        self.assertEqual(guidance.hub_status(es, Path(self.hubdir(self.HUB_TEXT + "x")))["goal-sentence-present"],
+                         "mismatch")
+        self.assertEqual(guidance.hub_status(es, Path(self.hubdir()))["goal-sentence-present"], "mismatch")
+
+    def test_hub_file_that_is_a_link_out_of_the_checkout_is_a_mismatch(self):
+        d = Path(self.hubdir())
+        out = tempfile.TemporaryDirectory()
+        self.addCleanup(out.cleanup)
+        (Path(out.name) / "x.md").write_text(self.HUB_TEXT, encoding="utf-8")
+        (d / "core-rules.md").symlink_to(Path(out.name) / "x.md")
+        es = self.load(doc(self.hub()))
+        self.assertEqual(guidance.hub_status(es, d)["goal-sentence-present"], "mismatch")
+
+    def cli(self, *args):
+        return run(["guidance", *args], self.root)
+
+    def test_list_shows_unverified_never_verified(self):
+        self.write(doc(self.hub(), entry(id="local-rule")))
+        code, out, err = self.cli("list")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn("goal-sentence-present  enforce  tier 3  hub  unverified", out)
+        self.assertIn("local-rule  enforce  tier 3  umwayi-os  verified", out)
+        self.assertIn("2 entries, 1 unverified, 0 mismatch.", out)
+
+    def test_list_with_hub_shows_verified_or_asks(self):
+        self.write(doc(self.hub()))
+        code, out, _ = self.cli("list", "--hub", self.hubdir(self.HUB_TEXT))
+        self.assertEqual(code, 0)
+        self.assertIn("hub  verified", out)
+        self.assertNotIn("unverified", out.split("\n")[0])
+        code, _, err = self.cli("list", "--hub", self.hubdir(self.HUB_TEXT + "x"))
+        self.assertEqual(code, 3)
+        self.assertIn("mismatch", err)
+
+    def test_verify_yes_and_ask_me_first(self):
+        self.write(doc(self.hub()))
+        code, out, _ = self.cli("verify", "--hub", self.hubdir(self.HUB_TEXT))
+        self.assertEqual(code, 0)
+        self.assertIn("Yes", out)
+        code, out, err = self.cli("verify", "--hub", self.hubdir(self.HUB_TEXT + "changed"))
+        self.assertEqual((code, out), (3, ""))
+        self.assertEqual(len(err.strip().splitlines()), 1)
+        self.assertIn("Ask me first", err)
+        self.assertIn("goal-sentence-present", err)
+        self.assertNotIn("pretend", err)
+
+    def test_verify_with_a_missing_hub_file_is_ask_me_first(self):
+        self.write(doc(self.hub()))
+        self.assertEqual(self.cli("verify", "--hub", self.hubdir())[0], 3)
+
+    def test_verify_usage_and_bad_guidance(self):
+        self.write(doc(self.hub()))
+        self.assertEqual(self.cli("verify", "--hub", str(self.root / "nope"))[0], 64)
+        self.assertEqual(self.cli("verify", "--hub", str(self.root / "guidance.yaml"))[0], 64)
+        self.assertEqual(self.cli("verify")[0], 64)
+        self.assertEqual(self.cli("list", "--hub", str(self.root / "nope"))[0], 64)
+        self.write("version: 1\nguidance: x\n")
+        self.assertEqual(self.cli("list")[0], 64)
+        self.assertEqual(self.cli("verify", "--hub", self.hubdir(self.HUB_TEXT))[0], 64)
+        (self.root / "guidance.yaml").unlink()
+        self.assertEqual(self.cli("list")[0], 3)
+
+    def test_verify_with_no_hub_entries_is_yes(self):
+        self.write(doc(entry()))
+        self.assertEqual(self.cli("verify", "--hub", self.hubdir())[0], 0)
+
+    def test_crash_is_2(self):
+        from unittest import mock
+        self.write(doc(self.hub()))
+        with mock.patch("umwayi.guidance.listing", side_effect=RuntimeError("x")):
+            self.assertEqual(self.cli("list")[0], 2)
 
 
 def run(args, root):
