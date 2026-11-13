@@ -122,6 +122,7 @@
   "tests/test_schedule.py": ["rules.yaml", "schedule.example.yaml"],
   "tests/test_site_assets.py": ["adapters", "site", "ui", "ui/dist"],
   "tests/test_site_package.py": ["site", "ui"],
+  "tests/test_stalls.py": ["jobs.yaml", "schedule.example.yaml", "workflows"],
   "tests/test_starter_rules.py": ["adapters", "rules.yaml"],
   "tests/test_system.py": ["articles", "umwayi.json", "workflows"],
   "tests/test_ui_package.py": [".gitignore", "ui", "ui/dist"],
