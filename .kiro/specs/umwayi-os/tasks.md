@@ -999,6 +999,10 @@ Order and pull requests: **(a) W9.9 first, its own pull request** (the docs scri
 
 When W9 is approved and built, this row moves into the main status table as its last row.
 
+## History backfill (W19)
+
+- [x] **W19 built** (Nov 13 2026, its own pull request) `tools/backfill_history.py` and `tests/test_backfill_history.py`: a read only script that turns public pull request and CI history into derived records (counts and durations only) in a JSON lines file. In `tools/ci_map.json` and `tools/ci_shards.json`. Docs through `docs-parts`. Not built: a model field (GitHub does not record it), a token, any use of the records by rules or a routing table.
+
 ## W19: guidance.yaml and the enforce checks (the owner's task, Nov 13; two stages)
 
 - [x] W19.1 Stage 1 (own pull request): `guidance.yaml` and `umwayi/guidance.py` (the strict loader that fails closed, the tier and `overrides` fields and `resolve`, the registry of four checks, `check_task`), `umwayi goal guard [TASKFILE]`, `tests/goal/test_guidance.py`, the docs parts and KNOWN-LIMITS 256. Design: "Guidance (W19), stage 1".
