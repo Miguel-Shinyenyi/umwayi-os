@@ -18,7 +18,7 @@
   },
   "tests/adapters/test_opencode_rules.py": {
    "seconds": 0.0,
-   "shard": 3
+   "shard": 1
   },
   "tests/adapters/test_stdio.py": {
    "seconds": 8.1,
@@ -98,7 +98,7 @@
   },
   "tests/agents/test_claude_acp_package.py": {
    "seconds": 0.4,
-   "shard": 1
+   "shard": 2
   },
   "tests/agents/test_fake_opencode.py": {
    "seconds": 10.4,
@@ -126,7 +126,7 @@
   },
   "tests/autonomy/test_score.py": {
    "seconds": 0.0,
-   "shard": 3
+   "shard": 1
   },
   "tests/autonomy/test_status.py": {
    "seconds": 6.0,
@@ -182,7 +182,7 @@
   },
   "tests/serve/test_failclosed.py": {
    "seconds": 0.2,
-   "shard": 2
+   "shard": 3
   },
   "tests/serve/test_gaps.py": {
    "seconds": 0.5,
@@ -228,6 +228,10 @@
    "seconds": 3.1,
    "shard": 2
   },
+  "tests/test_board_status.py": {
+   "seconds": 0.5,
+   "shard": 1
+  },
   "tests/test_builder_workflow.py": {
    "seconds": 0.1,
    "shard": 2
@@ -254,7 +258,7 @@
   },
   "tests/test_ci_workflow.py": {
    "seconds": 0.1,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_docs.py": {
    "seconds": 1.2,
@@ -294,11 +298,11 @@
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_miniyaml.py": {
    "seconds": 0.0,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_petition.py": {
    "seconds": 62.1,

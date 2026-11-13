@@ -1169,3 +1169,17 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - What protects you today: 96 planted faults in `servegate.py`, `serve.py`, `servetoken.py` and `client.js` (`tests/serve/faults.py`), each applied to a throwaway copy of the tree and tried against only the tests named for it; 93 were caught, and the 3 that were not are shown equivalent in the catalogue. `test_mutation.py` runs the tool on a tree of its own and four real faults in CI.
 - What it does not do: the full pass takes about 25 minutes and is not in CI, so a later change to the four files can weaken a test without anything failing until someone runs `python -m tests.serve.mutation`. A planted fault is a text edit that someone thought of; it is not a proof that no other fault exists, and an edit that no longer matches the source is reported as not found and fails `test_mutation.py`, not silently skipped. The faults of W6.R16.10 about a chat (`a chat message logged with its text`, and the kill switch for chats) wait for the chat routes (W4); the kill switch fault is tried on the write routes meanwhile.
 - Platform: the loopback scenario reads `/proc/net/tcp` and is skipped where that file is missing; the scenarios that make a logbook that cannot be written use a folder in its place, which works as any user; the Node scenarios are skipped without Node.
+
+## Board status (W16), found while building
+
+### 253. The board status shows the time of the last commit, not of the last push, and it may run out of unauthenticated requests
+
+`tools/board_status.py` reads only the public GitHub API with no token. That keeps it simple and safe, and it has two limits.
+
+- The time is the committer date of the head commit, because the public pull request data has no push time. A commit made long ago and pushed just now (a branch built locally over a long time, for example) can show as a stall when it is not, and a push of nothing new cannot be seen. The stall line is a prompt to look, not proof.
+- Without a token GitHub allows 60 requests an hour per address. One run uses 1 request plus 4 or 5 for each open pull request, so ten open pull requests cost about 50 and a few runs in an hour hit the limit. The script then prints the reset time and exits 2; it never shows an old or guessed state.
+- Only GitHub check suites count for CI. An old style commit status from another service is not read, and a head commit with no check suite yet shows `ci none`, which is not green.
+
+- What protects you today: every failure prints one line and exits 2, so the guide cannot mistake a failure for a clean board.
+- What it does not protect against: a long wait between a commit and its push, a busy board in one hour, a service that reports only as a commit status.
+- A later fix: an optional token read from the environment (a decision for the owner, because the script reads no secret today), and the push time from the repository events.
