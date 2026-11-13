@@ -95,10 +95,7 @@ def goal_dir(root, goal, create=False):
     if not (isinstance(goal, str) and _GOAL_ID.fullmatch(goal)):
         raise GoalError("bad goal id")
     base = goals_dir(root, create)
-    d = _real_dir(base / goal, create)
-    if create:
-        os.chmod(d, 0o700)
-    return d
+    return _real_dir(base / goal, create)
 
 
 def _task_id(task):
@@ -215,7 +212,6 @@ def lock(root):
     except OSError:
         raise GoalError("the goal lock cannot be opened (is it a link or a folder?)") from None
     try:
-        os.fchmod(fd, 0o600)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as e:
