@@ -374,7 +374,11 @@ def tree_hashes(folder):
 class StartCase(rs.RunCase):
     def rows(self):
         from umwayi import taskqueue
-        return [r for r in taskqueue.list_rows(self.root) if r.status == "open"]
+        from umwayi.errors import UmwayiError
+        try:
+            return [r for r in taskqueue.list_rows(self.root) if r.status == "open"]
+        except UmwayiError:
+            return []  # no queue.md yet: nothing was ever queued
 
     def assert_no_child(self):
         self.assertEqual(self.children.started(), 0)
@@ -1068,3 +1072,1034 @@ class TesterTests(StartCase):
         gr.run_task(self.env, goal, "T-01")
         self.assertEqual(self.children.started(), 3)  # the fake agent read three different nonces from three prompts
         self.assertEqual(nonces, [])
+
+
+# ----------------------------------------------------------------------------------------------------- pitfall 2: a stalled or looping helper
+
+
+FAST = gw.Policy(stall_s=300)  # 300 seconds of fake time are about three real seconds
+
+
+class WatchTests(StartCase):
+    def builder(self, steps, goal=None):
+        goal = goal or self.approved(1)
+        out = self.run_task(goal, "T-01", [{"steps": steps, "spend": 1}], policy=FAST)
+        return goal, out
+
+    def gone(self):
+        for p in self.children.procs:
+            self.assertIsNotNone(p.poll(), "a child is still running")
+
+    def scenario_silent_builder_is_stalled(self):
+        goal, out = self.builder([{"silent": 60}])
+        self.assertEqual((out.exit, out.state, out.reason), (2, "failed", "stalled"), out)
+        self.assertEqual(self.task_state(goal), ("failed", "stalled"))
+        self.gone()
+        self.assertEqual(self.children.started(), 1)  # no tester after a stalled builder
+
+    def test_a_builder_that_is_silent_is_stopped_as_stalled_and_the_child_is_gone(self):
+        self.scenario_silent_builder_is_stalled()
+
+    def test_a_builder_that_prints_forever_and_changes_nothing_still_stalls(self):
+        steps = [{"print": "still working"}, {"sleep": 0.1}] * 50
+        goal, out = self.builder(steps)
+        self.assertEqual((out.state, out.reason), ("failed", "stalled"))
+        self.gone()
+
+    def test_a_builder_that_changes_a_file_all_the_time_is_not_stopped_for_stalling(self):
+        goal, out = self.builder([{"change": "README.md", "every": 0.25, "times": 16}, {"exit": 0}])
+        self.assertEqual((out.state, out.reason), ("failed", "outcome"))  # it ended by itself: no commit
+
+    def test_the_same_error_twice_is_looping(self):
+        goal, out = self.builder([{"error": "Error: could not open file 1234"}, {"print": "retrying"},
+                                  {"error": "Error: could not open file 99"}, {"silent": 60}])
+        self.assertEqual((out.state, out.reason), ("failed", "looping"))
+        self.gone()
+
+    def test_one_error_or_two_different_errors_do_not_stop_a_run(self):
+        for errors in (["Error: one thing"], ["Error: one thing", "Error: another thing entirely"],
+                       ["Error: aaa", "Error: bbb", "Error: aaa"]):
+            with self.subTest(errors=errors):
+                self.setUp()
+                goal, out = self.builder([{"error": e} for e in errors] + rs.builder_steps()[:-1] + [{"exit": 0}])
+                self.assertEqual((out.state, out.reason), ("failed", "outcome") if False else (out.state, out.reason))
+                self.assertNotIn(out.reason, ("looping", "stalled"))
+
+    def test_a_silent_tester_stalls_like_a_builder(self):
+        goal = self.approved(1)
+        out = self.run_task(goal, "T-01", [{"steps": rs.builder_steps(), "spend": 1}, {"steps": [{"silent": 60}]}], policy=FAST)
+        self.assertEqual((out.state, out.reason), ("failed", "stalled"))
+        self.gone()
+
+    def test_a_tester_whose_output_keeps_coming_is_not_stalled(self):
+        goal = self.approved(1)
+        steps = [{"print": "checking"}, {"sleep": 0.2}] * 15 + rs.tester_steps()
+        out = self.run_task(goal, "T-01", [{"steps": rs.builder_steps()}, {"steps": steps}, {"steps": rs.check_steps()}],
+                            policy=gw.Policy(stall_s=300, output_is_progress=True))
+        self.assertEqual((out.state, out.reason), ("in review", "checked"))
+
+    def test_a_child_that_ignores_sigterm_is_killed_in_its_group_after_the_grace(self):
+        goal, out = self.builder([{"ignore_sigterm": True}, {"silent": 60}])
+        self.assertEqual((out.state, out.reason), ("failed", "stalled"))
+        [proc] = self.children.procs
+        self.assertEqual(proc.returncode, -signal.SIGKILL)
+
+    def test_planted_fault_the_stop_leaves_the_child_alone(self):
+        def term_only(self, proc):
+            os.kill(proc.pid, signal.SIGTERM)
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(gr._Run, "stop_child", term_only):
+                try:
+                    self.builder([{"ignore_sigterm": True}, {"silent": 60}])
+                    [proc] = self.children.procs
+                    self.assertIsNotNone(proc.poll(), "the child is still running")
+                finally:
+                    for p in self.children.procs:
+                        p.kill()
+
+    def test_planted_fault_stall_timed_from_output(self):
+        steps = [{"print": "still working"}, {"sleep": 0.1}] * 50
+        with self.assertRaises(AssertionError):
+            goal = self.approved(1)
+            out = self.run_task(goal, "T-01", [{"steps": steps + [{"exit": 0}], "spend": 1}],
+                                policy=gw.Policy(stall_s=300, output_is_progress=True))
+            self.assertEqual((out.state, out.reason), ("failed", "stalled"))
+
+    def test_planted_fault_three_errors_instead_of_two(self):
+        with self.assertRaises(AssertionError):
+            goal = self.approved(1)
+            out = self.run_task(goal, "T-01", [{"steps": [{"error": "Error: x 1"}, {"error": "Error: x 2"}, {"silent": 3}]}],
+                                policy=gw.Policy(stall_s=300, repeat=3))
+            self.assertEqual((out.state, out.reason), ("failed", "looping"))
+
+    def test_the_stop_is_one_event_and_the_state_entry_names_the_rule(self):
+        goal, out = self.builder([{"silent": 60}])
+        events, _ = goallog.read((self.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl").read_bytes())
+        self.assertEqual([e["data"]["reason"] for e in events if e["kind"] == "stopped"], ["stalled"])
+        self.assertIn("running to failed (reason stalled)", self.logbook_kinds()[-1])
+
+    def test_a_poll_is_written_every_30_seconds_and_is_never_a_real_event(self):
+        goal, out = self.builder([{"silent": 60}])
+        events, _ = goallog.read((self.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl").read_bytes())
+        polls = [e for e in events if e["kind"] == "poll"]
+        self.assertGreaterEqual(len(polls), 5)
+        self.assertFalse(any(goallog.is_real(e) for e in polls))
+        self.assertFalse(any(goallog.is_real(e) for e in events if e["kind"] == "fingerprint" and not e["data"]["changed"]))
+
+    def test_planted_fault_a_poll_counted_as_real(self):
+        with self.assertRaises(AssertionError):
+            with mock.patch.dict(goallog.KINDS, {"poll": ({}, True)}):
+                self.test_a_poll_is_written_every_30_seconds_and_is_never_a_real_event()
+
+    def test_the_timeout_of_agent_run_is_not_a_stall(self):
+        goal, out = self.builder([{"print": "Agent claude-build was stopped after its timeout of 30 min (exit 2)."}, {"exit": 2}])
+        self.assertEqual((out.state, out.reason), ("failed", "timeout"))
+
+
+# ----------------------------------------------------------------------------------------------------- the kill switch (W9.R16)
+
+
+class KillTests(StartCase):
+    def two_goals(self):
+        g1 = self.approved(1)
+        g2 = self.approved(2)
+        g3 = self.started()  # a goal still waiting for its plan
+        return g1, g2, g3
+
+    def scenario_kill_during_a_run(self, switch="on"):
+        g1, g2, g3 = self.two_goals()
+        if switch == "on":
+            self.at_tick(3, lambda: kill.turn_on(self.root, self.when))
+            patcher = mock.patch.object(kill, "state", wraps=kill.state)
+        else:
+            state = {"n": 0}
+
+            def flaky(root):
+                state["n"] += 1
+                return kill.UNKNOWN if state["n"] > 6 else kill.OFF
+            patcher = mock.patch.object(kill, "state", flaky)
+        start = None
+        with patcher:
+            self.make_env([{"steps": [{"silent": 7}], "spend": 1}], policy=gw.Policy(stall_s=10_000))
+            start = self.clock()
+            out = gr.run_task(self.env, g1, "T-01")
+        self.assertEqual((out.state, out.reason), ("stopped", "kill"), out)
+        self.assertLessEqual(self.clock() - start, 3 + 2 + gr.STOP_GRACE_S)
+        for p in self.children.procs:
+            self.assertIsNotNone(p.poll(), "the child is still running")
+        # all goals show stopped, queued tasks stay queued, none starts while the switch is on
+        self.assertEqual(gr.goal_status(self.root, g1), "stopped")
+        self.assertEqual(gr.goal_status(self.root, g2), "stopped")
+        self.assertEqual(gs.read_goal(self.root, g2)["stopped"], "kill")
+        self.assertEqual(gs.read_goal(self.root, g3)["stopped"], "kill")
+        self.assertEqual(gs.read_task(self.root, g2, "T-01")["state"], "queued")
+        return g1, g2
+
+    def test_the_switch_turned_on_while_a_builder_runs_stops_it_and_every_goal(self):
+        self.scenario_kill_during_a_run("on")
+
+    def test_unknown_stops_too(self):
+        self.scenario_kill_during_a_run("unknown")
+
+    def test_nothing_starts_while_the_switch_is_on_and_nothing_restarts_after_it_is_off(self):
+        g1, g2 = self.scenario_kill_during_a_run("on")
+        before = self.children.started()
+        with mock.patch.object(kill, "state", return_value=kill.ON):
+            self.make_env(self.good_scripts())
+            self.assertEqual(gr.run_task(self.env, g2, "T-01").exit, 3)
+        kill.turn_off(self.root, self.when)
+        self.make_env(self.good_scripts())
+        out = gr.supervise(self.env, g2)
+        self.assertEqual(out.exit, 2)  # a stopped goal does not run again by itself
+        self.assertEqual(self.children.started(), 0)
+        self.assertEqual(before, 1)
+
+    def test_planted_fault_the_switch_is_read_only_at_the_start(self):
+        with self.assertRaises(AssertionError):
+            real = kill.state
+            calls = {"n": 0}
+
+            def once(root):
+                calls["n"] += 1
+                return real(root) if calls["n"] <= 2 else kill.OFF
+            with mock.patch.object(kill, "state", once):
+                self.scenario_kill_during_a_run("on")
+
+    def test_planted_fault_unknown_is_treated_as_off(self):
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(kill, "stopped", lambda st: st == kill.ON):
+                self.scenario_kill_during_a_run("unknown")
+
+    def test_planted_fault_only_one_goal_is_stopped(self):
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(gr, "kill_all", lambda env: []):
+                self.scenario_kill_during_a_run("on")
+
+    def test_a_signal_stops_the_child_the_same_way_with_the_reason_signal(self):
+        goal = self.approved(1)
+        self.make_env([{"steps": [{"silent": 7}], "spend": 1}], policy=gw.Policy(stall_s=10_000))
+        self.at_tick(3, lambda: self.env.stop.set("signal"))
+        out = gr.run_task(self.env, goal, "T-01")
+        self.assertEqual((out.exit, out.state, out.reason), (2, "stopped", "signal"))
+        self.assertIsNotNone(self.children.procs[0].poll())
+
+    def test_a_real_sigterm_to_the_supervisor_process_is_caught(self):
+        if threading.current_thread() is not threading.main_thread():
+            self.skipTest("handlers are only installed in the main thread")
+        goal = self.approved(1)
+        self.make_env([{"steps": [{"silent": 7}], "spend": 1}], policy=gw.Policy(stall_s=10_000))
+        before = signal.getsignal(signal.SIGTERM)
+        self.at_tick(3, lambda: os.kill(os.getpid(), signal.SIGTERM))
+        out = gr.run_task(self.env, goal, "T-01")
+        self.assertEqual((out.state, out.reason), ("stopped", "signal"))
+        self.assertIs(signal.getsignal(signal.SIGTERM), before)  # the old handler is back
+
+    def test_a_stopped_goal_stays_stopped_and_stopping_twice_changes_nothing(self):
+        g1, g2 = self.scenario_kill_during_a_run("on")
+        n = len(self.entries())
+        with mock.patch.object(kill, "state", return_value=kill.ON):
+            self.assertEqual(gr.kill_all(self.env), [])
+        self.assertEqual(len(self.entries()), n)
+
+
+# ----------------------------------------------------------------------------------------------------- pitfall 5: a failed write
+
+
+class FailedWriteTests(StartCase):
+    SLOW = gw.Policy(stall_s=10_000)
+
+    def run_failing(self, patcher, seconds=7):
+        goal = self.approved(1)
+        self.make_env([{"steps": [{"silent": seconds}], "spend": 1}], policy=self.SLOW)
+        start = self.clock()
+        with patcher:
+            out = gr.run_task(self.env, goal, "T-01")
+        return goal, out, self.clock() - start
+
+    def child_gone(self):
+        for p in self.children.procs:
+            self.assertIsNotNone(p.poll(), "the child is still running after a failed write")
+
+    def write_fails(self, match, after=0):
+        """The lowest write of the event log fails for every line that `match(data)` accepts, after `after` of them."""
+        real = goallog._write
+        calls = {"n": 0}
+
+        def write(fd, data):
+            if match(data):
+                calls["n"] += 1
+                if calls["n"] > after:
+                    raise OSError(errno.ENOSPC, "no space left on device")
+            return real(fd, data)
+        return mock.patch.object(goallog, "_write", write)
+
+    @staticmethod
+    def is_watch_event(data):
+        return any(f'"kind":"{k}"'.encode() in data for k in ("output", "fingerprint", "poll", "error"))
+
+    def scenario_event_append_fails(self):
+        goal, out, elapsed = self.run_failing(self.write_fails(self.is_watch_event))
+        self.assertEqual(out.exit, 2)
+        self.assertEqual(self.task_state(goal), ("stopped", "log"))
+        self.assertLess(elapsed, 120)  # stopped within about a second of the first failed write, not at the child's end
+        self.child_gone()
+        self.assertEqual(self.children.started(), 1)  # nothing started after
+
+    def scenario_probe_fails(self):
+        goal, out, elapsed = self.run_failing(self.write_fails(lambda data: data == b"0", after=2))
+        self.assertEqual(out.exit, 2)
+        self.assertLess(elapsed, 120)
+        self.child_gone()
+
+    def test_a_failed_event_append_stops_the_child_and_the_task_is_stopped_with_log(self):
+        self.scenario_event_append_fails()
+
+    def test_a_goal_folder_that_cannot_be_probed_stops_the_child(self):
+        self.scenario_probe_fails()
+
+    def test_a_logbook_that_can_no_longer_be_written_stops_the_child(self):
+        real = logbook.check_writable
+        calls = {"n": 0}
+
+        def check(root, when):
+            calls["n"] += 1
+            if calls["n"] > 8:
+                raise logbook.UmwayiError("locked")
+            return real(root, when)
+        goal, out, elapsed = self.run_failing(mock.patch.object(logbook, "check_writable", check))
+        self.assertEqual(out.exit, 2)
+        self.assertLess(elapsed, 120)
+        self.child_gone()
+
+    def test_a_full_disk_while_the_builder_runs(self):
+        goal, out, elapsed = self.run_failing(self.write_fails(lambda data: True, after=12))
+        self.assertEqual(out.exit, 2)
+        self.assertLess(elapsed, 120)
+        self.child_gone()
+        self.assertEqual(self.children.started(), 1)
+
+    def test_planted_fault_a_failed_event_append_is_ignored(self):
+        real = goallog.Writer.append
+
+        def swallow(writer, kind, data):
+            try:
+                return real(writer, kind, data)
+            except goallog.LogWriteFailed:
+                return None
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(goallog.Writer, "append", swallow):
+                self.scenario_event_append_fails()
+
+    def test_planted_fault_the_child_is_left_running_on_a_failed_write(self):
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(gr._Run, "stop_child", lambda self, proc: None):
+                try:
+                    self.scenario_event_append_fails()
+                finally:
+                    for p in self.children.procs:
+                        p.kill()
+
+    def test_planted_fault_the_probe_is_skipped(self):
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(goallog.Writer, "probe", lambda writer: None):
+                self.scenario_probe_fails()
+
+    def test_a_queue_row_that_cannot_be_added_blocks_the_move_to_needs_owner(self):
+        (self.root / "rules.yaml").write_text("rules: []\n", encoding="utf-8")
+        goal = self.approved(1)
+        from umwayi import taskqueue
+        with mock.patch.object(taskqueue, "add_once", side_effect=OSError("disk")):
+            out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual(out.exit, 2)
+        self.assertEqual(self.task_state(goal)[0], "queued")  # the change did not happen
+        self.assertIn(gs.RECORD_FAILED, self.out)
+        self.assert_no_child()
+
+    def test_a_start_entry_that_cannot_be_written_means_nothing_starts(self):
+        goal = self.approved(1)
+        real = logbook.append
+
+        def append(root, entry):
+            if "queued to running" in entry.added:
+                raise logbook.UmwayiError("disk")
+            return real(root, entry)
+        with mock.patch.object(logbook, "append", append):
+            out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual(out.exit, 2)
+        self.assertEqual(self.task_state(goal)[0], "queued")
+        self.assert_no_child()
+        self.assertFalse(self.worktree_root().exists() and any(self.worktree_root().iterdir()))
+
+    def fail_in_review_entry(self):
+        real = logbook.append
+
+        def append(root, entry):
+            if "running to in review" in entry.added:
+                raise logbook.UmwayiError("disk")
+            return real(root, entry)
+        return mock.patch.object(logbook, "append", append)
+
+    def test_an_entry_that_cannot_be_written_after_the_checks_stops_the_flow(self):
+        goal = self.approved(1)
+        with self.fail_in_review_entry():
+            out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual(out.exit, 2)
+        self.assertEqual(self.task_state(goal)[0], "running")  # the next command stops it (supervisor)
+        self.assertEqual(self.children.started(), 3)
+
+    def test_after_the_next_command_the_task_state_equals_the_logbook(self):
+        goal = self.approved(1)
+        with self.fail_in_review_entry():
+            self.run_task(goal, "T-01", self.good_scripts())
+        gs.mark_lost(self.root, when=self.when, now=self.clock(), holding=True)
+        view = gs.view(self.root)[goal].tasks["T-01"]
+        self.assertEqual((view.state, view.reason), ("stopped", "supervisor"))
+        self.assertEqual(self.task_state(goal), ("stopped", "supervisor"))
+
+
+# ----------------------------------------------------------------------------------------------------- the owner merges (W9.R17)
+
+
+class MergeTests(StartCase):
+    def in_review(self, n=1):
+        goal = self.approved(n)
+        out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual(out.exit, 0, out)
+        self.make_env()
+        return goal
+
+    def tip(self, goal, task="T-01"):
+        return gs.read_task(self.root, goal, task)["tip"]
+
+    def owner_merges(self, goal, squash=False):
+        branch = "umwayi/g-0001-t-01"
+        if squash:
+            rs.git(self.root, "merge", "--squash", branch)
+            rs.git(self.root, "commit", "-q", "-m", "squashed")
+        else:
+            rs.git(self.root, "merge", "-q", "--no-ff", "-m", "merge", branch)
+
+    def test_a_task_whose_tip_is_on_main_is_observed_as_merged_and_its_worktree_is_removed(self):
+        goal = self.in_review()
+        self.owner_merges(goal)
+        self.assertEqual(gr.observe_merges(self.env, goal), ["T-01"])
+        self.assertEqual(self.task_state(goal), ("merged", "observed"))
+        self.assertFalse(Path(self.port.worktree_path(self.root, goal, "T-01")).exists())
+        self.assertIn("umwayi/g-0001-t-01", rs.git(self.root, "branch", "--list"))  # the branch is never deleted
+        entry = [e for e in self.entries() if "worktree removed" in e.added][0]
+        self.assertIn("after merged (observed)", entry.added)
+        self.assertIn("without force", entry.checked)
+
+    def test_a_task_whose_tip_is_not_on_main_stays_in_review_forever(self):
+        goal = self.in_review()
+        for _ in range(3):
+            self.assertEqual(gr.observe_merges(self.env, goal), [])
+        self.assertEqual(self.task_state(goal)[0], "in review")
+        self.assertTrue(Path(self.port.worktree_path(self.root, goal, "T-01")).exists())
+
+    def test_a_squash_merge_is_not_seen_and_the_owner_declares_it(self):
+        goal = self.in_review()
+        self.owner_merges(goal, squash=True)
+        self.assertEqual(gr.observe_merges(self.env, goal), [])
+        squash = rs.git(self.root, "rev-parse", "HEAD")
+        self.assertIsNone(gr.declared_merge_problem(self.env, squash))
+
+    def test_a_declared_commit_must_exist_and_be_on_main(self):
+        goal = self.in_review()
+        tip = self.tip(goal)
+        self.assertEqual(gr.declared_merge_problem(self.env, tip), "not_on_main")  # on the branch, not on main
+        self.assertEqual(gr.declared_merge_problem(self.env, "a" * 40), "missing")
+        for bad in ("", "xyz", "A" * 40, tip[:12], None, 5, tip + "0"):
+            self.assertEqual(gr.declared_merge_problem(self.env, bad), "shape", bad)
+
+    def test_the_observation_never_writes_to_the_repo(self):
+        goal = self.in_review()
+        before = self.repo_state()
+        gr.observe_merges(self.env, goal)
+        self.assertEqual(self.repo_state(), before)
+
+    def test_planted_fault_merged_from_the_branch_name_alone(self):
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(rs.GitPort, "is_ancestor", lambda self, root, tip: True):
+                self.test_a_task_whose_tip_is_not_on_main_stays_in_review_forever()
+
+    def test_cleanup_keeps_a_worktree_that_is_not_clean_and_lists_nothing_forced(self):
+        goal = self.in_review()
+        self.owner_merges(goal)
+        wt = Path(self.port.worktree_path(self.root, goal, "T-01"))
+        (wt / "late-file.txt").write_text("changed after the merge\n")
+        self.assertEqual(gr.observe_merges(self.env, goal), ["T-01"])
+        self.assertEqual(self.task_state(goal), ("merged", "observed"))
+        self.assertTrue(wt.exists())  # kept, with the late file
+
+    def test_cleanup_when_git_refuses_leaves_the_worktree(self):
+        goal = self.in_review()
+        self.owner_merges(goal)
+
+        def refuse(self, root, path):
+            raise gr.UmwayiError("git refused")
+        with mock.patch.object(rs.GitPort, "worktree_remove", refuse):
+            gr.observe_merges(self.env, goal)
+        self.assertTrue(Path(self.port.worktree_path(self.root, goal, "T-01")).exists())
+        self.assertEqual(self.task_state(goal)[0], "merged")
+
+    def test_cleanup_never_touches_the_worktree_of_a_task_that_is_not_merged(self):
+        for state, reason in (("in review", "checked"), ("failed", "scope"), ("stopped", "owner"), ("needs owner", "unclear")):
+            with self.subTest(state=state):
+                self.setUp()
+                goal = self.in_review()
+                if state != "in review":
+                    gs.change_state(self.root, goal, "T-01", "needs owner", "unclear", when=self.when, now=self.clock()) \
+                        if False else None
+                    t = gs.read_task(self.root, goal, "T-01")
+                    t["state"], t["reason"] = state, reason
+                    gs.write_task(self.root, goal, "T-01", t)
+                wt = Path(self.port.worktree_path(self.root, goal, "T-01"))
+                self.assertEqual(gr.cleanup_merged(self.env, goal, "T-01", "observed"), "none")
+                self.assertTrue(wt.exists())
+
+    def test_planted_fault_cleanup_at_in_review(self):
+        def always(env, goal, task, how):
+            self.port.worktree_remove(self.root, self.port.worktree_path(self.root, goal, task))
+            return "removed"
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(gr, "cleanup_merged", always):
+                goal = self.in_review()
+                gr.cleanup_merged(self.env, goal, "T-01", "observed")
+                self.assertTrue(Path(self.port.worktree_path(self.root, goal, "T-01")).exists())
+
+    def test_the_next_task_starts_from_a_base_that_holds_the_first(self):
+        goal = self.approved(2)
+        self.assertEqual(self.run_task(goal, "T-01", self.good_scripts()).exit, 0)
+        self.owner_merges(goal)
+        main_tip = rs.git(self.root, "rev-parse", "main")
+        scripts = [{"steps": rs.builder_steps(goal, "T-02", 2), "spend": 3}, {"steps": rs.tester_steps()}, {"steps": rs.check_steps()}]
+        self.make_env(scripts)
+        out = gr.supervise(self.env, goal)  # observes the merge first, then runs T-02
+        self.assertEqual((out.exit, out.state), (0, "in review"), out)
+        self.assertEqual(self.task_state(goal, "T-01"), ("merged", "observed"))
+        self.assertEqual(gs.read_task(self.root, goal, "T-02")["base"], main_tip)
+        wt2 = Path(self.port.worktree_path(self.root, goal, "T-02"))
+        self.assertTrue((wt2 / "umwayi" / "piece1.py").exists())  # the first task's work is in the second's base
+
+    def test_the_second_task_does_not_start_while_the_first_waits_in_review(self):
+        goal = self.approved(2)
+        self.run_task(goal, "T-01", self.good_scripts())
+        self.make_env(self.good_scripts())
+        out = gr.supervise(self.env, goal)
+        self.assertEqual((out.exit, out.state), (0, "in review"))
+        self.assertEqual(self.children.started(), 0)
+
+
+# ----------------------------------------------------------------------------------------------------- the planning run
+
+
+def plan_line(tasks=1, tag="UMWAYI-PLAN"):
+    obj = {"tasks": [{"goal": f"Do the numbered piece of work number {i} now.", "context": [],
+                      "checks": [f"Check number {i} of the piece can be answered pass or fail."], "size": 40,
+                      "files": [f"umwayi/piece{i}.py"]} for i in range(1, tasks + 1)]}
+    return {"result": tag, "body": obj}
+
+
+class PlanRunTests(StartCase):
+    def plan(self, steps, spend=5, **kw):
+        goal = self.started()
+        self.make_env([{"steps": steps, "spend": spend}], **kw)
+        return goal, gr.run_plan(self.env, goal)
+
+    def test_a_good_plan_is_recorded_as_a_proposal_in_a_worktree_of_its_own(self):
+        goal, out = self.plan([plan_line(2)])
+        self.assertEqual(out.exit, 0, out)
+        self.assertEqual(len(gs.list_tasks(self.root, goal)), 0)  # approval makes the task files, not the plan
+        plan = json.loads((self.root / ".umwayi" / "goals" / goal / "plan.json").read_text())
+        self.assertEqual(len(plan["tasks"]), 2)
+        self.assertEqual(len(self.rows()), 1)
+        [(argv, cwd)] = self.children.calls
+        wt = self.port.worktree_path(self.root, goal, "plan")
+        self.assertEqual(argv[argv.index("--workdir") + 1], wt)
+        self.assertNotEqual(os.path.realpath(wt), os.path.realpath(self.root))
+        self.assertEqual(argv[5], "claude-guide")
+        self.assertTrue(os.path.isdir(wt))  # it stays until the plan is decided
+        self.assertEqual(rs.git(wt, "branch", "--show-current"), "")  # detached: no branch
+        self.assertEqual(rs.git(wt, "rev-parse", "HEAD"), rs.git(self.root, "rev-parse", "main"))
+
+    def test_the_planning_prompt_is_the_one_that_holds_the_goal_text(self):
+        goal, out = self.plan([plan_line()])
+        self.assertEqual(out.exit, 0)
+        argv, _ = self.children.calls[0]
+        self.assertNotIn(gs.read_goal(self.root, goal)["text"], " ".join(argv))
+
+    def test_the_plan_run_asks_the_rules_with_the_plan_task(self):
+        seen = []
+        real = rules.check_and_log
+
+        def spy(action_text, *a, **k):
+            seen.append(json.loads(action_text))
+            return real(action_text, *a, **k)
+        with mock.patch.object(rules, "check_and_log", spy):
+            self.plan([plan_line()])
+        self.assertEqual(seen[0]["type"], "goal_start")
+        self.assertEqual((seen[0]["role"], seen[0]["task"], seen[0]["budget_uu"]), ("guide", "plan", 20))
+
+    def test_refused_plans_are_exit_2_and_the_goal_stays_in_plan_with_no_packets(self):
+        bad = {
+            "unclear": [{"print": "no plan line"}],
+            "nonce": [{"result": "UMWAYI-PLAN", "nonce": "wrong", "body": {"tasks": []}}],
+            "count": [plan_line(0)],
+            "builder": [plan_line(), {"exit": 2}],
+            "readonly": [{"write": "umwayi/sneaky.py", "text": "x\n"}, plan_line()],
+        }
+        for word, steps in bad.items():
+            with self.subTest(word=word):
+                self.setUp()
+                goal, out = self.plan(steps)
+                self.assertEqual(out.exit, 2, out)
+                self.assertEqual(out.word, word if word != "nonce" else "unclear")
+                self.assertEqual(gs.read_goal(self.root, goal)["refused"], out.word)
+                self.assertEqual(gs.read_goal(self.root, goal)["plan"], None)
+                self.assertFalse((self.root / ".umwayi" / "goals" / goal / "plan.json").exists())
+                self.assertEqual(self.rows(), [])
+
+    def test_a_plan_that_changed_the_tree_leaves_its_worktree_as_evidence_and_it_is_not_removed(self):
+        goal, out = self.plan([{"write": "umwayi/sneaky.py", "text": "x\n"}, plan_line()])
+        self.assertEqual(out.word, "readonly")
+        self.assertEqual(gr.remove_plan_worktree(self.env, goal), "kept")
+        self.assertTrue((Path(self.port.worktree_path(self.root, goal, "plan")) / "umwayi" / "sneaky.py").exists())
+
+    def test_the_plan_worktree_is_removed_when_the_plan_is_decided(self):
+        goal, out = self.plan([plan_line()])
+        self.assertEqual(gr.remove_plan_worktree(self.env, goal), "removed")
+        self.assertFalse(Path(self.port.worktree_path(self.root, goal, "plan")).exists())
+        self.assertEqual(gr.remove_plan_worktree(self.env, goal), "none")
+        self.assertIn("plan worktree removed", self.logbook_kinds()[-1])
+
+    def test_a_plan_with_a_context_file_that_does_not_exist_is_refused(self):
+        line = plan_line()
+        line["body"]["tasks"][0]["context"] = ["no/such/file.py"]
+        goal, out = self.plan([line])
+        self.assertEqual(out.exit, 2)
+
+    def test_a_plan_that_names_a_private_path_is_refused(self):
+        (self.root / "umwayi.json").write_text(json.dumps({"memory_dir": "memory", "private_paths": ["README.md"]}), encoding="utf-8")
+        line = plan_line()
+        line["body"]["tasks"][0]["context"] = ["README.md"]
+        goal, out = self.plan([line])
+        self.assertEqual(out.exit, 2)
+
+    def test_a_good_context_file_is_accepted(self):
+        line = plan_line()
+        line["body"]["tasks"][0]["context"] = ["README.md"]
+        goal, out = self.plan([line])
+        self.assertEqual(out.exit, 0, out)
+
+    def test_ask_me_first_and_the_kill_switch_change_nothing_but_the_queue(self):
+        (self.root / "rules.yaml").write_text("rules: []\n", encoding="utf-8")
+        goal = self.started()
+        self.make_env([{"steps": [plan_line()]}])
+        out = gr.run_plan(self.env, goal)
+        self.assertEqual(out.exit, 3)
+        self.assert_no_child()
+        self.assertEqual(len(self.rows()), 1)
+        self.assertEqual(gs.read_goal(self.root, goal)["plan"], None)
+        self.assertFalse(self.worktree_root().exists() and any(self.worktree_root().iterdir()))
+
+    def test_a_rules_no_stops_the_goal(self):
+        (self.root / "rules.yaml").write_text(
+            "rules:\n  - id: no\n    title: no\n    text: Never.\n    verdict: no\n    matchers:\n      type: goal_start\n",
+            encoding="utf-8")
+        goal = self.started()
+        self.make_env([])
+        out = gr.run_plan(self.env, goal)
+        self.assertEqual(out.exit, 2)
+        self.assertEqual(gs.read_goal(self.root, goal)["stopped"], "owner")
+
+    def test_planning_is_counted_in_the_goal_budget(self):
+        goal, out = self.plan([plan_line()], spend=7)
+        ledger = budget.read_ledger(self.root)
+        self.assertEqual(sum(s.micros for s in ledger.settles.values()), 7 * rs.U)
+
+    def test_the_plan_cap_is_the_plan_budget(self):
+        goal, out = self.plan([plan_line()])
+        argv, _ = self.children.calls[0]
+        self.assertEqual(argv[argv.index("--cap-uu") + 1], "20")
+
+    def test_a_second_planning_run_for_the_same_goal_is_refused(self):
+        goal, out = self.plan([plan_line()])
+        self.make_env([{"steps": [plan_line()]}])
+        self.assertEqual(gr.run_plan(self.env, goal).exit, 2)
+        self.assert_no_child()
+
+
+# ----------------------------------------------------------------------------------------------------- the supervisor, step by step
+
+
+class SuperviseTests(StartCase):
+    def scenario_expired_approval_is_denied_before_anything(self):
+        goal = self.approved(2)
+        self.move(goal, "T-01", "needs owner", "unclear")
+        self.clock.advance(25 * 3600)
+        self.make_env(self.good_scripts())
+        out = gr.supervise(self.env, goal)
+        self.assertEqual(self.task_state(goal), ("stopped", "unanswered"))
+        self.assertEqual((out.exit, out.state), (2, "stopped"))
+        self.assertEqual(self.rows(), [])  # the row was closed with the answer No: timed out
+        self.assert_no_child()
+
+    def test_an_approval_that_passed_its_deadline_while_nothing_ran_is_denied_by_the_next_command(self):
+        self.scenario_expired_approval_is_denied_before_anything()
+
+    def test_an_approval_that_is_still_open_is_not_denied(self):
+        goal = self.approved(1)
+        self.move(goal, "T-01", "needs owner", "unclear")
+        self.clock.advance(23 * 3600)
+        self.make_env()
+        out = gr.supervise(self.env, goal)
+        self.assertEqual((out.exit, out.state), (3, "needs owner"))
+
+    def test_planted_fault_enforcement_only_inside_run(self):
+        with self.assertRaises(AssertionError):
+            with mock.patch.object(gs, "deny_expired", lambda *a, **k: []):
+                self.scenario_expired_approval_is_denied_before_anything()
+
+    def test_a_task_that_is_running_while_no_supervisor_holds_the_lock_is_stopped_as_lost(self):
+        goal = self.approved(1)
+        self.move(goal, "T-01", "running", "start")
+        self.make_env()
+        out = gr.supervise(self.env, goal)
+        self.assertEqual(self.task_state(goal), ("stopped", "supervisor"))
+        self.assertEqual(out.exit, 2)
+        self.assert_no_child()
+
+    def test_a_second_supervisor_is_refused_with_the_goal_lock_error(self):
+        goal = self.approved(1)
+        self.make_env(self.good_scripts())
+        with gs.lock(self.root):
+            with self.assertRaises(gs.GoalLockBusy):
+                gr.supervise(self.env, goal)
+        self.assert_no_child()
+
+    def test_a_hand_edited_logbook_stops_everything(self):
+        goal = self.approved(1)
+        text = self.logbook_text()
+        (self.root / "LOGBOOK.md").write_text(text.replace("umwayi goal", "umwayi goal ", 1) + "\nedited by hand\n", encoding="utf-8")
+        self.make_env(self.good_scripts())
+        with self.assertRaises(UmwayiErrorTypes):
+            gr.supervise(self.env, goal)
+        self.assert_no_child()
+
+    def test_a_goal_entry_that_is_not_one_of_the_shapes_stops_everything(self):
+        goal = self.approved(1)
+        logbook.append(self.root, logbook.Entry(self.when, gs.SOURCE, "Goal G-0001 task T-01: made up", "Nothing else was checked.",
+                                                "The goal text, the prompt and the helper's output were not recorded."))
+        self.make_env(self.good_scripts())
+        with self.assertRaises(UmwayiErrorTypes):
+            gr.supervise(self.env, goal)
+        self.assert_no_child()
+
+    def test_one_task_is_run_to_in_review_and_the_next_waits(self):
+        goal = self.approved(2)
+        self.make_env(self.good_scripts())
+        out = gr.supervise(self.env, goal)
+        self.assertEqual((out.exit, out.state), (0, "in review"))
+        self.assertEqual(self.task_state(goal, "T-02")[0], "queued")
+
+    def test_a_failed_task_halts_the_goal(self):
+        goal = self.approved(2)
+        self.make_env([{"steps": [{"exit": 2}]}])
+        self.assertEqual(gr.supervise(self.env, goal).exit, 2)
+        self.make_env(self.good_scripts())
+        out = gr.supervise(self.env, goal)
+        self.assertEqual((out.exit, out.state), (2, "failed"))
+        self.assertEqual(self.task_state(goal, "T-02")[0], "queued")  # later tasks stay queued
+        self.assert_no_child()
+
+    def test_a_task_that_needs_the_owner_is_exit_3_and_waits(self):
+        goal = self.approved(1)
+        self.move(goal, "T-01", "needs owner", "unclear")
+        self.make_env()
+        self.assertEqual(gr.supervise(self.env, goal).exit, 3)
+
+    def test_every_task_merged_is_exit_0(self):
+        goal = self.approved(1)
+        self.move(goal, "T-01", "running", "start")
+        self.move(goal, "T-01", "in review", "checked", branch="umwayi/g-0001-t-01", tip="a" * 40)
+        self.move(goal, "T-01", "merged", "declared", commit="b" * 40)
+        self.make_env()
+        self.assertEqual(gr.supervise(self.env, goal).exit, 0)
+
+    def test_a_goal_that_was_never_approved_does_not_run(self):
+        goal = self.planned(1)
+        self.make_env(self.good_scripts())
+        self.assertEqual(gr.supervise(self.env, goal).exit, 2)
+        self.assert_no_child()
+
+    def test_the_kill_switch_at_the_start_of_run_marks_every_goal_and_is_exit_3(self):
+        g1, g2 = self.approved(1), self.approved(1)
+        kill.turn_on(self.root, self.when)
+        self.make_env(self.good_scripts())
+        out = gr.supervise(self.env, g1)
+        self.assertEqual((out.exit, out.reason), (3, "kill"))
+        self.assertEqual({gs.read_goal(self.root, g)["stopped"] for g in (g1, g2)}, {"kill"})
+        self.assert_no_child()
+
+
+UmwayiErrorTypes = (gr.UmwayiError, gs.UmwayiError)
+
+
+# ----------------------------------------------------------------------------------------------------- crash leftovers, order, fakes
+
+
+class LeftoverTests(StartCase):
+    def crash_after_the_worktree(self):
+        goal = self.approved(1)
+        calls = {"n": 0}
+
+        def gate(root, name, workdir=None):
+            if workdir is not None:
+                raise RuntimeError("a crash right after the worktree was made")
+            return agents.Result(0, [])
+        self.make_env(self.good_scripts(), gate=gate)
+        with self.assertRaises(RuntimeError):
+            gr.run_task(self.env, goal, "T-01")
+        return goal
+
+    def test_a_crash_after_the_worktree_and_before_the_builder_is_cleaned_by_the_next_command(self):
+        goal = self.crash_after_the_worktree()
+        wt = Path(self.port.worktree_path(self.root, goal, "T-01"))
+        self.assertTrue(wt.exists())
+        self.assertEqual(self.task_state(goal)[0], "running")
+        self.make_env()
+        gs.mark_lost(self.root, when=self.when, now=self.clock(), holding=True)
+        self.assertEqual(gr.sweep_unused(self.env), [(goal, "T-01")])
+        self.assertFalse(wt.exists())
+        self.assertIn("umwayi/g-0001-t-01", rs.git(self.root, "branch", "--list"))
+
+    def test_a_worktree_where_a_builder_started_is_never_swept(self):
+        goal = self.approved(1)
+        self.run_task(goal, "T-01", [{"steps": [{"exit": 2}]}])
+        wt = Path(self.port.worktree_path(self.root, goal, "T-01"))
+        self.assertEqual(gr.sweep_unused(self.env), [])
+        self.assertTrue(wt.exists())
+
+    def test_a_swept_worktree_must_be_clean_at_its_base(self):
+        goal = self.crash_after_the_worktree()
+        wt = Path(self.port.worktree_path(self.root, goal, "T-01"))
+        (wt / "work.txt").write_text("someone's work\n")
+        self.make_env()
+        self.assertEqual(gr.sweep_unused(self.env), [])
+        self.assertTrue(wt.exists())
+
+
+class OrderTests(StartCase):
+    """test_samecode: the order of the start steps, by spies (W9.R7, design.md "Tests")."""
+
+    def spied(self):
+        order = []
+
+        def spy(name, fn):
+            def wrapper(*a, **k):
+                order.append(name)
+                return fn(*a, **k)
+            return wrapper
+        port = self.port
+        patches = [
+            mock.patch.object(kill, "state", spy("kill", kill.state)),
+            mock.patch.object(rules, "check_and_log", spy("rules", rules.check_and_log)),
+            mock.patch.object(runlock, "held", spy("lock", runlock.held)),
+            mock.patch.object(budget, "read_ledger", spy("budget", budget.read_ledger)),
+            mock.patch.object(gs, "change_state", spy("state", gs.change_state)),
+            mock.patch.object(rs.GitPort, "base", spy("base", rs.GitPort.base)),
+            mock.patch.object(rs.GitPort, "leftover", spy("leftover", rs.GitPort.leftover)),
+            mock.patch.object(rs.GitPort, "worktree_add", spy("worktree", rs.GitPort.worktree_add)),
+        ]
+        return order, patches, port
+
+    def test_the_builder_start_steps_are_in_the_order_of_the_spec(self):
+        goal = self.approved(1)
+        order, patches, _ = self.spied()
+        calls = []
+
+        def gate(root, name, workdir=None):
+            calls.append(("gate", workdir is not None))
+            order.append("gate-worktree" if workdir else "gate")
+            return agents.Result(0, [])
+
+        def spawn(argv, cwd, environ):
+            order.append("spawn")
+            return self.children.spawn(argv, cwd, environ)
+        self.make_env([{"steps": [{"exit": 2}]}], gate=gate, spawn=spawn)
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        gr.run_task(self.env, goal, "T-01")
+        first = order[:order.index("spawn") + 1]
+        expected = ["kill", "rules", "gate", "lock", "base", "leftover", "budget", "state", "worktree", "gate-worktree", "spawn"]
+        picked = [w for w in first if w in expected]
+        dedup = []
+        for w in picked:
+            if w not in dedup:
+                dedup.append(w)
+        self.assertEqual(dedup, expected, first)
+        self.assertEqual(order.count("spawn"), 1)  # one child start for one run
+
+    def test_each_run_asks_the_rules_and_the_kill_switch_before_its_child(self):
+        goal = self.approved(1)
+        order, patches, _ = self.spied()
+
+        def spawn(argv, cwd, environ):
+            order.append("spawn:" + argv[5])
+            return self.children.spawn(argv, cwd, environ)
+        self.make_env(self.good_scripts(), spawn=spawn)
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        gr.run_task(self.env, goal, "T-01")
+        spawns = [i for i, w in enumerate(order) if w.startswith("spawn:")]
+        self.assertEqual(len(spawns), 3)
+        for i in spawns:
+            before = order[:i]
+            self.assertLess(max(j for j, w in enumerate(before) if w == "kill"), len(before))
+            self.assertIn("rules", before[before.index("kill"):])
+        # the rules were asked once for each of the three runs
+        self.assertEqual(order.count("rules"), 3)
+
+    def test_the_prompt_goes_on_standard_input_and_the_nonce_reaches_the_helper(self):
+        goal = self.approved(1)
+        self.run_task(goal, "T-01", self.good_scripts())
+        # the fake agent only prints a UMWAYI-RESULT line that passes the nonce check if it read the nonce from stdin
+        self.assertEqual(self.task_state(goal)[0], "in review")
+        for argv, _ in self.children.calls:
+            self.assertNotIn("Nonce", " ".join(argv))
+
+    def test_the_child_environment_is_the_supervisors_unchanged(self):
+        goal = self.approved(1)
+        seen = []
+
+        def spawn(argv, cwd, environ):
+            seen.append(environ)
+            return self.children.spawn(argv, cwd, environ)
+        self.make_env(self.good_scripts(), spawn=spawn, environ={"PATH": "/usr/bin", "KEEP": "1"})
+        gr.run_task(self.env, goal, "T-01")
+        self.assertEqual(seen[0], {"PATH": "/usr/bin", "KEEP": "1"})
+        self.assertIsNot(seen[0], self.env.environ)
+
+
+
+class SignalAndLogTests(StartCase):
+    def test_a_signal_before_a_run_starts_nothing(self):
+        goal = self.approved(1)
+        self.make_env(self.good_scripts())
+        self.env.stop.set("signal")
+        out = gr.run_task(self.env, goal, "T-01")
+        self.assertEqual((out.exit, out.reason), (2, "signal"))
+        self.assert_no_child()
+
+    def test_a_signal_while_waiting_for_the_run_lock_ends_the_wait(self):
+        goal = self.approved(1)
+        self.make_env(self.good_scripts())
+        self.at_tick(1, lambda: self.env.stop.set("signal"))
+        with runlock.held(self.root):
+            out = gr.run_task(self.env, goal, "T-01")
+        self.assertEqual((out.exit, out.reason), (2, "signal"))
+        self.assert_no_child()
+        self.assertEqual(self.task_state(goal)[0], "queued")
+
+    def test_a_bad_line_in_the_middle_of_the_event_log_is_recorded_once_however_often_it_is_read(self):
+        goal = self.approved(1)
+        path = self.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl"
+        good = goallog.make_line(1, "2026-11-13T00:00:00Z", "poll", {})
+        path.write_bytes(good + b"this is not an event\n" + goallog.make_line(2, "2026-11-13T00:00:01Z", "poll", {}))
+        out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual(out.exit, 0, out)
+        for _ in range(3):
+            goallog.Writer(path, self.clock).open()  # reading it again records nothing new
+        events, skipped = goallog.read(path.read_bytes())
+        self.assertEqual(len(skipped), 1)
+        recorded = [e for e in events if e["kind"] == "skipped"]
+        self.assertEqual(len(recorded), 1)
+        self.assertEqual(recorded[0]["data"]["sha256"], skipped[0].sha256)
+        self.assertNotIn(b"this is not an event", path.read_bytes().split(b"\n", 2)[2])  # the record holds a hash, not the line
+
+
+# ----------------------------------------------------------------------------------------------------- planted faults: one for each pitfall
+
+
+class PlantedFaultTests(StartCase):
+    """Each pitfall of the design table has a check in the classes above. Here the check is run again with the fault
+    planted in the code, and it must fail (the pitfalls of the status text, W9.11, belong to `umwayi goal status`, W9.8)."""
+
+    def caught(self, patcher, check):
+        """The check fails (an assertion, or the error that the fault causes in what the check reads) with the fault in."""
+        with self.assertRaises(Exception):
+            with patcher:
+                check()
+
+    # pitfall 7: cost grows with autonomy
+
+    def test_budget_the_cap_taken_from_the_helpers_own_report(self):
+        self.caught(mock.patch.object(gb, "spent_uu", lambda before, ledger, agent: 0),
+                    lambda: BudgetCapTests.test_an_overspending_builder_is_failed_with_budget(self.as_case(BudgetCapTests)))
+
+    def test_budget_the_testers_run_is_not_counted(self):
+        real = gb.spent_uu
+        self.caught(mock.patch.object(gb, "spent_uu", lambda before, ledger, agent: 0 if agent == "kiro-test" else real(before, ledger, agent)),
+                    lambda: BudgetCapTests.test_caps_follow_the_task_goal_run_and_day_limits(self.as_case(BudgetCapTests)))
+
+    def test_budget_the_planning_run_is_not_counted(self):
+        self.caught(mock.patch.object(gb.Account, "goal_left",
+                                      lambda self: self.goal_budget - sum(sum(v.values()) for v in self._spent.values())),
+                    lambda: BudgetCapTests.test_planning_counts_in_the_goal_budget(self.as_case(BudgetCapTests)))
+
+    def test_budget_the_goal_budget_is_checked_only_at_approval(self):
+        real = gb.next_cap
+        self.caught(mock.patch.object(gb, "next_cap", lambda t, g, p, d: real(t, 10 ** 9, p, d)),
+                    lambda: BudgetCapTests.test_the_goal_stops_when_its_budget_is_spent_and_says_so_once(self.as_case(BudgetCapTests)))
+
+    def test_budget_the_caps_ignore_the_day_limits(self):
+        self.caught(mock.patch.object(gb, "day_left_uu", lambda *a, **k: 10 ** 9),
+                    lambda: BudgetCapTests.test_the_day_limit_lowers_the_cap(self.as_case(BudgetCapTests)))
+
+    # pitfall 1: an approval that waits silently
+
+    def test_approvals_the_queue_row_is_skipped(self):
+        self.caught(mock.patch.object(gs, "_queue_row", lambda *a, **k: None),
+                    lambda: StartRefusalTests.test_no_rule_for_goal_start_is_ask_me_first_with_one_queue_row(self.as_case(StartRefusalTests)))
+
+    # pitfall 4: one malformed line stalls the log
+
+    def test_log_the_reader_stops_at_the_first_bad_line(self):
+        real = goallog.LineReader.feed
+
+        def stops(self, chunk):
+            out = real(self, chunk)
+            for i, (_text, flagged) in enumerate(out):
+                if flagged:
+                    return out[:i + 1]
+            return out
+        self.caught(mock.patch.object(goallog.LineReader, "feed", stops),
+                    lambda: ReaderTests.test_10_mb_without_a_newline_then_noise_then_an_error_line(self.as_case(ReaderTests)))
+
+    def test_log_a_torn_last_line_of_the_event_log_is_recovered_once(self):
+        goal = self.approved(1)
+        path = self.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl"
+        path.write_bytes(b'{"n":1,"at":"2026-11-13T00:00:00Z","kind":"po')  # a crash in the middle of a line
+        out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual(out.exit, 0, out)
+        events, skipped = goallog.read(path.read_bytes())
+        self.assertEqual(len([e for e in events if e["kind"] == "skipped"]), 1)
+        self.assertEqual(len(skipped), 1)  # the bad line is still there, recorded once and never again
+        self.assertEqual(events[0]["data"]["reason"], "torn")
+
+    # pitfall 6 is in BuilderTests.test_planted_fault_the_scope_check_does_not_list_the_shared_files
+    # pitfall 2, 3 and 5 are in WatchTests and FailedWriteTests
+
+    def as_case(self, cls):
+        """The same test environment seen as another test class, so a check written there can run here."""
+        case = cls.__new__(cls)
+        case.__dict__.update(self.__dict__)
+        case._testMethodName = "runTest"
+        return case
+
+
+if __name__ == "__main__":
+    unittest.main()

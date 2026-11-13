@@ -435,8 +435,10 @@ def fingerprint(head, entries, folder, own=()):
 def goal_status(root, goal):
     """The state of a goal as W9.R6.4 derives it, or `plan` before approval. Read from the files."""
     g = gs.read_goal(root, goal)
+    if g["stopped"]:
+        return "stopped"  # the goal-level stop of W9.R16 (the derived state alone would read the tasks)
     if not g["approved"]:
-        return "stopped" if g["stopped"] else ("plan" if not g["refused"] else "refused")
+        return "plan" if not g["refused"] else "refused"
     states = []
     for task in gs.list_tasks(root, goal):
         t = gs.read_task(root, goal, task)
@@ -510,8 +512,15 @@ class _Run:
 
     def events(self):
         if self.writer is None:
-            self.writer = goallog.Writer(gs.events_path(self.root, self.goal, self.task), self.env.clock).open()
+            self.writer = self.open_writer(gs.events_path(self.root, self.goal, self.task))
         return self.writer
+
+    def open_writer(self, path):
+        """The only writer of an event log. A torn tail gets its newline and one `torn` record; every other bad line already
+        in the log gets one `skipped` record, once (W9.R12.3, W9.R12.4)."""
+        w = goallog.Writer(path, self.env.clock).open()
+        w.record_skips()
+        return w
 
     def account(self):
         budgets, spent = {}, {}
@@ -561,21 +570,32 @@ class _Run:
     # ---- the start steps (W9.R7), in this order
 
     def stop_running(self, cause, **kw):
+        """End the running task as `stopped` (kill, signal, log). The kill switch also marks every other goal (W9.R16.2)."""
         new, reason = gp.reason_for(cause)
+        self.discard_unused_worktree()
         self.move(new, reason, **kw)
         self.t = gs.read_task(self.root, self.goal, self.task)
+        if cause == "kill_switch":
+            kill_all(self.env)
         raise _Done(Outcome(EXIT_OF_STATE[new], new, reason, cause))
 
     def step_kill(self):  # 1
         """`on` or `unknown` refuses before anything else is read (W9.R7.1). A running task is stopped with `kill`
         (so the run is exit 2); a queued one stays queued (exit 3). Every other active goal is marked (W9.R16.2)."""
+        self.step_signal()
         if not kill.stopped(kill.state(self.root)):
             return
         if gs.read_task(self.root, self.goal, self.task)["state"] == "running":
-            kill_all(self.env)
             self.stop_running("kill_switch")
         kill_all(self.env)
         raise _Done(Outcome(3, self.t["state"], "kill", "kill_switch"))
+
+    def step_signal(self):
+        """SIGTERM, SIGHUP or Ctrl-C between two runs, or while waiting for the run lock (W9.R16.3): nothing starts."""
+        if self.env.stop.is_set():
+            if gs.read_task(self.root, self.goal, self.task)["state"] == "running":
+                self.stop_running("signal_received")
+            raise _Done(Outcome(2, self.t["state"], "signal", "signal_received"))
 
     def step_state(self, role):  # 2
         t = gs.read_task(self.root, self.goal, self.task)
@@ -628,6 +648,7 @@ class _Run:
                 if i + 1 < BUSY_TRIES:
                     self.say(f"The run lock is held. Waiting {int(self.env.busy_wait)} s (try {i + 1} of {BUSY_TRIES}).")
                     self.env.sleep(self.env.busy_wait)
+                    self.step_signal()
             except runlock.RunLockUnavailable:
                 self.finish("agent_cannot_be_gated")
         self.finish("run_lock_busy")
@@ -822,7 +843,7 @@ class _Run:
                     history.append(("error", now, sig))
                     w.append("error", {"sig": sig})
                 new, total = reader.take_counts(counts)
-                if role != "builder" and total[0] > lines_seen:
+                if total[0] > lines_seen:  # the policy decides whether output is progress (not for a builder)
                     history.append(("output", now))
                 lines_seen = total[0]
                 if now >= next_out:
@@ -1115,7 +1136,7 @@ class _PlanRun(_Run):
 
     def events(self):
         if self.writer is None:
-            self.writer = goallog.Writer(gs.goal_dir(self.root, self.goal) / "goal.events.jsonl", self.env.clock).open()
+            self.writer = self.open_writer(gs.goal_dir(self.root, self.goal) / "goal.events.jsonl")
         return self.writer
 
     def agent_of(self, role):
@@ -1139,9 +1160,15 @@ class _PlanRun(_Run):
         raise _Done(Outcome(3 if cause == "kill_switch" else 2, "plan", "", cause))
 
     def step_kill(self):
+        if self.env.stop.is_set():
+            raise _Done(Outcome(2, "plan", "signal", "signal_received"))
         if kill.stopped(kill.state(self.root)):
             kill_all(self.env)
             raise _Done(Outcome(3, "plan", "kill", "kill_switch"))
+
+    def step_signal(self):
+        if self.env.stop.is_set():
+            raise _Done(Outcome(2, "plan", "signal", "signal_received"))
 
     def step_state(self, role):
         if self.g["plan"] is not None or self.g["approved"] or self.g["stopped"] or self.g["refused"]:
@@ -1278,7 +1305,7 @@ class _PlanRun(_Run):
     def is_private(self, rel):
         from umwayi import config
         try:
-            private = config.load(self.root).private_paths
+            private = config.load_config(self.root).private_paths
         except UmwayiError:
             return True  # fail closed: a root whose config cannot be read has every path private
         norm = rel.strip("/")

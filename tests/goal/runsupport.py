@@ -246,6 +246,8 @@ class RunCase(goalsupport.GoalCase):
         self.addCleanup(self.reap)
         self.children = None
         self.env = None
+        self.ticks = 0
+        self.hooks = []
 
     def reap(self):
         for p in (self.children.procs if self.children else []):
@@ -257,8 +259,17 @@ class RunCase(goalsupport.GoalCase):
             shutil.rmtree(worktrees, ignore_errors=True)
 
     def sleep(self, seconds):
+        """The watch's sleep: fake time moves by `seconds`, real time by a few milliseconds. A test can run a function at
+        the Nth call with `self.at_tick(N, fn)`."""
+        self.ticks += 1
+        for n, fn in list(self.hooks):
+            if self.ticks == n:
+                fn()
         self.clock.advance(seconds)
-        time.sleep(0.01)
+        time.sleep(0.003)
+
+    def at_tick(self, n, fn):
+        self.hooks.append((n, fn))
 
     def make_env(self, scripts=(), gate=None, **kw):
         self.children = ChildDouble(self, scripts)
