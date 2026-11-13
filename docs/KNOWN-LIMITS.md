@@ -1194,9 +1194,21 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - What it does not protect against: a reason that is wrong or careless, an Applies row that points at a file that has nothing to do with the concept, a file that exists but is empty, a concept marked Not applicable that does apply, and a record that was true once and is now out of date (the date is checked for its form only, not its age). The reason is checked for being present, not for being one sentence.
 - A later fix: none planned. A judgment about whether an answer is true stays with the owner. The record is checked only when the owner runs the command; nothing runs it on a schedule.
 
+## Model routing and task log (W19)
+
+### 255. The routing checker proves the form of the table and the log, not that they are true or current
+
+`umwayi routing check` shows that a model routing table or a task log is well formed. It cannot tell whether a row is true.
+
+- What protects you today: every routing row has a known platform, task types from a fixed list, a source that is an https page of the vendor of that platform, real dates, and a `review_by` date that is after the source date, at most 45 days after it and not yet past. Every log row has an allowed outcome and review result, a credits value that is `unknown` or a plain number, and a real date that is not in the future. Any failure exits 2.
+- What it does not protect against: a strength that is wrong or out of date (the vendor page is not fetched), a source address that is a real page of the vendor but the wrong one, a model name that does not exist, a task type that does not fit the model, a model or credits value in the log that is wrong, and a review result that does not match what really happened. The model cell of the log is not checked against the table. The starter log says `unknown` for the model and the credits of PRs 66 to 79, because history does not hold them.
+- The check can start failing without any change to the file: a row whose `review_by` has passed fails until its page is read again. That is intended.
+- The 30 day wait and the 45 day limit are the builder's proposal, not an owner decision. Other OpenCode models are not listed, because the OpenCode page states no strength for them.
+- A later fix: none planned. Choosing a model, and judging whether a row is true, stay with the owner. The command runs only when the owner runs it.
+
 ## History backfill (W19), found while building
 
-### 255. The backfill records have no model field, the task kind is a weak guess, and one run reads only about 19 pull requests an hour
+### 256. The backfill records have no model field, the task kind is a weak guess, and one run reads only about 19 pull requests an hour
 
 `tools/backfill_history.py` writes derived records from public GitHub data with no token. That keeps it safe and it has limits.
 
