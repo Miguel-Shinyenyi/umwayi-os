@@ -1,0 +1,4 @@
+date: 2026-11-13
+pr: none
+what: W9.1 to W9.5, the pure core of goal orchestration, one pull request on top of PR 84. Tests first in `tests/goal/` (seeded generators and shrinker, a fake agent with a script language, a fake root and git repo, a fake clock), then `umwayi/goalpacket.py` (packet, plan parser, protected list, scope check, state table, roles rule, result line readers), `umwayi/goallog.py` (event shape, total reader, writer, bounded line reader), `umwayi/goalwatch.py` (error signature, stall and loop judge, approvals with deadlines), `umwayi/goalstate.py` (state files, strict entries, write order, repair, denial of expired approvals, supervisor lock) and `umwayi/goalbudget.py` (ledger window, caps, account). Nothing starts an AI helper; no `goal.py`, `goalrun.py`, steering or `guidance.yaml` change.
+tests: see the pull request
