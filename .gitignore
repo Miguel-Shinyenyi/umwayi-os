@@ -5,6 +5,8 @@ build/
 dist/
 # the built page of layer 12 is committed (ui/dist/index.html and build.json)
 !ui/dist/
+# W22: the progress page is built from the docs on every build and is never committed
+ui/dist/progress.html
 .pytest_cache/
 .venv/
 

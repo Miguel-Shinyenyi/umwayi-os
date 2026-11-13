@@ -94,7 +94,7 @@ if (/<!--@/.test(mapHtml)) throw new Error('a placeholder was not replaced in th
 writeFileSync(join(dist, 'cli-map.html'), mapHtml);
 
 // W8 slice: the progress page, a third page. No script, so the policy is the map's: default-src 'none' plus the style hash.
-// Its words come from three files of the repo, read here and nowhere else: docs/status-log.md, docs/KNOWN-LIMITS.md and
+// W22: it is written to ui/dist/progress.html on every build and is not committed. Its words come from three files of the repo, read here and nowhere else: docs/status-log.md, docs/KNOWN-LIMITS.md and
 // .kiro/specs/umwayi-os/tasks.md. The date is the day of the build (UMWAYI_BUILD_DATE sets it for a repeatable build).
 const progress = await import(pathToFileURL(join(root, 'src/data/progress.js')).href);
 const repo = join(root, '..');
@@ -119,9 +119,10 @@ const progressHtml = readFileSync(join(root, 'src/progress.html'), 'utf8')
 if (/<!--@/.test(progressHtml)) throw new Error('a placeholder was not replaced in the progress page');
 writeFileSync(join(dist, 'progress.html'), progressHtml);
 
-// what the page was built from: tests recompute these without npm
+// what the pages were built from: tests recompute these without npm. The progress page is not in it: it is built here from the
+// docs and is not committed (ui/dist/progress.html is in .gitignore), so a pull request that adds a status row changes no committed file
 const inputs = ['build.mjs', 'package.json', 'package-lock.json', ...walk(join(root, 'src')).map((f) => relative(root, f).split('\\').join('/'))];
 const files = {};
 for (const name of [...new Set(inputs)].sort()) files[name] = sha256(readFileSync(join(root, name)));
-writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))), progressPage: sha256(readFileSync(join(dist, 'progress.html'))), progressShown: sha256(progress.shown(progressModel)) }, null, 2) + '\n');
+writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))) }, null, 2) + '\n');
 console.log(`built ui/dist/index.html (${Math.round(html.length / 1024)} KB)`);

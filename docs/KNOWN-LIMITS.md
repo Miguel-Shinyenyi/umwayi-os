@@ -1330,16 +1330,16 @@ The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbud
 
 ### 265. The progress page counts boxes and copies the first sentence of rows, and it is only as new as the last build
 
-`ui/dist/progress.html` shows work done and open per group, the latest ten status log rows, the highest known limit number and the date it was built. It is a reading aid, with these limits.
+`ui/dist/progress.html` (built, not committed) shows work done and open per group, the latest ten status log rows, the highest known limit number and the date it was built. It is a reading aid, with these limits.
 
 - A task is a line that starts with a checkbox in `.kiro/specs/umwayi-os/tasks.md`, counted under the nearest heading that starts with two hash marks. A task written in another form, such as a table row or plain text, is not counted. The Status table at the top of that file has no checkboxes, so it has no group on the page. Sub-headings with three hash marks count inside their group.
 - The group name is the heading cut at its first bracket, so the words in brackets (dates, PR numbers) are not on the page.
 - The latest ten rows are the first ten rows of the pull request table in `docs/status-log.md`, in file order. The file is newest first, but one row has an older date above a newer one, so file order and date order can differ. The page does not sort.
 - Each row shows only its first sentence (cut at 240 characters), not the tests column.
 - The highest limit number is the largest number in a heading of `docs/KNOWN-LIMITS.md`. A gap in the numbers is not shown.
-- The page is built by `node build.mjs`, which only the owner runs. `ui/dist/build.json` holds the SHA-256 of what the page shows (the group counts, the ten rows, the highest limit number) and of the page. `tests/test_progress_page.py` reads the three sources again with its own reader and fails when that hash differs, so a change to any other line of the sources does not make the page stale, but a new status log row, a ticked task or a new limit does, and then the page has to be rebuilt. Two pull requests that both do that conflict in `ui/dist/build.json` and `ui/dist/progress.html`; the fix is to merge main and run the build again.
-- The two readers (one in `ui/src/data/progress.js`, one in the test) are separate code that has to agree. If they ever differ on a source, the test fails at once, which is noise and not a wrong page. A matching hash shows the build ran after the last change of what the page shows. It does not show the page text is right for it.
-- The date is the day of the build and is not checked against anything, so a rebuild of unchanged sources changes the page and the hash.
+- Since W22 the page is built by `node build.mjs` and is not committed: `ui/dist/progress.html` is in `.gitignore`, and `ui/dist/build.json` holds no hash of the page or of what it shows. A pull request that adds a status row, ticks a box or adds a limit therefore changes no committed ui file and cannot fail CI as stale. The page exists only after a build (`npm ci --ignore-scripts` then `node build.mjs` in `ui/`); a checkout that has not been built has no page. Nothing in this repository builds or publishes it at deploy time yet: there is no deploy workflow, so whoever deploys must run the build step.
+- The two readers (one in `ui/src/data/progress.js`, one in `tests/test_progress_page.py`) are separate code that has to agree. `tests/test_progress_page.py` runs the JavaScript one with node (no npm) on the real sources and compares the string with its own; when node is missing that test is skipped and says so. A matching string shows the two readers agree, not that the page text is right. The node test `ui/test/progress.test.mjs` runs the build and checks the page it wrote.
+- The date is the day of the build and is not checked against anything. Because the page is not committed, a rebuild of unchanged sources changes no committed file.
 - The page was not looked at in a real phone or browser, and no phone audit was run on it.
 
 ## Goal orchestration (W9), found while building W9.6b
@@ -1367,10 +1367,23 @@ The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbud
 - Taking main's version of a generated file drops that branch's own version of it. This is right only because nobody edits those files by hand; a hand edit of `docs/status-log.md` is lost.
 - `ci_shards assign-missing` puts a new file on the lightest shard and counts it as the average. It never rebalances, so repeated merges can leave the shards less even than `balance`. `tests/test_ci_shards.py` pins the file as a fixed point of `balance`, so after a merge that assigned a file, `balance` must be run again for that test to pass. This was not changed because it would change what an existing test means.
 - `ci_map update` keeps an entry that is still true, even one that lists more than the scan found, and rewrites one that is false. It reads only what the scanner sees (see the W20 limits).
-- A verify that passes shows a file is current, not that its content is right. `ui/dist/progress.html` is checked only by its hashes in `ui/dist/build.json`.
+- A verify that passes shows a file is current, not that its content is right. `ui/dist/build.json` is checked only by the hashes in it (`tests/test_ui_package.py`). The progress page is built and not committed since W22, so `merge_main` does not list it.
 - A listed regenerate may write other files only if the entry names them under `writes`; the check finds a stray file after the commands and verify, not while they run.
 - The ui files need node and npm. `npm ci` reads the npm registry or its cache, so the rule of no network except `git fetch` holds for `merge_main` itself and not for that command. If node or npm is missing the run is exit 3, never skipped, and a branch that needs the ui files cannot be repaired on such a machine.
 - `merge_main` makes a merge commit even when the branch only had to catch up (no fast forward), so the branch history shows it.
 - Commits need a git user name and email; without them the commit fails, the tree is put back to the last commit and the run is exit 2.
 - It was tested with git 2.50 on Linux against a bare folder as origin. Other git versions, Windows paths and a real GitHub origin were not tried.
 - The two parallel limits parts of one merge are numbered by the builder in the order of its own sort (date, then part name), not in the order the pull requests landed.
+
+## Progress page at build time (W22), found while building
+
+### 268. The progress page is built and not committed, and nothing here publishes it yet
+
+Since W22 `ui/dist/progress.html` is not in git. These are the limits of that.
+
+- This repository has no deploy workflow, so no job builds or publishes the page. The build step is `node build.mjs` in `ui/` (after `npm ci --ignore-scripts`). Until a deploy step runs it, there is no page to look at except one a person built by hand.
+- A checkout that has not been built has no `ui/dist/progress.html`. `tests/test_progress_page.py` skips its check of the built page then, and says so; the page rules are still checked on a sample page made from `ui/src/progress.html`, and the node job checks the page its own build wrote.
+- Nothing can now tell that a published copy of the page is old. The hashes that did this were removed from `ui/dist/build.json` on purpose, because they were what failed CI on every pull request that added a status row. A deploy that builds on every run has no old copy; a deploy that reuses one does.
+- The page still shows only the first ten rows, the group counts and the highest limit number, and its date is the day of the build. Limit 265 lists the rest.
+- `ui/test/progress.test.mjs` runs `node build.mjs`, which rewrites `ui/dist/index.html`, `cli-map.html` and `build.json` with the same bytes when nothing changed. A node test run therefore touches those files' timestamps, and a ui source change that was not built shows as a changed file after the test run.
+- The test that a pull request adding a status row does not fail CI works on the committed files at HEAD in a temporary copy, with the Python tests of `ui/` only. It does not run the node job or the whole CI.

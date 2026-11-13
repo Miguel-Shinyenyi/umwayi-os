@@ -29,7 +29,6 @@ NEEDS_NODE = unittest.skipUnless(HAS_NODE, "node or npm is missing, so the ui sc
 if not HAS_NODE:
     print("test_merge_main: SKIPPED the ui scenarios because node or npm is missing", file=sys.stderr)
 TEST_BODY = "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        pass\n"
-TASKS = ".kiro/specs/umwayi-os/tasks.md"
 
 
 def git(cwd, *args, check=True, env=None):
@@ -144,7 +143,7 @@ class NothingToDoTests(MergeMainBase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(git(self.b, "rev-parse", "HEAD").stdout, head)
         for path in ("docs/status-log.md", "docs/KNOWN-LIMITS.md", "tools/ci_map.json", "tools/ci_shards.json", "docs/testing.md",
-                     "ui/dist/progress.html", "ui/dist/build.json"):
+                     "ui/dist/build.json"):
             self.assertRegex(r.stdout, rf"(?m)^kept {re.escape(path)}: ")
         self.assertIn("already merged", r.stdout)
 
@@ -268,45 +267,39 @@ class TestFileTests(MergeMainBase):
 
 
 class UiTests(MergeMainBase):
-    def tick(self, repo, line_number):
-        path = repo / TASKS
-        lines = path.read_text(encoding="utf-8").split("\n")
-        self.assertTrue(lines[line_number - 1].startswith("- [ ]"), lines[line_number - 1][:30])
-        lines[line_number - 1] = lines[line_number - 1].replace("- [ ]", "- [x]", 1)
-        path.write_text("\n".join(lines), encoding="utf-8")
-
     def build_ui(self, repo):
         for argv in (["npm", "ci", "--ignore-scripts"], ["node", "build.mjs"]):
             r = subprocess.run(argv, cwd=repo / "ui", capture_output=True, text=True, env=ENV)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
-    def two_branches_that_changed_the_progress_inputs(self):
-        for repo, line in ((self.a, 282), (self.b, 992)):
-            self.tick(repo, line)
-            self.build_ui(repo)
+    def two_branches_that_changed_ui_sources(self):
+        """A changes one ui source and rebuilds, then lands. B changes another and does not rebuild: its build.json is stale."""
+        for repo, name, rebuild in ((self.a, "ease", True), (self.b, "tier", False)):
+            path = repo / "ui" / "src" / "engine" / f"{name}.js"
+            path.write_text(path.read_text(encoding="utf-8") + f"\n// W22 test line in {name}\n", encoding="utf-8")
+            if rebuild:
+                self.build_ui(repo)
             git(repo, "add", "-A")
-            git(repo, "commit", "-qm", f"tick {line}")
+            git(repo, "commit", "-qm", f"change {name}")
         self.land(self.a)
 
     @NEEDS_NODE
-    def test_two_branches_that_both_change_progress_inputs_get_the_ui_files_regenerated(self):
-        self.two_branches_that_changed_the_progress_inputs()
+    def test_two_branches_that_both_change_ui_sources_get_build_json_regenerated(self):
+        self.two_branches_that_changed_ui_sources()
+        self.assertNotEqual(self.py(self.b, "unittest", "tests.test_ui_package").returncode, 0)  # B did not rebuild
         r = self.merge_main(self.b)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertRegex(r.stdout, r"(?m)^regenerated ui/dist/progress.html: .*; ran npm ci --ignore-scripts \(in ui/\) then node build.mjs")
-        self.assertRegex(r.stdout, r"(?m)^regenerated ui/dist/build.json: main's version taken, then regenerated; ran npm ci")
-        for rel in ("ui/dist/progress.html", "ui/dist/build.json"):
-            self.assertNotIn("<<<<<<<", (self.b / rel).read_text(encoding="utf-8"))
-        both = (self.b / TASKS).read_text(encoding="utf-8")
-        self.assertEqual(both.count("- [x] 10.20"), 1)
-        self.assertTrue(self.py(self.b, "unittest", "tests.test_progress_page").returncode == 0)
-        self.assertEqual(git(self.b, "status", "--porcelain").stdout, "")
+        self.assertRegex(r.stdout, r"(?m)^regenerated ui/dist/build.json: .*; ran npm ci --ignore-scripts \(in ui/\) then node build.mjs")
+        data = json.loads((self.b / "ui" / "dist" / "build.json").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(data), ["cliMapPage", "files", "page"])  # no hash of the progress page
+        self.assertEqual(self.py(self.b, "unittest", "tests.test_ui_package").returncode, 0)
+        self.assertEqual(git(self.b, "status", "--porcelain").stdout, "")  # the built progress page is ignored, not committed
 
     def test_node_missing_is_exit_3_and_the_tree_is_as_it_was(self):
-        # a conflict in the ui files needs node. The scenario is built with the real node, run without it.
+        # a stale build.json needs node to regenerate. The scenario is built with the real node, run without it.
         if not HAS_NODE:
             self.skipTest("node is missing, so the conflict cannot be built here (CI has node)")
-        self.two_branches_that_changed_the_progress_inputs()
+        self.two_branches_that_changed_ui_sources()
         before = snapshot(self.b)
         bare = Path(self.tmp.name) / "bare-path"
         bare.mkdir()
