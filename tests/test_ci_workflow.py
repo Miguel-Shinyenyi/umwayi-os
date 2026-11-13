@@ -93,6 +93,32 @@ class JobTests(unittest.TestCase):
         self.assertIn("python -m tools.ci_shards verify", j)
         self.assertIn("actions/download-artifact", j)
 
+    def test_the_python_versions_are_chosen_by_the_plan_and_not_in_the_workflow(self):
+        # W24: a pull request runs 3.10 and 3.13, a push to main all four. That is decided in tools/ci_plan.py; a
+        # version written here would run on every event and could disagree with the check of result.
+        for version in ("3.10", "3.11", "3.13"):
+            self.assertNotIn(version, CODE)
+        self.assertIn("python-version: ${{ matrix.python-version }}", job("test"))
+        self.assertIn("matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}", job("test"))
+        self.assertIn("--python-version ${{ matrix.python-version }}", job("test"))
+
+    def test_the_header_says_that_3_11_and_3_12_run_only_after_the_merge(self):
+        self.assertIn("W24: a pull request runs Python 3.10 and 3.13 only", TEXT)
+        self.assertIn("3.11 and 3.12 therefore run only after a merge", " ".join(TEXT.replace("#", " ").split()))
+
+    def test_the_single_required_check_is_result_of_the_workflow_tests(self):
+        self.assertRegex(CODE, re.compile(r"^name: tests$", re.M))
+        self.assertIn("name: result", job("result"))
+        names = re.findall(r"^  (\w+):\n    name: (.+)$", CODE, re.M)
+        self.assertEqual([n for _, n in names if n == "result"], ["result"])
+
+    def test_result_fails_when_a_planned_shard_fails_or_is_missing_for_either_matrix(self):
+        # the whole decision is in verify_all (tests/test_ci_shards.py); here the workflow must hand it everything
+        j = job("result")
+        for needed in ("if: always()", "pattern: report-*", "merge-multiple: true", "python -m tools.ci_shards verify"):
+            self.assertIn(needed, j)
+        self.assertNotIn("continue-on-error: true\n        run", j)
+
     def test_no_job_but_result_uses_always(self):
         for name in ("plan", "node"):
             self.assertNotIn("always()", job(name))

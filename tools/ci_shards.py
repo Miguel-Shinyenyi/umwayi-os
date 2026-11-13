@@ -37,6 +37,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 ASSIGN_PATH = Path(__file__).resolve().parent / "ci_shards.json"
 SCHEMA = 1
+# W24: the Python versions of each kind of run. A pull request runs 3.10 and 3.13; a push to main runs all four, so
+# 3.11 and 3.12 run only after the merge. The plan decides (tools/ci_plan.py); the final check only refuses a plan
+# that does not match its event.
+EVENT_VERSIONS = {"pull_request": ["3.10", "3.13"], "push": ["3.10", "3.11", "3.12", "3.13"]}
 STATES = ("success", "skipped", "failure", "cancelled")
 
 
@@ -272,8 +276,14 @@ def verify_all(plan, results, reports, assign):
     for cell in include:
         if cell["python-version"] not in versions:
             versions.append(cell["python-version"])
+    expected = EVENT_VERSIONS.get(plan.get("event"))
+    if expected is not None and versions != expected:
+        problems.append(f"python versions {', '.join(versions) or 'none'} were planned for a {plan.get('event')} but "
+                        f"it must run {', '.join(expected)}")
     for v in versions:
         cells = [(c["python-version"], c["shard"]) for c in include if c["python-version"] == v]
+        if py.get("shards") and sorted(s for _, s in cells) != sorted(py["shards"]):
+            problems.append(f"python {v}: the matrix cells are not the planned shards {py['shards']}")
         reps = []
         for cell in cells:
             rep = reports.get(cell)

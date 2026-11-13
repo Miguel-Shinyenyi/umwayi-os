@@ -5,6 +5,9 @@ name: tests
 #          unreadable or empty diff, a changed workflow, filter, map or shard file, and any path it does not know run
 #          everything.
 #   test   the Python suite, split into shards by test file (tools/ci_shards.json) on each Python version the plan names.
+#          W24: a pull request runs Python 3.10 and 3.13 only; a push to main runs 3.10, 3.11, 3.12 and 3.13. The
+#          versions are chosen in the plan step (tools/ci_plan.py), never in this file, so the matrix, the jobs and the
+#          check of result always agree. 3.11 and 3.12 therefore run only after a merge.
 #   node   the Node tests of ui/ and site/, only when the plan says so.
 #   result always runs, after the other three. It is the one check to require: it fails when a planned job failed, did
 #          not run or was cancelled, when a shard has no report, and when the shards together did not run every test

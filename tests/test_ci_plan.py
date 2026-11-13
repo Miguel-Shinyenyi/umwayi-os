@@ -31,36 +31,36 @@ def readers(*paths):
 def table(data=DATA):
     r = lambda *p: sorted(f for f, toks in data["python"].items() if any(ci_map.reads_match(t, x) for t in toks for x in p))
     return [
-        ("empty diff runs everything", [], (True, "all", ALL, True)),
-        ("unreadable diff runs everything", None, (True, "all", ALL, True)),
-        ("a workflow change runs everything", [".github/workflows/ci.yml"], (True, "all", ALL, True)),
-        ("any .github file runs everything", [".github/CODEOWNERS"], (True, "all", ALL, True)),
-        ("the filter script runs everything", ["tools/ci_plan.py"], (True, "all", ALL, True)),
-        ("the map file runs everything", ["tools/ci_map.json"], (True, "all", ALL, True)),
-        ("the shard file runs everything", ["tools/ci_shards.json"], (True, "all", ALL, True)),
-        ("an unknown path runs everything", ["somewhere/new.bin"], (True, "all", ALL, True)),
-        ("an unlisted root file runs everything", ["LICENSE"], (True, "all", ALL, True)),
-        ("an unknown path next to a ui change runs everything", ["ui/src/main.js", "mystery.txt"], (True, "all", ALL, True)),
-        ("a path that climbs out runs everything", ["ui/../umwayi/x.py"], (True, "all", ALL, True)),
-        ("an absolute path runs everything", ["/etc/passwd"], (True, "all", ALL, True)),
-        ("a wrong case folder is unknown", ["UI/src/main.js"], (True, "all", ALL, True)),
+        ("empty diff runs everything", [], (True, "all", FEW, True)),
+        ("unreadable diff runs everything", None, (True, "all", FEW, True)),
+        ("a workflow change runs everything", [".github/workflows/ci.yml"], (True, "all", FEW, True)),
+        ("any .github file runs everything", [".github/CODEOWNERS"], (True, "all", FEW, True)),
+        ("the filter script runs everything", ["tools/ci_plan.py"], (True, "all", FEW, True)),
+        ("the map file runs everything", ["tools/ci_map.json"], (True, "all", FEW, True)),
+        ("the shard file runs everything", ["tools/ci_shards.json"], (True, "all", FEW, True)),
+        ("an unknown path runs everything", ["somewhere/new.bin"], (True, "all", FEW, True)),
+        ("an unlisted root file runs everything", ["LICENSE"], (True, "all", FEW, True)),
+        ("an unknown path next to a ui change runs everything", ["ui/src/main.js", "mystery.txt"], (True, "all", FEW, True)),
+        ("a path that climbs out runs everything", ["ui/../umwayi/x.py"], (True, "all", FEW, True)),
+        ("an absolute path runs everything", ["/etc/passwd"], (True, "all", FEW, True)),
+        ("a wrong case folder is unknown", ["UI/src/main.js"], (True, "all", FEW, True)),
         ("ui only", ["ui/src/main.js"], (False, r("ui/src/main.js"), FEW, True)),
         ("ui dist only", ["ui/dist/index.html"], (False, r("ui/dist/index.html"), FEW, True)),
         ("site only", ["site/app/page.js"], (False, r("site/app/page.js"), FEW, True)),
         ("ui lockfile only", ["ui/package-lock.json"], (False, r("ui/package-lock.json"), FEW, True)),
-        ("umwayi only", ["umwayi/cli.py"], (False, "all", ALL, False)),
-        ("adapters only", ["adapters/kiro/hook.py"], (False, "all", ALL, False)),
-        ("tests only", ["tests/test_rules.py"], (False, "all", ALL, False)),
-        ("a test the Node faults test reads", ["tests/test_ui_package.py"], (False, "all", ALL, True)),
-        ("pyproject only", ["pyproject.toml"], (False, "all", ALL, False)),
+        ("umwayi only", ["umwayi/cli.py"], (False, "all", FEW, False)),
+        ("adapters only", ["adapters/kiro/hook.py"], (False, "all", FEW, False)),
+        ("tests only", ["tests/test_rules.py"], (False, "all", FEW, False)),
+        ("a test the Node faults test reads", ["tests/test_ui_package.py"], (False, "all", FEW, True)),
+        ("pyproject only", ["pyproject.toml"], (False, "all", FEW, False)),
         ("docs only", ["docs/testing.md"], (False, r("docs/testing.md"), FEW, False)),
         ("README only", ["README.md"], (False, r("README.md"), FEW, False)),
         ("PROJECT only", ["PROJECT.md"], (False, r("PROJECT.md"), FEW, False)),
         ("the spec only", [".kiro/specs/umwayi-os/tasks.md"], (False, r(".kiro/specs/umwayi-os/tasks.md"), FEW, False)),
         ("a rename from ui to docs", ["ui/src/a.js", "docs/a.js"], (False, r("ui/src/a.js", "docs/a.js"), FEW, True)),
-        ("a rename from umwayi to ui", ["umwayi/a.py", "ui/src/a.py"], (False, "all", ALL, True)),
+        ("a rename from umwayi to ui", ["umwayi/a.py", "ui/src/a.py"], (False, "all", FEW, True)),
         ("ui and docs together", ["ui/src/main.js", "docs/testing.md"], (False, r("ui/src/main.js", "docs/testing.md"), FEW, True)),
-        ("python and ui together", ["umwayi/cli.py", "ui/src/main.js"], (False, "all", ALL, True)),
+        ("python and ui together", ["umwayi/cli.py", "ui/src/main.js"], (False, "all", FEW, True)),
         ("a push to main runs everything", ("push", ["docs/testing.md"]), (True, "all", ALL, True)),
         ("any other event runs everything", ("workflow_dispatch", ["docs/testing.md"]), (True, "all", ALL, True)),
     ]
@@ -112,13 +112,35 @@ class TableTests(unittest.TestCase):
 
 
 class PlanShapeTests(unittest.TestCase):
-    def test_full_plan_matrix_is_every_version_and_every_shard(self):
-        p = plan([])
+    def test_a_push_matrix_is_every_version_and_every_shard(self):
+        p = plan([], event="push")
         n = ASSIGN["shards"]
         self.assertEqual(len(p["matrix"]["include"]), len(ALL) * n)
         self.assertEqual({(m["python-version"], m["shard"], m["of"]) for m in p["matrix"]["include"]},
                          {(v, s, n) for v in ALL for s in range(1, n + 1)})
         self.assertEqual(p["not_run"], [])
+
+    def test_a_full_pull_request_matrix_is_two_versions_and_every_shard(self):
+        n = ASSIGN["shards"]
+        for paths in ([], None, [".github/workflows/ci.yml"], ["umwayi/cli.py"], ["tools/ci_plan.py"]):
+            with self.subTest(paths=paths):
+                p = plan(paths)
+                self.assertEqual({(m["python-version"], m["shard"], m["of"]) for m in p["matrix"]["include"]},
+                                 {(v, s, n) for v in FEW for s in range(1, n + 1)})
+                self.assertEqual(p["python"]["versions"], FEW)
+                text = "\n".join(p["not_run"])
+                self.assertIn("3.11 and 3.12: not run on this pull request, they run on main", text)
+
+    def test_a_pull_request_never_runs_3_11_or_3_12_and_main_always_runs_all_four(self):
+        paths = [row[1] for row in table() if not isinstance(row[1], tuple)]
+        for ps in paths:
+            versions = {m["python-version"] for m in plan(ps)["matrix"]["include"]}
+            self.assertLessEqual(versions, set(FEW), ps)
+        for event in ("push", "workflow_dispatch", "schedule"):
+            for ps in ([], ["docs/testing.md"], ["ui/src/main.js"]):
+                p = plan(ps, event=event)
+                self.assertEqual(p["python"]["versions"], ALL, (event, ps))
+                self.assertEqual({m["python-version"] for m in p["matrix"]["include"]}, set(ALL))
 
     def test_partial_plan_says_what_was_not_run(self):
         p = plan(["ui/src/main.js"])
