@@ -74,7 +74,7 @@
   },
   "tests/agents/test_agents_opencode_config.py": {
    "seconds": 0.8,
-   "shard": 3
+   "shard": 1
   },
   "tests/agents/test_agents_opencode_faults.py": {
    "seconds": 10.0,
@@ -182,7 +182,7 @@
   },
   "tests/goal/test_approvals.py": {
    "seconds": 0.2,
-   "shard": 1
+   "shard": 3
   },
   "tests/goal/test_budget.py": {
    "seconds": 0.4,
@@ -202,11 +202,11 @@
   },
   "tests/goal/test_files.py": {
    "seconds": 0.2,
-   "shard": 3
+   "shard": 2
   },
   "tests/goal/test_gen.py": {
    "seconds": 0.5,
-   "shard": 2
+   "shard": 1
   },
   "tests/goal/test_goalrun.py": {
    "seconds": 90.0,
@@ -214,7 +214,7 @@
   },
   "tests/goal/test_guidance.py": {
    "seconds": 0.7,
-   "shard": 3
+   "shard": 2
   },
   "tests/goal/test_guidance_coverage.py": {
    "seconds": 0.1,
@@ -230,11 +230,11 @@
   },
   "tests/goal/test_roles.py": {
    "seconds": 0.1,
-   "shard": 3
+   "shard": 2
   },
   "tests/goal/test_verdict.py": {
    "seconds": 0.2,
-   "shard": 2
+   "shard": 3
   },
   "tests/goal/test_watch.py": {
    "seconds": 0.4,
@@ -266,7 +266,7 @@
   },
   "tests/serve/test_gen.py": {
    "seconds": 0.2,
-   "shard": 3
+   "shard": 2
   },
   "tests/serve/test_mutation.py": {
    "seconds": 10.0,
@@ -282,7 +282,7 @@
   },
   "tests/serve/test_token.py": {
    "seconds": 0.9,
-   "shard": 3
+   "shard": 1
   },
   "tests/serve/test_wire.py": {
    "seconds": 48.6,
@@ -318,7 +318,7 @@
   },
   "tests/test_checks.py": {
    "seconds": 0.2,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_ci_map.py": {
    "seconds": 6.0,
@@ -386,7 +386,7 @@
   },
   "tests/test_logbook_integration.py": {
    "seconds": 0.9,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
@@ -412,6 +412,10 @@
    "seconds": 3.5,
    "shard": 1
   },
+  "tests/test_quickstart.py": {
+   "seconds": 1.0,
+   "shard": 2
+  },
   "tests/test_reopen.py": {
    "seconds": 20.5,
    "shard": 1
@@ -426,7 +430,7 @@
   },
   "tests/test_rules.py": {
    "seconds": 0.7,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_runlock.py": {
    "seconds": 13.8,
@@ -450,7 +454,7 @@
   },
   "tests/test_site_assets.py": {
    "seconds": 0.9,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_site_package.py": {
    "seconds": 2.0,
@@ -458,7 +462,7 @@
   },
   "tests/test_stalls.py": {
    "seconds": 1.0,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_starter_rules.py": {
    "seconds": 17.5,
