@@ -813,7 +813,7 @@ Status: in scope before Dec 3 (the owner, Nov 10; it was a non goal until then).
 
 User story: as the owner, I want to see the state of umwayi-os as a calm place I can look at, with real counts from my own root, and one panel that lists the real tests only I can run, so that I can tell at a glance what is open, what is stopped and what I still have to check, without the page being able to change anything.
 
-The view looks. It reads one file of counts, and it keeps notes the owner types into the page. Opened from disk, and on the public site, it never writes to the repo, runs a command or calls a network. **Since W6 is built (Nov 12, product.md rule 10):** the owner's live view, served by `umwayi serve` from `http://127.0.0.1:PORT`, may send the same request the command line would to its own origin and to nothing else, through one client module (W6.R2.5, W6.9), and may do only what the closed route table of W6.R8 lists. Until the page client (W6.9) is merged it makes no request.
+The view looks. It reads one file of counts, and it keeps notes the owner types into the page. Opened from disk, and on the public site, it never writes to the repo, runs a command or calls a network. **Since W6 is built (Nov 12, product.md rule 10):** the owner's live view, served by `umwayi serve` from `http://127.0.0.1:PORT`, may send the same request the command line would to its own origin and to nothing else, through one client module (W6.R2.5, W6.9), and may do only what the closed route table of W6.R8 lists. The page client (W6.9) is built and merged (Nov 12).
 
 ### 12.R1 Where it lives and how it is built (UI-Q1, UI-Q2)
 
