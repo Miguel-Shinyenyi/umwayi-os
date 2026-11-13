@@ -23,6 +23,8 @@ session/request_permission (the V2 toolCall shape of 10.42) when an ask rule or 
                     "first_prompt"
   canary_delay      seconds, for "late"
   model             the model the session reports, instead of the one in the inline config
+  model_option      "missing" (no `model` option) | "null" | "number" (a currentValue that is not text) | "renamed"
+                    (another option id) | "no_options" (no configOptions at all): a session/new answer that names no model
   ignore_config     OpenCode ignores the inline config: no plugin, no canary, no ask rule, the free default model
   auth_required     "session_new" | "prompt": that call answers with the ACP auth_required error
   init              "garbage" | {"protocolVersion": N} | {"error": {...}}
@@ -229,13 +231,26 @@ if SPEC.get("auth_required") == "session_new":
     sys.exit(0)
 SID = "ses_fake0000000001"
 canary_now()
-send({"jsonrpc": "2.0", "id": m["id"], "result": {"sessionId": SID, "configOptions": [
+options = [
     {"id": "model", "name": "Model", "category": "model", "type": "select", "currentValue": model,
      "options": [{"value": model, "name": model}]},
     {"id": "effort", "name": "Effort", "category": "thought_level", "type": "select", "currentValue": "default",
      "options": [{"value": v, "name": v.title()} for v in ("low", "medium", "high", "default")]},
     {"id": "mode", "name": "Session Mode", "category": "mode", "type": "select", "currentValue": "build",
-     "options": [{"value": "build", "name": "Build"}, {"value": "plan", "name": "Plan"}]}]}})
+     "options": [{"value": "build", "name": "Build"}, {"value": "plan", "name": "Plan"}]}]
+shape = SPEC.get("model_option")  # task 10.50: the answers a real agent might give that name no model
+if shape == "missing":
+    options = options[1:]
+elif shape == "null":
+    options[0]["currentValue"] = None
+elif shape == "number":
+    options[0]["currentValue"] = 5
+elif shape == "renamed":
+    options[0]["id"] = "model_id"
+result = {"sessionId": SID, "configOptions": options}
+if shape == "no_options":
+    del result["configOptions"]
+send({"jsonrpc": "2.0", "id": m["id"], "result": result})
 
 turns = list(SPEC.get("turns", []))
 rid = 1000
