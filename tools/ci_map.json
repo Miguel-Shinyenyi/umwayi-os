@@ -108,6 +108,7 @@
   "tests/test_petition.py": ["rules.yaml"],
   "tests/test_queue.py": [],
   "tests/test_reopen.py": ["adapters", "rules.yaml"],
+  "tests/test_routing.py": [".github", ".kiro", "docs", "jobs.yaml", "schedule.example.yaml", "workflows"],
   "tests/test_rulelog.py": ["rules.yaml"],
   "tests/test_rules.py": ["rules.yaml"],
   "tests/test_runlock.py": ["rules.yaml"],

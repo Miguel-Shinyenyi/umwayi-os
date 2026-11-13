@@ -12,6 +12,7 @@ Exit codes:
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
   umwayi autonomy: record 0, 1 (refused), 2 or 64; status 0, 2 or 64; validate 0 (valid), 2 or 64 (layer 13)
   umwayi concerns check: 0 well formed, 2 any failure or error, 64 for usage; never 1 or 3 (W19)
+  umwayi routing check: 0 well formed, 2 any failure or error, 64 for usage; never 1 or 3 (W19 part 3b)
   umwayi goal docs: build and check 0 or 2, 64 for usage; never 1 or 3 (W9.9; no other goal command is built)
   umwayi serve token: create and rotate 0 or 1 (refused) or 2 or 64; revoke 0, 1, 2 or 64; status 0, 2 or 64; never 3 (W6)
 """
@@ -27,7 +28,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, goaldocs, jobs, kill, logbook,
-                    petition, publish, report, rules, schedule, servegate, servetoken, taskqueue, units, view, workflow)
+                    petition, publish, report, routing, rules, schedule, servegate, servetoken, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -327,6 +328,15 @@ def build_parser() -> argparse.ArgumentParser:
                                          "engineering concepts; one line per failure; exit 0, or 2 on any failure; "
                                          "run by the owner, never on a schedule (changes nothing)")
     cnc.add_argument("path", help="the record, a markdown table (a relative path is read from the current folder; evidence paths are checked against --root)")
+
+    rt = sub.add_parser("routing", help="the model routing table and the task log (W19 part 3b)")
+    rtsub = rt.add_subparsers(dest="routing_command", parser_class=_Parser)
+    rtc = rtsub.add_parser("check", help="check that a model routing table or a task log is well formed; one line per "
+                                         "failure; exit 0, or 2 on any failure; it never picks a model; run by the "
+                                         "owner, never on a schedule (changes nothing)")
+    rtc.add_argument("path", help="the table, a markdown file (a relative path is read from the current folder)")
+    rtc.add_argument("--date", type=_date_arg, help="today, YYYY-MM-DD (default: the system clock); a review_by "
+                                                    "date before it, or a record dated after it, fails")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -661,6 +671,27 @@ def _cmd_concerns(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_routing(args, out) -> int:
+    """W19 part 3b. `umwayi routing check PATH`. Its own error handling: 0, 2 or 64, never 1 or 3."""
+    try:
+        today = date.fromisoformat(args.date or _today())
+        failures = routing.check_file(Path(args.path), today)
+        if failures:
+            sys.stderr.write("\n".join(failures) + "\n")
+            return EXIT_CRASH
+        out.write("Yes: the file is a well formed routing table or task log. This checks the form only, not whether "
+                  "it is true. The owner chooses the model.\n")
+        return 0
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _is_terminal(out) -> bool:
     try:
         return bool(out.isatty())
@@ -781,6 +812,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_goal_docs(args, out)
         if args.command == "concerns" and getattr(args, "concerns_command", None) == "check":
             return _cmd_concerns(args, out)
+        if args.command == "routing" and getattr(args, "routing_command", None) == "check":
+            return _cmd_routing(args, out)
         if args.command == "petition":
             r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
             out.write("\n".join(petition.render(r)) + "\n")

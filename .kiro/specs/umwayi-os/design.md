@@ -2900,6 +2900,18 @@ Answers (owner): UI-Q1 to UI-Q5 on Nov 10 as recorded above; UI-Q6 to UI-Q11 acc
 
 **Not built here.** Any use of the record by the goal flow, `guidance.py` or `guidance.yaml` (another task), and any scheduled run: a test checks that no job, schedule or workflow names the command.
 
+## W19 part 3b: the model routing table, the task log and their checker (tasks.md W19.3b)
+
+**What it is.** Two records in `docs/`, each a markdown table, and a command the owner runs, `umwayi routing check PATH`. The header of the first table in the file says which kind it is. Text outside the table is ignored; a second table is a failure.
+
+**Routing table** (`docs/model-routing.md`). Columns: `platform | model | strengths | task types | source | source date | review_by`. Platform is Kiro or OpenCode. Task types are a comma separated list from a fixed list in `umwayi/routing.py`. The source is an https address on the vendor host of the platform (kiro.dev; opencode.ai or docs.opencode.ai) with a path and nothing else. The source date is a real date not after today. The `review_by` date is after the source date, at most 45 days after it, and not before today. The same model twice for one platform is a failure. The table proposes options; nothing reads it to pick a model, and the owner always chooses.
+
+**Task log** (`docs/task-log.md`). Columns: `task | area | model chosen | outcome | review result | credits used | date`. Outcome is merged, closed not merged or open. Review result is approved, changes requested or none recorded. Credits is `unknown` or a plain number with at most two decimals. The date is real and not after today. The same task twice is a failure.
+
+**Command line.** `umwayi routing check PATH [--date YYYY-MM-DD]`. Failures go to standard error, one line each, exit 2. A well formed file prints one line and exits 0. A usage error, including a bad `--date`, is 64. An unexpected error is 2 and prints only the error type. It is never 1 or 3. A failure line holds the line of the file and the column name and never text from the file (safety rule 2).
+
+**Not built here.** Any use of either record by `guidance.py`, `guidance.yaml`, the agents files or the steering rules (another task), any fetch of the vendor pages, any ranking of models, and any scheduled run: a test checks that no job, schedule or workflow names the command.
+
 ## Layer 13: Correction and graded autonomy (spec in the L13.0 pull request, tasks.md L13.0; built only after the owner approves it, slice by slice)
 
 Requirements 13.R1 to 13.R15. Tasks L13.0 to L13.6. Five slices in the owner's order, each shipping alone: Elections (L13.1), Reversal (L13.2), Courts (L13.3), Honest tension (L13.4), Graded autonomy (L13.5), then the whole-system update (L13.6). The owner stops the build where Dec 3 finds us. Layer 13 is added after the "Testing" section on purpose, so that the layer 12 branches (PR 39 and the UI.2 branch), which edit the layer 12 sections, merge without a conflict.
