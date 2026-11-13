@@ -106,6 +106,23 @@ class ValidShapesTests(AgentCase):
         r = self.umwayi("validate")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
+    def test_every_opencode_example_loads_and_validates_with_the_real_loader(self):
+        text = (REPO / "agents.example.yaml").read_text(encoding="utf-8")
+        text = re.sub(r"workdir: \S+", "workdir: {work}", text)
+        self.write_agents(text)
+        r = self.umwayi("list")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for name in ("oc-free", "oc-local", "oc-copilot"):
+            self.assertIn(name, r.stdout)
+        from umwayi import agents as agents_mod
+        loaded = agents_mod.load(self.root)
+        opencode = [a for a in loaded if a.platform == "opencode"]
+        self.assertEqual(sorted(a.name for a in opencode), ["oc-copilot", "oc-free", "oc-local"])
+        for a in opencode:
+            self.assertEqual(a.command, "opencode")
+            self.assertEqual(a.transport, "acp")
+            self.assertTrue(a.model.startswith(a.provider + "/"), a.name)
+
 
 REJECTED = [
     # (label, text, expected words in the problem, line)
