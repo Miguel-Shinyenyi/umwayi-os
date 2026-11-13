@@ -11,7 +11,8 @@ Exit codes:
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
   umwayi autonomy: record 0, 1 (refused), 2 or 64; status 0, 2 or 64; validate 0 (valid), 2 or 64 (layer 13)
-  umwayi goal docs: build and check 0 or 2, 64 for usage; never 1 or 3 (W9.9; no other goal command is built)
+  umwayi goal docs: build and check 0 or 2, 64 for usage; never 1 or 3 (W9.9)
+  umwayi goal guard [TASKFILE]: 0 Yes, 3 Ask me first, 64 a bad guidance.yaml, 2 a crash; never 1 (W19.1)
   umwayi serve token: create and rotate 0 or 1 (refused) or 2 or 64; revoke 0, 1, 2 or 64; status 0, 2 or 64; never 3 (W6)
 """
 
@@ -25,7 +26,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, autonomy, budget, decisions, elections, goaldocs, jobs, kill, logbook,
+from umwayi import (__version__, agents, archive, autonomy, budget, decisions, elections, goaldocs, guidance, jobs, kill, logbook,
                     petition, publish, report, rules, schedule, servegate, servetoken, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
@@ -311,7 +312,7 @@ def build_parser() -> argparse.ArgumentParser:
     svtsub.add_parser("revoke", help="remove the token: every request is refused until a new one is created")
     svtsub.add_parser("status", help="the id, the dates and the days left; no digest, no token (changes nothing)")
 
-    gl = sub.add_parser("goal", help="goal orchestration (W9); only 'docs' is built so far")
+    gl = sub.add_parser("goal", help="goal orchestration (W9); only 'docs' and 'guard' are built so far")
     glsub = gl.add_subparsers(dest="goal_command", parser_class=_Parser)
     gld = glsub.add_parser("docs", help="build or check docs/status-log.md and docs/KNOWN-LIMITS.md from docs-parts/ "
                                         "(W9.R14); exit 0 or 2, 64 for usage, never 1 or 3")
@@ -319,6 +320,10 @@ def build_parser() -> argparse.ArgumentParser:
     gldsub.add_parser("build", help="write the two files from the frozen base and the part files, and write the number "
                                     "of each new limit into its part (nothing is written if any part is bad)")
     gldsub.add_parser("check", help="exit 0 if the two files equal the build, 2 if not (writes nothing)")
+    glg = glsub.add_parser("guard", help="load guidance.yaml and, given a task record (a JSON file), refuse a task that "
+                                         "breaks an enforce rule (W19.1); exit 0, 2, 3 or 64, never 1")
+    glg.add_argument("task_file", nargs="?", help="the task record: goal, consequences, undo, acceptance_checks, "
+                                                  "open_prs (without it, only guidance.yaml is checked)")
 
     lg = sub.add_parser("logbook", help="logbook commands")
     lgsub = lg.add_subparsers(dest="logbook_command", parser_class=_Parser)
@@ -633,6 +638,26 @@ def _cmd_goal_docs(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_goal_guard(args, out) -> int:
+    """W19.1. `umwayi goal guard [TASKFILE]`. Its own error handling: 0 Yes, 3 Ask me first, 64 a bad guidance.yaml,
+    2 any unexpected error; never 1."""
+    try:
+        r = guidance.guard(Path(args.root), args.task_file)
+        (out if r.code == 0 else sys.stderr).write("\n".join(r.lines) + "\n")
+        return r.code
+    except guidance.AskFirst as e:
+        sys.stderr.write(f"Ask me first: {e}\n")
+        return 3
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError as e:
+        sys.stderr.write(f"umwayi: {e}\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _is_terminal(out) -> bool:
     try:
         return bool(out.isatty())
@@ -751,6 +776,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
         if args.command == "goal" and getattr(args, "goal_command", None) == "docs" \
                 and getattr(args, "docs_command", None):
             return _cmd_goal_docs(args, out)
+        if args.command == "goal" and getattr(args, "goal_command", None) == "guard":
+            return _cmd_goal_guard(args, out)
         if args.command == "petition":
             r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
             out.write("\n".join(petition.render(r)) + "\n")

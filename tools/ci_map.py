@@ -29,7 +29,7 @@ TABLE_END = "<!-- ci-map:end -->"
 ROOT_TOKENS = frozenset({
     "ui", "site", "docs", "adapters", ".kiro", "README.md", "PROJECT.md", "LICENSE", ".gitignore", "pyproject.toml",
     "docs-parts", "rules.yaml", "agents.example.yaml", "autonomy.example.yaml", "schedule.example.yaml", "serve.rules.example.yaml",
-    "jobs.yaml", "umwayi.json", "memory", "articles", "workflows", ".github", "tools",
+    "jobs.yaml", "guidance.yaml", "umwayi.json", "memory", "articles", "workflows", ".github", "tools",
 })
 PYTHON_TOKENS = ROOT_TOKENS | {"ui/dist", "*"}
 NODE_PACKAGES = ("ui", "site")

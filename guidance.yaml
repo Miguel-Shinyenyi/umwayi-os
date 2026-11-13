@@ -1,0 +1,24 @@
+# guidance.yaml (W19.1): rules for the goal flow, each marked enforce, advise or owner.
+# Read by umwayi/guidance.py. Strict: a bad file is exit 64, a source that changed is Ask me first (exit 3).
+# tier is a whole number from 1 to 6, the lower number wins: 1 safety, 2 owner decisions, 3 hub hard rules,
+# 4 builder rules, 5 practices, 6 advisory prompt lines. overrides (optional) lists ids; never of a lower tier number.
+# source is PATH#N or PATH#HEADING#N, source_hash is the SHA-256 of that numbered line of the source file.
+# Never edit a source_hash by hand: read the change in the source first, then ask the owner.
+version: 1
+guidance:
+  - id: goal-sentence-present
+    source: ".kiro/specs/umwayi-os/requirements.md#W9.R4#3"
+    text: "Every task has a goal in one sentence."
+    kind: enforce
+    check: goal_sentence_present
+    applies_to: task
+    tier: 3
+    source_hash: "b81c210d47cb0ad02ec0185988f89b0a09fb978f9100d2cb222f13b0658f86b2"
+  - id: one-open-pr-per-task
+    source: ".kiro/steering/builder-workflow.md#1"
+    text: "A task has at most one open pull request."
+    kind: enforce
+    check: one_open_pr
+    applies_to: pr
+    tier: 4
+    source_hash: "4acf1490a3f19363b6721b521981e402fa2152c4fdde6a96d37153f61fd4a6fd"
