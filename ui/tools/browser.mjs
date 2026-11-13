@@ -12,6 +12,20 @@ import { delimiter, join } from 'node:path';
 
 const NAMES = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'chrome-headless-shell'];
 
+// Chrome may still be writing into its profile folder for a moment after it is killed, so a delete can fail with ENOTEMPTY.
+// Try again (rmSync retries too, and this loop covers a delete that still reports it); any other error is thrown at once, and so
+// is ENOTEMPTY when it keeps coming after the last try. `rm` and `sleep` are arguments so a test can fake them.
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+export function removeProfile(dir, rm = rmSync, sleep = sleepSync) {
+  const opts = { recursive: true, force: true, maxRetries: 5, retryDelay: 200 };
+  for (let attempt = 0; ; attempt += 1) {
+    try { rm(dir, opts); return; } catch (e) {
+      if (e?.code !== 'ENOTEMPTY' || attempt >= 5) throw e;
+      sleep(200);
+    }
+  }
+}
+
 export function findBrowser(env = process.env) {
   if (env.UMWAYI_BROWSER) return existsSync(env.UMWAYI_BROWSER) ? env.UMWAYI_BROWSER : null;
   for (const dir of (env.PATH || '').split(delimiter)) {
@@ -116,7 +130,7 @@ export async function launch(exe, { timeoutMs = 20000 } = {}) {
       try { await send('Browser.close'); } catch { /* already gone */ }
       try { ws.close(); } catch { /* already closed */ }
       child.kill('SIGKILL');
-      rmSync(profile, { recursive: true, force: true });
+      removeProfile(profile);
     },
   };
 }
