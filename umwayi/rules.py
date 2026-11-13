@@ -32,10 +32,11 @@ _RULE_KEYS = {"id", "title", "text", "cause", "verdict", "matchers", "review_by"
 _CLASS = re.compile(r"^[a-z][a-z0-9_-]{0,39}$")
 MAX_COST_UU = 1000000
 # 13.R9.3: action types that graded autonomy may never move (money, publishing, an install that runs by itself, a
-# spending approval, the start or permission of an agent). A rule whose type matcher names one cannot opt in.
+# spending approval, the start or permission of an agent, the start of an AI helper by a goal). A rule whose type
+# matcher names one cannot opt in.
 NEVER_AUTONOMY = frozenset({"payment", "transfer", "purchase", "withdraw", "deposit", "publish", "post", "send",
                             "publish_draft", "schedule_install", "budget_check", "agent_run", "agent_login",
-                            "acp_permission", "serve_request"})
+                            "acp_permission", "serve_request", "goal_start"})
 MAX_NAMED_FALLBACKS = 10  # the entry of a check names at most this many lapsed rules, then counts the rest
 
 

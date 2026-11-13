@@ -92,6 +92,57 @@ class _Parser(argparse.ArgumentParser):
         self.exit(EXIT_USAGE, f"{self.prog}: error: {message}\n")
 
 
+def _whole(text: str) -> int:
+    """A whole number argument (a usage error, 64, otherwise)."""
+    if not re.fullmatch(r"[0-9]{1,9}", text or ""):
+        raise argparse.ArgumentTypeError("must be a whole number")
+    return int(text)
+
+
+def _goal_commands(glsub) -> None:
+    """W9.8: the goal commands, each in umwayi/goal.py; the owner commands (approve, answer, merged) need a terminal."""
+    gs_ = glsub.add_parser("start", help="split a goal into packets: the guide runs once and the plan waits for your "
+                                         "approval; 0, 2, 3 or 64")
+    gs_.add_argument("text", help="the goal, 10 to 1000 printable characters (it reaches only the guide's prompts)")
+    gs_.add_argument("--guide", required=True, help="the guide: an agent name from agents.yaml")
+    gs_.add_argument("--plan-budget-uu", type=_whole, required=True, help="the planning run's budget, 1 to limits.per_run")
+    gs_.add_argument("--guide-model", help="the guide's model word (optional)")
+    gs_.add_argument("--guide-effort", help="the guide's effort: low, medium, high, xhigh or max (optional)")
+    for name, text in (("show", "print the packets of a goal (changes nothing)"),
+                       ("run", "run the next task whose turn has come, in the foreground, then the report; 0, 2, 3 or 64"),
+                       ("stop", "stop this goal now (open to everyone: it only makes things safer)"),
+                       ("report", "write .umwayi/goals/G/report.md (a draft) and print it")):
+        sp = glsub.add_parser(name, help=text)
+        sp.add_argument("goal", help="the goal id, for example G-0007")
+    gst = glsub.add_parser("status", help="what waits for you, the last real event and its age (changes nothing)")
+    gst.add_argument("goal", nargs="?", help="one goal id (default: every goal)")
+    ga = glsub.add_parser("approve", help="your approval of a plan: roles, model, effort and budgets (needs a "
+                                          "terminal); starts nothing")
+    ga.add_argument("goal", help="the goal id")
+    ga.add_argument("--builder", required=True, help="the builder: an agent name")
+    ga.add_argument("--tester", required=True, help="the tester: an agent name that is not the builder")
+    ga.add_argument("--model", required=True, help="the builder's model word")
+    ga.add_argument("--effort", required=True, help="the builder's effort: low, medium, high, xhigh or max")
+    ga.add_argument("--task-budget-uu", type=_whole, required=True, help="the budget of every task, in UU")
+    ga.add_argument("--goal-budget-uu", type=_whole, required=True,
+                    help="the goal's budget, at least the task budgets and the planning budget")
+    ga.add_argument("--budget", action="append", default=[], help="T-02=N: another budget for one task")
+    ga.add_argument("--keep", action="append", help="keep this task (repeat); the others are dropped")
+    ga.add_argument("--tester-model", help="the tester's model word (optional)")
+    ga.add_argument("--tester-effort", help="the tester's effort (optional)")
+    ga.add_argument("--plan-hours", type=_whole, help="1 to 168, kept in the goal file")
+    ga.add_argument("--wait-hours", type=_whole, help="1 to 168: the deadline of a task that needs you (default 24)")
+    gn = glsub.add_parser("answer", help="your answer to a task that needs you (needs a terminal); starts nothing")
+    gn.add_argument("goal", help="the goal id")
+    gn.add_argument("task", help="the task id, for example T-02")
+    gn.add_argument("answer", choices=["yes", "no"], help="yes queues it again, no stops it")
+    gm = glsub.add_parser("merged", help="you say a task is merged (needs a terminal), for a squash merge the check "
+                                         "cannot see")
+    gm.add_argument("goal", help="the goal id")
+    gm.add_argument("task", help="the task id")
+    gm.add_argument("--commit", help="the merge commit on your local main (default: the task's tip)")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = _Parser(prog="umwayi", description="umwayi-os: an AI operating system for one person and their AI helpers.")
     p.add_argument("--version", action="version", version=f"umwayi {__version__}")
@@ -325,7 +376,8 @@ def build_parser() -> argparse.ArgumentParser:
     svtsub.add_parser("revoke", help="remove the token: every request is refused until a new one is created")
     svtsub.add_parser("status", help="the id, the dates and the days left; no digest, no token (changes nothing)")
 
-    gl = sub.add_parser("goal", help="goal orchestration (W9); only 'docs' and 'guard' are built so far")
+    gl = sub.add_parser("goal", help="goal orchestration (W9): start, show, approve, run, status, answer, merged, stop, "
+                                     "report, docs, guard; exit 0, 2, 3 or 64, never 1")
     glsub = gl.add_subparsers(dest="goal_command", parser_class=_Parser)
     gld = glsub.add_parser("docs", help="build or check docs/status-log.md and docs/KNOWN-LIMITS.md from docs-parts/ "
                                         "(W9.R14); exit 0 or 2, 64 for usage, never 1 or 3")
@@ -333,6 +385,7 @@ def build_parser() -> argparse.ArgumentParser:
     gldsub.add_parser("build", help="write the two files from the frozen base and the part files, and write the number "
                                     "of each new limit into its part (nothing is written if any part is bad)")
     gldsub.add_parser("check", help="exit 0 if the two files equal the build, 2 if not (writes nothing)")
+    _goal_commands(glsub)
     glg = glsub.add_parser("guard", help="load guidance.yaml and, given a task record (a JSON file), refuse a task that "
                                          "breaks an enforce rule (W19.1); exit 0, 2, 3 or 64, never 1")
     glg.add_argument("task_file", nargs="?", help="the task record: goal, consequences, undo, acceptance_checks, "
@@ -689,6 +742,20 @@ def _cmd_goal_docs(args, out) -> int:
         return _crashed(e)
 
 
+GOAL_COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report")
+
+
+def _cmd_goal(args, out) -> int:
+    """W9.8. The goal commands, in umwayi/goal.py (imported here, so the other commands load nothing of it). Its own
+    error handling: 0, 2, 3 or 64, never 1; a crash is 2 and prints no exception text."""
+    try:
+        from umwayi import goal
+        ctx = goal.make_ctx(args.root, out=lambda s: out.write(s + "\n"))
+        return goal.dispatch(ctx, args)
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _cmd_goal_guard(args, out) -> int:
     """W19.1. `umwayi goal guard [TASKFILE]`. Its own error handling: 0 Yes, 3 Ask me first, 64 a bad guidance.yaml,
     2 any unexpected error; never 1."""
@@ -924,6 +991,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_guidance(args, out)
         if args.command == "goal" and getattr(args, "goal_command", None) == "guard":
             return _cmd_goal_guard(args, out)
+        if args.command == "goal" and getattr(args, "goal_command", None) in GOAL_COMMANDS:
+            return _cmd_goal(args, out)
         if args.command == "petition":
             r = petition.petition(Path(args.root), args.rule_id, args.helper, args.reason, args.date or _today())
             out.write("\n".join(petition.render(r)) + "\n")

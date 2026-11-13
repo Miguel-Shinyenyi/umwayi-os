@@ -222,6 +222,14 @@ class _Git:
             return False
 
 
+    def root_ok(self, root):
+        """The root is a git work tree with a local `main` (W9.R5.5). Any failure to ask is False."""
+        try:
+            return gg.is_repo(root) and gg.has_main(root)
+        except UmwayiError:
+            return False
+
+
 GIT = _Git()
 
 # ----------------------------------------------------------------------------------------------- the prompts
@@ -654,6 +662,14 @@ class _Run:
         except (UsageError, ConfigError):
             self.finish("agent_cannot_be_gated")
 
+    def goal_stopped(self):
+        """True once `umwayi goal stop` (or anything else) recorded a stop of this goal. A goal file that cannot be read
+        counts as stopped: closed."""
+        try:
+            return bool(gs.read_goal(self.root, self.goal)["stopped"])
+        except gs.GoalError:
+            return True
+
     def step_signal(self):
         """SIGTERM, SIGHUP or Ctrl-C between two runs, or while waiting for the run lock (W9.R16.3): nothing starts."""
         if self.env.stop.is_set():
@@ -929,6 +945,8 @@ class _Run:
                     why = "signal"
                 elif kill.stopped(kill.state(self.root)):
                     why = "kill"
+                elif self.goal_stopped():
+                    why = "owner"  # `umwayi goal stop` (W9.R16.3): the owner ended the goal while this child ran
                 else:
                     try:
                         logbook.check_writable(self.root, e.when())
@@ -988,6 +1006,8 @@ class _Run:
             self.stop_running("signal_received")
         if res.why == "log":
             self.stop_running("log_write_failed")
+        if res.why == "owner":
+            self.stop_running("owner_stop")
         if res.why == "stalled":
             self.finish("no_progress")
         if res.why == "looping":
@@ -1337,6 +1357,8 @@ class _PlanRun(_Run):
             raise _Done(Outcome(2, "plan", "signal", "signal_received"))
         if res.why == "log":
             raise _Done(Outcome(2, "", "", "record"))
+        if res.why == "owner":
+            raise _Done(Outcome(2, "stopped", "owner", "owner_stop"))
         if res.why in ("stalled", "looping"):
             return "stalled" if res.why == "stalled" else "looping"
         if GIT.status(self.root, self.worktree) or GIT.head(self.root, self.worktree) != self.base:
@@ -1498,6 +1520,7 @@ def supervise(env, goal):
         gs.repair(env.root, when=when, now=now)
         gs.deny_expired(env.root, when=when, now=now)
         gs.mark_lost(env.root, when=when, now=now, holding=True)
+        sweep_unused(env)
         if kill.stopped(kill.state(env.root)):
             kill_all(env)
             return Outcome(3, "", "kill", "kill_switch")
