@@ -2165,9 +2165,14 @@ class PlantedFaultTests(StartCase):
         real = goallog.LineReader.feed
 
         def stops(self, chunk):
+            # The fault: once a bad line was met, the reader gives nothing more, in this chunk or any later one. (A fault
+            # that only cut the rest of the same chunk passed now and then, when the pipe split the writes differently.)
+            if getattr(self, "_stopped", False):
+                return []
             out = real(self, chunk)
             for i, (_text, flagged) in enumerate(out):
                 if flagged:
+                    self._stopped = True
                     return out[:i + 1]
             return out
         self.caught(mock.patch.object(goallog.LineReader, "feed", stops),
