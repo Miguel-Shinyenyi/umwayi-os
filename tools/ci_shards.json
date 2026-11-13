@@ -360,6 +360,10 @@
    "seconds": 0.1,
    "shard": 3
   },
+  "tests/test_generated_files.py": {
+   "seconds": 16.6,
+   "shard": 3
+  },
   "tests/test_helpers.py": {
    "seconds": 2.0,
    "shard": 2
@@ -386,6 +390,10 @@
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
+   "shard": 1
+  },
+  "tests/test_merge_main.py": {
+   "seconds": 16.6,
    "shard": 1
   },
   "tests/test_miniyaml.py": {
@@ -466,6 +474,10 @@
   },
   "tests/test_view.py": {
    "seconds": 29.2,
+   "shard": 2
+  },
+  "tests/test_w21_goldens.py": {
+   "seconds": 16.6,
    "shard": 2
   },
   "tests/test_whole_system.py": {

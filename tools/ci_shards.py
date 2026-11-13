@@ -18,6 +18,12 @@ Standard library only.
       {file: seconds}), longest first onto the lightest shard. The result is deterministic.
   python -m tools.ci_shards check [--assignments FILE] [--root DIR]
       Fails (exit 2) when a test file is in no shard or a listed file is gone.
+  python -m tools.ci_shards assign-missing [--assignments FILE] [--root DIR]
+      W21. The small repair: each test file under tests/ that is in no shard goes to the shard with the least total
+      seconds (a file with no seconds counts as the average of the others, ties go to the lowest shard, files in name
+      order), and the entry of a file that is gone is removed. Every other entry is kept as it is. The file is written in
+      the layout `balance` writes, the same bytes for the same input, and only when its bytes change. It never
+      rebalances; `balance` stays the full rebalance.
 
 Exit codes: 0 done, 2 failed or an unexpected error, 64 usage.
 """
@@ -36,6 +42,15 @@ STATES = ("success", "skipped", "failure", "cancelled")
 
 class UsageError(Exception):
     pass
+
+
+def regenerate_hint():
+    """The last line of a failed check: the command from tools/generated_files.json that repairs the assignment file."""
+    try:
+        from tools import generated_files
+        return generated_files.regenerate_hint("tools/ci_shards.json")
+    except Exception:  # the hint must never hide the real problem
+        return "To fix it, run: python -m tools.ci_shards assign-missing"
 
 
 # ---------------------------------------------------------------- the assignment file
@@ -80,7 +95,7 @@ def assignment_problems(assign, root):
             problems.append(f"{name}: seconds must be a number")
     have = set(find_test_files(root))
     for name in sorted(have - set(assign["files"])):
-        problems.append(f"{name} is in no shard (add it: python -m tools.ci_shards balance --times FILE --out tools/ci_shards.json)")
+        problems.append(f"{name} is in no shard")
     for name in sorted(set(assign["files"]) - have):
         problems.append(f"{name} is listed in a shard but is not a test file any more")
     for k in range(1, n + 1):
@@ -450,24 +465,66 @@ def cmd_balance(argv):
     return 0
 
 
+def assign_missing(assign, root):
+    """W21. (new assignment, list of what was done). The new assignment is a copy; `assign` is not changed."""
+    n = assign["shards"]
+    have = find_test_files(root)
+    kept = {f: dict(v) for f, v in assign["files"].items() if f in set(have)}
+    done = [f"removed {f}, it is not a test file any more" for f in sorted(set(assign["files"]) - set(kept))]
+    known = [v["seconds"] for v in kept.values() if isinstance(v.get("seconds"), (int, float)) and not isinstance(v.get("seconds"), bool)]
+    average = round(sum(known) / len(known), 1) if known else 1.0
+    totals = [0.0] * n
+    for v in kept.values():
+        if isinstance(v.get("shard"), int) and not isinstance(v.get("shard"), bool) and 1 <= v["shard"] <= n:
+            totals[v["shard"] - 1] += v["seconds"] if isinstance(v.get("seconds"), (int, float)) else average
+    for name in sorted(f for f in have if f not in kept):
+        k = min(range(n), key=lambda i: (totals[i], i))
+        totals[k] += average
+        kept[name] = {"shard": k + 1, "seconds": average}
+        done.append(f"assigned {name} to shard {k + 1} ({average} s counted)")
+    return {"shards": n, "files": kept}, done
+
+
+def cmd_assign_missing(argv):
+    o = parse_opts(argv, ("--assignments", "--root"))
+    path = Path(o.get("--assignments", ASSIGN_PATH))
+    assign = load_assignments(path)
+    if assign["shards"] < 1:
+        raise UsageError(f"{path} has no shards")
+    if not all(isinstance(v, dict) for v in assign["files"].values()):
+        raise UsageError(f"{path} has an entry that is not an object")
+    new, done = assign_missing(assign, Path(o.get("--root", REPO)))
+    text = json.dumps(new, indent=1, sort_keys=True) + "\n"
+    if path.read_text(encoding="utf-8") != text:
+        path.write_text(text, encoding="utf-8")
+    for line in done:
+        print(f"ci_shards: {line}")
+    if not done:
+        print("ci_shards: nothing to assign")
+    return 0
+
+
 def cmd_check(argv):
     o = parse_opts(argv, ("--assignments", "--root"))
     assign = load_assignments(o.get("--assignments", ASSIGN_PATH))
     problems = assignment_problems(assign, Path(o.get("--root", REPO)))
     for p in problems:
         print(f"ci_shards: {p}", file=sys.stderr)
+    if problems:
+        print(f"ci_shards: {regenerate_hint()}", file=sys.stderr)
     if not problems:
         print("ci_shards: every test file is in exactly one shard")
     return 2 if problems else 0
 
 
-COMMANDS = {"run": cmd_run, "verify": cmd_verify, "balance": cmd_balance, "check": cmd_check}
+COMMANDS = {"run": cmd_run, "verify": cmd_verify, "balance": cmd_balance, "check": cmd_check,
+            "assign-missing": cmd_assign_missing}
 
 
 def main(argv):
     try:
         if not argv or argv[0] not in COMMANDS:
-            raise UsageError("usage: python -m tools.ci_shards run | verify | balance | check")
+            raise UsageError("usage: python -m tools.ci_shards run | verify | balance | check | assign-missing")
         return COMMANDS[argv[0]](argv[1:])
     except UsageError as e:
         print(f"ci_shards: {e}", file=sys.stderr)

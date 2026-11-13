@@ -1357,9 +1357,27 @@ The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbud
 - This task builds the git list, the path and cleanup functions and the two options. The entries, events, queue rows and exit 3 that a refusal becomes, the child process, and the list of left over worktrees with their disk use in `status` and `report` belong to W9.7 and W9.8 and are not built yet. A start that is refused here is an error (`Refused`) that the supervisor must turn into `needs owner`.
 - Tested with the system `git` of a Linux machine only. Windows paths, a case-insensitive file system, a root on a network drive and a git older than 2.17 were not tried.
 
+## Merging main (W21), found while building
+
+### 267. merge_main repairs generated files only, and some of its guarantees are narrower than they sound
+
+`python -m tools.merge_main` clears a conflict only in a file of `tools/generated_files.json`. These are its limits.
+
+- Any other conflict is exit 3 and the merge is aborted. This includes prose in `docs/testing.md` outside the generated table block, and a conflict in `tools/generated_files.json` itself.
+- Taking main's version of a generated file drops that branch's own version of it. This is right only because nobody edits those files by hand; a hand edit of `docs/status-log.md` is lost.
+- `ci_shards assign-missing` puts a new file on the lightest shard and counts it as the average. It never rebalances, so repeated merges can leave the shards less even than `balance`. `tests/test_ci_shards.py` pins the file as a fixed point of `balance`, so after a merge that assigned a file, `balance` must be run again for that test to pass. This was not changed because it would change what an existing test means.
+- `ci_map update` keeps an entry that is still true, even one that lists more than the scan found, and rewrites one that is false. It reads only what the scanner sees (see the W20 limits).
+- A verify that passes shows a file is current, not that its content is right. `ui/dist/progress.html` is checked only by its hashes in `ui/dist/build.json`.
+- A listed regenerate may write other files only if the entry names them under `writes`; the check finds a stray file after the commands and verify, not while they run.
+- The ui files need node and npm. `npm ci` reads the npm registry or its cache, so the rule of no network except `git fetch` holds for `merge_main` itself and not for that command. If node or npm is missing the run is exit 3, never skipped, and a branch that needs the ui files cannot be repaired on such a machine.
+- `merge_main` makes a merge commit even when the branch only had to catch up (no fast forward), so the branch history shows it.
+- Commits need a git user name and email; without them the commit fails, the tree is put back to the last commit and the run is exit 2.
+- It was tested with git 2.50 on Linux against a bare folder as origin. Other git versions, Windows paths and a real GitHub origin were not tried.
+- The two parallel limits parts of one merge are numbered by the builder in the order of its own sort (date, then part name), not in the order the pull requests landed.
+
 ## Goal orchestration (W9), found while building W9.7
 
-### 267. The supervisor took the reading that fails closed where the spec was open, and some of it waits for the commands
+### 268. The supervisor took the reading that fails closed where the spec was open, and some of it waits for the commands
 
 `umwayi/goalrun.py` is built and no command calls it yet. These are the choices it made and what it leaves to W9.8.
 
