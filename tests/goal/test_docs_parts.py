@@ -708,7 +708,7 @@ class CliTests(Base):
 
     def test_the_goal_command_has_only_docs_and_wrong_use_is_64(self):
         for argv in (["goal"], ["goal", "docs"], ["goal", "docs", "x"], ["goal", "docs", "build", "extra"],
-                     ["goal", "start", "text"], ["goal", "show", "G-0001"], ["goal", "docs", "build", "--out", "x"]):
+                     ["goal", "start", "text"], ["goal", "frobnicate"], ["goal", "docs", "build", "--out", "x"]):
             with self.subTest(argv=argv):
                 before = snapshot(self.root)
                 code, out, _ = run_cli(self.root, *argv)

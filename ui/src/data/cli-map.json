@@ -607,8 +607,8 @@
       "path": [
         "goal"
       ],
-      "help": "goal orchestration (W9); only 'docs' and 'guard' are built so far",
-      "line": "goal orchestration (W9)",
+      "help": "goal orchestration (W9): start, show, approve, run, status, answer, merged, stop, report, docs, guard; exit 0, 2, 3 or 64, never 1",
+      "line": "goal orchestration (W9): start, show, approve, run, status, answer, merged, stop, report, docs, guard",
       "children": [
         {
           "name": "docs",
@@ -642,6 +642,96 @@
               "children": []
             }
           ]
+        },
+        {
+          "name": "start",
+          "path": [
+            "goal",
+            "start"
+          ],
+          "help": "split a goal into packets: the guide runs once and the plan waits for your approval; 0, 2, 3 or 64",
+          "line": "split a goal into packets: the guide runs once and the plan waits for your approval",
+          "children": []
+        },
+        {
+          "name": "show",
+          "path": [
+            "goal",
+            "show"
+          ],
+          "help": "print the packets of a goal (changes nothing)",
+          "line": "print the packets of a goal (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "run",
+          "path": [
+            "goal",
+            "run"
+          ],
+          "help": "run the next task whose turn has come, in the foreground, then the report; 0, 2, 3 or 64",
+          "line": "run the next task whose turn has come, in the foreground, then the report",
+          "children": []
+        },
+        {
+          "name": "stop",
+          "path": [
+            "goal",
+            "stop"
+          ],
+          "help": "stop this goal now (open to everyone: it only makes things safer)",
+          "line": "stop this goal now (open to everyone: it only makes things safer)",
+          "children": []
+        },
+        {
+          "name": "report",
+          "path": [
+            "goal",
+            "report"
+          ],
+          "help": "write .umwayi/goals/G/report.md (a draft) and print it",
+          "line": "write .umwayi/goals/G/report.md (a draft) and print it",
+          "children": []
+        },
+        {
+          "name": "status",
+          "path": [
+            "goal",
+            "status"
+          ],
+          "help": "what waits for you, the last real event and its age (changes nothing)",
+          "line": "what waits for you, the last real event and its age (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "approve",
+          "path": [
+            "goal",
+            "approve"
+          ],
+          "help": "your approval of a plan: roles, model, effort and budgets (needs a terminal); starts nothing",
+          "line": "your approval of a plan: roles, model, effort and budgets (needs a terminal)",
+          "children": []
+        },
+        {
+          "name": "answer",
+          "path": [
+            "goal",
+            "answer"
+          ],
+          "help": "your answer to a task that needs you (needs a terminal); starts nothing",
+          "line": "your answer to a task that needs you (needs a terminal)",
+          "children": []
+        },
+        {
+          "name": "merged",
+          "path": [
+            "goal",
+            "merged"
+          ],
+          "help": "you say a task is merged (needs a terminal), for a squash merge the check cannot see",
+          "line": "you say a task is merged (needs a terminal), for a squash merge the check cannot see",
+          "children": []
         },
         {
           "name": "guard",

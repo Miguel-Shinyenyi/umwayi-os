@@ -1428,9 +1428,22 @@ Since W24 a pull request runs the Python suite on 3.10 and 3.13 only, and a push
 - Rule 9 itself cannot be enforced by a check: nothing finds a steering edit that has no matching guidance edit when the edited line is not the pinned one.
 - `docs/kiro-issues-log.md` is written by hand from pull requests and CI logs. Nothing checks it against them.
 
+## Goal orchestration (W9), found while building W9.8
+
+### 272. The goal commands call the guard without a task record, and an AI helper is not yet denied the owner commands by the example rules
+
+`umwayi/goal.py` is built. These are the choices it made where the spec was open, and what waits for the owner.
+
+- `start`, `approve` and `run` call the guard of W19.1 before anything else, as the design says, but without a task record. A packet has no `consequences`, `undo` or `open_prs`, so a record built from it would fail every start. The guard therefore checks only that `guidance.yaml` loads and that its sources match; the four enforce checks do not run on a goal yet.
+- W9.R2.6 asks the example rules of the adapters to deny an AI helper every `umwayi goal` command except `status` and `stop`. Adding those words changes rules whose hashes `tests/test_starter_rules.py` pins, and a new rule changes the pinned list of ids, so it waits for the owner. Until then the only guards of `approve`, `answer` and `merged` are the terminal check and the goal lock; a helper that has a terminal is not stopped (KNOWN-LIMITS 213).
+- `approve --plan-hours N` is accepted and kept in the goal file, but the plan's deadline was set when the plan was made, so it changes nothing. `--wait-hours` sets the deadline of a later `needs owner`.
+- `goal stop` does not take the goal lock. It records the stop and marks the queued tasks; a running `run` reads the goal file every second and stops its child with the reason `owner`. A run that holds the lock and has no child at that moment sees the stop at its next start step.
+- The report shows the tester's verdict words and the guide's word but not their reasons or evidence, because the supervisor keeps no text of a helper. W9.R20.3 allows that text, cut and cleaned; nothing records it to show.
+- `status` shows the spend of the goal as the planning budget plus what each task spent, because the planning run's real spend is not recorded (the W9.7 entry).
+
 ## Tester feedback (W26), found while building
 
-### 272. The feedback path asks the tester to remove secrets by hand, and there is no safe export yet
+### 273. The feedback path asks the tester to remove secrets by hand, and there is no safe export yet
 
 The tester feedback path is an issue template and a page. These are its limits.
 

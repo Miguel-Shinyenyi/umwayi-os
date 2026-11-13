@@ -1,0 +1,31 @@
+# Example rules for goal orchestration (`umwayi goal`, W9, requirement W9.R22.4). Copy the rules you want into the
+# rules.yaml of your umwayi root. This file is not read by umwayi.
+#
+# Every start of an AI helper by a goal (the guide's planning run, a builder, a tester, the guide's check) first asks
+# the rules with one action, built by umwayi from ids and names and never from the packet text:
+#   {"type": "goal_start", "goal": "G-0007", "task": "T-02", "role": "builder", "agent": "claude-build",
+#    "platform": "claude-code", "budget_uu": 30}
+# The planning run uses "task": "plan" and "role": "guide". The role is guide, builder, tester or check.
+#
+# With no rule that matches, the answer is Ask me first: the task needs you (reason ask) and one queue item says so.
+# Answering that item starts nothing; a Yes rule for goal_start is what lets the start go on. Then `agent run` asks
+# `agent_run` and `budget_check` itself, as for every run, so those rules are needed too.
+#
+# Read these before you copy them:
+#   * Nothing here is Yes by default: the only rule is a commented example.
+#   * `goal_start` can never be moved to Yes by graded autonomy (it is on the never list of umwayi/rules.py).
+#   * A No rule for goal_start stops the task (reason owner) and the goal halts.
+#   * A Yes rule may carry "review_by: YYYY-MM-DD" (layer 13, elections): past that day it counts as Ask me first.
+rules: []
+
+# An example that allows the three roles for named agents only (remove the leading "# " of each line to use it):
+#
+# rules:
+#   - id: goal-start-named-agents
+#     title: These agents may work on goals
+#     text: The guide, the builder and the tester of my goals may start, for these agents only.
+#     verdict: yes
+#     matchers:
+#       type: goal_start
+#       agent: [claude-guide, claude-build, kiro-test]
+#       role: [guide, builder, tester, check]

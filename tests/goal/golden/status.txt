@@ -1,0 +1,33 @@
+Waiting for you
+  Goal G-0001 has a plan that waits for you. Asked 7 min ago, denied in 167 h.
+  Approve with: umwayi goal approve G-0001 ...   (read it first: umwayi goal show G-0001)
+  Goal G-0002 task T-01 needs you (busy). Asked 7 min ago, denied in 23 h.
+  Answer with: umwayi goal answer G-0002 T-01 yes   (or no)
+Goal G-0001  plan  (0 of 0 tasks merged, 0 in review)
+  Spent: 20 of 20 UU on the goal.
+Goal G-0002  waiting  (0 of 1 tasks merged, 0 in review)
+  Task T-01  needs owner (busy)
+  Last event: state: queued to needs owner (busy), 7 min ago
+  Spent: 0 of 30 UU on this task.
+  Skipped log lines: 0
+  Spent: 20 of 100 UU on the goal.
+Goal G-0003  waiting  (0 of 1 tasks merged, 1 in review)
+  Task T-01  in review (checked)
+  Last event: state: running to in review (checked), 7 min ago
+  Spent: 17 of 30 UU on this task.
+  Skipped log lines: 0
+  In review: branch umwayi/g-0003-t-01, tip bbbbbbbbbbbb. Merge it yourself; umwayi never merges.
+  Spent: 37 of 100 UU on the goal.
+Goal G-0004  stopped  (0 of 1 tasks merged, 0 in review)
+  Task T-01  stopped (owner)
+  Last event: state: queued to stopped (owner), 7 min ago
+  Spent: 0 of 30 UU on this task.
+  Skipped log lines: 0
+  Spent: 20 of 100 UU on the goal.
+Goal G-0005  active  (0 of 1 tasks merged, 0 in review)
+  Task T-01  running  builder claude-build  started 7 min ago
+  Last event: fingerprint changed (3 files), 7 min ago   QUIET for 7 min
+  Supervisor: lost. Builder: not running.
+  Spent: 0 of 30 UU on this task.
+  Skipped log lines: 0
+  Spent: 20 of 100 UU on the goal.
