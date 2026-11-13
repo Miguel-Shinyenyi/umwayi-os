@@ -51,6 +51,7 @@ COMMANDS = [
     (["goal", "docs", "build"], "umwayi.cli.goaldocs.build"),
     (["goal", "docs", "check"], "umwayi.cli.goaldocs.check"),
     (["concerns", "check", "concerns.md"], "umwayi.cli.concerns.check_file"),
+    (["routing", "check", "model-routing.md"], "umwayi.cli.routing.check_file"),
 ]
 
 

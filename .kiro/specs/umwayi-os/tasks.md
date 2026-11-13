@@ -824,6 +824,14 @@ The owner's reviewer found that each push to a pull request branch started two r
 - [x] W19.2.C `umwayi concerns check PATH`: one line per failure, exit 0, 2 or 64, never 1 or 3. Run by the owner; no job, timer or workflow starts it (a test checks).
 - [x] W19.2.D Docs: `docs/concerns.md`, a status part and a limits part in `docs-parts/` built with `umwayi goal docs build`, `docs/exit-codes.md`, `docs/architecture.md`, `docs/testing.md`, PROJECT.md.
 
+## W19 part 3b: the model routing table, the task log and their checker (the owner's task, Nov 13; its own pull request)
+
+- [x] W19.3b.A Tests first: `tests/test_routing.py`, one for each failure case of the routing table and of the task log, exit 0, 2 and 64 and never 1 or 3, no text of the file in a failure line, and the two shipped files pass.
+- [x] W19.3b.B `umwayi/routing.py` and `umwayi routing check PATH`: a strict checker for the routing table (platform, model, strengths, task types, source, source date, review_by) and the task log (task, area, model chosen, outcome, review result, credits used, date). Standard library only. It checks the form and never picks a model.
+- [x] W19.3b.C `docs/model-routing.md`: 33 options from Kiro and OpenCode with the strengths their vendor pages state, a source address and date for each row, and a `review_by` date. It only proposes; the owner always chooses the model.
+- [x] W19.3b.D `docs/task-log.md`: the record format and the starter rows for PRs 66 to 79 from GitHub and the status log. Model and credits are `unknown` because history does not hold them.
+- [x] W19.3b.E Docs: a status part and a limits part in `docs-parts/` built with `umwayi goal docs build`, `docs/exit-codes.md`, `docs/architecture.md`, `docs/testing.md`, PROJECT.md. No guidance loader, agents file, steering rule or safety rule changed.
+
 ## Non goals for Dec 3
 
 Finance and marketing loops, shared rule packs (after Dec 3). The web interface was a non goal until Nov 10; it is layer 12 now. File watching, an SQLite index, tmux sessions and a sandbox (layer 11 proposes to cut or defer them, 11.R8).
