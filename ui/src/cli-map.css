@@ -1,0 +1,39 @@
+/* The command map (W2). Same palette as the main page. Phones first: one column, 44 pixel rows to tap, no sideways scroll. */
+:root {
+  --base: #0e1310;
+  --ink: #eee8db;
+  --muted: #b3ada0;
+  --amber: #e0a965;
+  --mint: #9cc39a;
+  --line: rgba(238, 232, 219, 0.28);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--base); color: var(--ink); font: 16px/1.45 var(--sans); }
+body { overflow-x: hidden; }
+main { max-width: 46rem; margin: 0 auto; padding: 18px 14px 40px; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.center { text-align: center; margin: 0 0 18px; }
+h1 { margin: 0 0 8px; font-size: 1rem; font-weight: 400; }
+.hub { display: inline-block; padding: 12px 28px; border: 2px solid var(--amber); border-radius: 999px; font: 700 1.4rem/1.2 var(--mono); color: var(--amber); }
+.lead { margin: 0; color: var(--muted); }
+nav { overflow-wrap: anywhere; }
+ul { list-style: none; margin: 0; padding: 0; }
+nav > ul { border-left: 2px solid var(--line); margin-left: 8px; }
+ul ul { margin-left: 14px; border-left: 2px solid var(--line); }
+li { position: relative; padding-left: 16px; }
+li::before { content: ""; position: absolute; left: 0; top: 22px; width: 12px; border-top: 2px solid var(--line); }
+.row { display: block; padding: 6px 0; min-height: 44px; }
+summary.row { cursor: pointer; list-style: none; position: relative; padding-right: 30px; }
+summary.row::-webkit-details-marker { display: none; }
+summary.row::after { content: ""; position: absolute; right: 8px; top: 19px; width: 8px; height: 8px; border-right: 2px solid var(--amber); border-bottom: 2px solid var(--amber); transform: rotate(-45deg); }
+details[open] > summary.row::after { transform: rotate(45deg); top: 16px; }
+.name { display: block; font: 700 1rem/1.3 var(--mono); color: var(--mint); }
+summary .name { color: var(--amber); }
+.what { display: block; color: var(--muted); font-size: 0.9375rem; }
+.what.none { font-style: italic; }
+footer { margin-top: 28px; color: var(--muted); font-size: 0.875rem; }
+footer p { margin: 0 0 8px; }
+code { font-family: var(--mono); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
