@@ -1,8 +1,13 @@
 # ui: the umwayi-os view (layer 12)
 
-A calm 3D hillside in one web page. Eleven stations stand around a lantern, one for each main part of umwayi-os. The page
-only looks: it never writes to the repo, runs a command or calls a network (product.md, rule 10). The core `umwayi`
-package never imports anything from here, and nothing here imports `umwayi`.
+A calm 3D hillside in one web page. Eleven stations stand around a lantern, one for each main part of umwayi-os. Opened from
+disk the page only looks: it never writes to the repo, runs a command or makes a request. Served by `umwayi serve` it may ask
+that one local backend, at the address it came from and nowhere else, to do what the command line would do (product.md,
+rule 10, W6). The core `umwayi` package never imports anything from here, and nothing here imports `umwayi`.
+
+Status (W6.9 and W6.10, the page client and its docs): the page has one module that sends a request, `src/api/client.js`, and one
+panel that uses it, `src/ui/backend.js` ("Local backend", live view only). See "The local backend" below. What was not done: the
+by-hand pass in a real browser (the checklist is in `docs/serve.md`, "The by-hand browser pass"; it is the owner's).
 
 Status (W1, mobile first): the top bar takes its room in the page on a phone, a touch screen and a short window, so it cannot cover the title; every control is 44 pixels or more there; wide screens with a mouse look as before. New: `test/phone.test.mjs` renders this page in a real Chromium at 375 by 667, 390 by 844, 412 by 915 and 360 by 640, upright and on its side, and fails on overlapping text, sideways overflow, a small control or a header out of Tab order. It needs a Chromium (`UMWAYI_BROWSER` names one; without one it skips; `UMWAYI_REQUIRE_BROWSER=1` makes that a failure). `tools/` holds its driver (`browser.mjs`, DevTools protocol over Node's own WebSocket, no package), the audit and the walk; the site's test uses them too. See `../docs/interface.md` and KNOWN-LIMITS 237 to 241.
 
@@ -49,13 +54,43 @@ node build.mjs
 
 Open `dist/index.html` from disk. No server is needed.
 
-## No network request
+## The local backend (W6.9)
+
+Run `umwayi serve` (see `docs/serve.md`), open the address it prints, `http://127.0.0.1:PORT`, and paste the token that
+`umwayi serve token create` showed once. The "Local backend" section then shows the kill switch, the days the token has left and
+the queue, and has the few buttons the closed route table allows: Refresh, add an item, Answer, Close, and Stop everything
+(`kill on`). There is no button for turning the kill switch off, for approving, publishing, starting an AI helper, installing
+a schedule or paying: no route does any of that either, and the page cannot add one.
+
+- **One module sends.** `src/api/client.js` is the only file of the page where the word for sending a request appears
+  (`tests/test_ui_package.py` finds it only inside the marked region of the built page, and `site/` still forbids it everywhere).
+  It works only when the page's own address is exactly `http://127.0.0.1:` and a port (a file on disk, the public site, `localhost`
+  or any other address gives an object that sends nothing). It builds each request from a closed table of six routes (`status`,
+  `queue.list`, `queue.add`, `queue.answer`, `queue.close`, `kill.on`: a subset of the server's table) and sends a relative path
+  that starts with `/v1/`, with `Authorization: Bearer`, no cookie, no referrer, no redirect and no cache.
+- **The token is held in one variable.** It is typed into a password field, handed to the client, and the field is emptied at once.
+  It is never in storage, a cookie, an address, `history`, a message, a log or an element, and a reload forgets it.
+- **Fail closed.** The client reads every answer strictly (exact keys, schema 1, a word with its own status and code, the exact
+  shape of the data of the route). Anything else, or a failed request, makes the client forget the token and send nothing more until
+  the page is loaded again. A wrong or expired token (`token`) only asks for a new paste. Every word from a response is shown with
+  `textContent`, never as markup.
+- **No timer.** The page never asks by itself: no polling. The owner presses Refresh.
+- **The policy.** The page's Content-Security-Policy is the old one plus `connect-src 'self'`, so the browser itself refuses any
+  other address. `umwayi serve` adds its own headers (no cookie, no `Access-Control-` header, `frame-ancestors 'none'`).
+- **Tested.** `test/client.test.mjs` (the client against a fake `fetch`), `test/backend.test.mjs` (the panel against a fake
+  document), `tests/test_ui_package.py`, and `tests/serve/test_scenarios.py`, which runs the real `src/api/client.js` in Node
+  against a real `umwayi serve` (needs Node; skipped without it). `tests/serve/mutation.py` plants 14 faults in the client.
+  Not tried in a real browser.
+
+## No network request when opened from disk
 
 The page loads no file, font, image, script or style from anywhere. It carries a Content-Security-Policy that denies
 everything except its own inline script and style (allowed by hash). No file loader of three.js is bundled. The addresses in
 the page are the XML namespace name `http://www.w3.org/1999/xhtml` that three.js carries (never fetched), and the repo and
 docs addresses of the home page: two plain links the owner clicks and the clone command. Devpost and the demo video are text
-marked "link to come" until the owner supplies the addresses (`src/data/home.js`). The page makes no request.
+marked "link to come" until the owner supplies the addresses (`src/data/home.js`). Opened from disk, the page makes no request
+(the client is unavailable there, and the section says "Open this page with umwayi serve"). Served by `umwayi serve`, it makes
+requests only through `src/api/client.js`, only to its own origin, and only after a token was pasted.
 
 ## The detail mode
 
@@ -87,6 +122,8 @@ src/engine/        ease, tween (motion), follow, the on demand loop, settings, p
 src/world/         height (the ground), river, layout (the fixed table and the position function), shots, sky and Mount Kenya, terrain, water, plants, lantern (shepherd), trails, palette, noise, glsl
 src/stations/      meta.js (the words), kit.js (shared parts), one module per natural feature, index.js
 src/data/          sample.js (made up counts), counts.js (counts to text), home.js (the home content)
+src/api/client.js  the one module that sends a request (W6.9): the closed route table, the token variable, the strict reader
+src/ui/backend.js  the "Local backend" panel (W6.9): token field, status, queue, add, answer, close, Stop everything
 src/ui/            the buttons over the features, the panel, the list view fallback, the home behaviours (Copy), snapshot.js (the picker and the drop), checks.js (the owner checks panel)
 test/              node --test; test/fixtures/snapshot.json is a real snapshot; access.test.mjs, faults.test.mjs
 ```
