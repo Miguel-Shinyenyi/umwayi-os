@@ -9,9 +9,10 @@
 # shell string anywhere: umwayi builds the command line itself (design.md, layer 10).
 #
 #   name             lowercase letter, then lowercase letters, digits and -, up to 32
-#   platform         claude-code or kiro
-#   command          claude for claude-code, kiro-cli for kiro (one word, found on PATH)
-#   transport        cli (default), or acp (kiro only, for chat)
+#   platform         claude-code, kiro or opencode
+#   command          claude for claude-code, kiro-cli for kiro, opencode for opencode (one word,
+#                    found on PATH)
+#   transport        cli (default), or acp (chat). opencode is acp only, and acp is its default
 #   workdir          absolute path to an existing folder; not the umwayi root, not inside
 #                    it, and not a folder that contains it
 #   kiro_agent       kiro only, not with acp: the Kiro agent name (--agent)
@@ -19,11 +20,22 @@
 #                    read_file, grep_search, execute_bash, execute_pwsh, fs_write,
 #                    fs_append, str_replace, delete_file (never --trust-all-tools)
 #   max_turns        claude-code only: 1 to 200 (--max-turns)
+#   provider         opencode only, required: opencode, ollama, lmstudio, vllm, openai or
+#                    github-copilot (the routes umwayi offers)
+#   model            opencode only, required: PROVIDER/MODEL-ID, and the part before the slash
+#                    must equal provider
 #   timeout_minutes  1 to 720, default 30
 #
 # Before a start, umwayi refuses an agent it cannot gate. For Claude Code it adds the
 # layer 9 hook itself with --settings. For Kiro you add the hook file from
-# adapters/kiro/README.md to WORKDIR/.kiro/hooks/ or ~/.kiro/hooks/ yourself.
+# adapters/kiro/README.md to WORKDIR/.kiro/hooks/ or ~/.kiro/hooks/ yourself. For
+# OpenCode umwayi gates every tool call with the plugin in adapters/opencode/plugin/ and
+# passes the config itself, so you write no hook file and no opencode.json (a project or
+# global one that could widen the gate makes `umwayi agent check` refuse). OpenCode has a
+# chat only: `umwayi agent chat NAME`; `agent run` and `agent login` give exit 64. Install
+# OpenCode 2.2.3 or newer yourself and, for openai or github-copilot, sign in with
+# `opencode auth login` first. umwayi gives OpenCode your HOME and XDG_* folders
+# unchanged and no provider key. Setup: adapters/opencode/README.md.
 agents:
   - name: reviewer
     platform: claude-code
@@ -43,3 +55,36 @@ agents:
     command: kiro-cli
     transport: acp
     workdir: /home/me/projects/site
+
+  # OpenCode examples. Each one is a chat (transport acp is the default and the only one).
+  # You choose provider and model: use a model your own `opencode models` lists. The model
+  # names below are examples only.
+
+  # Route 1: the signed-out free tier. Nothing to sign in to.
+  - name: oc-free
+    platform: opencode
+    command: opencode
+    workdir: /home/me/projects/site
+    provider: opencode
+    model: opencode/big-pickle
+
+  # Route 2: a model server on your own machine (ollama, lmstudio or vllm). CHOOSE the
+  # provider and a model you have pulled. Ports used: ollama 11434, lmstudio 1234, vllm 8000.
+  - name: oc-local
+    platform: opencode
+    command: opencode
+    transport: acp
+    workdir: /home/me/projects/site
+    provider: ollama
+    model: ollama/qwen3-coder
+    timeout_minutes: 60
+
+  # Route 3: your ChatGPT or Copilot sign-in (openai or github-copilot). CHOOSE one, and run
+  # `opencode auth login` first. Only the connected-account form is allowed, never an
+  # environment key. Delete this entry if you use neither.
+  - name: oc-copilot
+    platform: opencode
+    command: opencode
+    workdir: /home/me/projects/site
+    provider: github-copilot
+    model: github-copilot/gpt-4o
