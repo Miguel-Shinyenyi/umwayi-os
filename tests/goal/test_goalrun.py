@@ -26,6 +26,7 @@ from unittest import mock
 from tests.goal import runsupport as rs
 from umwayi import agents, budget, kill, logbook, rules, runlock
 from umwayi import goalbudget as gb
+from umwayi import goalgit as gg
 from umwayi import goallog
 from umwayi import goalpacket as gp
 from umwayi import goalrun as gr
@@ -330,7 +331,7 @@ class GuardTests(unittest.TestCase):
         for s in strings:
             for w in words:
                 self.assertFalse(s.strip() == w, f"the string {s!r} is a git write word")
-        self.assertNotIn('"git"', text)  # this module starts no git process: it asks env.git
+        self.assertNotIn('"git"', text)  # this module starts no git process: it asks goalgit
 
     def test_every_module_is_standard_library_only(self):
         std = set(__import__("sys").stdlib_module_names)
@@ -686,6 +687,16 @@ class WorktreePreconditionTests(StartCase):
         self.assertFalse((self.worktree_root() / "g-0001-t-01" / "owner-scratch.txt").exists())
         for ignored in (".umwayi", "LOGBOOK.md", "queue.md"):  # nothing ignored or untracked of the owner's folder is there
             self.assertFalse((self.worktree_root() / "g-0001-t-01" / ignored).exists(), ignored)
+
+    def test_a_hook_in_the_repo_does_not_run(self):
+        marker = self.root.parent / "hook-ran"
+        for name in ("post-checkout", "pre-commit", "post-merge"):
+            hook = self.root / ".git" / "hooks" / name
+            hook.write_text(f"#!/bin/sh\ntouch {marker}\n")
+            hook.chmod(0o755)
+        goal = self.approved(1)
+        self.assertEqual(self.run_task(goal, "T-01", self.good_scripts()).exit, 0)
+        self.assertFalse(marker.exists(), "a git hook of the repo ran")
 
     def test_no_helper_ever_runs_in_the_root(self):
         goal = self.approved(1)
@@ -1600,7 +1611,7 @@ class MergeTests(StartCase):
 
     def test_planted_fault_merged_from_the_branch_name_alone(self):
         with self.assertRaises(AssertionError):
-            with mock.patch.object(rs.GitPort, "is_ancestor", lambda self, root, tip: True):
+            with mock.patch.object(gr.GIT, "is_ancestor", lambda root, tip: True):
                 self.test_a_task_whose_tip_is_not_on_main_stays_in_review_forever()
 
     def test_cleanup_keeps_a_worktree_that_is_not_clean_and_lists_nothing_forced(self):
@@ -1616,9 +1627,13 @@ class MergeTests(StartCase):
         goal = self.in_review()
         self.owner_merges(goal)
 
-        def refuse(self, root, path):
-            raise gr.UmwayiError("git refused")
-        with mock.patch.object(rs.GitPort, "worktree_remove", refuse):
+        real = gg.run_git
+
+        def refuse(name, *a, **k):
+            if name == "worktree_remove":
+                return gg.GitResult(1, b"")
+            return real(name, *a, **k)
+        with mock.patch.object(gg, "run_git", refuse):
             gr.observe_merges(self.env, goal)
         self.assertTrue(Path(self.port.worktree_path(self.root, goal, "T-01")).exists())
         self.assertEqual(self.task_state(goal)[0], "merged")
@@ -1640,7 +1655,7 @@ class MergeTests(StartCase):
 
     def test_planted_fault_cleanup_at_in_review(self):
         def always(env, goal, task, how):
-            self.port.worktree_remove(self.root, self.port.worktree_path(self.root, goal, task))
+            rs.git(self.root, "worktree", "remove", self.port.worktree_path(self.root, goal, task))
             return "removed"
         with self.assertRaises(AssertionError):
             with mock.patch.object(gr, "cleanup_merged", always):
@@ -1988,9 +2003,8 @@ class OrderTests(StartCase):
             mock.patch.object(runlock, "held", spy("lock", runlock.held)),
             mock.patch.object(budget, "read_ledger", spy("budget", budget.read_ledger)),
             mock.patch.object(gs, "change_state", spy("state", gs.change_state)),
-            mock.patch.object(rs.GitPort, "base", spy("base", rs.GitPort.base)),
-            mock.patch.object(rs.GitPort, "leftover", spy("leftover", rs.GitPort.leftover)),
-            mock.patch.object(rs.GitPort, "worktree_add", spy("worktree", rs.GitPort.worktree_add)),
+            mock.patch.object(gg, "start_check", spy("check", gg.start_check)),
+            mock.patch.object(gg, "make", spy("worktree", gg.make)),
         ]
         return order, patches, port
 
@@ -2013,7 +2027,7 @@ class OrderTests(StartCase):
             self.addCleanup(p.stop)
         gr.run_task(self.env, goal, "T-01")
         first = order[:order.index("spawn") + 1]
-        expected = ["kill", "rules", "gate", "lock", "base", "leftover", "budget", "state", "worktree", "gate-worktree", "spawn"]
+        expected = ["kill", "rules", "gate", "lock", "check", "budget", "state", "worktree", "gate-worktree", "spawn"]
         picked = [w for w in first if w in expected]
         dedup = []
         for w in picked:

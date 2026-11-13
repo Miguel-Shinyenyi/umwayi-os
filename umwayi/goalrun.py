@@ -14,7 +14,7 @@ What it does (W9.R7, W9.R8, W9.R10, W9.R16, W9.R17), and nothing else:
 
 What it never does: `git push`, `merge`, `rebase`, `pull`, `fetch`, `reset`, `clean`, `checkout`, `switch`, `branch`,
 `commit` or any other git write beyond the worktree functions of `umwayi/goalgit.py` (this module starts no git
-process; every git question goes through `env.git`, which is `goalgit`), a force flag, a network call, a pull request.
+process; every git question goes through `umwayi/goalgit.py`), a force flag, a network call, a pull request.
 It starts no AI helper any other way. It is not wired into the command line: `umwayi/goal.py` (W9.8) calls it.
 
 The return value of a run is an `Outcome` with the exit code the command gives (W9.R3.2): 0 the task is in review (or the
@@ -44,7 +44,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from umwayi import agents, budget, goalbudget, goaldocs, goallog, goalpacket as gp, goalstate as gs, goalwatch as gw
+from umwayi import agents, budget, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalstate as gs, goalwatch as gw
 from umwayi import kill, logbook, rules, runlock, taskqueue, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
@@ -90,6 +90,8 @@ def _outcome(cause, word=""):
     return Outcome(EXIT_OF_STATE[state], state, reason, word or cause)
 
 
+REFUSED_CAUSE = {"stale": "main_behind_origin", "leftover": "worktree_leftover", "dirty": "worktree_not_clean",
+                 "config": "worktree_not_made"}
 EXIT_OF_STATE = {"queued": 0, "running": 0, "in review": 0, "merged": 0, "needs owner": 3, "failed": 2, "stopped": 2}
 
 
@@ -137,11 +139,9 @@ class StopFlag:
 
 @dataclass
 class Env:
-    """Everything the supervisor reads from outside, so a test can replace each piece and nothing else. `git` is the
-    `umwayi.goalgit` module (the only place git is started); `clock` is the time of day in seconds (UTC), `mono` a
+    """Everything the supervisor reads from outside, so a test can replace each piece and nothing else. `clock` is the time of day in seconds (UTC), `mono` a
     monotonic clock for the watch; `policy` replaces the stall and loop numbers (a test only)."""
     root: Path
-    git: object = None
     clock: object = time.time
     mono: object = time.monotonic
     sleep: object = time.sleep
@@ -167,6 +167,62 @@ class Env:
     def child_environ(self):
         return dict(os.environ if self.environ is None else self.environ)
 
+
+class _Git:
+    """The questions the supervisor asks of git, each one a call into `umwayi/goalgit.py` (the only place git is started).
+    No argument list is built here. A non-zero answer of a read is `Refused("config")`, never a guess."""
+
+    def worktree_path(self, root, goal, task):
+        return gg.worktree_path(gg.real_root(root), goal, None if task == "plan" else task)
+
+    def _ask(self, name, root, **kw):
+        r = gg.run_git(name, root, **kw)
+        return r
+
+    def status(self, root, path):
+        r = self._ask("status", root, worktree=path)
+        if not r.ok:
+            raise gg.Refused("config")
+        out = []
+        for e in r.out.split(b"\0"):
+            if e:
+                out.append((e[:2].decode("ascii", "replace"), e[3:].decode("utf-8", "replace")))
+        return out
+
+    def head(self, root, path):
+        r = self._ask("head", root, worktree=path)
+        if not r.ok or not r.text():
+            raise gg.Refused("config")
+        return r.text()
+
+    def count_ahead(self, root, path, base):
+        r = self._ask("count_ahead", root, worktree=path, BASE=base)
+        if not r.ok or not r.text().isdigit():
+            raise gg.Refused("config")
+        return int(r.text())
+
+    def changed(self, root, path, base):
+        r = self._ask("changed", root, worktree=path, BASE=base)
+        if not r.ok:
+            raise gg.Refused("config")
+        parts = r.out.split(b"\0")
+        return [(parts[i].decode("ascii", "replace"), parts[i + 1].decode("utf-8", "replace"))
+                for i in range(0, len(parts) - 1, 2)]
+
+    def is_ancestor(self, root, tip):
+        try:
+            return self._ask("is_ancestor", root, TIP=tip).ok
+        except ValueError:
+            return False  # not a commit name: not on main
+
+    def commit_exists(self, root, sha):
+        try:
+            return self._ask("commit_exists", root, SHA=sha).ok
+        except ValueError:
+            return False
+
+
+GIT = _Git()
 
 # ----------------------------------------------------------------------------------------------- the prompts
 
@@ -662,38 +718,23 @@ class _Run:
         self.finish("run_lock_busy")
 
     def step_worktree_preconditions(self):  # 6, for a builder
-        git = self.env.git
-        base = git.base(self.root)
-        if git.has_origin_main(self.root) and git.behind_origin(self.root) > 0:
-            self.say("main is behind origin/main: update main, then answer")
-            self.finish("main_behind_origin")
-        problem = git.leftover(self.root, self.goal, self.task, other_tasks=self.other_task_paths())
-        if problem is None and self.branch_claimed_elsewhere():
-            problem = "leftover"
-        if problem is not None:
-            self.say(f"A worktree, branch or folder is left over: remove it with git worktree remove, then answer ({problem}).")
-            self.finish("worktree_cap" if problem == "cap" else "worktree_leftover")
-        self.base = base
+        """BASE, `stale`, `leftover` (a folder, a registration, a branch, an unlisted folder, the cap of eight, another
+        task file with the same path or branch), all by `goalgit.start_check`, which creates nothing."""
+        self.base = self.check_start()
 
-    def branch_claimed_elsewhere(self):
-        """Two tasks never share a worktree (W9.R8.14): the task files of every goal are read, and another task file that
-        names this branch stops the start. The path and the branch come from ids, so only a file that was changed can."""
-        for goal, task in self.other_task_paths():
-            try:
-                if gs.read_task(self.root, goal, task).get("branch") == self.branch:
-                    return True
-            except gs.GoalError:
-                return True  # a task file that cannot be read cannot be shown not to share: closed
-        return False
+    def check_start(self):
+        try:
+            return gg.start_check(self.root, self.goal, self.task_or_none())
+        except gg.Refused as r:
+            self.say(str(r))
+            if r.reason == "leftover" and r.found and all(kind == "cap" for kind, _t in r.found):
+                self.finish("worktree_cap")
+            self.finish(REFUSED_CAUSE[r.reason])
+        except gg.GitError:
+            self.finish("worktree_not_made")
 
-    def other_task_paths(self):
-        """(goal, task) of every other task file in the root: two tasks never share a worktree (W9.R8.14)."""
-        out = []
-        for goal in gs.list_goals(self.root):
-            for task in gs.list_tasks(self.root, goal):
-                if (goal, task) != (self.goal, self.task):
-                    out.append((goal, task))
-        return out
+    def task_or_none(self):
+        return self.task
 
     def step_budget(self, role, agent, platform):  # 7
         today = self.env.when()
@@ -751,24 +792,26 @@ class _Run:
 
     def begin_builder(self, agent, cap):
         """Step 8: the start entry (with BASE), then the worktree, its checks, the gate for it."""
-        git = self.env.git
         self.move("running", "start", role="builder", agent=agent, cap_uu=cap, base=self.base,
                   facts=[("kill", {}), ("rules", {}), ("packet", {"h": self.t["sha256"][:8]}), ("lock", {}),
                          ("spent", {"a": str(self.spent_total()), "b": str(int(self.packet.budget_uu))})])
         self.t = gs.read_task(self.root, self.goal, self.task)
-        path = git.worktree_path(self.root, self.goal, self.task)
-        self.worktree = path
-        try:
-            git.worktree_add(self.root, self.branch, path, self.base)
-        except UmwayiError:
-            self.worktree = None
-            self.finish("worktree_not_made")
-        problem = git.verify_worktree(self.root, path, self.base)
-        if problem is not None:
-            self.finish("worktree_not_clean")
+        self.make_worktree()
+        path = self.worktree
         self.append_worktree_entry("made")
         self.record_event("worktree", {"action": "made", "base": self.base[:8]})
         self.step_gate(agent, path)
+
+    def make_worktree(self):
+        """`goalgit.make`: leftover once more, the worktree root, `worktree add -b`, then the checks. A wrong new worktree
+        was removed by goalgit (no force) and is `dirty`."""
+        try:
+            made = gg.make(self.root, self.goal, self.task, self.base)
+        except gg.Refused as r:
+            self.finish(REFUSED_CAUSE[r.reason])
+        except gg.GitError:
+            self.finish("worktree_not_made")
+        self.worktree = made.path
 
     def append_worktree_entry(self, action, how=None):
         try:
@@ -779,15 +822,15 @@ class _Run:
             raise _Done(Outcome(2, "", "", "record")) from None
 
     def discard_unused_worktree(self):
-        """A worktree that was made and in which no builder ever started is removed at once (W9.R8.13)."""
+        """A worktree that was made and in which no builder ever started is removed at once (W9.R8.13), by
+        `goalgit.remove_unused` (clean and at BASE, no force)."""
         path, self.worktree = self.worktree, None
         if path is None or getattr(self, "builder_started", False):
             self.worktree = path
             return
-        git = self.env.git
         try:
-            if not git.status(path) and git.head(path) == self.base:
-                git.worktree_remove(self.root, path)
+            done = gg.remove_unused(self.root, self.goal, self.task_or_none(), self.base)
+            if done.removed:
                 # no logbook entry: the entry of a removal is the one "after merged"; this is an undo of our own step
                 self.events().append("worktree", {"action": "removed", "base": self.base[:8]})
         except (UmwayiError, ValueError):
@@ -961,7 +1004,7 @@ class _Run:
 
     def go_pipeline(self):
         """queued to in review: the builder, the scope check, the tester, the guide's check (W9.R8). Returns an Outcome."""
-        e, git = self.env, self.env.git
+        e = self.env
         nonce = e.nonce()
         prompt = builder_prompt(self.packet, self.goal, self.task, self.branch, e.when(), nonce)
         res = self.start_role("builder", prompt)
@@ -983,12 +1026,12 @@ class _Run:
     def scope_check(self):
         """After the builder exits 0, by umwayi alone (W9.R8.3): a commit, a clean tree, only allowed paths, a status file
         that parses, a limits file that parses if there is one. A failure ends the task and the tester is not started."""
-        git, path = self.env.git, self.worktree
-        if git.count_ahead(path, self.base) < 1:
+        git, path, root = GIT, self.worktree, self.root
+        if git.count_ahead(root, path, self.base) < 1:
             self.finish("no_commit")
-        if git.status(path):
+        if git.status(root, path):
             self.finish("tree_not_clean")
-        changed = [p for _code, p in git.changed(path, self.base)]
+        changed = [p for _code, p in git.changed(root, path, self.base)]
         bad = gp.scope_violations(changed, self.packet.files, own=self.own)
         if bad:
             self.finish("protected_file_changed" if any(isinstance(b, str) and gp.is_protected(b) for b in bad)
@@ -1004,23 +1047,22 @@ class _Run:
             _read_part(path, self.own[1], goaldocs.read_limits_part, name)
         except goaldocs.PartError:
             self.finish("limits_file_invalid")
-        self.tip = git.head(path)
+        self.tip = git.head(root, path)
         self.nfiles = len(changed)
 
 
     def fp_all(self, own=()):
-        git, path = self.env.git, self.worktree
+        git, path, root = GIT, self.worktree, self.root
 
         def make():
-            entries = git.status(path)
-            return fingerprint(git.head(path), entries, path, own), len(entries)
+            entries = git.status(root, path)
+            return fingerprint(git.head(root, path), entries, path, own), len(entries)
         return make
 
 
     def require_clean(self):
         """The tester and the guide's check start only in a clean worktree at the tip the scope check passed (W9.R8.12)."""
-        git, path = self.env.git, self.worktree
-        if git.status(path) or git.head(path) != self.tip:
+        if self.tip_moved():
             self.finish("worktree_not_clean")
 
 
@@ -1029,8 +1071,7 @@ class _Run:
 
 
     def tip_moved(self):
-        git, path = self.env.git, self.worktree
-        return bool(git.status(path)) or git.head(path) != self.tip
+        return bool(GIT.status(self.root, self.worktree)) or GIT.head(self.root, self.worktree) != self.tip
 
 
     def tester_run(self):
@@ -1220,14 +1261,10 @@ class _PlanRun(_Run):
         return
 
     def step_worktree_preconditions(self):
-        git = self.env.git
-        base = git.base(self.root)
-        if git.has_origin_main(self.root) and git.behind_origin(self.root) > 0:
-            self.finish("main_behind_origin")
-        problem = git.leftover(self.root, self.goal, "plan", other_tasks=self.other_task_paths())
-        if problem is not None:
-            self.finish("worktree_cap" if problem == "cap" else "worktree_leftover")
-        self.base = base
+        self.base = self.check_start()
+
+    def task_or_none(self):
+        return None
 
     def step_budget(self, role, agent, platform):
         today = self.env.when()
@@ -1243,17 +1280,14 @@ class _PlanRun(_Run):
         return cap, goalbudget.run_ids(ledger)
 
     def begin_builder(self, agent, cap):
-        git = self.env.git
-        path = git.worktree_path(self.root, self.goal, "plan")
-        self.worktree = path
         try:
-            git.worktree_add_detached(self.root, path, self.base)
-        except UmwayiError:
-            self.worktree = None
+            made = gg.make_plan(self.root, self.goal, self.base)
+        except gg.Refused as r:
+            self.finish(REFUSED_CAUSE[r.reason])
+        except gg.GitError:
             self.finish("worktree_not_made")
-        if git.verify_worktree(self.root, path, self.base) is not None:
-            self.remove_unused()
-            self.finish("worktree_not_clean")
+        self.worktree = made.path
+        path = made.path
         try:
             logbook.append(self.root, gs.worktree_entry(self.env.when(), self.goal, "", "made", base=self.base))
         except (UmwayiError, ValueError):
@@ -1267,9 +1301,8 @@ class _PlanRun(_Run):
             raise
 
     def remove_unused(self):
-        git = self.env.git
         try:
-            git.worktree_remove(self.root, self.worktree)
+            gg.remove_unused(self.root, self.goal, None, self.base)
         except UmwayiError:
             pass
 
@@ -1297,7 +1330,6 @@ class _PlanRun(_Run):
 
     def plan_word(self, res, nonce):
         """None, or the fixed word that refuses the plan (W9.R5.2, W9.R5.3). Stops end the run in place."""
-        git = self.env.git
         if res.why == "kill":
             kill_all(self.env)
             raise _Done(Outcome(3, "plan", "kill", "kill_switch"))
@@ -1307,7 +1339,7 @@ class _PlanRun(_Run):
             raise _Done(Outcome(2, "", "", "record"))
         if res.why in ("stalled", "looping"):
             return "stalled" if res.why == "stalled" else "looping"
-        if git.status(self.worktree) or git.head(self.worktree) != self.base:
+        if GIT.status(self.root, self.worktree) or GIT.head(self.root, self.worktree) != self.base:
             return "readonly"
         if res.over:
             return "budget"
@@ -1360,20 +1392,19 @@ def run_plan(env, goal):
 
 
 def remove_plan_worktree(env, goal):
-    """The plan's worktree is removed when the plan is approved, denied or discarded (W9.R8.15). Never forced. A plan whose
-    tree changed (`readonly`) keeps it as evidence: the caller does not call this for a refused plan. Returns a word."""
-    git = env.git
-    path = git.worktree_path(env.root, goal, "plan")
-    if not os.path.lexists(path):
-        return "none"
+    """The plan's worktree is removed when the plan is approved, denied or discarded (W9.R8.15), by `goalgit.remove_plan`:
+    only if it is clean, never forced. A plan whose tree changed (`readonly`) keeps it as evidence. Returns a word."""
     try:
-        if git.status(path):
-            return "kept"
-        git.worktree_remove(env.root, path)
-        logbook.append(env.root, gs.worktree_entry(env.when(), goal, "", "removed"))
-    except (UmwayiError, ValueError):
+        done = gg.remove_plan(env.root, goal)
+    except UmwayiError:
         return "kept"
-    return "removed"
+    if done.removed:
+        try:
+            logbook.append(env.root, gs.worktree_entry(env.when(), goal, "", "removed"))
+        except (UmwayiError, ValueError):
+            env.out(RECORD_FAILED)
+        return "removed"
+    return "none" if done.why == "gone" else "kept"
 
 
 # ----------------------------------------------------------------------------------------------- merges and cleanup
@@ -1389,7 +1420,7 @@ def observe_merges(env, goal):
         tip = t.get("tip") or ""
         if t["state"] != "in review" or not tip:
             continue
-        if env.git.is_ancestor(env.root, tip):
+        if GIT.is_ancestor(env.root, tip):
             gs.change_state(env.root, goal, task, "merged", "observed", when=env.when(), now=env.now(), commit=tip)
             moved.append(task)
             cleanup_merged(env, goal, task, "observed")
@@ -1401,35 +1432,29 @@ def declared_merge_problem(env, sha):
     the local `main`. The command checks the terminal."""
     if not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", sha)):
         return "shape"
-    if not env.git.commit_exists(env.root, sha):
+    if not GIT.commit_exists(env.root, sha):
         return "missing"
-    if not env.git.is_ancestor(env.root, sha):
+    if not GIT.is_ancestor(env.root, sha):
         return "not_on_main"
     return None
 
 
 def cleanup_merged(env, goal, task, how):
-    """Cleanup only after the owner's merged (W9.R8.13): when the worktree's `git status` is empty, `git worktree remove
-    PATH` without force, then one entry. A tree that is not clean, or git refusing, leaves it (listed by `status`). The
-    branch is never deleted. Returns `removed`, `kept` or `none`."""
-    git = env.git
-    t = gs.read_task(env.root, goal, task)
-    if t["state"] != "merged":
-        return "none"  # never for a failed, stopped, in review or needs owner task
-    path = git.worktree_path(env.root, goal, task)
-    if not os.path.lexists(path):
-        return "none"
+    """Cleanup only after the owner's merged (W9.R8.13): `goalgit.remove_after_merged` (the task file says `merged`, the
+    tree is clean, `git worktree remove PATH` without force), then one entry. A tree that is not clean, or git refusing,
+    leaves it (listed by `status`). The branch is never deleted. Returns `removed`, `kept` or `none`."""
     try:
-        if git.status(path):
-            return "kept"
-        git.worktree_remove(env.root, path)
+        done = gg.remove_after_merged(env.root, goal, task)
     except UmwayiError:
+        return "kept"
+    if done.why == "not merged" or done.why == "gone":
+        return "none"
+    if not done.removed:
         return "kept"
     try:
         logbook.append(env.root, gs.worktree_entry(env.when(), goal, task, "removed", how=how))
     except (UmwayiError, ValueError):
         env.out(RECORD_FAILED)
-        return "removed"
     return "removed"
 
 
@@ -1442,7 +1467,7 @@ def sweep_unused(env):
             t = gs.read_task(env.root, goal, task)
             if t["state"] in ("queued", "dropped", "plan", "merged") or not t.get("base"):
                 continue
-            path = env.git.worktree_path(env.root, goal, task)
+            path = GIT.worktree_path(env.root, goal, task)
             if not os.path.lexists(path):
                 continue
             data = gs.events_path(env.root, goal, task)
@@ -1451,10 +1476,9 @@ def sweep_unused(env):
             if started:
                 continue
             try:
-                if not env.git.status(path) and env.git.head(path) == t["base"]:
-                    env.git.worktree_remove(env.root, path)
+                if gg.remove_unused(env.root, goal, task, t["base"]).removed:
                     out.append((goal, task))
-            except UmwayiError:
+            except (UmwayiError, ValueError):
                 pass
     return out
 

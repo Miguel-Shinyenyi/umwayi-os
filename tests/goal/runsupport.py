@@ -19,6 +19,7 @@ from pathlib import Path
 from tests.goal import goalsupport
 from tests.goal.fakeroot import GIT_ENV, REPO, needs_git
 from umwayi import agents, budget, logbook, units
+from umwayi import goalgit as gg
 from umwayi import goalrun as gr
 from umwayi import goalstate as gs
 from umwayi.errors import UmwayiError
@@ -68,97 +69,14 @@ def git(cwd, *args, check=True):
 
 
 class GitPort:
-    """The questions the supervisor asks of git, answered with real git commands. A stand-in for `umwayi.goalgit` in
-    tests that are about the supervisor and not about the worktree half (that has its own tests in W9.6b)."""
-
-    CAP = 8
+    """What the tests need to set a scene up (a path, a stray worktree). The supervisor itself uses `umwayi/goalgit.py`."""
 
     def worktree_path(self, root, goal, task):
-        return os.path.realpath(root) + "-worktrees/" + f"{goal.lower()}-{task.lower()}"
-
-    def base(self, root):
-        return git(root, "rev-parse", "refs/heads/main")
-
-    def has_origin_main(self, root):
-        return git(root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main", check=False) != ""
-
-    def behind_origin(self, root):
-        return int(git(root, "rev-list", "--count", "refs/heads/main..refs/remotes/origin/main"))
-
-    def _registered(self, root):
-        out = git(root, "worktree", "list", "--porcelain")
-        paths, branches = [], []
-        for line in out.splitlines():
-            if line.startswith("worktree "):
-                paths.append(line[9:])
-            if line.startswith("branch "):
-                branches.append(line[7:])
-        return paths, branches
-
-    def leftover(self, root, goal, task, other_tasks=()):
-        path = self.worktree_path(root, goal, task)
-        branch = f"umwayi/{goal.lower()}-{task.lower()}"
-        paths, branches = self._registered(root)
-        if os.path.lexists(path) or path in paths or f"refs/heads/{branch}" in branches:
-            return "leftover"
-        if git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False):
-            return "leftover"
-        wroot = Path(path).parent
-        if wroot.is_dir():
-            known = {os.path.realpath(p) for p in paths}
-            if any(str(c) not in known for c in wroot.iterdir()):
-                return "leftover"
-        if len([p for p in paths if os.path.realpath(p) != os.path.realpath(root)]) >= self.CAP:
-            return "cap"
-        return None
+        return gg.worktree_path(gg.real_root(root), goal, None if task == "plan" else task)
 
     def worktree_add(self, root, branch, path, base):
         os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
-        self._run(root, "worktree", "add", "-b", branch, path, base)
-
-    def worktree_add_detached(self, root, path, base):
-        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
-        self._run(root, "worktree", "add", "--detach", path, base)
-
-    def worktree_remove(self, root, path):
-        self._run(root, "worktree", "remove", path)
-
-    def _run(self, cwd, *args):
-        try:
-            return git(cwd, *args)
-        except RuntimeError:
-            raise UmwayiError("git refused") from None
-
-    def verify_worktree(self, root, path, base):
-        if os.path.realpath(git(path, "rev-parse", "--show-toplevel")) != os.path.realpath(path):
-            return "toplevel"
-        if git(path, "rev-parse", "HEAD") != base or self.status(path):
-            return "dirty"
-        return None
-
-    def status(self, path):
-        out = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(path), "status", "--porcelain=v1", "-z",
-                              "--untracked-files=all"], capture_output=True, env=dict(os.environ, **GIT_ENV)).stdout
-        return [(e[:2], e[3:].decode("utf-8", "replace")) for e in out.split(b"\0") if e]
-
-    def head(self, path):
-        return git(path, "rev-parse", "HEAD")
-
-    def count_ahead(self, path, base):
-        return int(git(path, "rev-list", "--count", f"{base}..HEAD"))
-
-    def changed(self, path, base):
-        out = subprocess.run(["git", "-C", str(path), "diff", "--name-status", "-z", "--no-ext-diff", "--no-renames", base,
-                              "HEAD"], capture_output=True, env=dict(os.environ, **GIT_ENV)).stdout.split(b"\0")
-        return [(out[i].decode(), out[i + 1].decode("utf-8", "replace")) for i in range(0, len(out) - 1, 2)]
-
-    def is_ancestor(self, root, tip):
-        return subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", tip, "refs/heads/main"],
-                              capture_output=True, env=dict(os.environ, **GIT_ENV)).returncode == 0
-
-    def commit_exists(self, root, sha):
-        return subprocess.run(["git", "-C", str(root), "cat-file", "-e", sha + "^{commit}"], capture_output=True,
-                              env=dict(os.environ, **GIT_ENV)).returncode == 0
+        git(root, "worktree", "add", "-b", branch, path, base)
 
 
 def builder_steps(goal="G-0001", task="T-01", n=1, files=None, status=STATUS_PART, extra=()):
@@ -273,7 +191,7 @@ class RunCase(goalsupport.GoalCase):
 
     def make_env(self, scripts=(), gate=None, **kw):
         self.children = ChildDouble(self, scripts)
-        args = dict(root=self.root, git=self.port, clock=self.clock, mono=self.clock, sleep=self.sleep,
+        args = dict(root=self.root, clock=self.clock, mono=self.clock, sleep=self.sleep,
                     spawn=self.children.spawn, gate=gate or (lambda root, name, workdir=None: agents.Result(0, [])),
                     out=self.out.append, busy_wait=1.0)
         args.update(kw)
