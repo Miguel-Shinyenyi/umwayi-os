@@ -50,6 +50,7 @@ COMMANDS = [
     (["serve", "token", "revoke"], "umwayi.cli.servetoken.revoke"),
     (["goal", "docs", "build"], "umwayi.cli.goaldocs.build"),
     (["goal", "docs", "check"], "umwayi.cli.goaldocs.check"),
+    (["concerns", "check", "concerns.md"], "umwayi.cli.concerns.check_file"),
 ]
 
 
