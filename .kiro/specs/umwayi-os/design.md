@@ -2884,6 +2884,22 @@ Answers (owner): UI-Q1 to UI-Q5 on Nov 10 as recorded above; UI-Q6 to UI-Q11 acc
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
 - Layer 9 adapters get their own tests and CI job (see above).
 
+## W19 part 2: the concerns record checker (tasks.md W19.2)
+
+**What it is.** A command the owner runs, `umwayi concerns check PATH`, that checks a project concerns record. The rule comes from the hub doc engineering-concerns: one row for each number 1 to 111; each row answers Applies, Not applicable or Deferred with a one sentence reason; Applies points at evidence, a file path that exists in the repo.
+
+**Record format.** A markdown table with the header `| number | concept | answer | reason | evidence | date |`, a separator row, then the rows. Text outside the table is ignored. A second table, a row with another column count, or a header that differs is a failure.
+
+**Module.** `umwayi/concerns.py`: `CONCEPTS` (the 111 names in order, number is index plus one), `check_text(text, root)` returning one failure line per problem, and `check_file(path, root)` which reads a regular UTF-8 file of at most 1,000,000 bytes. No network, no subprocess, no timer, nothing written.
+
+**Failures.** A missing number, a duplicate number, a number that is not a plain whole number or is outside 1 to 111, a concept that does not match its number, an answer outside the three (exact words), an empty or whitespace reason, an Applies row whose evidence is not a regular file inside the repo, a date that is not a real `YYYY-MM-DD`, a wrong column count, a bad header or separator, and a record that cannot be read. A failure line holds the line of the file and the row number and never text from the file (safety rule 2).
+
+**Evidence.** The path must be relative, with no `..` part, no backslash, colon, `~` or control character. It is joined to the repo root, every link is followed, and the real path must be inside the real root and be a regular file. Nothing is read from it.
+
+**Command line.** Failures go to standard error, one line each, exit 2. A well formed record prints one line and exits 0. A usage error is 64. An unexpected error is 2 and prints only the error type. It is never 1 or 3. The owner decided on Nov 13 (answer to the builder's question): a record that parses but fails the check exits 2, as specified; a missing or unreadable record is 2; bad arguments are 64. `product.md` uses 1 for a plain refusal elsewhere, and no exit code is changed.
+
+**Not built here.** Any use of the record by the goal flow, `guidance.py` or `guidance.yaml` (another task), and any scheduled run: a test checks that no job, schedule or workflow names the command.
+
 ## Layer 13: Correction and graded autonomy (spec in the L13.0 pull request, tasks.md L13.0; built only after the owner approves it, slice by slice)
 
 Requirements 13.R1 to 13.R15. Tasks L13.0 to L13.6. Five slices in the owner's order, each shipping alone: Elections (L13.1), Reversal (L13.2), Courts (L13.3), Honest tension (L13.4), Graded autonomy (L13.5), then the whole-system update (L13.6). The owner stops the build where Dec 3 finds us. Layer 13 is added after the "Testing" section on purpose, so that the layer 12 branches (PR 39 and the UI.2 branch), which edit the layer 12 sections, merge without a conflict.
@@ -4109,7 +4125,7 @@ Where each answer landed (the worktree rule, Q3, is listed in the changed bullet
 
 ## Guidance (W19), stage 1
 
-Added in the W19.1 pull request. Stage 2 (the concerns record checker and the security checklist checks) is a later task and is not started.
+Added in the W19.1 pull request. Stage 2 is separate: the concerns record checker was built in its own pull request ("W19 part 2" above), and the security checklist checks are a later task. This stage does not touch either.
 
 **What it is.** `guidance.yaml` at the repo root is a checked list of rules for the goal flow. Each entry has an `id`, a `source` (a file and a rule number), a `text` (one sentence), a `kind` (`enforce`, `advise` or `owner`), an `applies_to` (`goal`, `task`, `pr` or `release`) and a `source_hash`. An `enforce` entry also has a `check` (the name of a registered function), an `advise` entry a `prompt_line` (one line for an AI helper's prompt), an `owner` entry neither. The code checks that a record exists and is well formed. It never claims that the content is true.
 
@@ -4134,4 +4150,4 @@ Added in the W19.1 pull request. Stage 2 (the concerns record checker and the se
 
 **Entries.** Nine, with the wording in our own words and the source and rule number exact. Enforce: goal sentence (understanding-first rule 3, tier 3), consequences and undo (understanding-first rule 13, tier 3), acceptance checks before the work (agent-practices verification-first, tier 3 by the owner's assignment), one open pull request per task (`umwayi-os`, builder workflow rule 1, tier 4). Advise, tier 6: record what is true now (rule 12), check the output against the goal sentence (rule 4), do not accept output you cannot explain (rule 1), rewrite a broken base (rule 7). Owner, tier 2: batch interruptions (rule 8). The brief asked for six advise and three owner examples; the owner named four and one, and no rule was invented to fill the gap.
 
-**Tests.** `tests/goal/test_guidance.py`: each fail closed case of the loader, the hub entries, `verify` and `list`, a hand edited hash, each of the four checks (pass, missing, empty, white space only, wrong type), the committed file (loads, no em dash), and the command with its exit codes. KNOWN-LIMITS 254.
+**Tests.** `tests/goal/test_guidance.py`: each fail closed case of the loader, the hub entries, `verify` and `list`, a hand edited hash, each of the four checks (pass, missing, empty, white space only, wrong type), the committed file (loads, no em dash), and the command with its exit codes. KNOWN-LIMITS 255.

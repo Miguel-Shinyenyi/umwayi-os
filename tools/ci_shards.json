@@ -18,7 +18,7 @@
   },
   "tests/adapters/test_opencode_rules.py": {
    "seconds": 0.0,
-   "shard": 2
+   "shard": 1
   },
   "tests/adapters/test_stdio.py": {
    "seconds": 8.1,
@@ -126,7 +126,7 @@
   },
   "tests/autonomy/test_score.py": {
    "seconds": 0.0,
-   "shard": 2
+   "shard": 1
   },
   "tests/autonomy/test_status.py": {
    "seconds": 6.0,
@@ -177,8 +177,8 @@
    "shard": 3
   },
   "tests/goal/test_guidance.py": {
-   "seconds": 0.5,
-   "shard": 3
+   "seconds": 0.7,
+   "shard": 2
   },
   "tests/serve/test_entries.py": {
    "seconds": 14.2,
@@ -186,7 +186,7 @@
   },
   "tests/serve/test_failclosed.py": {
    "seconds": 0.2,
-   "shard": 1
+   "shard": 2
   },
   "tests/serve/test_gaps.py": {
    "seconds": 0.5,
@@ -198,7 +198,7 @@
   },
   "tests/serve/test_gen.py": {
    "seconds": 0.2,
-   "shard": 1
+   "shard": 2
   },
   "tests/serve/test_mutation.py": {
    "seconds": 10.0,
@@ -246,7 +246,7 @@
   },
   "tests/test_checks.py": {
    "seconds": 0.2,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_ci_map.py": {
    "seconds": 6.0,
@@ -263,6 +263,10 @@
   "tests/test_ci_workflow.py": {
    "seconds": 0.1,
    "shard": 3
+  },
+  "tests/test_concerns.py": {
+   "seconds": 0.5,
+   "shard": 1
   },
   "tests/test_docs.py": {
    "seconds": 1.2,
@@ -302,11 +306,11 @@
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_miniyaml.py": {
    "seconds": 0.0,
-   "shard": 2
+   "shard": 1
   },
   "tests/test_petition.py": {
    "seconds": 62.1,
@@ -326,7 +330,7 @@
   },
   "tests/test_rules.py": {
    "seconds": 0.7,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_runlock.py": {
    "seconds": 13.8,

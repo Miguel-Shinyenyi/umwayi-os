@@ -817,6 +817,13 @@ The owner's reviewer found that each push to a pull request branch started two r
 - [x] W20.E `.kiro/steering/builder-workflow.md`: the builder rules, short, read by every session (`tests/test_builder_workflow.py`).
 - [ ] W20.F The owner changes the branch rule by hand to require `tests / result (pull_request)` (the four `tests / test (3.1x) (pull_request)` names no longer exist). Waits for the owner.
 
+## W19 part 2: the concerns record checker (the owner's task, Nov 13; its own pull request)
+
+- [x] W19.2.A Tests first: `tests/test_concerns.py`, one for each failure case (a missing, duplicate or out of range number, a bad answer, an empty reason, an Applies row with a missing evidence path, a malformed date), a valid record, exit 0 on valid and 2 on invalid, the 111 names numbered 1 to 111 with no gap, and evidence that cannot leave the repo (no `..`, no absolute path, no link out).
+- [x] W19.2.B `umwayi/concerns.py`: a strict parser and checker for the table `number, concept, answer, reason, evidence, date`, and the fixed list of the 111 concept names. Standard library only. It checks the form and never claims the content is true.
+- [x] W19.2.C `umwayi concerns check PATH`: one line per failure, exit 0, 2 or 64, never 1 or 3. Run by the owner; no job, timer or workflow starts it (a test checks).
+- [x] W19.2.D Docs: `docs/concerns.md`, a status part and a limits part in `docs-parts/` built with `umwayi goal docs build`, `docs/exit-codes.md`, `docs/architecture.md`, `docs/testing.md`, PROJECT.md.
+
 ## Non goals for Dec 3
 
 Finance and marketing loops, shared rule packs (after Dec 3). The web interface was a non goal until Nov 10; it is layer 12 now. File watching, an SQLite index, tmux sessions and a sandbox (layer 11 proposes to cut or defer them, 11.R8).
@@ -986,7 +993,7 @@ When W9 is approved and built, this row moves into the main status table as its 
 
 ## W19: guidance.yaml and the enforce checks (the owner's task, Nov 13; two stages)
 
-- [x] W19.1 Stage 1 (own pull request): `guidance.yaml` and `umwayi/guidance.py` (the strict loader that fails closed, the tier and `overrides` fields and `resolve`, the registry of four checks, `check_task`), `umwayi goal guard [TASKFILE]`, `tests/goal/test_guidance.py`, the docs parts and KNOWN-LIMITS 254. Design: "Guidance (W19), stage 1".
+- [x] W19.1 Stage 1 (own pull request): `guidance.yaml` and `umwayi/guidance.py` (the strict loader that fails closed, the tier and `overrides` fields and `resolve`, the registry of four checks, `check_task`), `umwayi goal guard [TASKFILE]`, `tests/goal/test_guidance.py`, the docs parts and KNOWN-LIMITS 255. Design: "Guidance (W19), stage 1".
   - Also in this pull request: a required `tier` (1 to 6), `overrides`, `resolve`, a required `source_repo` (`umwayi-os` or `hub`), and the owner commands `umwayi guidance list` and `umwayi guidance verify --hub PATH`. Nine entries: four enforce, four advise, one owner. **Open:** the owner asked for six advise and three owner examples and named four and one; more wait for the owner's rule numbers. The hub hashes are those of hub commit 658a799 and `verify` may report a mismatch against a newer hub, which is correct.
   - Not done: calling `guard` from `goal start` and `goal run` (those commands are W9.8).
-- [ ] W19.2 Stage 2 (a later task, not started): the concerns record checker for the 111 concepts and the security checklist checks.
+- W19.2 Stage 2: the concerns record checker is built in its own pull request (see "W19 part 2" above). The security checklist checks are a later task, not started here.

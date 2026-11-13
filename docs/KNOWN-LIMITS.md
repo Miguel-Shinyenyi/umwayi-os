@@ -1184,9 +1184,19 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - What it does not protect against: a long wait between a commit and its push, a busy board in one hour, a service that reports only as a commit status.
 - A later fix: an optional token read from the environment (a decision for the owner, because the script reads no secret today), and the push time from the repository events.
 
+## Concerns record (W19)
+
+### 254. The concerns checker proves the form of the record, not that it is true
+
+`umwayi concerns check` shows that a concerns record is complete and well formed. It cannot tell whether a row is true.
+
+- What protects you today: the record must have exactly one row for each of the 111 numbers, each with one of three answers, a reason that is not empty, a real date, and, for Applies, a regular file that exists inside the repo (no `..`, no absolute path, no link that leads out). Any failure exits 2.
+- What it does not protect against: a reason that is wrong or careless, an Applies row that points at a file that has nothing to do with the concept, a file that exists but is empty, a concept marked Not applicable that does apply, and a record that was true once and is now out of date (the date is checked for its form only, not its age). The reason is checked for being present, not for being one sentence.
+- A later fix: none planned. A judgment about whether an answer is true stays with the owner. The record is checked only when the owner runs the command; nothing runs it on a schedule.
+
 ## Guidance (W19), found while building
 
-### 254. The guidance check proves a field is there, not that it is true, and only some rules are loaded yet
+### 255. The guidance check proves a field is there, not that it is true, and only some rules are loaded yet
 
 `umwayi goal guard` runs the enforce rules of `guidance.yaml` against a task record. It is a shape check and a first step, with these limits.
 
