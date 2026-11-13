@@ -69,6 +69,42 @@ python tools/affected_tests.py --run --python python3.10 --python python3.13
 
 While building, run the affected tests. Before every push, run them on each Python version you can install. Run the whole suite only when the command prints `FULL SUITE` (a workflow, map, filter, shard or unknown-path change, or a diff it cannot read) or when asked. GitHub CI stays the record. What an affected-only run can miss: a test that reads a path the scanner cannot see (see below); a change in `umwayi/`, `tests/` or `adapters/`, which selects the whole Python suite because the map cannot say which module a change reaches (use `python -m unittest tests.test_x` for the inner loop); a base that is out of date (merge the newest `origin/main` first); the Python versions you did not run; and the Node tests when `node` or the packages are not installed (the command then fails, it does not skip). The builder rules that tell every session this are in [.kiro/steering/builder-workflow.md](../.kiro/steering/builder-workflow.md).
 
+### Merging main
+
+Sessions run in parallel, and several files are written by commands, so a plain `git merge origin/main` stops on conflicts nobody can judge by eye. `python -m tools.merge_main` ([tools/merge_main.py](../tools/merge_main.py), standard library only) merges and repairs them. A session uses it instead of a raw merge, before every push and whenever main moves.
+
+What it does, in order:
+
+1. Refuses a tree with any change, an unfinished merge or a detached head (exit 3, nothing changed).
+2. `git fetch origin`, then `git merge --no-commit --no-ff origin/main`. Nothing is committed until everything below has passed.
+3. Reads the list of generated files, [tools/generated_files.json](../tools/generated_files.json), from the merged tree.
+4. No conflict: runs every verify of the list, regenerates a file that is stale, makes the merge commit, and commits the regenerated files as a second commit named `regenerate generated files after merging main`.
+5. Conflicts only in listed files: takes main's version of each, runs the regenerate commands in file order, runs every verify, and makes one merge commit. `docs/testing.md` is only generated between two marker lines, so the two sides are merged around the block and a conflict outside the block counts as a conflict in a file that is not listed.
+6. A conflict in any file that is not listed: `git merge --abort`, the paths are printed, exit 3 (`Ask me first`). Nothing is changed.
+7. One line per file: `kept` (verify passed), `regenerated` (and what ran) or `refused` (and why).
+
+The generated list, in the order the commands run (a file that feeds another comes first):
+
+| file | regenerate | verify |
+| --- | --- | --- |
+| `docs/status-log.md`, `docs/KNOWN-LIMITS.md` | `python -m umwayi goal docs build` | `python -m umwayi goal docs check` |
+| `tools/ci_map.json` | `python -m tools.ci_map update` | `python -m tools.ci_map check` |
+| `tools/ci_shards.json` | `python -m tools.ci_shards assign-missing` | `python -m tools.ci_shards check` |
+| the table block of `docs/testing.md` | `python -m tools.ci_map table --write` | `python -m tools.ci_map table --check` |
+| `ui/dist/progress.html`, `ui/dist/build.json` | `npm ci --ignore-scripts` then `node build.mjs`, both in `ui/` | `python -m unittest tests.test_progress_page` |
+
+An entry may also list `writes` (other paths its command may write, such as the part files the docs build numbers). A command that changes any other file is a failure. The reader of the list is strict: an unknown key, a repeated path, a path that is not a plain relative path, a missing file or a command that starts a shell is exit 64. A test that fails because a generated file is stale ends its message with the exact command from the list (`tools/generated_files.py`).
+
+Exit codes: 0 done (including nothing to do), 2 a regenerate or verify failed or a file outside the list was written (the tree is put back as it was, and the command and the last 20 lines of its output are printed), 3 ask first (a conflict outside the list, a dirty tree, a detached head, or node or npm missing when a ui file needs it; never skipped), 64 usage or a wrong list. Never 1.
+
+What it cannot do:
+
+- It never pushes, never forces and never resets. The only network use is `git fetch`; `npm ci` reads the npm registry or its cache by itself.
+- It cannot judge a conflict in a file that is not generated, or in prose around a generated block. That is exit 3.
+- `assign-missing` puts a new test file on the lightest shard and does not rebalance, so after a merge the shard file can be less balanced than `balance` would make it. `balance` stays the full rebalance and `merge_main` never runs it.
+- A matching verify shows the file is current, not that its content is right.
+- The numbers of two limits parts that were both built on separate branches collide; that is why a limits part is left unnumbered until the merge.
+
 ### What each test reads (the map)
 
 The map is data ([tools/ci_map.json](../tools/ci_map.json)) and a checker: `tests/test_ci_map.py` scans every Python and Node test file and fails when a test reads a path the map does not list for it, when a test file has no entry, or when an entry is for a file that is gone. The scanner sees paths built from the repository root in test code (`REPO / "ui"`, f-strings, `os.path.join`, a root passed to a helper function), imports of `adapters`, and walks of the whole repository (`REPO.rglob`, `git ls-files`: `tests/adapters/test_claude_code.py` and `tests/agents/test_claude_acp_package.py`, which therefore run on every change); for Node, relative imports out of the package and paths named in strings or `join()`. It cannot see a path that a child process reads from its working directory or that is built from data. The starting points of the guide were checked: the five tests that read `ui/` or `site/` are in the table; 43 files import or read `adapters/` (the guide counted 27 that mention it); only 4 read `.kiro/` (the guide counted 10 mentions, the rest are Kiro's own home folder inside temporary roots); `tests/test_docs.py` reads `docs/`, `README.md` and `PROJECT.md`. This table is generated by `python -m tools.ci_map table` and `tests/test_ci_map.py` checks that it is current.
@@ -76,7 +112,7 @@ The map is data ([tools/ci_map.json](../tools/ci_map.json)) and a checker: `test
 
 <!-- ci-map:begin (generated by `python -m tools.ci_map table`; tests/test_ci_map.py keeps it true) -->
 
-Python test files that read a path outside `tests/` and `umwayi/` (every other Python test file reads nothing outside its own area: 23 of 118 files):
+Python test files that read a path outside `tests/` and `umwayi/` (every other Python test file reads nothing outside its own area: 23 of 121 files):
 
 | test file | reads |
 | --- | --- |
@@ -152,9 +188,11 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_concerns.py` | `.github`, `jobs.yaml`, `schedule.example.yaml`, `workflows` |
 | `tests/test_docs.py` | `.gitignore`, `PROJECT.md`, `README.md`, `docs` |
 | `tests/test_frontier_practices.py` | `.kiro`, `docs`, `guidance.yaml` |
+| `tests/test_generated_files.py` | `docs`, `tools` |
 | `tests/test_helpers.py` | `rules.yaml` |
 | `tests/test_honest.py` | `.kiro`, `adapters`, `docs`, `rules.yaml` |
 | `tests/test_logbook_chain.py` | `rules.yaml` |
+| `tests/test_merge_main.py` | `.kiro`, `docs`, `docs-parts`, `tools`, `ui` |
 | `tests/test_petition.py` | `rules.yaml` |
 | `tests/test_progress_page.py` | `.kiro`, `docs`, `ui`, `ui/dist` |
 | `tests/test_reopen.py` | `adapters`, `rules.yaml` |
@@ -173,6 +211,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_system.py` | `articles`, `umwayi.json`, `workflows` |
 | `tests/test_ui_package.py` | `.gitignore`, `ui`, `ui/dist` |
 | `tests/test_view.py` | `jobs.yaml`, `ui`, `umwayi.json`, `workflows` |
+| `tests/test_w21_goldens.py` | `docs`, `tools` |
 | `tests/test_whole_system.py` | `adapters`, `articles`, `rules.yaml`, `workflows` |
 | `tests/test_workflows.py` | `rules.yaml` |
 
@@ -217,11 +256,6 @@ Which changed path runs which jobs (the longest matching prefix wins; a path mat
 | `workflows/` | all of them | only if a node test reads it |
 | anything else | all of them (everything, every version) | yes |
 
-<!-- ci-map:end -->
-<!-- ci-map:end -->
-<!-- ci-map:end -->
-<!-- ci-map:end -->
-<!-- ci-map:end -->
 <!-- ci-map:end -->
 
 ## Decisions log

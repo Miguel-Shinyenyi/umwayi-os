@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools import ci_map, ci_plan, ci_shards
+from tools import ci_map, ci_plan, ci_shards, generated_files
 
 REPO = Path(__file__).resolve().parent.parent
 ASSIGN_PATH = REPO / "tools" / "ci_shards.json"
@@ -58,7 +58,8 @@ def run_shard(root, shard, version="3.12", select=None, report="r.json"):
 
 class AssignmentFileTests(unittest.TestCase):
     def test_every_test_file_is_in_exactly_one_shard(self):
-        self.assertEqual(ci_shards.assignment_problems(ASSIGN, REPO), [])
+        problems = ci_shards.assignment_problems(ASSIGN, REPO)
+        self.assertEqual(problems, [], generated_files.stale_message("tools/ci_shards.json", problems))
 
     def test_the_file_is_the_fixed_point_of_balance(self):
         seconds = {f: v["seconds"] for f, v in ASSIGN["files"].items()}
@@ -447,3 +448,111 @@ class PlanAndAssignmentFitTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AssignMissingTests(unittest.TestCase):
+    """W21, Part B: the small repair. `balance` stays the full rebalance."""
+
+    def make(self, names, entries, shards=3):
+        tmp = tempfile.TemporaryDirectory(prefix="umwayi-assign-")
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        (root / "tests").mkdir()
+        (root / "tests" / "__init__.py").write_text("")
+        for n in names:
+            (root / "tests" / n).write_text(TEST_B)
+        data = {"shards": shards, "files": {f"tests/{n}": {"shard": s, "seconds": sec} for n, (s, sec) in entries.items()}}
+        (root / "assign.json").write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
+        return root
+
+    def assign(self, root):
+        r = run_cli(root, "assign-missing", "--assignments", str(root / "assign.json"), "--root", str(root))
+        return r, json.loads((root / "assign.json").read_text())["files"]
+
+    def test_a_new_file_goes_to_the_shard_with_the_least_seconds(self):
+        root = self.make(["test_a.py", "test_b.py", "test_c.py", "test_new.py"],
+                         {"test_a.py": (1, 10.0), "test_b.py": (2, 2.0), "test_c.py": (3, 6.0)})
+        r, files = self.assign(root)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(files["tests/test_new.py"]["shard"], 2)
+        self.assertEqual(files["tests/test_new.py"]["seconds"], 6.0)  # the average of 10, 2 and 6
+        self.assertEqual(files["tests/test_a.py"], {"shard": 1, "seconds": 10.0})
+
+    def test_ties_go_to_the_lowest_shard_and_files_go_in_name_order(self):
+        root = self.make(["test_a.py", "test_y.py", "test_x.py"], {"test_a.py": (3, 4.0)})
+        _, files = self.assign(root)
+        # shards 1 and 2 are empty (tie, lowest first); then shard 2 is lighter than shard 3 and shard 1 now
+        self.assertEqual((files["tests/test_x.py"]["shard"], files["tests/test_y.py"]["shard"]), (1, 2))
+
+    def test_a_file_with_no_seconds_counts_as_the_average_when_the_file_is_empty(self):
+        root = self.make(["test_a.py", "test_b.py"], {}, shards=2)
+        _, files = self.assign(root)
+        self.assertEqual({f: v["shard"] for f, v in files.items()}, {"tests/test_a.py": 1, "tests/test_b.py": 2})
+        self.assertEqual(files["tests/test_a.py"]["seconds"], 1.0)
+
+    def test_the_entry_of_a_deleted_file_is_removed_and_the_others_stay(self):
+        root = self.make(["test_a.py"], {"test_a.py": (2, 3.0), "test_gone.py": (1, 9.0)})
+        r, files = self.assign(root)
+        self.assertEqual(files, {"tests/test_a.py": {"shard": 2, "seconds": 3.0}})
+        self.assertIn("removed tests/test_gone.py", r.stdout)
+
+    def test_the_bytes_are_deterministic_and_a_second_run_changes_nothing(self):
+        root = self.make(["test_a.py", "test_b.py", "test_c.py"], {"test_a.py": (1, 5.0)})
+        self.assign(root)
+        first = (root / "assign.json").read_bytes()
+        r, _ = self.assign(root)
+        self.assertEqual((root / "assign.json").read_bytes(), first)
+        self.assertIn("nothing to assign", r.stdout)
+        other = self.make(["test_c.py", "test_b.py", "test_a.py"], {"test_a.py": (1, 5.0)})
+        self.assign(other)
+        self.assertEqual((other / "assign.json").read_bytes(), first)
+
+    def test_the_layout_is_the_one_balance_writes_and_check_passes(self):
+        root = self.make(["test_a.py", "test_b.py", "test_c.py"], {"test_a.py": (1, 5.0)})
+        self.assign(root)
+        data = json.loads((root / "assign.json").read_text())
+        self.assertEqual((root / "assign.json").read_text(), json.dumps(data, indent=1, sort_keys=True) + "\n")
+        self.assertEqual(list(data), ["files", "shards"])
+        r = run_cli(root, "check", "--assignments", str(root / "assign.json"), "--root", str(root))
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_a_missing_file_is_found_by_check_and_repaired(self):
+        root = self.make(["test_a.py", "test_new.py"], {"test_a.py": (1, 5.0)}, shards=1)
+        check = ["check", "--assignments", str(root / "assign.json"), "--root", str(root)]
+        self.assertEqual(run_cli(root, *check).returncode, 2)
+        self.assign(root)
+        self.assertEqual(run_cli(root, *check).returncode, 0)
+
+    def test_it_never_rebalances(self):
+        root = self.make(["test_a.py", "test_b.py", "test_c.py", "test_n.py"],
+                         {"test_a.py": (1, 50.0), "test_b.py": (1, 40.0), "test_c.py": (1, 30.0)})
+        _, files = self.assign(root)
+        self.assertEqual([files[f"tests/test_{n}.py"]["shard"] for n in "abc"], [1, 1, 1])
+
+    def test_a_bad_option_and_a_bad_file_are_usage_errors(self):
+        root = self.make(["test_a.py"], {"test_a.py": (1, 1.0)})
+        self.assertEqual(run_cli(root, "assign-missing", "--nope", "x").returncode, 64)
+        (root / "assign.json").write_text("[]")
+        r = run_cli(root, "assign-missing", "--assignments", str(root / "assign.json"), "--root", str(root))
+        self.assertEqual(r.returncode, 64)
+
+    def test_the_real_file_needs_nothing_and_stays_byte_for_byte(self):
+        before = ASSIGN_PATH.read_bytes()
+        new, done = ci_shards.assign_missing(ASSIGN, REPO)
+        self.assertEqual(done, [])
+        self.assertEqual((json.dumps(new, indent=1, sort_keys=True) + "\n").encode(), before)
+
+
+class HintTests(unittest.TestCase):
+    """W21, Part D: a failing check ends with the exact regenerate command from tools/generated_files.json."""
+
+    def test_check_names_the_file_and_ends_with_the_command(self):
+        root = AssignMissingTests.make(self, ["test_a.py", "test_new.py"], {"test_a.py": (1, 1.0)}, shards=1)
+        r = run_cli(root, "check", "--assignments", str(root / "assign.json"), "--root", str(root))
+        self.assertEqual(r.returncode, 2)
+        lines = r.stderr.strip().split("\n")
+        self.assertIn("tests/test_new.py is in no shard", lines[0])
+        self.assertEqual(lines[-1], "ci_shards: To fix it, run: python -m tools.ci_shards assign-missing")
+
+    def test_the_hint_is_the_one_in_the_list(self):
+        self.assertEqual(ci_shards.regenerate_hint(), generated_files.regenerate_hint("tools/ci_shards.json"))

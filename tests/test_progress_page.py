@@ -18,6 +18,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tools import generated_files
+
 REPO = Path(__file__).resolve().parents[1]
 PAGE = REPO / "ui" / "dist" / "progress.html"
 BUILD = REPO / "ui" / "dist" / "build.json"
@@ -101,7 +103,8 @@ class ProgressPageTests(unittest.TestCase):
         self.build = json.loads(BUILD.read_text(encoding="utf-8"))
 
     def test_the_page_is_the_one_built_from_the_sources_now(self):
-        self.assertEqual(stale(self.build, REPO, PAGE), [])
+        problems = stale(self.build, REPO, PAGE)
+        self.assertEqual(problems, [], generated_files.stale_message("ui/dist/progress.html", problems))
 
     def test_the_page_follows_the_page_rules(self):
         self.assertEqual(rule_problems(PAGE.read_text(encoding="utf-8")), [])

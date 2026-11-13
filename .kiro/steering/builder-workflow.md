@@ -4,10 +4,13 @@ Read this before any work in this repo. It is how every session works. It does n
 `product.md` (steering rules 1 to 13), and it never overrides them.
 
 1. One task, one pull request, one session. Never merge. Never review your own work. Stop when the pull request is open.
-2. Merge the newest `origin/main` into your branch before every push and before you open the pull request. Resolve
-   conflicts keeping both sides. Confirm GitHub shows no conflicts before you report.
-3. `docs/KNOWN-LIMITS.md` and `docs/status-log.md`: after merging main, read KNOWN-LIMITS and take the next free number.
-   Once the docs part files exist, use the part files instead.
+2. Merge the newest `origin/main` into your branch before every push and before you open the pull request, and whenever
+   main moves. Do it with `python -m tools.merge_main`, never with a raw `git merge`. It merges, and when the only
+   conflicts are in generated files it clears them with the command that writes them. Exit 3 means stop: it changed
+   nothing and printed the paths, so ask the guide with those paths. Confirm GitHub shows no conflicts before you report.
+3. `docs/KNOWN-LIMITS.md` and `docs/status-log.md` are generated: never edit them by hand. Write a part under
+   `docs-parts/`. Always leave a limits part unnumbered, so the builder assigns the number (`merge_main` runs it; it
+   takes the next free number after merging main).
 4. Tests: write tests first for new behaviour. While building and before every push, run only the affected tests with
    `python tools/affected_tests.py --run` (add `--python python3.10` and so on for each version you can install). Run
    the full suite only when that command says FULL SUITE, or when asked. GitHub CI is the record.

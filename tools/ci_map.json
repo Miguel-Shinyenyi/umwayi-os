@@ -119,6 +119,7 @@
   "tests/test_elections.py": [],
   "tests/test_exit_codes.py": [],
   "tests/test_frontier_practices.py": [".kiro", "docs", "guidance.yaml"],
+  "tests/test_generated_files.py": ["docs", "tools"],
   "tests/test_helpers.py": ["rules.yaml"],
   "tests/test_honest.py": [".kiro", "adapters", "docs", "rules.yaml"],
   "tests/test_logbook.py": [],
@@ -126,6 +127,7 @@
   "tests/test_logbook_crash.py": [],
   "tests/test_logbook_integration.py": [],
   "tests/test_memory.py": [],
+  "tests/test_merge_main.py": [".kiro", "docs", "docs-parts", "tools", "ui"],
   "tests/test_miniyaml.py": [],
   "tests/test_petition.py": ["rules.yaml"],
   "tests/test_progress_page.py": [".kiro", "docs", "ui", "ui/dist"],
@@ -146,6 +148,7 @@
   "tests/test_system.py": ["articles", "umwayi.json", "workflows"],
   "tests/test_ui_package.py": [".gitignore", "ui", "ui/dist"],
   "tests/test_view.py": ["jobs.yaml", "ui", "umwayi.json", "workflows"],
+  "tests/test_w21_goldens.py": ["docs", "tools"],
   "tests/test_whole_system.py": ["adapters", "articles", "rules.yaml", "workflows"],
   "tests/test_workflows.py": ["rules.yaml"]
  },
