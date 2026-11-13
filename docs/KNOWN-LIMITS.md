@@ -1427,3 +1427,14 @@ Since W24 a pull request runs the Python suite on 3.10 and 3.13 only, and a push
 - The hash is of the first line of the rule only. A sentence added on a later line of the same rule (as W23 did to rule 9) changes no hash, so the loader does not stop and no test fails if the sentence and the guidance entry drift apart. Keeping them together depends on the rule 9 sentence being followed.
 - Rule 9 itself cannot be enforced by a check: nothing finds a steering edit that has no matching guidance edit when the edited line is not the pinned one.
 - `docs/kiro-issues-log.md` is written by hand from pull requests and CI logs. Nothing checks it against them.
+
+## Tester feedback (W26), found while building
+
+### 272. The feedback path asks the tester to remove secrets by hand, and there is no safe export yet
+
+The tester feedback path is an issue template and a page. These are its limits.
+
+- The only protection against a secret in a report is the warning, the checkbox and the tester reading what they paste. Nothing scans an issue. A tester who ticks the box without reading can still post a secret, and a public issue cannot be unsent.
+- The logbook summary export (counts per entry kind, counts per verdict, the date range, the chain status, the budget spent in UU, and no path, command text or rule text) does not exist. `docs/feedback.md` says Not yet available. `umwayi view snapshot` is not a substitute: it has no per kind or per verdict count and no date range, and it writes a logbook entry.
+- The template cannot make GitHub require the answers: a tester can delete any question, and a blank issue stays allowed on purpose. `tests/test_feedback.py` checks the template file, not what a tester sends.
+- The template has no label, so a report is not found by label. The template was not opened on GitHub in this task, so how GitHub shows it was not seen.
