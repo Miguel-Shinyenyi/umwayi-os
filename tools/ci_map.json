@@ -102,6 +102,7 @@
   "tests/test_docs.py": [".gitignore", "PROJECT.md", "README.md", "docs"],
   "tests/test_elections.py": [],
   "tests/test_exit_codes.py": [],
+  "tests/test_frontier_practices.py": [".kiro", "docs", "guidance.yaml"],
   "tests/test_helpers.py": ["rules.yaml"],
   "tests/test_honest.py": [".kiro", "adapters", "docs", "rules.yaml"],
   "tests/test_logbook.py": [],
