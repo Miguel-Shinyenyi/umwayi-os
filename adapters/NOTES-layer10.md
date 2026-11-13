@@ -1092,6 +1092,36 @@ options every time: ["once", "always", "reject"]
 - The plugin's `evaluate` raising `allow` to `ask` when the config has no `ask` rule: the probe raised it, but every run had the `ask` rule as well.
 - Behaviour with a real model, a real sign-in, or on macOS or Windows. The owner's real check (tasks.md 10.51) covers the owner's own machine.
 
+## The owner's real check of the OpenCode chat (10.51): steps and results (NOT DONE YET)
+
+Written Nov 13 2026 with the docs half of task 10.51. The code of tasks 10.43 to 10.50 is tested only against a fake `opencode` (10.47) and the plugin under `node`. This is the first time a real OpenCode meets umwayi's chat. It is the owner's, on the owner's machine; nothing here was run by the build, and 10.51 is ticked in tasks.md only after the results table below is filled in.
+
+Rules for this check:
+
+- Record version strings, exit codes, file names and counts only. Never paste a token, a key, an account name, an email, a URL or the text of a conversation into this file.
+- Use the free tier (`provider: opencode`) or a local model. Do not use a provider key.
+- Do the steps in order. Stop at the first step that fails, write what happened in the table, and tell the build.
+
+Setup, once: install OpenCode 2.2.3 or newer yourself; put an `opencode` agent in `agents.yaml` (see `adapters/opencode/README.md`); keep a throwaway folder as its `workdir`. umwayi gives OpenCode no home folder of its own (KNOWN-LIMITS 251): it passes your `HOME` and `XDG_*` through. To keep your own files out of this, make a new empty home with `H="$(mktemp -d)"` and start every umwayi command of steps 1 to 5 as `env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_CACHE_HOME -u XDG_STATE_HOME HOME="$H" umwayi ...`. The free tier needs no sign-in; a route that does would find no account in the new home.
+
+1. **OpenCode 2.2.3 or newer.** `opencode --version`; `umwayi agent check NAME; echo "exit $?"`. Expected: six lines `ok:` (`command`, `version`, `files`, `managed config`, `other config`, `route`), then `Gated: the checks for an OpenCode chat of agent NAME passed. Nothing was started.` and `exit 0`. Record the version and the exit code.
+2. **The canary seen.** `umwayi agent chat NAME`. Expected: the queue lines, `Nothing you type is sent until the plugin is confirmed in the session (at most 30 s).`, then within 30 seconds `Connected. Type a message, :queue to see the queue, or :quit to end the chat.` If it prints `The first gate could not be confirmed in the ACP session. Nothing was sent.` and exits 2, the plugin did not load or did not write the canary: record that and stop (KNOWN-LIMITS 180, 184).
+3. **One hook entry per tool call.** In the same chat type one line with a word to search for later, for example `Read README.md, then run the shell command ls. Word: PURPLEHERON`, answer `y` or `n` to any `Allow once? [y/N]`, then `:quit` (expected exit 0). Then `umwayi logbook verify; echo "exit $?"` (expected `ok:` and `exit 0`) and count in LOGBOOK.md: the `Source: umwayi check` entries with `action type: tool_` (one for every tool call the chat showed), the entries with `action type: acp_permission`, and `Started agent NAME (opencode, acp, chat)` and `Agent NAME exited with code 0`. `grep -c PURPLEHERON LOGBOOK.md` must print `0`. Record the tool lines shown against the `tool_` entries counted. Also record whether any tool call ran with no `tool_` entry, or any `tool_` entry has no tool call.
+4. **The real `--version` output.** Record the whole output of `opencode --version`, exactly (on 2.2.7 it was `opencode v2.2.7`), and say whether the check of step 1 read it as that version. This confirms KNOWN-LIMITS 187.
+5. **A refusal with a planted project `opencode.json`.** In the workdir run `printf '{}\n' > opencode.json`, then `umwayi agent check NAME; echo "exit $?"` and `umwayi agent chat NAME; echo "exit $?"`. Expected: `no: other config: ... opencode.json exists in the workdir or a folder above it`, `Not gated: ... would be refused (exit 2)`, `exit 2`, and no OpenCode process (`pgrep -a opencode` prints nothing). Delete the file afterwards. Record both exit codes and the `other config` line.
+6. **What OpenCode wrote in HOME.** After steps 2 and 3, list that home folder with `find "$H" -type f | head -50`. Record the names, not the contents. Look for: `.local/share/opencode/opencode.db`, a log, `.config/opencode/`, and `.cache/opencode/bin/rg` (the `ripgrep` that 2.2.7 downloaded on first use, KNOWN-LIMITS 191). Say whether any of them is new since 10.42, and whether `bin/rg` was fetched in this chat.
+
+### Results (to be filled in by the owner; all NOT DONE)
+
+| step | what to record | result |
+| --- | --- | --- |
+| 1 | the version; `agent check` exit code and the six `ok:` lines | not done |
+| 2 | whether `Connected.` came within 30 s; how many seconds | not done |
+| 3 | tool lines shown; `tool_` entries; `acp_permission` entries; `PURPLEHERON` count; logbook verify | not done |
+| 4 | the whole output of `opencode --version` | not done |
+| 5 | `agent check` and `agent chat` exit codes with a planted `opencode.json`; the `other config` line; any process left | not done |
+| 6 | the file names OpenCode wrote in HOME; `bin/rg` fetched or not | not done |
+
 ## Budget governor: Claude Code telemetry (B.10, the owner's capture)
 
 Built in PR 33. What the receiver expects, from design.md "Budget governor", Facts (read Nov 9 2026, [Claude Code, Monitoring](https://code.claude.com/docs/en/monitoring-usage)):

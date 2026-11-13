@@ -785,24 +785,24 @@ The date of a check is the latest of the system date, `--date` and the newest lo
 
 `--revisit-if` keeps one line of text in the logbook entry of the answer, up to 200 characters, or `none`. umwayi shows it again when the decision is reopened and does nothing else with it: it does not check that the condition came true, and it does not remind the owner. An answer from before layer 13 shows `not recorded before layer 13`. A condition in another shape than the fixed one, for example text a person added to an entry, is not read. The text is the owner's, so a vague condition stays vague.
 
-## Layer 10 part 8: OpenCode over ACP, and Muse Spark Open (known from the spec, Nov 11; nothing is built)
+## Layer 10 part 8: OpenCode over ACP, and Muse Spark Open (the OpenCode chat is built and tested with a fake; Muse Spark Open is not built)
 
-These come from the spec (10.R13 and 10.R14, PR 44), not from a build. They are numbered from 180 so they do not collide with the items other open work adds. Task 10.51 (10.55 for 188 and 189) makes them true to what is built. Facts with links: `adapters/NOTES-layer10.md`, "OpenCode V2: the facts checked for the adapter spec".
+Items 180 to 187 were written from the spec (10.R13, PR 44) and were made true to what is built in task 10.51 (Nov 13): each was read against `umwayi/agents.py`, `umwayi/acp.py` and `adapters/opencode/plugin/index.js`. Items 188 and 189 are still the spec's, because Muse Spark Open is not built (10.55 makes them true). Items 190 and 191 come from the real install of 10.42. The tests use a fake `opencode` (10.47), so none of this was seen in a real chat: the owner's check is in `adapters/NOTES-layer10.md`, "The owner's real check of the OpenCode chat (10.51)". Later items for the same chat: 242, 243, 248, 250 and 251. Facts with links: `adapters/NOTES-layer10.md`, "OpenCode V2: the facts checked for the adapter spec".
 
 ### 180. umwayi's inline config is the weakest place for a policy, and V2 does not document it
 
-umwayi passes its strict config in `OPENCODE_CONFIG_CONTENT`. The V2 source reads that variable, but no V2 docs page names it, so a release could drop it. In the source, policies from earlier-loaded documents win, and the inline content loads late. So a `provider.use` or `integration.use` statement with `allow` in the global file, a project file, a connected Console workspace or a managed file outranks umwayi's `deny`.
+umwayi passes its strict config in `OPENCODE_CONFIG_CONTENT` (`opencode_inline_config()`, the one `OPENCODE_` name the child gets). The V2 source reads that variable and 2.2.7 applied it in 10.42, but no V2 docs page names it, so a release could drop it. In the source, policies from earlier-loaded documents win, and the inline content loads late. So a `provider.use` or `integration.use` statement with `allow` in the global file, a project file, a connected Console workspace or a managed file outranks umwayi's `deny`.
 
-- What protects you: the plugin is named only in the inline config, so if OpenCode ignores it, no canary is written and the chat is refused. Gate checks 4 and 5 refuse when a managed, project or suspect global config exists.
-- What it does not protect against: a Console workspace (182), and a config written after the start (181).
+- What protects you: the plugin is named only in the inline config, so if OpenCode ignores it, no canary is written and the chat is refused (exit 2, after at most 30 seconds, nothing of yours sent). Gate check 4 (`managed config`) refuses when a managed config exists, and gate check 5 (`other config`) when a project, home or suspect global config exists. The plugin also raises every `allow` of a permission to `ask`, so the second gate does not rest on the inline `ask` rule alone.
+- What it does not protect against: a Console workspace (182), and a config written after the start (181). Whether the inline policies hold in a real chat is the owner's check; the tests see only the bytes of the config and a fake that applies it as the tests say.
 
 ### 181. Other config is found by name and by text, and only at the start
 
-Gate check 5 looks for project config by file name, and searches the global config files for fixed key names as quoted text. It does not run OpenCode's merge.
+Gate check 5 looks for `opencode.json`, `opencode.jsonc` and `.opencode` by name from the workdir up to `/` (the path as given and the real path), for `.opencode` in the home folder, and for `plugins`, `plugin`, `agents` and `agent` entries in the global OpenCode folder (`$XDG_CONFIG_HOME/opencode`, else `~/.config/opencode`). It searches the global `opencode.json(c)` as quoted text for ten fixed keys (`permissions`, `permission`, `policies`, `plugins`, `plugin`, `agents`, `agent`, `experimental`, `enabled_providers`, `disabled_providers`) and refuses a file over 1 MiB unread. It does not run OpenCode's merge, and it reads names, sizes and those words only: a refusal shows a path and a key, never file text. It runs at `agent check` and before every chat, not during one.
 
 - `{file:PATH}` substitution in the global file can pull in keys from a file umwayi never reads.
 - A remote `.well-known` config from a connected integration is not seen.
-- OpenCode reloads a changed config during a chat. An AI helper that writes `.opencode/opencode.json` in the workdir could add a plugin or a policy after the check. The starter rules say No to edits and shell commands that name these files, but a shell command can be written to get past a text match.
+- OpenCode reloads a changed config during a chat. An AI helper that writes `.opencode/opencode.json` in the workdir could add a plugin or a policy after the check. The starter rules (`oc-no-guard-edits`, `oc-no-guard-shell`) say No to edits and shell commands that name `opencode.json`, `.opencode`, `rules.yaml`, `LOGBOOK.md` and `.umwayi`, but they match plain text, and a shell command can be written to get past a text match. They are only in force if the owner's `rules.yaml` has them (the repo `rules.yaml` does).
 
 ### 182. A connected Console workspace or a saved account is invisible
 
@@ -810,23 +810,23 @@ Saved accounts live in OpenCode's database, which umwayi does not read. A connec
 
 ### 183. The permission request does not say what OpenCode's rules matched
 
-An OpenCode `toolCall` carries the tool's `name`, `kind`, `title` and `rawInput`, not the permission's action and resources. umwayi answers by `kind` and `tool` only, as for Kiro and Claude Code. An MCP tool name that is not a short plain word is left out, so its rules see only `kind`. When OpenCode has no tool for a request, `name` and `rawInput` are absent, and the answer is Ask me first at most.
+An OpenCode `toolCall` carries the tool's `name`, `kind`, `title` and `rawInput`, not the permission's action and resources. umwayi answers by `kind` and `tool` only, as for Kiro and Claude Code. A tool name is sent to the rules only if it is a letter followed by up to 39 letters, digits, `_` or `-`; any other name (one with `:` or `.`, or over 40 characters) is left out, so its rules see only `kind`. An MCP name such as `mcp__github__create_issue` passes that test and is sent. When OpenCode has no tool for a request, `name` is absent and the answer is Ask me first at most (248).
 
 ### 184. The first gate is JavaScript inside OpenCode
 
-The plugin is umwayi's only JavaScript in a gate. It runs in the `opencode` binary's own runtime, Bun 1.4.4 on 2.2.7, where `node:child_process` `spawnSync` and `node:fs` worked (10.42); the tests run it under `node`, not Bun, so a difference between the two is not caught by them. It starts one Python process per tool call, so every call waits for `umwayi check` (up to 10 s). It works only while OpenCode keeps calling `execute.before` for every tool and lets a throw stop the call. Built-in plugins (the policy plugin, the Console plugin) cannot be turned off, and their order among the `evaluate` hooks is not documented. A later hook could lower umwayi's `ask` back to `allow`; the first gate still runs.
+The plugin is umwayi's only JavaScript in a gate. It runs in the `opencode` binary's own runtime, Bun 1.4.4 on 2.2.7, where `node:child_process` `spawnSync` and `node:fs` worked (10.42 and the smoke test of 10.45); the tests run it under `node`, not Bun, so a difference between the two is not caught by them. It starts one Python process per tool call, so every call waits for `umwayi check` (it gives up and stops the call after 10 s). It works only while OpenCode keeps calling `execute.before` for every tool and lets a throw stop the call. The spec's reading of the source (not seen on a real install) is that built-in plugins cannot be turned off and that the order of the `evaluate` hooks is not documented, so a later hook could lower umwayi's `ask` back to `allow`; the first gate still runs, and no test can show the order.
 
 ### 185. One tool call can write two logbook entries and ask twice
 
-The plugin's check writes one `umwayi check` entry. The permission request that follows writes another. With rules that say Yes in the first gate but have no `acp_permission` rule for OpenCode, the owner is still asked at the permission request. The starter rules cover the common cases.
+The plugin's check writes one `umwayi check` entry. The permission request that follows writes another (10.49 counts one entry per check). With rules that say Yes in the first gate but have no `acp_permission` rule for OpenCode, the owner is still asked at the permission request: no matching rule is Ask me first. The starter rules cover the common cases. The logbook keeps no action JSON, so an entry does not say which of the two gates wrote it.
 
 ### 186. The canary token and the inline config are in OpenCode's environment
 
-Every shell command OpenCode runs inherits `OPENCODE_CONFIG_CONTENT`, with the hook command, the canary path and the token. An AI helper can read them, and could write the canary file itself. The canary is checked before the first prompt, before the model has run any tool, so this matters only if OpenCode ran a tool before then. The same was accepted for the Claude Code canary (7b).
+`OPENCODE_CONFIG_CONTENT` holds the hook command, the canary path and the token, and it is in the environment of the `opencode` process. Whether a shell command OpenCode runs inherits it was not tested on a real install; assume it does. An AI helper that can read it could write the canary file itself (the plugin creates it with `O_EXCL`, and umwayi accepts a regular file holding exactly the token). The canary is checked before the first prompt, before the model has run any tool, so this matters only if OpenCode ran a tool before then. The same was accepted for the Claude Code canary (7b). The folder is removed when the chat ends, and a new folder and token are made for every start.
 
 ### 187. OpenCode changes fast, and the version is read as text
 
-There were 46 stable 2.x releases between Sep 11 and Nov 10 2026, and several facts the design uses are from the source, not the docs. The version check takes the first `N.N.N` in `opencode --version` (on 2.2.7 the whole output is `opencode v2.2.7`) and compares it with 2.2.3. Only 2.2.7 was run (10.42); 2.2.3 to 2.2.6 are allowed but were not seen. A newer release may rename a hook or change the config order. The canary and the gate checks fail closed when that happens, but they cannot catch a change that keeps the names and loosens the behaviour.
+There were 46 stable 2.x releases between Sep 11 and Nov 10 2026, and several facts the design uses are from the source, not the docs. The version check takes the first `N.N.N` in the first 4096 bytes of `opencode --version` (on 2.2.7 the whole output is `opencode v2.2.7`; a 1.x or older than 2.2.3 is refused) and compares it with 2.2.3. Only 2.2.7 was run (10.42); 2.2.3 to 2.2.6 are allowed but were not seen, and no version is capped from above. A newer release may rename a hook or change the config order. The canary and the gate checks fail closed when that happens, but they cannot catch a change that keeps the names and loosens the behaviour. The real `--version` output is still to be recorded in the owner's check.
 
 ### 188. Muse Spark Open: the local server is trusted as it is
 
@@ -1125,7 +1125,7 @@ Before W20 the required checks were `tests / test (3.10) (pull_request)` to `tes
 
 ### 248. A request with no `name` is capped after the check, so its entry can say Yes
 
-In an OpenCode chat, a permission request with no `name` (OpenCode had no tool for it) never gets Yes: when the rules answer Yes, umwayi asks the owner instead, as for Ask me first. The cap is applied after the check, so the `umwayi check` entry of that request still names the Yes rule, and the logbook does not say that the owner was asked. A No stays No. A request whose `name` is present but not a plain word (an MCP tool such as `mcp__x__y`) is not capped: the rules see only its kind. Only the fake sends a request with no `name`; a real OpenCode was seen to do so only in the source (10.42).
+In an OpenCode chat, a permission request with no `name` (OpenCode had no tool for it) never gets Yes: when the rules answer Yes, umwayi asks the owner instead, as for Ask me first. The cap is applied after the check, so the `umwayi check` entry of that request still names the Yes rule, and the logbook does not say that the owner was asked. A No stays No. A request whose `name` is present is not capped, even when it is not a plain word (a name with `:` or over 40 characters): the rules then see only its kind. An MCP name such as `mcp__x__y` is a plain word and is sent to the rules as `tool`. Only the fake sends a request with no `name`; a real OpenCode was seen to do so only in the source (10.42).
 
 ## Page client (W6.9), found while building
 
@@ -1147,3 +1147,15 @@ The page client fails closed. If an answer from `umwayi serve` has the wrong sha
 - **Not reachable as root.** A plugin folder that can be entered but not listed cannot be made by a test running as root, so that check (fault B3h) is tested by making the listing itself fail, not with a real folder mode.
 - **One catch depends on timing.** The test for the last look at the agent's descendants before a clean exit (fault S2) needs the whole chat to end within the one-second watcher interval. On a machine that is much slower the fault could survive that test; the code itself passes either way.
 - **Only the fake.** All of this runs against the fake `opencode` and the plugin under `node`. What the real OpenCode does is the owner's check, task 10.51.
+
+## OpenCode docs and the real check (part 8, 10.51)
+
+### 251. OpenCode runs with the owner's own HOME, and its stderr reaches the terminal
+
+umwayi gives an OpenCode chat the allow-listed environment (`opencode_env()`), and `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME` and `XDG_STATE_HOME` are on that list, so they are passed through exactly as they are in the shell that started umwayi. umwayi does not make a home folder of its own for OpenCode. The design said it would discard OpenCode's stderr; the code does not: `opencode acp` has its stdin and stdout as the ACP pipes and its stderr is umwayi's, so OpenCode's own error text appears on the owner's terminal.
+
+- **OpenCode writes into the owner's real folders.** It keeps its database, logs and repositories under `~/.local/share/opencode/`, an empty config folder at `~/.config/opencode/`, and the downloaded `ripgrep` at `~/.cache/opencode/bin/rg` (seen in 10.42, in a throwaway home; see 191). In a real chat these are the owner's real folders. Nothing in the gate depends on them being empty, except gate check 5, which refuses a global config folder that holds a plugin or agent entry or a listed key (181).
+- **A saved account in that database counts.** An account the owner connected earlier (182) is in the same database. umwayi neither reads it nor hides it.
+- **What would change it.** A private `HOME` for OpenCode, with its cache and data inside it, would also give 191 a fix (an `rg` already in place). That is a change to `umwayi/agents.py` and a decision for the owner; nothing here does it.
+- **stderr.** What OpenCode prints to stderr is not logged and not filtered, and it is not checked for control characters the way agent text on stdout is. Nothing of it is sent anywhere by umwayi.
+- **To check.** What OpenCode wrote in the folders above on the owner's first real run is a line in the owner's check (`adapters/NOTES-layer10.md`).

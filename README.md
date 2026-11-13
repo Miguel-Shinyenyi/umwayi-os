@@ -11,8 +11,8 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | part | state | doc |
 | --- | --- | --- |
 | Layers 1 to 8 (memory, rules, queue, archive, logbook, automation, helpers, workflows) | built | [architecture](docs/architecture.md) |
-| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) | built | [adapters](docs/adapters.md) |
-| Layer 10 front door for agents | built; the owner's real runs (10.21, 10.31) not done; part 8 (OpenCode) specified, not built | [agent front door](docs/agent-front-door.md) |
+| Layer 9 adapters (Claude Code, Kiro, stdin and stdout) and the OpenCode plugin (layer 10 part 8) | built | [adapters](docs/adapters.md) |
+| Layer 10 front door for agents | built, with Claude Code, Kiro and OpenCode (part 8, chat only, tested with a fake); the owner's real runs (10.21, 10.31, and 10.51 for OpenCode) not done | [agent front door](docs/agent-front-door.md) |
 | Layer 11 scheduled runs | built; the owner's real check (11.6) not done | [scheduled runs](docs/scheduled-runs.md) |
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
@@ -56,7 +56,7 @@ Without installing, use `python -m umwayi` from the repo root.
 | 6 automation | jobs, the progress report, publish a draft | [automation.md](docs/automation.md) |
 | 7 AI helpers | Steward and the social helper, drafts only | [helpers.md](docs/helpers.md) |
 | 8 workflows | steps in order, the kill switch, one run at a time | [workflows.md](docs/workflows.md) |
-| 9 adapters | hooks for Claude Code, Kiro and any stdin and stdout tool | [adapters.md](docs/adapters.md) |
+| 9 adapters | hooks for Claude Code, Kiro and any stdin and stdout tool, and the OpenCode plugin | [adapters.md](docs/adapters.md) |
 | 10 front door | `umwayi agent`: check, run, chat, login | [agent-front-door.md](docs/agent-front-door.md) |
 | 11 scheduled runs | systemd user timers for jobs and workflows | [scheduled-runs.md](docs/scheduled-runs.md) |
 | budget governor | a budget per run and per day, the telemetry receiver | [budget-governor.md](docs/budget-governor.md) |

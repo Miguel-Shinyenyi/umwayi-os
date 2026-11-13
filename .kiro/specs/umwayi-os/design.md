@@ -925,7 +925,7 @@ Run as real processes with recorded hook inputs: No blocks, Ask me first asks (o
 - Answered: adapters deny everything while the kill switch is on (yes, built in PR 12).
 - Which tools of each platform get which action types, and which of those are Yes in the starter rules.
 
-## Layer 10: Own command line and chat (approved; all six parts built; part 7 approved, parts 7a and 7b built; part 7c approved, 7c-1 built)
+## Layer 10: Own command line and chat (approved; all six parts built; part 7 approved, parts 7a and 7b built; part 7c approved, 7c-1 built; part 8 built to 10.50)
 
 Approved by the owner on Nov 8 (tasks.md 10.0). Parts 1 and 2 (agents.yaml, the gate checks, the argument lists and `umwayi agent check`) are built in PR 14; part 3 (`umwayi agent run` for Claude Code) in PR 15; part 4 (`umwayi agent run` for Kiro) in PR 16; part 5 (`umwayi agent chat` with transport cli, both platforms) in PR 17; part 6 (ACP chat for Kiro, `umwayi/acp.py`) in PR 18. All six parts are built. Part 7 (Claude Code over ACP, 10.R11) was approved on Nov 8 (tasks.md 10.22); part 7a (agents.yaml, `adapters/claude_acp/`, the gate checks and `child_env()`) is built in PR 20; part 7b (the chat: the inline settings and the canary, the three `acp.py` options, the stop) in PR 21. Requirements: 10.R1 to 10.R10 in requirements.md. Doc facts with links: `adapters/NOTES-layer10.md`.
 
@@ -1690,9 +1690,9 @@ The owner asked on Nov 9 to include Meta's Muse Spark Open (open weights, releas
 | Muse Spark Open has no confirmed free hosted route | free first is local only | MS2 |
 | the licence file was read only through summaries | a duty is missed | the owner reads `LICENSE.md` (MS4) |
 
-### Part 8: OpenCode over ACP (10.R13, task 10.41, written Nov 11, waiting for the owner's approval)
+### Part 8: OpenCode over ACP (10.R13, task 10.41, approved in PR 44; 10.43 to 10.50 built; 10.51, the owner's real check, open)
 
-Requirement 10.R13. Tasks 10.42 to 10.51. Facts: `adapters/NOTES-layer10.md`, "OpenCode V2: the facts checked for the adapter spec" (Nov 11). The owner answered OC1 to OC5 as proposed and asked for the build before Dec 3 (OC6). Nothing is built before the owner approves this section.
+Requirement 10.R13. Tasks 10.42 to 10.51. Facts: `adapters/NOTES-layer10.md`, "OpenCode V2: the facts checked for the adapter spec" (Nov 11). The owner answered OC1 to OC5 as proposed and asked for the build before Dec 3 (OC6). The owner approved this section (PR 44). Built: 10.43 and 10.44 (PR 47), 10.45 (PR 53), 10.46 (PR 55), 10.47 (PR 62), 10.48 (PR 66), 10.49 (PR 71), 10.50 (PR 74); "As built" at the end of this part lists where the code differs from the text above. Not done: the owner's real check of the chat (10.51), which is the only test against a real OpenCode.
 
 #### What the facts of Nov 11 change
 
@@ -1743,7 +1743,7 @@ No file under `umwayi/` gains a third-party import, and umwayi never runs npm, B
 1. Validation (10.R13.2) and the start steps of every chat (kill switch, rules, run lock).
 2. The gate checks (below).
 3. A private folder `umwayi-opencode-XXXX` in the temporary directory (0700), a fresh 32-byte token, and the inline config.
-4. `subprocess.Popen([OPENCODE, "acp"], cwd=WORKDIR, env=opencode_env(...), start_new_session=True)`, stdin and stdout as pipes, stderr discarded.
+4. `subprocess.Popen([OPENCODE, "acp"], cwd=WORKDIR, env=opencode_env(...), start_new_session=True)`, stdin and stdout as pipes. (As built, stderr is not discarded: see "As built".)
 5. `initialize` with `clientCapabilities: {}`, then `session/new` with `cwd` (absolute) and `mcpServers: []`.
 6. The answer's `model` config option is compared with the agent's `model` (OC10).
 7. The canary wait (30 s): the file `canary` in the folder must hold exactly the token.
@@ -1842,7 +1842,7 @@ Checks 4 and 5 read only names and, in check 5, the bytes of at most two small f
 
 #### The permission answers (10.R13.9)
 
-The existing `permission_action(agent, tool_call, "opencode")` makes `{"type": "acp_permission", "agent", "platform": "opencode", "kind", "tool"}`. A plain V2 tool name such as `shell` or `read` passes `_PLAIN_TOOL`; an MCP tool name with `__` or `:` does not, so it is left out and the rules see only `kind`. `permission_verdict` is unchanged. Ask me first asks the owner on the terminal, as in a Kiro ACP chat. With the starter rules, a Yes in the first gate is often followed by a request that the rules answer Yes too (`acp_permission` with `kind: read`), so the owner is asked only for what the rules say Ask me first.
+The existing `permission_action(agent, tool_call, "opencode")` makes `{"type": "acp_permission", "agent", "platform": "opencode", "kind", "tool"}`. A plain V2 tool name such as `shell` or `read` passes `_PLAIN_TOOL` (a letter, then up to 39 letters, digits, `_` or `-`), and so does an MCP name such as `mcp__github__create_issue`; a name with `:` or `.`, or over 40 characters, does not, so it is left out and the rules see only `kind`. `permission_verdict` is unchanged. Ask me first asks the owner on the terminal, as in a Kiro ACP chat. With the starter rules, a Yes in the first gate is often followed by a request that the rules answer Yes too (`acp_permission` with `kind: read`), so the owner is asked only for what the rules say Ask me first.
 
 #### Failure table
 
@@ -1879,6 +1879,20 @@ The existing `permission_action(agent, tool_call, "opencode")` makes `{"type": "
 #### Build order, hours and what can be cut
 
 The tasks are in tasks.md, part 8 (10.42 to 10.51): about 21.5 hours of build and 1.5 hours of the owner's, in that order. tasks.md lists what could be cut and what each cut costs. **The owner decides any cut; the spec cuts nothing.**
+
+#### As built (tasks 10.43 to 10.50, checked against the code on Nov 13 in the docs half of 10.51)
+
+The text above is the design as approved. The code follows it, with these differences and additions. None changes a safety rule.
+
+- **stderr.** `Popen` is not given `stderr=DEVNULL`: OpenCode's stderr is umwayi's, so it reaches the owner's terminal (KNOWN-LIMITS 251).
+- **No private `HOME`.** `opencode_env()` passes `HOME` and the `XDG_*` folders through. umwayi gives OpenCode no home of its own, so what OpenCode writes (its database, logs and the downloaded `rg`, KNOWN-LIMITS 191) goes to the owner's real folders unless the owner starts umwayi with another `HOME` (the owner's check does, `adapters/NOTES-layer10.md`).
+- **MCP names.** A name such as `mcp__x__y` is a plain word and is sent to the rules as `tool` (KNOWN-LIMITS 183, 248).
+- **A request with no `name`** gets at most Ask me first: `Run._permission` caps a Yes after the check (10.49, KNOWN-LIMITS 248).
+- **`agent run` and `agent login`** for OpenCode give exit 64. `transport` is `acp` (the default) and `cli` is a problem in `agent validate`. The shape of `provider` and `model` is checked by `agents.yaml`; whether the route is offered is decided at the start (OC16, OC17).
+- **The model compare** (`expect_model`) is an exact text compare (KNOWN-LIMITS 243); an `auth_required` answer, or a prompt error that mentions "auth", ends the chat with the sign-in line (KNOWN-LIMITS 242).
+- **The stop.** An OpenCode chat uses the 7b stop (the process group and every seen descendant), as Claude Code does. Until 10.50 it stopped the group only.
+- **Files that differ from the table.** `adapters/opencode/README.md` was written in 10.51. The tests are `tests/agents/test_agents_opencode_*.py` (config, file, gate, chat, turns, faults), `test_fake_opencode.py`, `tests/adapters/test_opencode_plugin.py` and `test_opencode_rules.py`, and `tests/agents/opencode_mutants.py`, a helper that is not part of the suite or CI.
+- **Not built:** the Muse Spark Open route (10.52 to 10.55), a real run of any route (the ChatGPT and Copilot routes are written and tested as config bytes and with the fake, and were never seen with a real sign-in, KNOWN-LIMITS 182), the order of the evaluate hooks of other plugins (KNOWN-LIMITS 184), and any private `HOME` or network sandbox (KNOWN-LIMITS 191).
 
 ### Muse Spark Open as an OpenCode model (10.R14, task 10.40, written Nov 11; built after OpenCode, not before Dec 3)
 
