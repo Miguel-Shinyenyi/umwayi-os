@@ -1441,9 +1441,20 @@ Since W24 a pull request runs the Python suite on 3.10 and 3.13 only, and a push
 - The report shows the tester's verdict words and the guide's word but not their reasons or evidence, because the supervisor keeps no text of a helper. W9.R20.3 allows that text, cut and cleaned; nothing records it to show.
 - `status` shows the spend of the goal as the planning budget plus what each task spent, because the planning run's real spend is not recorded (the W9.7 entry).
 
+## Tester feedback (W26), found while building
+
+### 273. The feedback path asks the tester to remove secrets by hand, and there is no safe export yet
+
+The tester feedback path is an issue template and a page. These are its limits.
+
+- The only protection against a secret in a report is the warning, the checkbox and the tester reading what they paste. Nothing scans an issue. A tester who ticks the box without reading can still post a secret, and a public issue cannot be unsent.
+- The logbook summary export (counts per entry kind, counts per verdict, the date range, the chain status, the budget spent in UU, and no path, command text or rule text) does not exist. `docs/feedback.md` says Not yet available. `umwayi view snapshot` is not a substitute: it has no per kind or per verdict count and no date range, and it writes a logbook entry.
+- The template cannot make GitHub require the answers: a tester can delete any question, and a blank issue stays allowed on purpose. `tests/test_feedback.py` checks the template file, not what a tester sends.
+- The template has no label, so a report is not found by label. The template was not opened on GitHub in this task, so how GitHub shows it was not seen.
+
 ## Goal orchestration (W9), found while building W9.10
 
-### 273. The whole-system scenarios use a fake Kiro for every role, and a stall is tested with a lowered time
+### 274. The whole-system scenarios use a fake Kiro for every role, and a stall is tested with a lowered time
 
 The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run the real commands and the real `agent run`, but not a real helper.
 
