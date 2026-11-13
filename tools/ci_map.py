@@ -3,6 +3,10 @@
 Standard library only. The map is tools/ci_map.json. `python -m tools.ci_map check` fails (exit 2) when a test file
 reads a path the map does not list for it, when a test file has no entry, or when an entry is for a file that is gone.
 `python -m tools.ci_map table` prints the markdown table that docs/testing.md holds between two markers.
+W21: `table --write` puts that table into docs/testing.md (from the first begin marker to the last end marker, so a
+doubled marker is repaired), `table --check` exits 2 when the file does not hold it, and `update` rewrites the
+python and node sections of tools/ci_map.json from the scan: an entry that is still true is kept as it is, a test
+file with no entry (or a false one) gets what the scan found, and the entry of a file that is gone is dropped.
 
 Exit codes: 0 done, 2 the map is stale or broken, 64 usage.
 
@@ -463,12 +467,98 @@ def table_markdown(data):
     return "\n".join(lines)
 
 
+TESTING_MD = REPO / "docs" / "testing.md"
+_SECTIONS_AT = '\n "python": {\n'
+
+
+def _hint():
+    try:
+        from tools import generated_files
+        return generated_files.regenerate_hint("tools/ci_map.json")
+    except Exception:  # the hint must never hide the real problem
+        return "To fix it, run: python -m tools.ci_map update"
+
+
+def replace_block(text, table):
+    """`text` with the generated block replaced by `table`: from the first begin marker line to the end of the last end
+    marker. Raises MapError when a marker is missing."""
+    b = text.find(TABLE_BEGIN.split(" (")[0])
+    e = text.rfind(TABLE_END)
+    if b < 0 or e < 0 or e < b:
+        raise MapError("docs/testing.md has no generated block (the begin and end markers of the ci-map table)")
+    return text[:b] + table + text[e + len(TABLE_END):]
+
+
+def _entry_line(name, tokens, last):
+    return f"  {json.dumps(name)}: [{', '.join(json.dumps(t) for t in tokens)}]{'' if last else ','}"
+
+
+def _section(name, entries):
+    lines = [_entry_line(k, v, i == len(entries) - 1) for i, (k, v) in enumerate(entries.items())]
+    return f' "{name}": {{\n' + ("\n".join(lines) + "\n" if lines else "") + " }"
+
+
+def _merged(old, scanned, covered):
+    """The entries for one section: the old order kept for old files that stay, a new file put before the first old
+    file that sorts after it (or last), an old entry kept when `covered` says it is still true."""
+    out = {}
+    for name, tokens in old.items():
+        if name in scanned:
+            out[name] = tokens if covered(name, tokens) else sorted(scanned[name])
+    for name in sorted(set(scanned) - set(out)):
+        keys = list(out)
+        at = next((i for i, k in enumerate(keys) if k > name), len(keys))
+        out = dict([(k, out[k]) for k in keys[:at]] + [(name, sorted(scanned[name]))] + [(k, out[k]) for k in keys[at:]])
+    return out
+
+
+def update_text(text, data, scans):
+    """The text of tools/ci_map.json with the python and node sections made true again. `scans` is (python, node)."""
+    py, node = scans
+    at = text.find(_SECTIONS_AT)
+    if at < 0:
+        raise MapError("tools/ci_map.json does not have the layout the update reads (a python section after the routes)")
+    ok = lambda reads: (lambda name, tokens: all(any(reads_match(t, r) for t in tokens) for r in reads[name]))  # noqa: E731
+    python = _merged(data["python"], py, ok(py))
+    # the python section is kept sorted by name
+    python = dict(sorted(python.items()))
+    nodes = _merged(data["node"], node, ok(node))
+    return text[:at + 1] + _section("python", python) + ",\n" + _section("node", nodes) + "\n}\n"
+
+
 def main(argv):
-    if len(argv) != 1 or argv[0] not in ("check", "table", "scan"):
-        print("usage: python -m tools.ci_map check | table | scan", file=sys.stderr)
+    if not argv or argv[0] not in ("check", "table", "scan", "update") or (len(argv) != 1 and not (
+            argv[0] == "table" and len(argv) == 2 and argv[1] in ("--write", "--check"))):
+        print("usage: python -m tools.ci_map check | table [--write | --check] | scan | update", file=sys.stderr)
         return 64
     try:
+        if argv[0] == "update":
+            text = MAP_PATH.read_text(encoding="utf-8")
+            data = load_map()
+            new = update_text(text, data, (scan_python(), scan_node()))
+            validate_map(json.loads(new))
+            if new != text:
+                MAP_PATH.write_text(new, encoding="utf-8")
+                print("ci_map: tools/ci_map.json rewritten from the scan")
+            else:
+                print("ci_map: tools/ci_map.json already matches the scan")
+            return 0
         data = load_map()
+        if argv[0] == "table" and len(argv) == 2:
+            text = TESTING_MD.read_text(encoding="utf-8")
+            new = replace_block(text, table_markdown(data))
+            if argv[1] == "--check":
+                if new != text:
+                    print("ci_map: the table in docs/testing.md is not the current table", file=sys.stderr)
+                    return 2
+                print("ci_map: the table in docs/testing.md is current")
+                return 0
+            if new != text:
+                TESTING_MD.write_text(new, encoding="utf-8")
+                print("ci_map: docs/testing.md table written")
+            else:
+                print("ci_map: docs/testing.md table already current")
+            return 0
         if argv[0] == "table":
             print(table_markdown(data))
             return 0
@@ -478,7 +568,7 @@ def main(argv):
             print(json.dumps(out, indent=1, sort_keys=True))
             return 0
         problems = stale(data)
-    except MapError as e:
+    except (MapError, OSError, ValueError) as e:
         print(f"ci_map: {e}", file=sys.stderr)
         return 2
     except Exception as e:  # fail closed
@@ -487,8 +577,8 @@ def main(argv):
     for p in problems:
         print(f"ci_map: {p}", file=sys.stderr)
     if problems:
-        print("ci_map: update tools/ci_map.json (python -m tools.ci_map scan shows what each file reads), then paste "
-              "`python -m tools.ci_map table` into docs/testing.md", file=sys.stderr)
+        print("ci_map: python -m tools.ci_map scan shows what each test file reads", file=sys.stderr)
+        print(f"ci_map: {_hint()}", file=sys.stderr)
         return 2
     print("ci_map: the map is true")
     return 0

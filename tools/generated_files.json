@@ -1,0 +1,51 @@
+{
+ "version": 1,
+ "files": [
+  {
+   "path": "docs/status-log.md",
+   "regenerate": [{"argv": ["python", "-m", "umwayi", "goal", "docs", "build"]}],
+   "verify": [{"argv": ["python", "-m", "umwayi", "goal", "docs", "check"]}],
+   "writes": ["docs-parts"]
+  },
+  {
+   "path": "docs/KNOWN-LIMITS.md",
+   "regenerate": [{"argv": ["python", "-m", "umwayi", "goal", "docs", "build"]}],
+   "verify": [{"argv": ["python", "-m", "umwayi", "goal", "docs", "check"]}],
+   "writes": ["docs-parts"]
+  },
+  {
+   "path": "tools/ci_map.json",
+   "regenerate": [{"argv": ["python", "-m", "tools.ci_map", "update"]}],
+   "verify": [{"argv": ["python", "-m", "tools.ci_map", "check"]}]
+  },
+  {
+   "path": "tools/ci_shards.json",
+   "regenerate": [{"argv": ["python", "-m", "tools.ci_shards", "assign-missing"]}],
+   "verify": [{"argv": ["python", "-m", "tools.ci_shards", "check"]}]
+  },
+  {
+   "path": "docs/testing.md",
+   "block": {"begin": "<!-- ci-map:begin", "end": "<!-- ci-map:end -->"},
+   "regenerate": [{"argv": ["python", "-m", "tools.ci_map", "table", "--write"]}],
+   "verify": [{"argv": ["python", "-m", "tools.ci_map", "table", "--check"]}]
+  },
+  {
+   "path": "ui/dist/progress.html",
+   "regenerate": [
+    {"argv": ["npm", "ci", "--ignore-scripts"], "cwd": "ui"},
+    {"argv": ["node", "build.mjs"], "cwd": "ui"}
+   ],
+   "verify": [{"argv": ["python", "-m", "unittest", "tests.test_progress_page"]}],
+   "writes": ["ui/dist"]
+  },
+  {
+   "path": "ui/dist/build.json",
+   "regenerate": [
+    {"argv": ["npm", "ci", "--ignore-scripts"], "cwd": "ui"},
+    {"argv": ["node", "build.mjs"], "cwd": "ui"}
+   ],
+   "verify": [{"argv": ["python", "-m", "unittest", "tests.test_progress_page"]}],
+   "writes": ["ui/dist"]
+  }
+ ]
+}

@@ -17,6 +17,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tools import generated_files
+from umwayi import goaldocs
+
 REPO = Path(__file__).resolve().parents[1]
 README_MAX_LINES = 120
 DOC_MAX_LINES = 300  # a doc must have fewer lines than this
@@ -157,6 +160,10 @@ def check(root: Path) -> list:
 class RepoDocsTests(unittest.TestCase):
     def test_the_documentation_has_no_problem(self):
         self.assertEqual(check(REPO), [])
+
+    def test_the_generated_docs_are_what_the_parts_build(self):
+        result = goaldocs.check(REPO)
+        self.assertEqual(result.code, 0, generated_files.stale_message("docs/status-log.md", result.lines))
 
     def test_the_snapshot_command_is_in_the_interface_and_exit_code_docs(self):
         interface = (REPO / "docs" / "interface.md").read_text(encoding="utf-8")

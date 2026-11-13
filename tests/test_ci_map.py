@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools import ci_map
+from tools import ci_map, generated_files
 
 REPO = Path(__file__).resolve().parent.parent
 DATA = ci_map.load_map()
@@ -107,7 +107,8 @@ class RealMapTests(unittest.TestCase):
         self.assertEqual(DATA["version"], 1)
 
     def test_nothing_in_the_map_is_stale(self):
-        self.assertEqual(ci_map.stale(DATA, REPO, SCANS), [])
+        problems = ci_map.stale(DATA, REPO, SCANS)
+        self.assertEqual(problems, [], generated_files.stale_message("tools/ci_map.json", problems))
 
     def test_every_test_file_has_an_entry_and_no_entry_is_for_a_missing_file(self):
         have = {p.relative_to(REPO).as_posix() for p in (REPO / "tests").rglob("test*.py")}
@@ -142,7 +143,8 @@ class RealMapTests(unittest.TestCase):
     def test_docs_testing_md_holds_the_current_table(self):
         text = (REPO / "docs" / "testing.md").read_text(encoding="utf-8")
         table = ci_map.table_markdown(DATA)
-        self.assertTrue(table in text, "docs/testing.md is stale: run `python -m tools.ci_map table` and paste it between the markers")
+        self.assertTrue(table in text, generated_files.stale_message(
+            "docs/testing.md", "docs/testing.md does not hold the current table between its markers"))
         self.assertTrue(ci_map.TABLE_BEGIN in text and ci_map.TABLE_END in text)
 
     def test_no_em_dash_in_the_map_or_tools(self):
@@ -219,3 +221,90 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UpdateAndBlockTests(unittest.TestCase):
+    """W21: the generator for tools/ci_map.json and the writer of the table block in docs/testing.md."""
+
+    TEXT = ci_map.MAP_PATH.read_text(encoding="utf-8")
+
+    def update(self, py=None, node=None):
+        py = {k: set(v) for k, v in (SCANS[0] if py is None else py).items()}
+        node = {k: set(v) for k, v in (SCANS[1] if node is None else node).items()}
+        return ci_map.update_text(self.TEXT, DATA, (py, node))
+
+    def test_on_the_real_tree_the_update_is_a_fixed_point(self):
+        self.assertEqual(self.update(), self.TEXT)
+
+    def test_a_new_test_file_gets_the_scanned_entry_in_sorted_place_and_the_rest_is_kept(self):
+        py = {**SCANS[0], "tests/test_aaa_new.py": {"ui", "docs"}}
+        data = json.loads(self.update(py=py))
+        self.assertEqual(data["python"]["tests/test_aaa_new.py"], ["docs", "ui"])
+        self.assertEqual(list(data["python"]), sorted(data["python"]))
+        del data["python"]["tests/test_aaa_new.py"]
+        self.assertEqual(data["python"], DATA["python"])
+        self.assertEqual(data["routes"], DATA["routes"])
+
+    def test_an_entry_that_is_still_true_is_kept_even_when_it_lists_more(self):
+        name = next(n for n, t in SCANS[0].items() if t)
+        text = self.TEXT
+        wide = json.loads(text)
+        wide["python"][name] = sorted(set(wide["python"][name]) | {"docs"})
+        out = ci_map.update_text(text, wide, tuple(tuple_of(s) for s in SCANS))
+        self.assertEqual(json.loads(out)["python"][name], wide["python"][name])
+
+    def test_an_entry_that_is_false_is_replaced_and_an_entry_for_a_gone_file_is_dropped(self):
+        name = next(n for n, t in SCANS[0].items() if t)
+        bad = json.loads(self.TEXT)
+        bad["python"][name] = []
+        bad["python"]["tests/test_gone.py"] = ["ui"]
+        data = json.loads(ci_map.update_text(self.TEXT, bad, tuple(tuple_of(s) for s in SCANS)))
+        self.assertEqual(data["python"][name], sorted(SCANS[0][name]))
+        self.assertNotIn("tests/test_gone.py", data["python"])
+
+    def test_a_new_node_test_goes_before_the_first_later_name_and_old_order_stays(self):
+        node = {**SCANS[1], "ui/test/aaa.test.mjs": {"docs/x.md"}}
+        data = json.loads(self.update(node=node))
+        self.assertEqual(list(data["node"]).index("ui/test/aaa.test.mjs"),
+                         next(i for i, k in enumerate(DATA["node"]) if k > "ui/test/aaa.test.mjs"))
+        self.assertEqual([k for k in data["node"] if k != "ui/test/aaa.test.mjs"], list(DATA["node"]))
+
+    def test_the_updated_text_is_deterministic(self):
+        py = {**SCANS[0], "tests/test_aaa_new.py": {"ui"}}
+        self.assertEqual(self.update(py=py), self.update(py=dict(reversed(list(py.items())))))
+
+    def test_a_map_without_the_layout_is_refused_not_guessed(self):
+        with self.assertRaises(ci_map.MapError):
+            ci_map.update_text("{}", DATA, SCANS)
+
+    def test_the_block_is_replaced_between_the_first_begin_and_the_last_end_so_a_doubled_marker_is_repaired(self):
+        table = ci_map.table_markdown(DATA)
+        text = f"intro\n\n{ci_map.TABLE_BEGIN}\n{ci_map.TABLE_BEGIN}\nold\n{ci_map.TABLE_END}\n{ci_map.TABLE_END}\n\noutro\n"
+        out = ci_map.replace_block(text, table)
+        self.assertEqual(out, f"intro\n\n{table}\n\noutro\n")
+        self.assertEqual(ci_map.replace_block(out, table), out)
+
+    def test_a_file_without_the_markers_is_refused(self):
+        with self.assertRaises(ci_map.MapError):
+            ci_map.replace_block("no block here\n", "x")
+
+    def test_table_check_and_write_on_the_real_file(self):
+        r = subprocess.run([sys.executable, "-m", "tools.ci_map", "table", "--check"], cwd=REPO, capture_output=True, text=True)
+        self.assertEqual((r.returncode, r.stdout), (0, "ci_map: the table in docs/testing.md is current\n"))
+
+    def test_a_bad_table_option_is_a_usage_error(self):
+        r = subprocess.run([sys.executable, "-m", "tools.ci_map", "table", "--nope"], cwd=REPO, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 64)
+
+    def test_a_failing_check_ends_with_the_regenerate_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # an empty tests folder in a copy of the map: every entry is for a gone file
+            root = Path(tmp)
+            (root / "tests").mkdir()
+            problems = ci_map.stale(DATA, root, ({}, {}))
+        self.assertTrue(problems)
+        self.assertTrue(generated_files.stale_message("tools/ci_map.json", problems).endswith("To fix it, run: python -m tools.ci_map update"))
+
+
+def tuple_of(scan):
+    return {k: set(v) for k, v in scan.items()}
