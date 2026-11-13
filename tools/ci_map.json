@@ -93,6 +93,7 @@
   "tests/test_ci_plan.py": ["tools"],
   "tests/test_ci_shards.py": ["tools"],
   "tests/test_ci_workflow.py": [".github"],
+  "tests/test_concerns.py": [".github", "jobs.yaml", "schedule.example.yaml", "workflows"],
   "tests/test_docs.py": [".gitignore", "PROJECT.md", "README.md", "docs"],
   "tests/test_elections.py": [],
   "tests/test_exit_codes.py": [],

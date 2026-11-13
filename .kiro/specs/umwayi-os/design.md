@@ -2884,6 +2884,22 @@ Answers (owner): UI-Q1 to UI-Q5 on Nov 10 as recorded above; UI-Q6 to UI-Q11 acc
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. PR 9 also showed the system test failing for three faults (no run lock, no kill switch check, check exiting 1 on an error).
 - Layer 9 adapters get their own tests and CI job (see above).
 
+## W19 part 2: the concerns record checker (tasks.md W19.2)
+
+**What it is.** A command the owner runs, `umwayi concerns check PATH`, that checks a project concerns record. The rule comes from the hub doc engineering-concerns: one row for each number 1 to 111; each row answers Applies, Not applicable or Deferred with a one sentence reason; Applies points at evidence, a file path that exists in the repo.
+
+**Record format.** A markdown table with the header `| number | concept | answer | reason | evidence | date |`, a separator row, then the rows. Text outside the table is ignored. A second table, a row with another column count, or a header that differs is a failure.
+
+**Module.** `umwayi/concerns.py`: `CONCEPTS` (the 111 names in order, number is index plus one), `check_text(text, root)` returning one failure line per problem, and `check_file(path, root)` which reads a regular UTF-8 file of at most 1,000,000 bytes. No network, no subprocess, no timer, nothing written.
+
+**Failures.** A missing number, a duplicate number, a number that is not a plain whole number or is outside 1 to 111, a concept that does not match its number, an answer outside the three (exact words), an empty or whitespace reason, an Applies row whose evidence is not a regular file inside the repo, a date that is not a real `YYYY-MM-DD`, a wrong column count, a bad header or separator, and a record that cannot be read. A failure line holds the line of the file and the row number and never text from the file (safety rule 2).
+
+**Evidence.** The path must be relative, with no `..` part, no backslash, colon, `~` or control character. It is joined to the repo root, every link is followed, and the real path must be inside the real root and be a regular file. Nothing is read from it.
+
+**Command line.** Failures go to standard error, one line each, exit 2. A well formed record prints one line and exits 0. A usage error is 64. An unexpected error is 2 and prints only the error type. It is never 1 or 3. The owner decided on Nov 13 (answer to the builder's question): a record that parses but fails the check exits 2, as specified; a missing or unreadable record is 2; bad arguments are 64. `product.md` uses 1 for a plain refusal elsewhere, and no exit code is changed.
+
+**Not built here.** Any use of the record by the goal flow, `guidance.py` or `guidance.yaml` (another task), and any scheduled run: a test checks that no job, schedule or workflow names the command.
+
 ## Layer 13: Correction and graded autonomy (spec in the L13.0 pull request, tasks.md L13.0; built only after the owner approves it, slice by slice)
 
 Requirements 13.R1 to 13.R15. Tasks L13.0 to L13.6. Five slices in the owner's order, each shipping alone: Elections (L13.1), Reversal (L13.2), Courts (L13.3), Honest tension (L13.4), Graded autonomy (L13.5), then the whole-system update (L13.6). The owner stops the build where Dec 3 finds us. Layer 13 is added after the "Testing" section on purpose, so that the layer 12 branches (PR 39 and the UI.2 branch), which edit the layer 12 sections, merge without a conflict.
