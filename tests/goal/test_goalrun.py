@@ -391,7 +391,7 @@ class StartCase(rs.RunCase):
         tracked files and index, and the folder of the worktrees."""
         refs = rs.git(self.root, "for-each-ref")
         wt = rs.git(self.root, "worktree", "list", "--porcelain")
-        tracked = {p: (self.root / p).read_bytes() for p in rs.git(self.root, "ls-files").splitlines()}
+        tracked = {p: (self.root / p).read_bytes() for p in rs.git(self.root, "ls-tree", "-r", "--name-only", "HEAD").splitlines()}
         wroot = tree_hashes(self.worktree_root()) if self.worktree_root().exists() else None
         return refs, wt, tracked, rs.git(self.root, "status", "--porcelain", "--ignored=no"), wroot
 
@@ -727,6 +727,39 @@ class BudgetCapTests(StartCase):
 
 def builder_steps_for(goal, task="T-01", n=1):
     return rs.builder_steps(goal, task, n)
+
+
+class CleanTaskTests(StartCase):
+    def test_a_whole_fake_task_goes_to_in_review(self):
+        goal = self.approved(1)
+        out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual((out.exit, out.state, out.reason), (0, "in review", "checked"), out)
+        self.assertEqual(self.task_state(goal), ("in review", "checked"))
+        t = gs.read_task(self.root, goal, "T-01")
+        self.assertEqual(len(t["tip"]), 40)
+        self.assertEqual(self.children.started(), 3)
+
+    def test_the_started_event_holds_the_real_pid_and_the_cap(self):
+        goal = self.approved(1)
+        self.run_task(goal, "T-01", self.good_scripts())
+        events, _ = goallog.read((self.root / ".umwayi" / "goals" / goal / "T-01.events.jsonl").read_bytes())
+        started = [e["data"] for e in events if e["kind"] == "started"]
+        self.assertEqual([s["pid"] for s in started], [p.pid for p in self.children.procs])
+        self.assertEqual([s["cap_uu"] for s in started], [30, 20, 16])
+
+    def test_a_started_event_that_cannot_be_written_stops_the_child_before_it_has_its_prompt(self):
+        goal = self.approved(1)
+        real = goallog.Writer.append
+
+        def append(writer, kind, data):
+            if kind == "started":
+                raise goallog.LogWriteFailed("full")
+            return real(writer, kind, data)
+        with mock.patch.object(goallog.Writer, "append", append):
+            out = self.run_task(goal, "T-01", self.good_scripts())
+        self.assertEqual(out.exit, 2)
+        for p in self.children.procs:
+            self.assertIsNotNone(p.poll())
 
 
 # ----------------------------------------------------------------------------------------------------- the builder and the scope check

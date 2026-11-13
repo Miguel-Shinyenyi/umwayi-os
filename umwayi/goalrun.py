@@ -725,7 +725,6 @@ class _Run:
             self.begin_builder(agent, cap)
         model, effort = self.model_effort(role)
         argv = child_argv(agent, cap, self.worktree, options_for(platform, model, effort))
-        self.record_event("started", {"role": role, "agent": agent, "cap_uu": cap, "pid": 0})
         fp_fn = self.fp_all(self.own) if role == "builder" else None
         return self.run_child(role, argv, prompt, fp_fn, cap, before, agent, TAGS.get(role))
 
@@ -775,6 +774,14 @@ class _Run:
     def run_child(self, role, argv, prompt, fp_fn, cap, before, agent, nonce_tag):
         e = self.env
         proc = e.spawn(argv, self.root, e.child_environ())
+        # The `started` event, with the pid, comes before the prompt: the child reads its prompt first and does nothing
+        # until it has it, so no helper acts before the start is on record. If the event cannot be written the child is
+        # stopped and nothing was given to it.
+        try:
+            self.record_event("started", {"role": role, "agent": agent, "cap_uu": cap, "pid": proc.pid})
+        except _Done:
+            self.stop_child(proc)
+            raise
         if role == "builder":
             self.builder_started = True
         feeder = threading.Thread(target=_feed, args=(proc.stdin, prompt.encode("utf-8")), daemon=True)
@@ -1259,7 +1266,6 @@ class _PlanRun(_Run):
         self.begin_builder(agent, cap)
         model, effort = self.model_effort("guide")
         argv = child_argv(agent, cap, self.worktree, options_for(platform, model, effort))
-        self.record_event("started", {"role": "guide", "agent": agent, "cap_uu": cap, "pid": 0})
         res = self.run_child("guide", argv, planning_prompt(self.g["text"], nonce), None, cap, before, agent, None)
         word = self.plan_word(res, nonce)
         if word is not None:

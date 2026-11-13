@@ -1325,3 +1325,20 @@ The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbud
 
 - What protects you today: the same error with another number, hash or path still gives one signature, so a loop is seen; a forged result line never counts as the answer; the builder is never the tester or the guide; a goal folder with no entry is never used as a goal and its id is never reused.
 - What it does not protect against: a hash of only letters or only digits is not masked, so two such errors that differ only there are two errors and make no loop; a tester that quotes the example line of its prompt makes its answer `doubled`, which costs the owner a look (the nonce still does not stop a tester that is talked into a good line, KNOWN-LIMITS 214 and 227); a guide and a tester that are one agent check each other's view of one result; a crash between the two writes of `start_goal` leaves a goal folder that the owner deletes by hand.
+
+## Goal orchestration (W9), found while building W9.7
+
+### 265. The supervisor took the reading that fails closed where the spec was open, and some of it waits for the commands
+
+`umwayi/goalrun.py` is built and no command calls it yet. These are the choices it made and what it leaves to W9.8.
+
+- A task stopped by the kill switch gives exit 2, not 3. W9.R3.2 says a stopped task is 2, the switch is 3, and a command with both gives 2. A `run` that finds the switch on before it starts anything gives 3.
+- A goal marked stopped by the kill switch or by its budget stays stopped. `goalstate` has no entry that lifts a goal's stop, so "after kill off the owner runs goal run again" holds for the goals the switch did not mark, not for the ones it did. W9.R16.2 reads as if it could be lifted.
+- The planning run's spend is counted at the owner's plan budget, because nothing records what it really spent: the goal file has no field for it and the `planned` entry has no UU. It can count more than was spent (the safe side). A task's spend is written to its task file only when its state changes, so a crash between two runs of one task keeps the ledger right and the file behind.
+- The plan line, the verdict line and the guide's check line have a bound of their own (32 KB, 8 KB and 4 KB) when the child's output is read. The stream bound of 4096 bytes in W9.R12.5 would cut a plan, and W9.R5.2 allows 32 KB on one line. At most four different tagged lines are kept for a run, so a flood of forged lines cannot grow memory.
+- The supervisor tells a timeout or a stop at the cap from another failure by the fixed sentences of `agent run` in the child's output. A helper can print the same words. That only changes the reason word of a task that already failed (`timeout` or `budget` in place of `builder`).
+- `goal_start` joins `NEVER_AUTONOMY` in W9.8. Until then the supervisor treats a decision that graded autonomy produced as Ask me first, and no command calls it.
+- The queue row of a task that needs the owner for the reason `ask` is the text of `goalstate`, which does not say that a Yes rule for `goal_start` is what allows the start (W9.R7.3 asks for it). A cap refusal by `agent run` (exit 3, the open point of KNOWN-LIMITS 263) now gets that row from the supervisor.
+- The entry of a stall or a loop names only the reason word. The seconds without progress, the signature and the count of errors that W9.R10.5 puts in it have no place in the fixed entry shapes; the event log holds the signature.
+- A task that the owner answers `yes` after its builder ran goes back to `queued` with its worktree and branch still there, so the next start is `leftover` until the owner removes them with `git worktree remove`. W9.R9.6 and W9.R8.12 together say this and neither says what the owner should expect.
+- A planning run that is refused before it has a plan (a rule, the lock, `stale`, a config problem) leaves the goal in `plan` with no packets and one queue row, and there is no way to run it again: the owner starts a new goal.
