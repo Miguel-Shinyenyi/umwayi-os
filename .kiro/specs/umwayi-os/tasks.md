@@ -998,3 +998,10 @@ Order and pull requests: **(a) W9.9 first, its own pull request** (the docs scri
 | Goal orchestration (W9) | W9.0 spec written Nov 12; the owner answered W9-Q1 to W9-Q14 on Nov 12 (all as recommended); W9.9 (the shared docs builder, `umwayi goal docs build` and `check`) built Nov 12 in its own pull request; W9.1 to W9.8 and W9.6b (about 61 hours) not started; the worktree per task is core (the owner, Nov 12, superseding the answer to W9-Q3); only W9.9 (the docs script, also the owner's task W17) may go before the Nov 29 freeze, at a quiet moment right after the W6 first batch PR merges, and the rest comes after Dec 3; no dates set | W9.0: PR 63; W9.9: see the pull request | |
 
 When W9 is approved and built, this row moves into the main status table as its last row.
+
+## W19: guidance.yaml and the enforce checks (the owner's task, Nov 13; two stages)
+
+- [x] W19.1 Stage 1 (own pull request): `guidance.yaml` and `umwayi/guidance.py` (the strict loader that fails closed, the tier and `overrides` fields and `resolve`, the registry of four checks, `check_task`), `umwayi goal guard [TASKFILE]`, `tests/goal/test_guidance.py`, the docs parts and KNOWN-LIMITS 256. Design: "Guidance (W19), stage 1".
+  - Also in this pull request: a required `tier` (1 to 6), `overrides`, `resolve`, a required `source_repo` (`umwayi-os` or `hub`), and the owner commands `umwayi guidance list` and `umwayi guidance verify --hub PATH`. Nine entries: four enforce, four advise, one owner. **Open:** the owner asked for six advise and three owner examples and named four and one; more wait for the owner's rule numbers. The hub hashes are those of hub commit 658a799 and `verify` may report a mismatch against a newer hub, which is correct.
+  - Not done: calling `guard` from `goal start` and `goal run` (those commands are W9.8).
+- W19.2 Stage 2: the concerns record checker is built in its own pull request (see "W19 part 2" above). The security checklist checks are a later task, not started here.

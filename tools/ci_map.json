@@ -21,6 +21,7 @@
   {"match": "schedule.example.yaml", "python": "all", "node": "map"},
   {"match": "serve.rules.example.yaml", "python": "all", "node": "map"},
   {"match": "jobs.yaml", "python": "all", "node": "map"},
+  {"match": "guidance.yaml", "python": "all", "node": "map"},
   {"match": "umwayi.json", "python": "all", "node": "map"},
   {"match": "workflows/", "python": "all", "node": "map"},
   {"match": "memory/", "python": "all", "node": "map"},
@@ -28,6 +29,7 @@
  ],
  "default": {"python": "all", "node": true, "full": true},
  "python": {
+  "tests/goal/test_guidance.py": [".kiro", "guidance.yaml"],
   "tests/goal/test_docs_parts.py": [".gitignore", "PROJECT.md", "README.md", "docs", "docs-parts"],
   "tests/adapters/test_claude_code.py": ["*", "adapters"],
   "tests/adapters/test_core_for_adapters.py": [".kiro"],
