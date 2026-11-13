@@ -345,6 +345,8 @@ export function createScene(canvas, opts = {}) {
     },
     // what the page needs to join its own buttons, panel and names to the picture
     deselect, step, settings, stage, world, loop, flow, detail,
+    // UI.8: the page arms this while High is drawn; onSlow runs once when a short window of frames is slow (null disarms)
+    watchHigh: (onSlow) => stage.watchHigh(onSlow),
     isSample: () => sample,
     selected: () => selected,
     setFocus(id) { kbd = id; refreshFocus(); }, // the feature whose button has keyboard focus, or null

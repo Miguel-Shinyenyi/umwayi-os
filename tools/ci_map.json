@@ -190,6 +190,7 @@
   "ui/test/snapshot.test.mjs": [],
   "ui/test/snapshotview.test.mjs": [],
   "ui/test/stations.test.mjs": [],
+  "ui/test/stepdown.test.mjs": [],
   "ui/test/tier.test.mjs": [],
   "ui/test/ui.test.mjs": [],
   "ui/test/wildlife.test.mjs": [],
