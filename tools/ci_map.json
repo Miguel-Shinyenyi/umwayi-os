@@ -89,6 +89,8 @@
   "tests/goal/test_roles.py": [],
   "tests/goal/test_verdict.py": [],
   "tests/goal/test_watch.py": [],
+  "tests/goal/test_worktree_golden.py": ["adapters"],
+  "tests/goal/test_worktree.py": ["adapters", "umwayi.json"],
   "tests/serve/test_entries.py": [],
   "tests/serve/test_failclosed.py": [],
   "tests/serve/test_gaps.py": [],

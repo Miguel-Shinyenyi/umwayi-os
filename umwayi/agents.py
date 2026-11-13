@@ -57,7 +57,7 @@ import tempfile
 import threading
 import time
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
 from umwayi import __version__, acp, budget, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, units
@@ -1528,13 +1528,30 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     return gate
 
 
-def check_agent(root, name: str, given: str | None = None, home: Path | None = None) -> Result:
+def with_workdir(root, agent: Agent, workdir) -> Agent:
+    """W9.6b: `--workdir PATH` for `agent run` and `agent check`. None: the agent as it is, so nothing changes. Otherwise
+    the path must be a worktree that umwayi made (goalgit.verify_tree: the exact path under the fixed worktree root, a
+    real folder, the toplevel is itself, the common dir is the root repo's) and must pass the working folder rule of
+    agents.yaml. It then replaces the agent's `workdir`, so the gate checks and the start use that folder. Anything else
+    is a usage error (64) with a fixed sentence that does not echo the path, before anything is read or started."""
+    if workdir is None:
+        return agent
+    from umwayi import goalgit  # only when the option is used
+    path = goalgit.verify_tree(root, workdir)
+    if _workdir_problem(path, _real(str(root))) is not None:
+        raise goalgit.PathRefused("path")
+    return replace(agent, workdir=path)
+
+
+def check_agent(root, name: str, given: str | None = None, home: Path | None = None,
+                workdir: str | None = None) -> Result:
     """`umwayi agent check NAME`: every gate check, one line each. Starts no agent and writes nothing.
 
-    0: the agent can be gated. 2: it cannot. 64: a usage or config error.
+    0: the agent can be gated. 2: it cannot. 64: a usage or config error. workdir (W9.6b) is a worktree umwayi made: the
+    checks are then those of that folder.
     """
     root = _root(root)
-    agent = find(load(root, given), name)
+    agent = with_workdir(root, find(load(root, given), name), workdir)
     gate = gate_checks(agent, root, home=home)
     lines = [f"Agent {agent.name}: {agent.platform}, transport {agent.transport}, workdir {agent.workdir}"]
     if is_claude_acp(agent, CHAT):
@@ -1718,8 +1735,9 @@ class _Run:
     """
 
     def __init__(self, root: Path, agent: Agent, prompt: str | None, clock, mode: str = RUN, out=None,
-                 options: RunOptions | None = None):
+                 options: RunOptions | None = None, worktree: str | None = None):
         self.options = options or RunOptions()  # W9.6: all None unless `agent run` was given an option
+        self.worktree = worktree  # W9.6b: the name of the worktree given by --workdir, None when the option is not used
         self.root = root
         self.agent = agent
         self.prompt = prompt
@@ -1917,7 +1935,8 @@ class _Run:
                        f"rule {decision.rule_id or '(none)'} gave Yes for agent_run ({self.mode}); the run lock is held; "
                        f"every gate check passed (version {_show(gate.version)}"
                        + (f", plan: {gate.plan})" if gate.plan else ")")
-                       + (f"; options: {self.options.text()}" if self.options.used else ""), NOT_LOGGED)
+                       + (f"; options: {self.options.text()}" if self.options.used else "")
+                       + (f"; working folder: worktree {self.worktree}" if self.worktree else ""), NOT_LOGGED)
         if why is not None:
             return self.result(2, [f"{not_started} The logbook could not record the start, so nothing is started "
                                    "(exit 2)."], why)
@@ -2675,10 +2694,11 @@ def login_agent(root, name: str, clock, given: str | None = None) -> Result:
 
 
 def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap_uu: str | None = None,
-              model: str | None = None, effort: str | None = None) -> Result:
+              model: str | None = None, effort: str | None = None, workdir: str | None = None) -> Result:
     """`umwayi agent run NAME`, for Claude Code (part 3) and Kiro (part 4). The same steps for both.
 
-    cap_uu, model and effort (W9.6) are the text of the options; none given means the run is as it was before."""
+    cap_uu, model and effort (W9.6) are the text of the options; none given means the run is as it was before.
+    workdir (W9.6b) is a worktree umwayi made; the helper then works in it in place of the workdir of agents.yaml."""
     root = _root(root)
     agent = find(load(root, given), name)
     _opencode_chat_only(agent, "agent run")
@@ -2686,6 +2706,7 @@ def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap
         raise UsageError("agent: unknown platform. Nothing was started.")
     prompt = check_prompt(prompt, agent.platform)
     options = check_options(agent, cap_uu, model, effort)
+    agent = with_workdir(root, agent, workdir)
     if options.cap_uu is not None:  # above limits.per_run is 64, before the kill switch, the rules or the logbook
         try:
             problem = budget.cap_problem(units.load(root, clock()), options.cap_uu)
@@ -2693,4 +2714,5 @@ def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap
             problem = None  # an invalid units.yaml is refused (64, one entry) by the run itself
         if problem is not None:
             raise UsageError(f"agent: {problem}. Nothing was started.")
-    return _Run(root, agent, prompt, clock, options=options).go()
+    return _Run(root, agent, prompt, clock, options=options,
+                worktree=None if workdir is None else os.path.basename(agent.workdir)).go()
