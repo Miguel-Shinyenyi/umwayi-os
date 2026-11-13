@@ -49,6 +49,8 @@ umwayi-os/
     serve.md                W6: umwayi serve, the local backend the page may send requests to (the core and the page client are built; the by-hand browser pass is not run)
     goals.md                W9: umwayi goal, a goal split into task packets and run one at a time through the gate (specified; only the docs builder `goal docs` is built)
     concerns.md             W19: umwayi concerns check, the 111 concepts record (built)
+    model-routing.md        W19 part 3b: the Kiro and OpenCode model options with sources and review dates, and umwayi routing check (built; it only proposes, the owner chooses)
+    task-log.md             W19 part 3b: the task log format and the starter rows for PRs 66 to 79 (built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
     KNOWN-LIMITS.md         every known limit, numbered
