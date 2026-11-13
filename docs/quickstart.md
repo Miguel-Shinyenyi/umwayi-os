@@ -252,7 +252,19 @@ Not yet available: the feedback path (an issue template and an export of a logbo
 
 ### The goal commands
 
-Not yet available: `umwayi goal` start, run and status are not on main. Today `umwayi goal` has only `docs` and `guard`, which are for the people who build umwayi. Do not use it.
+`umwayi goal` is built (W9.8): it splits one goal into small tasks, runs each in its own worktree with a builder and a different tester, and asks you before it spends or merges anything. It is not a first-run command. It needs three agents that pass `agent check`, a root that is a git repo with a `main` branch and the files `guidance.yaml` lists, and a terminal for `approve` and `answer`. The full list is in [goals](goals.md). In the scratch folder you can look and see it refuse:
+
+```umwayi
+umwayi goal status
+umwayi goal start "Add a hello page" --guide reviewer --plan-budget-uu 20
+```
+
+```text
+No goals.
+Ask me first: guidance.yaml is missing: stop and ask the owner
+```
+
+The second command exits 3 and starts nothing. I did not run `approve` or `run` end to end against a real agent for this page, so read [goals](goals.md) before you try them, and keep the kill switch in reach.
 
 ### Known limits, in plain words
 
@@ -269,9 +281,9 @@ The full list is [KNOWN-LIMITS](KNOWN-LIMITS.md). The layers behind each command
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-13 | The quickstart documents only commands that run on main, marks the feedback path and `umwayi goal` as not yet available, and a test parses every quoted command against the real command line | W25. A tester must not be given a command that does not exist, and a command in the page that stops parsing should fail a test. |
+| 2026-11-13 | The quickstart documents only commands that run on main, marks the feedback path as not yet available, shows `umwayi goal` only as far as it was run (W9.8 merged, PR 96), and a test parses every quoted command against the real command line | W25. A tester must not be given a command that does not exist, and a command in the page that stops parsing should fail a test. |
 
 ## Open questions
 
-- Replace the feedback placeholder with the real path when W26 merges, and the goal section when W9.8 merges.
+- Replace the feedback placeholder with the real path when W26 merges.
 - There is no `umwayi init`. Recommendation: add one later, so a tester does not copy three files by hand.
