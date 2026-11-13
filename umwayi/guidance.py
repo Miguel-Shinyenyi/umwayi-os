@@ -110,7 +110,7 @@ def goal_sentence_present(record) -> str | None:
 
 
 def consequences_and_undo_present(record) -> str | None:
-    """Consequences and undo steps are both there and not empty."""
+    """Consequences and undo steps are both there, with something in them."""
     if not isinstance(record, dict):
         return "the task has no consequences and no undo steps"
     if _blank(record.get("consequences")):
