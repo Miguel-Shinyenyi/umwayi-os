@@ -726,6 +726,26 @@
       ]
     },
     {
+      "name": "stalls",
+      "path": [
+        "stalls"
+      ],
+      "help": "the Kiro Crew lessons as checks (W19 part 5)",
+      "line": "the Kiro Crew lessons as checks (W19 part 5)",
+      "children": [
+        {
+          "name": "check",
+          "path": [
+            "stalls",
+            "check"
+          ],
+          "help": "read a JSON list of builder events and report, one line per finding: a stall (30 minutes with no push or event), the same error twice in a row, an owner approval past its deadline (counts as No), a status with no last event time; exit 0 nothing found, 3 a finding, 2 unreadable or malformed; run by the owner, never on a schedule (changes nothing)",
+          "line": "read a JSON list of builder events and report, one line per finding: a stall (30 minutes with no push or event), the same error twice in a row, an owner approval past its deadline (counts as No), a status with no last event time",
+          "children": []
+        }
+      ]
+    },
+    {
       "name": "logbook",
       "path": [
         "logbook"

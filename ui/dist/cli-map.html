@@ -149,6 +149,11 @@
           <li data-path="routing check"><span class="row"><span class="name">check</span><span class="what">check that a model routing table or a task log is well formed</span></span></li>
         </ul>
       </details></li>
+      <li data-path="stalls"><details><summary class="row"><span class="name">stalls</span><span class="what">the Kiro Crew lessons as checks (W19 part 5)</span></summary>
+        <ul>
+          <li data-path="stalls check"><span class="row"><span class="name">check</span><span class="what">read a JSON list of builder events and report, one line per finding: a stall (30 minutes with no push or event), the same error twice in a row, an owner approval past its deadline (counts as No), a status with no last event time</span></span></li>
+        </ul>
+      </details></li>
       <li data-path="logbook"><details><summary class="row"><span class="name">logbook</span><span class="what">logbook commands</span></summary>
         <ul>
           <li data-path="logbook verify"><span class="row"><span class="name">verify</span><span class="what">check the format, the hash record and the hash chain of LOGBOOK.md (changes nothing)</span></span></li>
@@ -160,7 +165,7 @@
     </ul>
   </nav>
   <footer>
-    <p>21 groups and 56 commands.</p>
+    <p>22 groups and 57 commands.</p>
     <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
   </footer>
 </main>
