@@ -1224,9 +1224,25 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - What it does not protect against: a task record whose fields are filled with meaningless text, and a caller that hides an open pull request.
 - A later fix: add the two missing enforce entries and the advise and owner examples once their source file is in the repo, and call `guard` from `goal start` and `goal run` when W9.8 is built.
 
+## History backfill (W19), found while building
+
+### 257. The backfill records have no model field, the task kind is a weak guess, and one run reads only about 19 pull requests an hour
+
+`tools/backfill_history.py` writes derived records from public GitHub data with no token. That keeps it safe and it has limits.
+
+- The output has no model field because GitHub does not record which model built a pull request. A routing table that needs it must get it from somewhere else, and the records must not be read as saying anything about models.
+- The task kind is guessed only from the title prefix (W9, W16, L13, UI, CI, docs). A title with no such prefix, or a wrong prefix, gives `unknown` or a wrong kind. It is a weak guess, not evidence of what the work was.
+- Without a token GitHub allows 60 requests an hour per address. Each pull request costs 3 requests plus the list pages, so one run reads about 19 pull requests an hour. The run then stops cleanly: it writes what it finished with `complete` false in the header, prints one line and exits 2. `--after NUMBER` carries on in the next hour.
+- Check counts use the check runs of the head commit only, and a check that was re run is counted once, by its latest result. A page of 100 reviews or check runs may hide more, and then the value is `unknown`. Checks of an old commit that GitHub has dropped count as zero.
+- Label names are kept only if they look like plain tags; any other becomes `unknown`.
+
+- What protects you today: the allow list of fields, the tests that plant private text in a title, body, comment and file name and search the whole output, and exit 2 on any failure.
+- What it does not protect against: private text placed in a label name that looks like a plain tag, a wrong task kind, a pull request changed on GitHub between two runs.
+- A later fix: an optional token read from the environment (a decision for the owner), and a cache so a run can carry on without repeating requests.
+
 ## Guidance (W19)
 
-### 257. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
+### 258. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
 
 W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. Only builder rule 1 is enforced. The other 22 are advise entries.
 

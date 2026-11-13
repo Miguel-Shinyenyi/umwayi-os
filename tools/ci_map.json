@@ -88,6 +88,7 @@
   "tests/test_affected_tests.py": ["tools"],
   "tests/test_archive.py": [],
   "tests/test_automation.py": ["jobs.yaml", "rules.yaml"],
+  "tests/test_backfill_history.py": [],
   "tests/test_board_status.py": [],
   "tests/test_builder_workflow.py": [".kiro", "tools"],
   "tests/test_check_log.py": [],
