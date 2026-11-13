@@ -1405,3 +1405,16 @@ Since W22 `ui/dist/progress.html` is not in git. These are the limits of that.
 - A task that the owner answers `yes` after its builder ran goes back to `queued` with its worktree and branch still there, so the next start is `leftover` until the owner removes them with `git worktree remove`. W9.R9.6 and W9.R8.12 together say this and neither says what the owner should expect.
 - A planning run that is refused before it has a plan (a rule, the lock, `stale`, a config problem) leaves the goal in `plan` with no packets and one queue row, and there is no way to run it again: the owner starts a new goal.
 - The guard that names the modules allowed to start a program (`tests/test_automation.py`, the subprocess list) was widened by the owner's decision of Nov 13 2026 (option A) to add `umwayi/goalrun.py`, for its one child `umwayi agent run`. The list is now `agents.py`, `goalgit.py`, `goalrun.py` and `report.py`. What keeps that start narrow is `tests/goal/test_goalrun.py`: one `Popen`, `shell=False`, the fixed prefix `[sys.executable, "-m", "umwayi", "agent", "run"]`, and no git word that writes. A later change to `goalrun.py` could start another program and that list would not catch it; only those guards would.
+
+## Goal orchestration (W9), found while building W9.8
+
+### 270. The goal commands call the guard without a task record, and an AI helper is not yet denied the owner commands by the example rules
+
+`umwayi/goal.py` is built. These are the choices it made where the spec was open, and what waits for the owner.
+
+- `start`, `approve` and `run` call the guard of W19.1 before anything else, as the design says, but without a task record. A packet has no `consequences`, `undo` or `open_prs`, so a record built from it would fail every start. The guard therefore checks only that `guidance.yaml` loads and that its sources match; the four enforce checks do not run on a goal yet.
+- W9.R2.6 asks the example rules of the adapters to deny an AI helper every `umwayi goal` command except `status` and `stop`. Adding those words changes rules whose hashes `tests/test_starter_rules.py` pins, and a new rule changes the pinned list of ids, so it waits for the owner. Until then the only guards of `approve`, `answer` and `merged` are the terminal check and the goal lock; a helper that has a terminal is not stopped (KNOWN-LIMITS 213).
+- `approve --plan-hours N` is accepted and kept in the goal file, but the plan's deadline was set when the plan was made, so it changes nothing. `--wait-hours` sets the deadline of a later `needs owner`.
+- `goal stop` does not take the goal lock. It records the stop and marks the queued tasks; a running `run` reads the goal file every second and stops its child with the reason `owner`. A run that holds the lock and has no child at that moment sees the stop at its next start step.
+- The report shows the tester's verdict words and the guide's word but not their reasons or evidence, because the supervisor keeps no text of a helper. W9.R20.3 allows that text, cut and cleaned; nothing records it to show.
+- `status` shows the spend of the goal as the planning budget plus what each task spent, because the planning run's real spend is not recorded (the W9.7 entry).
