@@ -1269,9 +1269,21 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - The phone test `ui/test/climap-phone.test.mjs` needs a Chromium and skips without one. In the build sandbox the repo's own driver could not start the browser, so the repo's phone audit function was run in a Playwright browser at 375 by 667, 360 by 640, 390 by 844, 412 by 915 and the two small ones on their side, with every group closed and then open, and it found nothing. The skipped test itself was not run, and nobody has looked at the page on a real phone.
 - The groups open and close with the browser's own details element. In a browser that does not support it, the groups show as plain text and every command stays readable.
 
+## Concerns record (W19 part 6), found while building
+
+### 260. The draft concerns record is the builder's reading of the repo, and the checker passes it whether or not it is true
+
+`docs/concerns-record.md` is a first draft of the 111 rows, written by the builder for the owner to review. It passes `umwayi concerns check`, which checks form only (see item 254).
+
+- Every answer and reason is the builder's judgement from a search of the repo. Nobody has run the code paths named in the Applies rows to confirm them, and an Applies row names one file, not every file that matters.
+- A Not applicable answer says why the concept does not fit a stdlib Python command line tool with a small web page. If the tool grows (a database, a deployed service, more than one user), those rows must be looked at again.
+- Some rows are Deferred because the builder could not tell, not because the owner decided. The owner has not read any of them.
+- The record is not run by any job or schedule, so it can go out of date unnoticed.
+- A later fix: the owner reviews the draft, and the record is re-read whenever a layer is added.
+
 ## Guidance (W19)
 
-### 260. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
+### 261. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
 
 W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. Only builder rule 1 is enforced. The other 22 are advise entries.
 
