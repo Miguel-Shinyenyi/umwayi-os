@@ -1293,9 +1293,21 @@ W19 part 3a gave every numbered rule of the builder workflow and steering rules 
 - Fields `worktree` and `model` of the task record are written down but no check reads them.
 - A later fix: new enforce checks (only the owner decides them), and the call from `goal start` and `goal run` (W9.8).
 
+## Frontier practices tracker (W10), found while building
+
+### 262. The frontier practices table is the builder's reading, and the test checks form and evidence existence, not truth
+
+`docs/frontier-practices.md` marks each of the ten practices Covered, Partly covered, Not covered or Not applicable. The builder wrote every state from a search of the repo, and the owner has not read it.
+
+- `tests/test_frontier_practices.py` checks that the table has ten rows, none missing or twice, that each state is one of the four, that each evidence file exists and that each guidance id is in `guidance.yaml`. A wrong state passes. A file that exists is not proof that the practice is met.
+- The ten titles are taken from the ten pages linked from the kiro.dev page, in its order, on 2026-11-13. The page can change and nothing re-reads it.
+- The Covered rows (4 and 8) rest on files the builder read, not on a run of the code paths. The gap sentences are the builder's judgement.
+- No job or schedule runs the test beyond the normal test run, so the table can go out of date unnoticed.
+- A later fix: the owner reviews the table, and it is re-read when a layer is added or the W9 goal flow is built.
+
 ## Goal orchestration (W9), found while building W9.1 to W9.5
 
-### 262. Four readings in the pure core that are choices, not facts
+### 263. Four readings in the pure core that are choices, not facts
 
 The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbudget`) makes four choices where the spec left room. 1. `goalwatch.signature` masks a hex word as `H` only when it holds both a letter and a digit, and does it before digits become `#` (W9.R10.4 lists digits first, which would spoil a hash). 2. `goalpacket.parse_result_line` refuses two different tagged lines (`doubled`), so a forged line cannot win by being first or last. 3. `goalpacket.roles_ok` requires the tester and the guide each to differ from the builder, as W9.R2.2 is written, and does not require the guide to differ from the tester. 4. `goalstate.start_goal` writes `goal.json` first and the `started` entry second.
 
