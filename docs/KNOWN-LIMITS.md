@@ -1255,9 +1255,23 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 - It reports and exits. It does not stop a builder, answer an approval or tell anyone. Any finding gives exit 3, so a script that treats 3 as Ask me first sends it to the owner.
 - A later fix: none planned until the W9 supervisor and event log exist.
 
+## Command map (W2), found while building
+
+### 259. The command map shows names and the first sentence of each help line, and it is only as true as the last run of the script
+
+`ui/dist/cli-map.html` shows the umwayi command line as a mind map. It is a reading aid, with these limits.
+
+- It lists groups, commands and the first sentence of each help line, and nothing else. It shows no flags, no arguments, no exit codes beyond what a first sentence says, and no example. A command that `umwayi --help` hides is not listed either.
+- The first sentence is cut at the first semicolon or full stop outside brackets. Some cut lines still carry words the owner may find hard, such as "layer 13", "W19.1", "SHA-256", "ACP" and "transport cli". The wording is the help text in `umwayi/cli.py`, which this task did not change.
+- A command with no help line is listed as "no help line yet". No command is in that state today, so that branch is covered by a test with a made up command and was never seen on the real page.
+- The data file `ui/src/data/cli-map.json` is written by `python ui/tools/cli_map.py`. If a command is added and nobody runs the script, the page is old, but `tests/test_cli_map.py` fails until the file and the page are rebuilt. The test is only as good as the run: if the test is not run, nothing warns.
+- The page is built by `node build.mjs`, which only the owner runs. The built page is checked against `ui/dist/build.json` without npm, so a page edited by hand is found.
+- The phone test `ui/test/climap-phone.test.mjs` needs a Chromium and skips without one. In the build sandbox the repo's own driver could not start the browser, so the repo's phone audit function was run in a Playwright browser at 375 by 667, 360 by 640, 390 by 844, 412 by 915 and the two small ones on their side, with every group closed and then open, and it found nothing. The skipped test itself was not run, and nobody has looked at the page on a real phone.
+- The groups open and close with the browser's own details element. In a browser that does not support it, the groups show as plain text and every command stays readable.
+
 ## Guidance (W19)
 
-### 259. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
+### 260. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
 
 W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. Only builder rule 1 is enforced. The other 22 are advise entries.
 

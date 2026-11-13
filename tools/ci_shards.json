@@ -190,7 +190,7 @@
   },
   "tests/serve/test_failclosed.py": {
    "seconds": 0.2,
-   "shard": 1
+   "shard": 2
   },
   "tests/serve/test_gaps.py": {
    "seconds": 0.5,
@@ -202,7 +202,7 @@
   },
   "tests/serve/test_gen.py": {
    "seconds": 0.2,
-   "shard": 2
+   "shard": 3
   },
   "tests/serve/test_mutation.py": {
    "seconds": 10.0,
@@ -246,7 +246,7 @@
   },
   "tests/test_builder_workflow.py": {
    "seconds": 0.1,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_check_log.py": {
    "seconds": 2.2,
@@ -254,7 +254,7 @@
   },
   "tests/test_checks.py": {
    "seconds": 0.2,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_ci_map.py": {
    "seconds": 6.0,
@@ -270,7 +270,11 @@
   },
   "tests/test_ci_workflow.py": {
    "seconds": 0.1,
-   "shard": 3
+   "shard": 1
+  },
+  "tests/test_cli_map.py": {
+   "seconds": 0.3,
+   "shard": 1
   },
   "tests/test_concerns.py": {
    "seconds": 0.5,
@@ -314,7 +318,7 @@
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_miniyaml.py": {
    "seconds": 0.0,
