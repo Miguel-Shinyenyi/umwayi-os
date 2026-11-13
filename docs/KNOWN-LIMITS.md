@@ -1304,3 +1304,15 @@ W19 part 3a gave every numbered rule of the builder workflow and steering rules 
 - The Covered rows (4 and 8) rest on files the builder read, not on a run of the code paths. The gap sentences are the builder's judgement.
 - No job or schedule runs the test beyond the normal test run, so the table can go out of date unnoticed.
 - A later fix: the owner reviews the table, and it is re-read when a layer is added or the W9 goal flow is built.
+
+## Goal orchestration (W9), found while building W9.6
+
+### 263. A cap on one run is a stop that comes late and a count; for Kiro it is only a number in the ledger
+
+`agent run --cap-uu N` reserves N UU and, for Claude Code, stops the run when its own report passes N. That is as strong as the report, and for Kiro there is none.
+
+- The watch reads the report once a second, so a run can spend more than N before it is stopped. The settle counts what was measured, which is above N, and the run ends with exit 3. The caps the supervisor hands out can add up to more than the goal budget by that overshoot.
+- A Claude Code run that sends no report settles at `unknown_worst_case`, which can be above a small N. The ledger counts more than the cap (the safe side), and a goal budget can be used up by runs that did nothing.
+- Kiro sends umwayi no cost (KNOWN-LIMITS 117), so nothing can stop a Kiro run at N. The only protection is the refusal at the start: a declared or worst-case reading above N is exit 3 with nothing reserved. A run that is let in can still spend more than `run_micros` says, and nothing notices.
+- That refusal is `Ask me first` with one entry and no queue item, so the owner has no row to answer: the owner raises the cap, changes `units.yaml`, or does not run it. Whether it should add a queue item, as the `budget_check` ask does, is open for W9.7.
+- `--model` and `--effort` are passed as written. umwayi checks their shape only; a model or level the platform refuses ends the run with the platform's own non-zero exit, after the reservation was made and settled (KNOWN-LIMITS 223).
