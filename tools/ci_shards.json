@@ -430,11 +430,15 @@
   },
   "tests/test_progress_workflow.py": {
    "seconds": 17.2,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_queue.py": {
    "seconds": 3.5,
    "shard": 1
+  },
+  "tests/test_quickstart.py": {
+   "seconds": 17.2,
+   "shard": 3
   },
   "tests/test_reopen.py": {
    "seconds": 20.5,

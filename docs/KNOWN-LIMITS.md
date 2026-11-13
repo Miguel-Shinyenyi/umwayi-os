@@ -1452,9 +1452,21 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The template cannot make GitHub require the answers: a tester can delete any question, and a blank issue stays allowed on purpose. `tests/test_feedback.py` checks the template file, not what a tester sends.
 - The template has no label, so a report is not found by label. The template was not opened on GitHub in this task, so how GitHub shows it was not seen.
 
+## Tester quickstart (W25)
+
+### 274. The quickstart is checked against the command line, not against a real agent, and a tester copies three files by hand
+
+`docs/quickstart.md` is for a stranger who installs umwayi-os from the public repo. `tests/test_quickstart.py` keeps every quoted command real, and the page was run command by command on a fresh clone. That proves less than it sounds.
+
+- The test proves that each quoted command line parses against the real command line, not that it works or that the output in the page is the output you get. The outputs were checked by hand on one day, on Linux, and the page can go stale when a message changes.
+- The agent section was run with a stand-in program for Claude Code, not a real one, so what a real `agent check`, `agent run` and cost report print was not seen (KNOWN-LIMITS 117 and the owner's real runs 10.21 and 10.31 are still open). The page says so.
+- There is no `umwayi init`. A tester copies `rules.yaml`, `umwayi.json` and `jobs.yaml` into a scratch folder by hand, and a worktree for `--workdir` is made by hand with `git worktree add` under the exact name `ROOT-worktrees/g-NNNN-t-NN`. A wrong mode or name gives exit 64 with one fixed sentence and no hint which part was wrong.
+- The page tells a tester that the logbook export is not available yet. When the exporter is built, nothing fails until someone reads the page; the open questions of the page say so. The goal section shows only `goal status` and a refused `goal start`: `approve` and `run` were not run for the page, because they need real agents and a terminal.
+- Only Linux was tried. macOS, Windows and a Python older than 3.10 were not.
+
 ## Progress page artifact (W27), found while building
 
-### 274. The progress page workflow was never run here, and its artifact is not a public page
+### 275. The progress page workflow was never run here, and its artifact is not a public page
 
 `.github/workflows/progress-page.yml` keeps the progress page as a workflow artifact on a push to main. These are its limits.
 
