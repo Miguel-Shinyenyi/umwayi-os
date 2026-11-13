@@ -1316,3 +1316,12 @@ W19 part 3a gave every numbered rule of the builder workflow and steering rules 
 - Kiro sends umwayi no cost (KNOWN-LIMITS 117), so nothing can stop a Kiro run at N. The only protection is the refusal at the start: a declared or worst-case reading above N is exit 3 with nothing reserved. A run that is let in can still spend more than `run_micros` says, and nothing notices.
 - That refusal is `Ask me first` with one entry and no queue item, so the owner has no row to answer: the owner raises the cap, changes `units.yaml`, or does not run it. Whether it should add a queue item, as the `budget_check` ask does, is open for W9.7.
 - `--model` and `--effort` are passed as written. umwayi checks their shape only; a model or level the platform refuses ends the run with the platform's own non-zero exit, after the reservation was made and settled (KNOWN-LIMITS 223).
+
+## Goal orchestration (W9), found while building W9.1 to W9.5
+
+### 264. Four readings in the pure core that are choices, not facts
+
+The pure core of W9 (`goalpacket`, `goallog`, `goalwatch`, `goalstate`, `goalbudget`) makes four choices where the spec left room. 1. `goalwatch.signature` masks a hex word as `H` only when it holds both a letter and a digit, and does it before digits become `#` (W9.R10.4 lists digits first, which would spoil a hash). 2. `goalpacket.parse_result_line` refuses two different tagged lines (`doubled`), so a forged line cannot win by being first or last. 3. `goalpacket.roles_ok` requires the tester and the guide each to differ from the builder, as W9.R2.2 is written, and does not require the guide to differ from the tester. 4. `goalstate.start_goal` writes `goal.json` first and the `started` entry second.
+
+- What protects you today: the same error with another number, hash or path still gives one signature, so a loop is seen; a forged result line never counts as the answer; the builder is never the tester or the guide; a goal folder with no entry is never used as a goal and its id is never reused.
+- What it does not protect against: a hash of only letters or only digits is not masked, so two such errors that differ only there are two errors and make no loop; a tester that quotes the example line of its prompt makes its answer `doubled`, which costs the owner a look (the nonce still does not stop a tester that is talked into a good line, KNOWN-LIMITS 214 and 227); a guide and a tester that are one agent check each other's view of one result; a crash between the two writes of `start_goal` leaves a goal folder that the owner deletes by hand.
