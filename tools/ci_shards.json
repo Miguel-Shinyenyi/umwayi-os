@@ -18,7 +18,7 @@
   },
   "tests/adapters/test_opencode_rules.py": {
    "seconds": 0.0,
-   "shard": 3
+   "shard": 2
   },
   "tests/adapters/test_stdio.py": {
    "seconds": 8.1,
@@ -126,7 +126,7 @@
   },
   "tests/autonomy/test_score.py": {
    "seconds": 0.0,
-   "shard": 3
+   "shard": 2
   },
   "tests/autonomy/test_status.py": {
    "seconds": 6.0,
@@ -178,6 +178,10 @@
   },
   "tests/goal/test_guidance.py": {
    "seconds": 0.7,
+   "shard": 1
+  },
+  "tests/goal/test_guidance_coverage.py": {
+   "seconds": 0.1,
    "shard": 1
   },
   "tests/serve/test_entries.py": {
@@ -242,7 +246,7 @@
   },
   "tests/test_builder_workflow.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_check_log.py": {
    "seconds": 2.2,
@@ -266,7 +270,7 @@
   },
   "tests/test_ci_workflow.py": {
    "seconds": 0.1,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_cli_map.py": {
    "seconds": 0.3,
@@ -314,11 +318,11 @@
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_miniyaml.py": {
    "seconds": 0.0,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_petition.py": {
    "seconds": 62.1,
