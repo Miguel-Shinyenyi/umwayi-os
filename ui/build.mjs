@@ -119,10 +119,26 @@ const progressHtml = readFileSync(join(root, 'src/progress.html'), 'utf8')
 if (/<!--@/.test(progressHtml)) throw new Error('a placeholder was not replaced in the progress page');
 writeFileSync(join(dist, 'progress.html'), progressHtml);
 
+// W38: the goal map, a fourth page. One inline script and one inline style, both by hash. It sends nothing (W37, the route it
+// will read, is not merged), so its policy has no connect-src: default-src 'none' covers every request. img-src is none too.
+const gmBundle = await build({
+  entryPoints: [join(root, 'src/goal-map.js')], bundle: true, minify: true, format: 'iife', target: 'es2020',
+  write: false, legalComments: 'inline', logLevel: 'warning',
+});
+const gmScript = gmBundle.outputFiles[0].text.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
+const gmCss = (await transform(readFileSync(join(root, 'src/goal-map.css'), 'utf8'), { loader: 'css', minify: true })).code;
+const gmCsp = ["default-src 'none'", `script-src '${cspHash(gmScript)}'`, `style-src '${cspHash(gmCss)}'`, "base-uri 'none'", "form-action 'none'"].join('; ');
+const gmHtml = readFileSync(join(root, 'src/goal-map.html'), 'utf8')
+  .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${gmCsp}">`)
+  .replace('<!--@style-->', () => gmCss)
+  .replace('<!--@script-->', () => gmScript);
+if (/<!--@/.test(gmHtml)) throw new Error('a placeholder was not replaced in the goal map');
+writeFileSync(join(dist, 'goal-map.html'), gmHtml);
+
 // what the pages were built from: tests recompute these without npm. The progress page is not in it: it is built here from the
 // docs and is not committed (ui/dist/progress.html is in .gitignore), so a pull request that adds a status row changes no committed file
 const inputs = ['build.mjs', 'package.json', 'package-lock.json', ...walk(join(root, 'src')).map((f) => relative(root, f).split('\\').join('/'))];
 const files = {};
 for (const name of [...new Set(inputs)].sort()) files[name] = sha256(readFileSync(join(root, name)));
-writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))) }, null, 2) + '\n');
+writeFileSync(join(dist, 'build.json'), JSON.stringify({ files, page: sha256(readFileSync(join(dist, 'index.html'))), cliMapPage: sha256(readFileSync(join(dist, 'cli-map.html'))), goalMapPage: sha256(readFileSync(join(dist, 'goal-map.html'))) }, null, 2) + '\n');
 console.log(`built ui/dist/index.html (${Math.round(html.length / 1024)} KB)`);

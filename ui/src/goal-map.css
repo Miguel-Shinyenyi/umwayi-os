@@ -1,0 +1,69 @@
+/* W38: the goal map. The nightwatch palette of the live view. Amber is the warm colour: a task that needs you. */
+:root {
+  color-scheme: dark;
+  --base: #0e1310;
+  --ink: #eee8db;
+  --muted: #b3ada0;
+  --amber: #e0a965;
+  --mint: #9cc39a;
+  --red: #e07a6f;
+  --glass: #1a1f1b;
+  --line: #3a403a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--base); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.bar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.bar h1 { font-size: 1.25rem; margin: 0; }
+.kiro { color: var(--amber); font-weight: 600; margin-left: 6px; }
+.lamp { display: flex; align-items: center; gap: 10px; }
+.lamp-pic { flex: none; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-left: auto; }
+.group { display: flex; gap: 4px; }
+.btn { min-height: 44px; min-width: 44px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--glass); color: var(--ink); font: inherit; cursor: pointer; }
+.btn[aria-pressed="true"] { border-color: var(--amber); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+main { padding: 12px 20px 32px; }
+.line { color: var(--muted); margin: 4px 0 12px; }
+.line:empty { display: none; }
+.file { margin: 0 0 12px; }
+.file label { display: block; color: var(--muted); margin-bottom: 4px; }
+.summary { margin: 0 0 12px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
+.map, .list { grid-column: 1; }
+.feed { grid-column: 2; grid-row: 1; background: var(--glass); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.feed h2, .list h2 { font-size: 1rem; margin: 0 0 8px; }
+.feed ol { list-style: none; margin: 0; padding: 0; }
+.feed li { display: grid; gap: 0 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 0.9rem; overflow-wrap: anywhere; }
+.feed .when, .feed .kind { color: var(--muted); }
+.sup { color: var(--muted); font-size: 0.9rem; }
+.map-wrap { overflow-x: auto; }
+#drawing { display: block; width: 100%; min-width: 900px; height: auto; }
+.list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.list li { display: grid; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+.list li[data-state="needs owner"] { border-color: var(--amber); }
+.legend { color: var(--muted); font-size: 0.9rem; max-width: 70ch; }
+html[data-tier="list"] .map { display: none; }
+html:not([data-tier="list"]) .list { display: none; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } .feed { grid-column: 1; grid-row: auto; } .controls { margin-left: 0; } }
+
+/* the drawing */
+#drawing text { font: 13px/1 ui-monospace, Menlo, Consolas, monospace; fill: var(--ink); }
+#drawing text.title { font-weight: 600; }
+#drawing text.detail { fill: var(--muted); }
+.goal-box { fill: #1f2620; stroke: var(--amber); stroke-width: 2; }
+.sup-box { fill: var(--glass); stroke: var(--line); }
+.supervisor.stale .sup-box { stroke: #5a564e; }
+.card { fill: var(--glass); }
+.task.owner .card { fill: #2a2318; }
+
+/* motion: calm, slow, and none at all under reduced motion */
+.pulse { transform-box: fill-box; transform-origin: center; animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.9; } }
+.heart.beat { transform-box: fill-box; transform-origin: center; animation: beat 1.6s ease-in-out infinite; }
+@keyframes beat { 0%, 60%, 100% { transform: scale(1); } 30% { transform: scale(1.25); } }
+.flicker { transform-box: fill-box; transform-origin: 50% 100%; animation: flicker 1.3s ease-in-out infinite alternate; }
+@keyframes flicker { 0% { opacity: 0.75; transform: scale(0.94, 0.9); } 40% { opacity: 1; transform: scale(1.03, 1.06); } 100% { opacity: 0.85; transform: scale(0.97, 1); } }
+.lamp-pic .glow { animation: pulse 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pulse, .heart.beat, .flicker, .lamp-pic .glow { animation: none; } }
+html[data-reduced] .pulse, html[data-reduced] .heart.beat, html[data-reduced] .flicker, html[data-reduced] .lamp-pic .glow { animation: none; }

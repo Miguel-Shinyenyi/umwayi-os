@@ -178,6 +178,7 @@
   "ui/test/drawn.test.mjs": [],
   "ui/test/engine.test.mjs": [],
   "ui/test/faults.test.mjs": ["site/test/phone.test.mjs", "tests/test_ui_package.py"],
+  "ui/test/goalmap.test.mjs": [],
   "ui/test/high.test.mjs": [],
   "ui/test/home.test.mjs": [],
   "ui/test/labels.test.mjs": [],
