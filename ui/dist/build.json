@@ -1,6 +1,6 @@
 {
   "files": {
-    "build.mjs": "2cdaea3a78aca480b40798af62caf8e235cee44633f74be47ebad6fb872ccfe6",
+    "build.mjs": "a0978ff01cb9de110c8e97b47b04a4a5aa7ed857bf3c15ca6033033753edbd82",
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
     "src/api/client.js": "2e7be51a5467d8117a9ca77cfa8f6bad9ffe68a50b964b4fb76f1ee70af5f18e",
@@ -15,7 +15,7 @@
     "src/data/notes.js": "78cd0bf540a5062660651fbdf9d2ddaf88e480729ef3519be7bf6e0790b22fc6",
     "src/data/progress.js": "1a7346593c1a7ffbf559423afe137d1ab87646b5277fc0132502f31d2c35524e",
     "src/data/sample.js": "4e3c9c35d900787b763d13871e9e1dca0db9e92a90daf84ef2fa7c82aacf6b6e",
-    "src/data/snapshot.js": "afe88848c88fff94414e4862cf1da14148c7aa3422cad7ff5c3ed49a484228d4",
+    "src/data/snapshot.js": "b69518ccab5e0dd71cb4a7921fcf3a2ffe6436fb111b0c3c6f0046ce329744f9",
     "src/engine/detail.js": "58f14517ce4d73b7fad1bba9294b3f7124d5c1702ad6febe9fc5f345f1e80659",
     "src/engine/ease.js": "ce5cbf0399c12132416d2717e006a4b6ee1758b269d5ec2ec37c9ae91b422f30",
     "src/engine/env.js": "2edb07b22ece45de9334f2d65bd4c7eff7669a8a01320f4ddad7b482d68e3fdb",
@@ -29,6 +29,15 @@
     "src/engine/settings.js": "59425bcb2a419c4403686b21231bfdbacec2d0ef416b18cf0610a848ad1e1891",
     "src/engine/stage.js": "ad9df675dca4ec24a2b22acab4f8b435c5058577ae78a2ba7a59043d36ea7a24",
     "src/engine/tier.js": "0c874c72777d288dd606a47b083690bb2d61f8f75d799c2a410aa27f16eebe08",
+    "src/goal-map.css": "f7f212587bc522b2de96b3dd41509bddbff7c3f44dcc2f51fdb2ae3972d59007",
+    "src/goal-map.html": "23137d6c67092ea7ce5276f507c032f8e64e4e8494e740d01bd372c92d6e8feb",
+    "src/goal-map.js": "7ceb9a7d6f20edc438d57e347ea9d84e62e958643039238068753e8fd7b1904c",
+    "src/goalmap/draw.js": "a546329550a035518c6692cb30d6b9ed8782fac8fd6d0499302666ba09e1eff1",
+    "src/goalmap/feed.js": "517f4435f95a751661680af36f6ed6501ee518c8704df35a8d117e1f5087615c",
+    "src/goalmap/layout.js": "dee7417ced4ab53db18f32741ea87760cd30a16d04123d1f8a564dca7a644aac",
+    "src/goalmap/model.js": "c86789b2ec31b11c655251bbc14f6ea97d96df4426d50d8dc6146891230d900b",
+    "src/goalmap/page.js": "89f94e69690d19ea181004cec1df76be8ed7f1c1ec82122962891590ce9780a2",
+    "src/goalmap/theme.js": "17edf455f86987bb2950c08a205091dc306f53148a519e79de7d7f919ce9dffb",
     "src/high/assets.js": "c85a88b2ce1006e4fb8ebac19c1c3722e613788596c5b0e9a89f318ec97ddf1c",
     "src/high/build.js": "8d7141f4bd21c982f98f82749a4ee3b6a44a7f1755309ae239f90baed4732c76",
     "src/high/figures.js": "4f309d305155479dec89e04fa78b05a2a4229a426dc0a77b14bdeb5594c4da8c",
@@ -83,6 +92,7 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "d8000f7a3ff05ed78b0837f4eb27fb730920733601106d62fa87901c92019d2b",
-  "cliMapPage": "3d06152e5ccb144518978d62f75212732ffa28b781e7475b08e6b411c07897d1"
+  "page": "15327f9c29225f5a6bcff3359f70160a31201fb33fc72dac41314c839a00d4b6",
+  "cliMapPage": "3d06152e5ccb144518978d62f75212732ffa28b781e7475b08e6b411c07897d1",
+  "goalMapPage": "4cb0596bb3a4c955370ee174e76722b029cba799de4ff71818f0ad14fc825445"
 }

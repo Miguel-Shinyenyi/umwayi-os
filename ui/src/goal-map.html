@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-tier="list" data-theme="plain">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>umwayi goal map</title>
+<!--@csp-->
+<style><!--@style--></style>
+</head>
+<body>
+<header class="bar">
+  <h1>umwayi goal map <span class="kiro" id="kiro" hidden>Kiroween</span></h1>
+  <div class="lamp" id="lamp-row">
+    <svg id="lamp" class="lamp-pic" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" focusable="false"></svg>
+    <span id="lamp-words">Kill switch: unknown, drawn as on</span>
+  </div>
+  <div class="controls">
+    <div class="group" role="group" aria-label="View">
+      <button type="button" class="btn" data-tier="list" aria-pressed="true">List</button>
+      <button type="button" class="btn" data-tier="standard" aria-pressed="false">Map</button>
+    </div>
+    <div class="group" role="group" aria-label="Source">
+      <button type="button" class="btn" id="src-live" aria-pressed="true">Live</button>
+      <button type="button" class="btn" id="src-file" aria-pressed="false">From a file</button>
+    </div>
+    <button type="button" class="btn" id="theme-toggle" aria-pressed="false" title="The T key does the same">Theme: off</button>
+  </div>
+</header>
+<main>
+  <p class="line" id="line" role="status" aria-live="polite">This page needs a script to read a goal map. Without one it shows nothing.</p>
+  <div class="file" id="file" hidden>
+    <label for="file-input">A goal map file (JSON), read in this browser only. It is not uploaded, sent or kept.</label>
+    <input type="file" id="file-input" accept=".json,application/json">
+  </div>
+  <p class="summary" id="summary"></p>
+  <div class="layout">
+    <section class="map" id="map" aria-label="Goal map" hidden>
+      <div class="map-wrap">
+        <svg id="drawing" role="img" aria-labelledby="summary" viewBox="0 0 1200 560"></svg>
+      </div>
+    </section>
+    <section class="list" id="list" aria-label="Tasks">
+      <h2>Tasks</h2>
+      <ul id="task-list"></ul>
+    </section>
+    <aside class="feed" aria-label="Newest events">
+      <h2>Newest events</h2>
+      <ol id="feed"></ol>
+      <p class="sup" id="sup-words"></p>
+    </aside>
+  </div>
+  <p class="legend">Every state has its word: queued, running, in review, needs owner, merged, stopped, failed. A task that needs you is drawn closest to the goal, in amber. The theme is decoration only; the T key or the Theme button turns it off, and it is off when your system asks for reduced motion.</p>
+</main>
+<script><!--@script--></script>
+</body>
+</html>

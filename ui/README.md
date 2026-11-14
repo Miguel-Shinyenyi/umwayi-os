@@ -5,6 +5,8 @@ disk the page only looks: it never writes to the repo, runs a command or makes a
 that one local backend, at the address it came from and nowhere else, to do what the command line would do (product.md,
 rule 10, W6). The core `umwayi` package never imports anything from here. The page and the Node code here import nothing from `umwayi`; the one script that reads the command line is `tools/cli_map.py` (W2, below).
 
+Status (W38, the goal map): a fourth page, `dist/goal-map.html`, draws one goal as a live mind map: the goal, the supervisor and its heartbeat, one card per task with its state word and colour, its role, worktree and age, the kill switch lamp and the newest events, with a small Kiroween theme that the T key turns off (and reduced motion always does). It reads a goal map file of the W37 contract (fixtures in `test/fixtures/goal-map/`); the live source waits for W37 and sends nothing. Code in `src/goalmap/`, tests in `test/goalmap.test.mjs`, screenshots in `screenshots/w38/`. See `docs/interface.md`.
+
 Status (W8 slice, W22, the progress page): a third page, `dist/progress.html`, shows done and open task counts per work item group, the latest ten rows of `docs/status-log.md`, the highest number in `docs/KNOWN-LIMITS.md` and the date it was built. `node build.mjs` reads those two files and `.kiro/specs/umwayi-os/tasks.md` (and nothing else: no logbook, no `.umwayi` data) and writes the page. It has no script, no form, no link and no request; its policy is `default-src 'none'` plus the hash of its one style. The parsing is `src/data/progress.js`. Since W22 the page is built every time and is not committed (`ui/dist/progress.html` is in `.gitignore`, and `dist/build.json` holds no hash of it), so a pull request that adds a status row cannot make it stale. `tests/test_progress_page.py` has its own reader of the three files and compares it with `src/data/progress.js` through node; `test/progress.test.mjs` runs the build and checks the page it wrote. It is not linked from the main page, as the command map is not. What was not done: the by-hand look in a real phone and a phone audit.
 
 Status (W2, the command map): a second page, `dist/cli-map.html`, shows the real umwayi command line as a mind map. The centre is `umwayi`, each group is a branch you tap to open, each command is one line (the first sentence of its help). A command with no help line is listed as "no help line yet". The words come from `src/data/cli-map.json`, which `tools/cli_map.py` writes from the real argparse tree (`python ui/tools/cli_map.py` from the repo root; `--check` writes nothing and exits 2 if the file is old). `node build.mjs` then builds both pages. The map page has no script and no link: its policy is `default-src 'none'` plus the hash of its one style, so it can make no request. It adds no package. `tests/test_cli_map.py` fails when a command or group of the real command line is missing from the data file (or the page), `test/climap.test.mjs` checks the file and the built page, and `test/climap-phone.test.mjs` runs the phone audit on it (needs a Chromium, skips without one). `dist/index.html` is byte for byte what it was. What was not done: the by-hand look in a real phone; `test/climap-phone.test.mjs` was not run in the build sandbox (see the pull request).
@@ -49,12 +51,13 @@ node build.mjs
 ```
 
 `--ignore-scripts` is enough for esbuild: its program comes from an optional platform package, not from a script.
-**umwayi never runs npm, node or a browser.** The build writes three files, and all are committed:
+**umwayi never runs npm, node or a browser.** The build writes these files (the progress page is not committed):
 
 | file | what it is |
 | --- | --- |
 | `dist/index.html` | the whole page: script, styles and every shape inline, about 680 KB (the limit is about 2 MB). No other file is loaded and nothing is downloaded. |
 | `dist/cli-map.html` | the command map page (W2), also built by `node build.mjs`, about 20 KB, no script |
+| `dist/goal-map.html` | the goal map page (W38), about 30 KB, one inline script and style by hash, no request |
 | `dist/build.json` | the SHA-256 of every file the pages were built from and of both pages, so `tests/test_ui_package.py` finds a source changed without a rebuild, or a page edited by hand, without npm |
 
 Open `dist/index.html` from disk. No server is needed.

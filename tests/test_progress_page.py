@@ -123,7 +123,7 @@ class CommittedFilesTests(unittest.TestCase):
 
     def test_build_json_holds_no_hash_of_the_page_or_of_what_it_shows(self):
         data = json.loads(BUILD.read_text(encoding="utf-8"))
-        self.assertEqual(sorted(data), ["cliMapPage", "files", "page"])
+        self.assertEqual(sorted(data), ["cliMapPage", "files", "goalMapPage", "page"])  # W38 added the goal map page, which is committed
         self.assertFalse([n for n in data["files"] if "progress" in n and not n.startswith("src/")])
 
     def test_the_build_script_writes_the_page_and_does_not_hash_it_into_build_json(self):

@@ -2,7 +2,7 @@
 // browser's FileReader on a file the owner picked or dropped: the page reads the file in the browser and makes no request.
 //
 //   parseSnapshot(text)       the strict reader. { ok: true, snapshot } or { ok: false }; nothing of the file comes back on a refusal.
-//   readSnapshotFile(file)    the size check, FileReader.readAsText, then parseSnapshot. Never rejects.
+//   readSnapshotFile(file)    the size check, FileReader.readAsText (readTextFile), then parseSnapshot. Never rejects.
 //   needsFrom(counts)         the numbers that feed the position function (12.R3.6): { id: 0..1 } for the eleven stations.
 //   sceneNumbers(counts)      the mapping table (12.R3.9): counts to sheep, stones, lanterns, beads, lamps, marks and the water level.
 //   viewOf(snapshot | null)   what the page shows: the counts, the label, the footer and the needs. Sample if and only if no snapshot.
@@ -74,13 +74,15 @@ export function parseSnapshot(text) {
   }
 }
 
-export function readSnapshotFile(file, Reader = globalThis.FileReader) {
+// The one place a picked file is read (W38 reads its goal map file with it too): text, or null when the file is too large, cannot
+// be read or does not give text. Never rejects. Reader is the browser's FileReader, handed in so a test can stand in for it.
+export function readTextFile(file, Reader = globalThis.FileReader, maxBytes = MAX_BYTES) {
   return new Promise((resolve) => {
-    const refuse = () => resolve({ ok: false });
+    const refuse = () => resolve(null);
     try {
-      if (!Reader || !file || typeof file.size !== 'number' || !(file.size >= 0) || file.size > MAX_BYTES) { refuse(); return; }
+      if (!Reader || !file || typeof file.size !== 'number' || !(file.size >= 0) || file.size > maxBytes) { refuse(); return; }
       const reader = new Reader();
-      reader.onload = () => resolve(typeof reader.result === 'string' ? parseSnapshot(reader.result) : { ok: false });
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
       reader.onerror = refuse;
       reader.onabort = refuse;
       reader.readAsText(file, 'utf-8');
@@ -88,6 +90,10 @@ export function readSnapshotFile(file, Reader = globalThis.FileReader) {
       refuse();
     }
   });
+}
+
+export function readSnapshotFile(file, Reader = globalThis.FileReader) {
+  return readTextFile(file, Reader).then((text) => (text === null ? { ok: false } : parseSnapshot(text)));
 }
 
 // ------------------------------------------------------------------------------------------------ the needs (12.R3.6)
