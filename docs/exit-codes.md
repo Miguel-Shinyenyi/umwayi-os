@@ -27,6 +27,7 @@ A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 | `umwayi agent`, `umwayi schedule`, `umwayi budget` | 0, 2, 3 or 64, never 1 |
 | `umwayi rules due` | 0 no rule has lapsed, 3 a rule has lapsed or `rules.yaml` is missing or broken, 64 usage, 2 an unexpected error, never 1 |
 | `umwayi view snapshot` | 0 done, 1 the logbook failed its tamper check (nothing written), 2 an unexpected error, 64 usage (a bad `--out` or `--date`); never 3 |
+| `umwayi feedback export` | 0 the summary was printed, 2 the logbook is missing or did not pass its check (a hand edit, a broken chain, a format problem; no summary is printed) or an unexpected error, 64 usage; never 1 or 3 (W33) |
 | `umwayi serve` | 0 stopped by Ctrl-C or SIGTERM, 1 the logbook failed its tamper check (nothing started), 2 an unexpected error, a socket that did not read back as 127.0.0.1, or a stop that could not be recorded, 64 usage or config (a bad `--port` or `--page`, a port in use, no valid token, another server holds the lock); never 3 |
 | `umwayi serve token create`, `rotate` | 0 done (the token is shown once, on a terminal), 1 refused (a record exists, none exists, or the output is not a terminal), 2 an unexpected error or an entry that could not be written, 64 usage (a bad `--days`); never 3 |
 | `umwayi concerns check` | 0 the record is well formed, 2 any failure (one line each), an unreadable record or an unexpected error, 64 usage; never 1 or 3 (W19) |
