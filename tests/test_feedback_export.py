@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -38,8 +39,10 @@ RULES = f"""rules:
     matchers:
       type: payment
 """
-DAY = "2026-11-12"
-LATER = "2026-11-13"
+# The two days of the test logbook, from today's UTC date and never a fixed day: a fixed day falls behind the real clock,
+# and the checks date their entries by the latest of the system date and the logbook (rules.election_clock).
+LATER = datetime.now(timezone.utc).date().isoformat()
+DAY = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
 
 
 def run_main(root, *argv, today=LATER):
@@ -122,7 +125,7 @@ class SummaryTests(Base):
     def test_the_date_range_is_the_first_and_last_entry_date(self):
         dates = sorted(e.date for e in logbook.read_checked(self.root))
         self.assertIn(f"dates: first {dates[0]}, last {dates[-1]}\n", self.out)
-        self.assertEqual(dates[-1], "2026-11-13")
+        self.assertEqual(dates[-1], LATER)
 
     def test_the_budget_is_the_sum_of_all_days_in_uu_with_an_open_reservation_counted_in_full(self):
         self.assertIn("budget spent: 7 UU", self.out)
