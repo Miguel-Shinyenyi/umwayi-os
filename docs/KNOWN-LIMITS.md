@@ -761,9 +761,14 @@ The grass, soil and rock photographs are CC0 from Poly Haven and are not of Laik
 
 The fallback covers a High that cannot load its code, cannot load a photograph, throws while it is built, or is too slow. A failure after High is on (a shader that does not compile on a given GPU, a lost context) shows as whatever the browser does with it: three.js logs the shader error and the object is not drawn. A lost context goes through the Standard path (List, with the words). No test or browser run here had a shader fail to compile.
 
-### 156. High does not step down to Standard by itself (not built)
+### 156. High steps down to Standard by itself only on frame times, once, and it was tried on fake frames
 
-A device that is offered High, or whose visitor chooses it, and draws it slowly keeps High. The detail ladder lowers the pixel ratio, then the bloom and the multisampling, and thins the grass, after slow frames, but nothing takes High off when that is not enough, so a weak GPU with strong numbers can stay at a few frames a second. The visitor's way back is the switch. The owner asked for the automatic step down on PR 58 as a follow-up, not part of that pull request: it is the task UI.8 in tasks.md and is **not built**. Until it is, the sandbox runs of High in software drawing (1 to 3 frames a second) are what a slow device would show.
+When High is drawn and a window of 20 frames averages more than 34 ms, the page removes High, shows one notice and stays Standard (UI.8). The detail ladder (the pixel ratio, then the bloom and the multisampling) still works inside a tier. What this does not do is described in the limits part of UI.8; the points that matter here:
+
+- It measures frame times while the picture moves, so a device that is slow only at rest, or only at the first frame, is not caught, and one hitch in a fast run is not a weak machine.
+- It was tested with fake frame times and a fake page only, not in a real browser, and nothing here says where a real integrated GPU lands against the 34 ms line.
+- It is once per session. After it, the visitor's own click on the switch is the only way back to High, and a new step down needs a new slow window.
+- A forced detail mode (`#detail=high` or `#detail=low`) is kept, so a visitor who forces one never steps down.
 
 ## Layer 13: elections (found while building L13.1)
 
@@ -1475,3 +1480,16 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The workflow runs the build on every push to main, even a push that changes nothing the page shows. It also runs `npm ci`, which reads the npm registry or its cache.
 - The build writes `ui/dist/index.html`, `cli-map.html` and `build.json` too, but only `progress.html` is uploaded. If the build wrote a different `progress.html` path, the step would fail (`if-no-files-found: error`) and no page would be kept.
 - The page shows the sources as they are on main at that push, with the build date. A run that is cancelled or fails leaves the last artifact of an earlier run as the newest, so an old page can look current.
+
+## Web interface (UI.8), found while building
+
+### 276. The High step down is a frame time rule, so it can step down a good device and miss a bad one
+
+`ui/src/engine/stage.js` takes High off after a slow window (KNOWN-LIMITS 156). The rule is small on purpose, and it is wrong in both directions sometimes.
+
+- A window is 20 frames that the loop reports while the picture moves, averaging over 34 ms. A tab that was in the background, a machine busy with something else, or a first frame that compiles shaders can fill a window with slow frames, and a good device then loses High until the visitor asks for it again.
+- A device that draws High slowly only at rest, or only when it is not moving, is never measured: the loop reports no frame time then.
+- The step down is not undone when the machine speeds up. One slow window ends High for the session. The visitor can click High again; nothing else will.
+- The notice is one line of text in the page. A screen reader that is not reading the notice area will not announce it, and the pressed state of the switch is what changes for it.
+- A forced detail mode in the address (`#detail=high` or `#detail=low`) is kept, so a visitor who forces one never steps down, even on a very slow device.
+- The 20 frames and the 34 ms are starting values, chosen with the ladder's own 34 ms. They were not tuned on a real device. The tests use fake frame times and a fake page; the change was not run in a real browser.
