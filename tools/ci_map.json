@@ -138,6 +138,7 @@
   "tests/test_miniyaml.py": [],
   "tests/test_petition.py": ["rules.yaml"],
   "tests/test_progress_page.py": [".gitignore", ".kiro", "docs", "ui", "ui/dist"],
+  "tests/test_progress_workflow.py": [".github", "ui"],
   "tests/test_queue.py": [],
   "tests/test_quickstart.py": ["README.md", "docs", "rules.yaml"],
   "tests/test_reopen.py": ["adapters", "rules.yaml"],

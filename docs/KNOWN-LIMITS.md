@@ -1469,9 +1469,21 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The page tells a tester that the logbook export is not available yet. When the exporter is built, nothing fails until someone reads the page; the open questions of the page say so. The goal section shows only `goal status` and a refused `goal start`: `approve` and `run` were not run for the page, because they need real agents and a terminal.
 - Only Linux was tried. macOS, Windows and a Python older than 3.10 were not.
 
+## Progress page artifact (W27), found while building
+
+### 275. The progress page workflow was never run here, and its artifact is not a public page
+
+`.github/workflows/progress-page.yml` keeps the progress page as a workflow artifact on a push to main. These are its limits.
+
+- A workflow cannot run in this environment. `tests/test_progress_workflow.py` reads the file as text and pins what it must and must not contain. Whether the first run on main builds the page, uploads it and shows it in the Artifacts list was not seen.
+- The artifact is not a public page. A person with read access to the repository downloads a zip from the Actions tab. It has no stable address, and it expires after 30 days. Publishing is the owner's decision and is not built.
+- The workflow runs the build on every push to main, even a push that changes nothing the page shows. It also runs `npm ci`, which reads the npm registry or its cache.
+- The build writes `ui/dist/index.html`, `cli-map.html` and `build.json` too, but only `progress.html` is uploaded. If the build wrote a different `progress.html` path, the step would fail (`if-no-files-found: error`) and no page would be kept.
+- The page shows the sources as they are on main at that push, with the build date. A run that is cancelled or fails leaves the last artifact of an earlier run as the newest, so an old page can look current.
+
 ## Web interface (UI.8), found while building
 
-### 275. The High step down is a frame time rule, so it can step down a good device and miss a bad one
+### 276. The High step down is a frame time rule, so it can step down a good device and miss a bad one
 
 `ui/src/engine/stage.js` takes High off after a slow window (KNOWN-LIMITS 156). The rule is small on purpose, and it is wrong in both directions sometimes.
 
