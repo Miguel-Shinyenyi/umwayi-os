@@ -1,6 +1,6 @@
 // The renderer: WebGL2, multisampled, soft shadows (PCF), filmic tone mapping, a capped bloom. It draws only when asked.
 import * as THREE from 'three';
-import { STEPS, shouldStepDown, stepDown } from './detail.js';
+import { STEPS, shouldStepDown, stepDown, createHighWatch } from './detail.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -8,6 +8,34 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // the context attributes, once: a second getContext with the same attributes returns the same context
 export const GL_ATTRIBUTES = { antialias: false, powerPreference: 'default', alpha: false };
+
+// The frame times the loop reports while the picture moves. Two readers: the detail ladder (about two dozen slow frames, one
+// rung down) and, while High is armed, the High watch (a shorter window, then the tier itself). stage is any object with
+// setStep, onStep, world and pinned, and getStep() says the rung it is on, so a test can drive this without WebGL.
+export function frameNotes(stage, getStep) {
+  const times = [];
+  let high = null;
+  const note = (dt) => {
+    if (high && !stage.pinned && high.note(dt)) {
+      high = null; // done: it called onSlow once and is not armed again until the page arms it
+      times.length = 0;
+      return;
+    }
+    times.push(dt);
+    if (times.length < 24) return;
+    const slow = shouldStepDown(times);
+    times.length = 0;
+    const step = getStep();
+    if (slow && !stage.pinned && step < STEPS.length - 1) {
+      stage.setStep(stepDown(step), stage.world);
+      stage.onStep?.(getStep());
+    }
+  };
+  note.watchHigh = (onSlow) => {
+    high = typeof onSlow === 'function' ? createHighWatch(onSlow) : null;
+  };
+  return note;
+}
 
 export function createStage(canvas, scene) {
   const gl = canvas.getContext('webgl2', GL_ATTRIBUTES);
@@ -78,17 +106,10 @@ export function createStage(canvas, scene) {
       composer.render();
     },
   };
-  // After about two dozen slow frames while moving, step down the ladder.
-  const times = [];
-  stage.noteFrame = (dt) => {
-    times.push(dt);
-    if (times.length < 24) return;
-    const slow = shouldStepDown(times);
-    times.length = 0;
-    if (slow && !stage.pinned && step < STEPS.length - 1) {
-      stage.setStep(stepDown(step), stage.world);
-      stage.onStep?.(step);
-    }
-  };
+  const notes = frameNotes(stage, () => step);
+  stage.noteFrame = notes;
+  // UI.8: boot.js arms this while High is drawn; onSlow is called once, when a short window of frames is slow, and High is
+  // then taken off by the page. watchHigh(null) disarms. A pinned detail mode (#detail=) is kept, as for the ladder.
+  stage.watchHigh = notes.watchHigh;
   return stage;
 }

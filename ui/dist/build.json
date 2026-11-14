@@ -5,7 +5,7 @@
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
     "src/api/client.js": "2e7be51a5467d8117a9ca77cfa8f6bad9ffe68a50b964b4fb76f1ee70af5f18e",
     "src/app.js": "a817e9631a608805957558b6a9857adff083b5e7f932149eb164eee4d8dab5d0",
-    "src/boot.js": "a661bb40c632432af70767733b67bc4594dfc5b59d9ad9a0e0ae07cbaa906a62",
+    "src/boot.js": "691eda538e41eadc18c84a44b71851d28b6240894076fc5482c6845eef63cca2",
     "src/cli-map.css": "fede12e5b36d5349091c5e7141083b35825d2e697b2dc8eb5ce345c46d222fb7",
     "src/cli-map.html": "87ab84ccbb3bd1ac3b527532e0252c82df8a864c6b4f6768f7c868822307443b",
     "src/data/checks.js": "53ac4f145740baf00144ce4097b660a1101959b2976f9ba33eec7df4291f5321",
@@ -16,7 +16,7 @@
     "src/data/progress.js": "1a7346593c1a7ffbf559423afe137d1ab87646b5277fc0132502f31d2c35524e",
     "src/data/sample.js": "4e3c9c35d900787b763d13871e9e1dca0db9e92a90daf84ef2fa7c82aacf6b6e",
     "src/data/snapshot.js": "afe88848c88fff94414e4862cf1da14148c7aa3422cad7ff5c3ed49a484228d4",
-    "src/engine/detail.js": "e3a7ee835c60ceb4aa43946fe598be0a7a9d713b6c9521dfc5ae7e2ddee189f3",
+    "src/engine/detail.js": "58f14517ce4d73b7fad1bba9294b3f7124d5c1702ad6febe9fc5f345f1e80659",
     "src/engine/ease.js": "ce5cbf0399c12132416d2717e006a4b6ee1758b269d5ec2ec37c9ae91b422f30",
     "src/engine/env.js": "2edb07b22ece45de9334f2d65bd4c7eff7669a8a01320f4ddad7b482d68e3fdb",
     "src/engine/flow.js": "a1e3bc43b06ed987760a0ed558da9089fe5b2e1e8128f03bed8c11ee789d41f5",
@@ -27,7 +27,7 @@
     "src/engine/poses.js": "092c66687cb5c64aa032eef32f4a7739dd07aba4c2dfe4a7cf5c479e645dc6c2",
     "src/engine/rig.js": "ebe206d8a60856522b1c9b34ab05a7ec022a9c84f33ed7a5cb1373b9a42011b1",
     "src/engine/settings.js": "59425bcb2a419c4403686b21231bfdbacec2d0ef416b18cf0610a848ad1e1891",
-    "src/engine/stage.js": "35e1c999b7ff735213ec79d7e179e724ad5fec6f6864a841f905508da2d5ab33",
+    "src/engine/stage.js": "ad9df675dca4ec24a2b22acab4f8b435c5058577ae78a2ba7a59043d36ea7a24",
     "src/engine/tier.js": "0c874c72777d288dd606a47b083690bb2d61f8f75d799c2a410aa27f16eebe08",
     "src/high/assets.js": "c85a88b2ce1006e4fb8ebac19c1c3722e613788596c5b0e9a89f318ec97ddf1c",
     "src/high/build.js": "8d7141f4bd21c982f98f82749a4ee3b6a44a7f1755309ae239f90baed4732c76",
@@ -40,7 +40,7 @@
     "src/main.js": "a32482d12c103e1bbe461eb0397a4989bf1f371dd7f08f8c68d96e8ba06f0195",
     "src/progress.css": "a3f20e77ae9b8eac9c36a53b38eb78e9a9d41c31aabeb250013ab99dae90c70c",
     "src/progress.html": "292afc915b8e3d206c9d60baba889c64c6cdcd1e5214ccbd5b1ca0617914e4a8",
-    "src/scene.js": "032b124fca50a4a5715e6c3060643e0416b0e728a33b0d5d43ad425ef81806a8",
+    "src/scene.js": "854b57f4192f115eb9601a7da59cfe0615d049ea3da07dbb80f139235e89a61b",
     "src/stations/adapters.js": "fc57f901f56ae67403ebdfa40ba3c6963d923e83ed2eca14b11cba3d31c22e18",
     "src/stations/archive.js": "d32b7e882609343c11073ad930e840d58ea13ed0b632eeb2d289cacb8500ff25",
     "src/stations/automation.js": "170410e4fdba6f8608427d7198f68aa677326e0a557d11b2661916270a43e4ae",
@@ -83,6 +83,6 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "5a616b9cabd16ede279b332af81b15be40b284751ba140f98a162c602892fbf2",
+  "page": "d8000f7a3ff05ed78b0837f4eb27fb730920733601106d62fa87901c92019d2b",
   "cliMapPage": "3d06152e5ccb144518978d62f75212732ffa28b781e7475b08e6b411c07897d1"
 }
