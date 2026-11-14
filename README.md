@@ -36,6 +36,8 @@ python -m unittest discover -s tests -t .
 
 Without installing, use `python -m umwayi` from the repo root.
 
+New here? Start with the [tester quickstart](docs/quickstart.md): install, a first safe run on a scratch folder, the kill switch and the defaults.
+
 ## Exit codes
 
 - 0: Yes, or done.

@@ -1,0 +1,36 @@
+name: progress page
+
+# W27: build ui/dist/progress.html on every push to main and keep it as a workflow artifact, and nothing else.
+# The page is not committed (W22). Where it is published is the owner's decision, so this file has no Pages step, no
+# deploy step and no secret, and it can only read the repository. The page is downloaded from the run's Artifacts list.
+# The build command is the one of W22 and ui/README.md: npm ci --ignore-scripts, then node build.mjs, both in ui/.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: progress-page-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build the progress page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ui/dist/progress.html
+        working-directory: ui
+        run: |
+          set -e
+          npm ci --ignore-scripts
+          node build.mjs
+      - name: Keep the page as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: progress-page
+          path: ui/dist/progress.html
+          if-no-files-found: error
+          retention-days: 30
