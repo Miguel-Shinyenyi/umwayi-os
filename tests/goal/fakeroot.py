@@ -16,10 +16,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-# The date the test helpers write their logbook entries with. It is today's UTC date, not a fixed day: the supervisor and
-# the commands date their own entries by the election clock (the later of the system date and the newest entry), and a
-# logbook refuses an entry dated before the last one, so a fixed day broke every test that mixes the two after midnight.
-DATE = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+# The date the test helpers write their logbook entries with: today's UTC date, computed when this module is imported
+# (W34). The supervisor and the goal commands date their own entries by the election clock (the later of the system
+# date and the newest entry), and the logbook refuses an entry dated before its last one, so a fixed day broke every
+# test that mixes the two once the clock passed it.
+DATE = datetime.now(timezone.utc).date().isoformat()
 EPOCH = 1_794_000_000  # a fixed time of day for the fake clock: 2026-11-06 UTC, far from any test date
 GIT_ENV = {
     "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
@@ -124,7 +125,7 @@ class FakeRoot(unittest.TestCase):
         shutil.copy(REPO / "umwayi.json", self.root / "umwayi.json")
         (self.root / "memory").mkdir()
         self.clock = FakeClock()
-        self.when = datetime.now(timezone.utc).strftime("%Y-%m-%d")  # read per test: a run that crosses midnight stays right
+        self.when = DATE
 
     def logbook_text(self):
         p = self.root / "LOGBOOK.md"
