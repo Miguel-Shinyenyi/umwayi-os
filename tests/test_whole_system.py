@@ -836,7 +836,8 @@ class GoalWholeSystemTests(unittest.TestCase):
         self.assertIn("Approval requested: task T-01", w.logbook_text())
         self.assertIn(f"Goal {goal} task T-01 needs you", w.u("queue", "list").stdout)
         r = self.goal_cmd("status", extra={"UMWAYI_TEST_TIME_OFFSET": str(3 * 3600)}, code=0)
-        self.assertIn(f"Goal {goal} task T-01 needs you (ask). Asked 3 h ago, denied in 21 h.", r.stdout)
+        # 3 h plus the real seconds since the ask (0 or more): the time left is 21 h less those seconds, shown as 21 or 20 h
+        self.assertRegex(r.stdout, rf"Goal {goal} task T-01 needs you \(ask\)\. Asked 3 h ago, denied in 2[01] h\.")
         # an answer 25 hours later is refused, and the denial is written once, though no process ran in between
         late = {"UMWAYI_TEST_TIME_OFFSET": str(25 * 3600)}
         rc, out = w.tty("goal", "answer", goal, "T-01", "yes", extra=late)
