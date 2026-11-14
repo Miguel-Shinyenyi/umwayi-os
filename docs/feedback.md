@@ -15,16 +15,24 @@ This page tells a tester how to report what happened when they tried umwayi, and
 
 ### Export of a logbook summary
 
-Not yet available. There is no command that exports a summary of the logbook (counts per entry kind, counts per verdict, the date range, the chain status and the budget spent in UU) with no file content. It is a separate task after W9.8. Until it exists, do not paste your logbook, and do not paste its lines.
+`umwayi feedback export` prints a summary of your logbook that you can paste into a feedback issue. It prints counts and dates only. It never prints a path, a command, the text of a rule, the content of a file or the text of any logbook entry.
 
-What exists today, and is not that export:
+1. Run it in the folder you used umwayi in (or give `--root FOLDER` before the word `feedback`): `umwayi feedback export`.
+2. It prints these lines: the number of entries; the number of entries for each kind (the command that wrote the entry, for example a check or a queue add; a kind it does not know is counted as `other`); the number of checks for each verdict (Yes, No, Ask me first, and `unreadable` for a check line it could not read); the first and last date; whether the hash chain is intact and how many entries it holds, or that it is not started; and the budget spent in UU (an open reservation counts in full).
+3. Read the output before you paste it. It holds no secret by design, and the check that it does not is a test, but you are the last reader.
+4. If it exits 2 and prints one sentence and no summary, the logbook is missing or did not pass its check (it was edited by hand, the chain is broken, or a line is not in the format). Nothing was changed. Do not paste the logbook. Say in the issue that the export refused, and give the exit code.
 
-- `umwayi logbook verify` says whether the chain is intact. Its output is a status and a count, not a summary, and it names the entry where a break begins.
-- `umwayi view snapshot` writes a JSON file of numbers (the number of logbook entries, the length of the chain, the budget used in UU for seven days, and a few other counts). It holds no per kind or per verdict count and no date range of the logbook, and it writes one entry to your logbook each time it runs. Do not treat it as the export, and read the file before you share it.
+What it does not do: it writes no file and adds no entry to the logbook, so running it twice gives the same answer and leaves your folder as it was. It does not repair anything and does not look at the kill switch. It cannot tell you what was in an entry, because it never prints one. The counts and dates can still show when you used umwayi and how much, and nothing else. It is not a substitute for the questions of the template: the exit code and what happened still have to be written by you.
+
+What else exists, and is not that export:
+
+- `umwayi logbook verify` says whether the chain is intact. Its output is a status and a count, and it names the entry where a break begins.
+- `umwayi view snapshot` writes a JSON file of numbers for the page, and one entry to your logbook each time it runs. It has no count per kind or per verdict and no date range. Use the export instead.
 
 ## Decisions log
 
-- 2026-11-13: the export was not built here, because the first check of the code on main found no command that gives the listed fields, and the exporter is its own task.
+- 2026-11-13: the export was not built in the first version of this page, because no command gave the listed fields; the exporter was its own task.
+- 2026-11-14: W33 built it as `umwayi feedback export`. A kind is the source of an entry from a fixed list, never free text, and a verdict is read only from a check entry in its fixed form, so no word of the owner can reach the output. A logbook that does not pass its check gives exit 2 and no summary rather than a partial one.
 - 2026-11-13: the template asks for the exit code as a number and gives no place for a log or a file, so a tester is not led to paste one.
 
 ## Open questions

@@ -1475,3 +1475,18 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The workflow runs the build on every push to main, even a push that changes nothing the page shows. It also runs `npm ci`, which reads the npm registry or its cache.
 - The build writes `ui/dist/index.html`, `cli-map.html` and `build.json` too, but only `progress.html` is uploaded. If the build wrote a different `progress.html` path, the step would fail (`if-no-files-found: error`) and no page would be kept.
 - The page shows the sources as they are on main at that push, with the build date. A run that is cancelled or fails leaves the last artifact of an earlier run as the newest, so an old page can look current.
+
+## Feedback export (W33), found while building
+
+### 276. The feedback export prints no text of the logbook, and it still says when and how much you worked
+
+`umwayi feedback export` prints counts and dates for a tester to paste. These are its limits.
+
+- The summary shows when umwayi was used (the first and last date), how often (the counts) and which commands were used (the kinds, from a fixed list). That is a pattern of work, and the tester should read it before sharing, as `docs/feedback.md` says. A kind that is not in the fixed list is counted as `other`, so a new command shows as `other` until its name is added to `KINDS` in `umwayi/feedback.py`.
+- The verdict of a check is read from the start of the Added line of a `umwayi check` entry. An entry in another form counts as `unreadable`. The count of `Yes`, `No` and `Ask me first` is only as true as the logbook, which the tamper check shows is unchanged and not that it is right.
+- The chain line says intact and the number of chained entries, or not started. It does not say who started the chain or when.
+- The budget figure sums every day of the ledger in whole UU, rounding up each day, with an open reservation counted in full. It can differ by a few UU from the sum of the settled runs, and it says nothing of the units file in use.
+- A missing logbook is exit 2 with a fixed sentence, as a logbook that failed its check is. A tester who has not run anything yet therefore gets a refusal and not an empty summary.
+- `logbook.verify` and the checked reader both stop a hand edited logbook, so a test that disables only the first of them still passes. The two are kept on purpose, and the second alone is enough.
+- It does not check the kill switch and asks the rules nothing, as `umwayi view snapshot` does not. It is a read only command for the owner, and no rules action was added for it.
+- Nothing was sent anywhere. Sending the summary to the owner (W29) is not built.
