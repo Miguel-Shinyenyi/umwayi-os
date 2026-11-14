@@ -1,5 +1,5 @@
-"""W26: the tester feedback path. The issue template asks every question, a blank issue is still allowed, docs/feedback.md is
-linked from README.md and says plainly that the logbook summary export is not available yet, and nothing here claims it is.
+"""W26, W33: the tester feedback path. The issue template asks every question, a blank issue is still allowed, docs/feedback.md is
+linked from README.md and gives the steps of `umwayi feedback export` (W33; before it, the section said Not yet available), and nothing here claims a command that does not exist.
 """
 import re
 import unittest
@@ -68,18 +68,22 @@ class DocTests(unittest.TestCase):
                                             "python --version", "echo $?")]
         self.assertEqual(step, sorted(step))
 
-    def test_the_export_is_marked_not_yet_available_and_names_every_field_it_would_hold(self):
+    def test_the_export_section_gives_the_real_command_and_steps_and_names_every_field(self):
+        # W33 changed this test (it was test_the_export_is_marked_not_yet_available...): the export now exists, so the section
+        # must give the command and the steps instead of the Not yet available line, and it must still name every field.
         section = self.doc.split("### Export of a logbook summary")[1].split("## Decisions log")[0]
-        self.assertTrue(section.lstrip().startswith("Not yet available."))
-        for field in ("counts per entry kind", "counts per verdict", "date range", "chain status", "budget spent in UU"):
+        self.assertNotIn("Not yet available", section)
+        self.assertTrue(section.lstrip().startswith("`umwayi feedback export` prints a summary"))
+        for field in ("number of entries", "each kind", "each verdict", "first and last date", "hash chain", "budget spent in UU"):
             self.assertIn(field, section)
-        self.assertIn("W9.8", section)
+        for promise in ("never prints a path", "writes no file", "adds no entry to the logbook", "exits 2"):
+            self.assertIn(promise, section)
 
     def test_the_doc_does_not_claim_a_command_that_does_not_exist(self):
         commands = set(re.findall(r"`umwayi ([a-z]+(?: [a-z]+)?)", self.doc))
-        self.assertEqual(commands, {"logbook verify", "view snapshot"})
+        self.assertEqual(commands, {"feedback export", "logbook verify", "view snapshot"})
         text = (REPO / "umwayi" / "cli.py").read_text(encoding="utf-8")
-        for name in ("verify", "snapshot"):
+        for name in ("verify", "snapshot", "export"):
             self.assertIn(f'"{name}"', text)
         self.assertNotRegex(self.doc, r"umwayi (logbook|view|report) (export|summary)")
 

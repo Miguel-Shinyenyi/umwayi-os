@@ -125,6 +125,7 @@
   "tests/test_elections.py": [],
   "tests/test_exit_codes.py": [],
   "tests/test_feedback.py": [".github", "README.md", "docs"],
+  "tests/test_feedback_export.py": [],
   "tests/test_frontier_practices.py": [".kiro", "docs", "guidance.yaml"],
   "tests/test_generated_files.py": ["docs", "tools"],
   "tests/test_helpers.py": ["rules.yaml"],
