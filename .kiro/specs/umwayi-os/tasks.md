@@ -1032,6 +1032,8 @@ When W9 is approved and built, this row moves into the main status table as its 
 - [ ] W30 Fix `datetime.utcfromtimestamp` in `umwayi/goallog.py` (line 277), which is deprecated on Python 3.12 and later: use a timezone aware datetime, keep the same output text, add a test.
 - [ ] W31 Project A: the M-Pesa statement analyzer, built through the OS as the first real judged project.
 - [ ] W32 Project B: the hub link checker, built by the owner and judged by Claude.
+- [x] W35 A Homebrew Python path with an `@` passes the schedule path rule (11.R1.4): `_SAFE_PATH` in `umwayi/schedule.py` allows `@`, every other character outside `A-Z a-z 0-9 / . _ + -` stays refused, and the `.` and `..` parts and the length are still checked. Tests in `tests/test_schedule.py` (HomebrewAtTests): the `@` path in the service, the timer and the printed cron line, and a space, a quote, a newline, `$` and a backtick still refused next to an `@`. A safety rule change: the owner reviews it before merging. Built Nov 14, its own pull request.
+- [ ] W36 Re-run the video walkthrough tests on the tester's Mac after W34 and W35 are merged, and find the cause of two failures nobody explained yet: `tests.goal.test_cli` StopTests.test_stop_reaches_a_running_supervisor_within_its_watch left the task running, and `tests.test_whole_system` SupportTests.test_the_end_checks_see_a_leftover_process found a leftover process. **Open: waits for W34 and W35, and for the tester's Mac.**
 
 ## Later tasks (named by the owner on Nov 13; numbers are given when each starts)
 

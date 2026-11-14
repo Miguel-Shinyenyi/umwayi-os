@@ -1475,3 +1475,13 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The workflow runs the build on every push to main, even a push that changes nothing the page shows. It also runs `npm ci`, which reads the npm registry or its cache.
 - The build writes `ui/dist/index.html`, `cli-map.html` and `build.json` too, but only `progress.html` is uploaded. If the build wrote a different `progress.html` path, the step would fail (`if-no-files-found: error`) and no page would be kept.
 - The page shows the sources as they are on main at that push, with the build date. A run that is cancelled or fails leaves the last artifact of an earlier run as the newest, so an old page can look current.
+
+## Scheduled runs (layer 11), found while building W35
+
+### 276. An `@` in a schedule path is safe for the files umwayi writes today, and only for them
+
+The path rule 11.R1.4 allows `@` since W35, so a Homebrew Python path passes. The reading that makes it safe is about the three outputs umwayi writes today: a systemd service, a systemd timer and a printed cron line.
+
+- A path always starts with `/`, so `@` is never the first character of an `ExecStart=` command, where systemd reads `@` as a prefix, nor of a cron line, where `@daily` and the like start a line. systemd specifiers are `%` and variables are `$`, both still refused; `/bin/sh` gives `@` no meaning outside `$@`.
+- A unit name never holds a path (it is `umwayi-ROOTID-NAME`), so the `@` of a systemd template unit name cannot arise.
+- umwayi writes no launchd plist today. A plist is XML, where `@` has no meaning, but a future writer of another kind of file must check the rule again for that kind before it reuses `_safe_path`.
