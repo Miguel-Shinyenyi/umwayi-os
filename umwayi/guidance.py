@@ -178,7 +178,7 @@ def _read_source(root: Path, path: str) -> list[str]:
         data = fsutil.read_regular(full, MAX_SOURCE_BYTES)
         return data.decode("utf-8").splitlines()
     except (OSError, ValueError):
-        raise SourceChanged("a source file of guidance.yaml cannot be read or is outside the repo: "
+        raise SourceChanged(f"a source file of guidance.yaml cannot be read or is outside the repo ({path}): "
                             "stop and ask the owner") from None
 
 
