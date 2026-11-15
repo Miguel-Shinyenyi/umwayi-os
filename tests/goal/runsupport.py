@@ -130,7 +130,7 @@ class ChildDouble:
         if spec.get("exit") is not None and not any("exit" in s for s in steps):
             steps.append({"exit": spec["exit"]})
         workdir = argv[argv.index("--workdir") + 1] if "--workdir" in argv else str(cwd)
-        env = dict(os.environ, FAKE_GOAL_SCRIPT=json.dumps(steps), PYTHONPATH=str(REPO))
+        env = dict(os.environ, FAKE_GOAL_SCRIPT=json.dumps(steps), PYTHONPATH=str(REPO), FAKE_UMWAYI_ROOT=str(self.case.root))
         proc = subprocess.Popen([sys.executable, str(FAKE_AGENT)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, cwd=workdir, env=env, start_new_session=True)
         self.procs.append(proc)

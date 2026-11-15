@@ -331,6 +331,55 @@ def child_argv(name, cap_uu, workdir, model_effort=()):
     return argv
 
 
+# W56: the added line of a `umwayi check` entry (rules.log_entry) that blocked a tool call: a rule or no rule gave No or
+# Ask me first to an action type `tool_...`. A kill switch entry ("The kill switch gave No") is not a block by a rule.
+_BLOCK_ADDED = re.compile(r"(?:Rule (?P<rule>[a-z0-9][a-z0-9_-]{0,99}) gave|No rule gave) (?P<answer>No|Ask me first); "
+                          r"action type: (?P<type>tool_[A-Za-z0-9_.:-]{1,40})")
+BLOCK_SOURCE = "umwayi check"
+
+
+def logbook_mark(root):
+    """How many entries the logbook holds now, or None when it cannot be read with its checks (then no block is
+    looked for: the run ends as it would without W56)."""
+    try:
+        return len(logbook.read_checked(root))
+    except UmwayiError:
+        return None
+
+
+def block_since(root, mark):
+    """The fixed words (goalstate.block_words) of the last tool call that the rules blocked in the entries written after
+    `mark`, or None. Only the added line of a `umwayi check` entry is read: never the action, never an argument."""
+    if mark is None:
+        return None
+    try:
+        entries = logbook.read_checked(root)
+    except UmwayiError:
+        return None
+    found = None
+    for e in entries[mark:]:
+        if getattr(e, "source", None) != BLOCK_SOURCE:
+            continue
+        m = _BLOCK_ADDED.fullmatch(getattr(e, "added", "") or "")
+        if m:
+            found = m
+    if found is None:
+        return None
+    try:
+        ids = {r.id for r in rules.load_rules(root / "rules.yaml")}
+    except UmwayiError:
+        ids = set()
+    return gs.block_words(found.group("rule"), found.group("answer"), found.group("type"), ids)
+
+
+def block_recommendation(goal, task, b):
+    """The text of the one queue row of a blocked builder: what it asked (the action type) and which rule answered."""
+    return (f"The builder of goal {goal} task {task} asked for action type {b['type']}, and {gs.block_sentence(b)}. "
+            f"To let it, add a Yes rule for that action type to rules.yaml, then answer: umwayi goal answer {goal} {task} "
+            f"yes. To end the task, answer no. Answering this queue item starts nothing. Silence past the deadline means "
+            f"No.")
+
+
 def cause_of_exit(code, saw_timeout=False, saw_budget=False):
     """The cause for the exit code of `agent run` that is not 0 (W9.R7.8): 3 asks the owner, 2 fails the run, 64 is a
     config problem. Anything else (a signal, 1, a code that `agent run` never gives) fails the run: closed."""
@@ -557,6 +606,7 @@ class _Run:
         self.prior = int(self.t.get("spent_uu") or 0)
         self.nfiles = 0
         self.verdicts = ()
+        self.blocked = None  # W56: the fixed words of the last call of the builder that the rules blocked
 
     # ---- small helpers
 
@@ -862,6 +912,7 @@ class _Run:
         environ = e.child_environ()
         if role in ("builder", "tester"):  # W55a: no __pycache__ left in the worktree by a Python the helper runs
             environ["PYTHONDONTWRITEBYTECODE"] = "1"
+        mark = logbook_mark(self.root) if role == "builder" else None  # W56: the entries before the builder
         proc = e.spawn(argv, self.root, environ)
         # The `started` event, with the pid, comes before the prompt: the child reads its prompt first and does nothing
         # until it has it, so no helper acts before the start is on record. If the event cannot be written the child is
@@ -891,6 +942,8 @@ class _Run:
         after = budget.read_ledger(self.root)
         uu = goalbudget.spent_uu(before, after, agent)
         self.spent[role] = self.spent.get(role, 0) + uu
+        if role == "builder":
+            self.blocked = block_since(self.root, mark)
         return RoleResult(code, why, reader, uu, cap, uu > cap)
 
     def stop_child(self, proc):
@@ -1023,6 +1076,22 @@ class _Run:
         if res.over:
             self.finish("task_budget_spent")
 
+    def after_block(self, res):
+        """W56: the rules gate said No or Ask me first to a call of the builder, and the builder then gave up (an exit
+        that is not 0) or made no commit: the owner is needed (a Yes rule, or stop), not a failure of the work. A
+        timeout, a budget stop and a config exit keep their own cause."""
+        b = self.blocked
+        if b is None:
+            return
+        if res.code == 0:
+            if GIT.count_ahead(self.root, self.worktree, self.base) >= 1:
+                return
+        elif cause_of_exit(res.code, res.reader.saw_timeout, res.reader.saw_budget) not in (
+                "agent_exit_2", "agent_exit_3", "agent_exit_nonzero"):
+            return
+        self.finish("tool_blocked_by_rule", facts=[gs.blocked_fact(b)], blocked=b,
+                    recommendation=block_recommendation(self.goal, self.task, b))
+
     def after_exit(self, res):
         if res.code != 0:
             cause = cause_of_exit(res.code, res.reader.saw_timeout, res.reader.saw_budget)
@@ -1037,6 +1106,7 @@ class _Run:
         prompt = builder_prompt(self.packet, self.goal, self.task, self.branch, e.when(), nonce)
         res = self.start_role("builder", prompt)
         self.after_stop("builder", res)
+        self.after_block(res)
         self.after_exit(res)
         self.scope_check()
         self.tester_run()

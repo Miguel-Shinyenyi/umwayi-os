@@ -1619,3 +1619,16 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - A goal file from before W55a has no `plan_spent_uu`; for it the old reading (the whole plan budget once a plan exists, 0 for a refused plan) is shown.
 - The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
 - `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
+
+## Goal orchestration (W9), found while building W56
+
+### 287. A blocked builder is found from the logbook entries written while it ran
+
+Since W56, a task whose builder was blocked by the rules gate needs the owner instead of failing. How the block is found sets its limits:
+
+- The supervisor reads the `umwayi check` entries written between the builder's start and its end. Any check of a tool call in that time counts, also one by another helper or by the owner in the same root. A logbook that cannot be read with its checks gives no block, and the task ends as it did before W56.
+- Only the last block is named. Earlier blocks of the same run are in the logbook as `umwayi check` entries.
+- A block counts only when the builder then exited with 2, 3 or another code that is not 64, or exited 0 with no commit. A timeout, a budget stop, a stall or a loop keeps its own cause, and a builder that worked around a block and committed goes on to the tester.
+- An action type outside the fixed list of `goalstate.BLOCK_TYPES` is shown as `tool_other`, and a Kiro MCP tool as `tool_mcp`; the logbook's `umwayi check` entry has the full type.
+- With Kiro, an Ask me first also gives the hook's own queue row (`Kiro asks first: may it do TYPE?`), so the owner sees two rows: that one and the task's.
+- The worktree of the blocked run is kept. After the owner adds a Yes rule and answers yes, the next `goal run` stops with `leftover` until the worktree is removed, as for any builder that asked the owner (exit 3) before W56.

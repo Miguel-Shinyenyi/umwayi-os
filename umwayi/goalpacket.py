@@ -99,6 +99,7 @@ CAUSES = {
     "rules_said_ask": ("needs owner", "ask"),
     "budget_said_ask": ("needs owner", "ask"),
     "agent_exit_3": ("needs owner", "ask"),
+    "tool_blocked_by_rule": ("needs owner", "ask"),  # W56: the rules gate said No or Ask me first to a builder's call
     "result_unparsed": ("needs owner", "unclear"),
     "result_incomplete": ("needs owner", "unclear"),
     "packet_changed": ("needs owner", "unclear"),

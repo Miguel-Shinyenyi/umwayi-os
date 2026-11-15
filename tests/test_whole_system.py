@@ -824,6 +824,38 @@ class GoalWholeSystemTests(unittest.TestCase):
         self.assertIn(f"Goal {goal} task T-01 needs you (ask)", q.stdout)
         self.end_checks()
 
+    def test_04_a_builder_blocked_by_a_rule_needs_the_owner_and_the_run_gives_3(self):
+        """W56: the fake builder asks the real Kiro hook about a shell call, a No rule refuses it, the builder gives up.
+        The task needs the owner (not failed), `goal run` gives 3, and the queue, status and report name the rule and
+        the action type, never the command."""
+        w = self.w
+        goal = self.approved()
+        (w.root / "rules.yaml").write_text(gw.RULES + """  - id: w-no-shell
+    title: no shell
+    text: Shell commands are refused.
+    verdict: no
+    matchers:
+      platform: kiro
+      type: tool_execute_bash
+""", encoding="utf-8")
+        call = {"tool_name": "execute_bash", "tool_input": {"command": f"git push https://example.invalid/{gw.SECRET}"}}
+        w.script(builder=[{"hook": call, "exit_if_blocked": 2}])
+        r = self.goal_cmd("run", goal, code=3)
+        self.assertEqual(w.state(goal), ("needs owner", "ask"))
+        self.assertEqual(self.roles(), ["guide", "builder"])  # no tester after a blocked builder
+        sentence = "rule w-no-shell gave No for action type tool_execute_bash"
+        self.assertEqual(w.task(goal)["blocked"], {"rule": "w-no-shell", "answer": "No", "type": "tool_execute_bash"})
+        self.assertIn(f"Blocked: {sentence}.", w.logbook_text())
+        q = w.u("queue", "list", "--status", "open").stdout
+        self.assertIn(f"Goal {goal} task T-01 needs you (ask)", q)
+        status = self.goal_cmd("status", code=0).stdout
+        self.assertIn(f"Blocked: {sentence}.", status)
+        report = self.goal_cmd("report", goal, code=0).stdout
+        self.assertIn(f"- Blocked: {sentence}", report)
+        for text in (r.stdout, r.stderr, q, status, report, (w.root / "queue.md").read_text(encoding="utf-8")):
+            self.assertNotIn(gw.SECRET, text)
+        self.end_checks()
+
     # ---- pitfall 1: an approval that waits silently
 
     def test_10_an_approval_nobody_answers_is_visible_and_then_denied_by_the_next_command(self):
