@@ -1620,12 +1620,25 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
 - `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
 
-## Rules (W58a), found while building
+## Feedback send (W29), found while building
 
-### 287. rules validate checks the form only, and a matcher with an unknown operator passes it and never matches
+### 287. The feedback filter hides what looks like a secret, and the tester is the last reader
 
-`umwayi rules validate` uses the gate's own reader, so it accepts what the gate accepts and refuses what the gate refuses. Two things follow.
+`umwayi feedback send` writes a bundle after a typed yes. These are its limits.
 
-- A matcher name that ends in an unknown `__word` (for example `command__startswith`) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
-- It checks the form, not the meaning: a well formed rule that matches nothing, two rules that contradict each other, or a Yes rule wider than meant all pass.
-- It reports the first problem only; fixing it can show the next one.
+- The filter finds secrets by their shape: known key and token prefixes, a value after a key word, a password in an address, emails, home paths, any word of 32 or more letters and digits, the tester's own home folder, root path and user name. A secret written as an ordinary word, a short password with no key word before it, or a name of a person is not found. That is why every line is shown before the yes.
+- A hidden word is replaced, never shortened, so the owner cannot tell two hidden values apart. The count of hidden things is shown to the tester, not written into the bundle.
+- The user name is hidden as a whole word, so a user named like an ordinary word (for example `check`) also hides that word in the note.
+- The bundle is a file in `.umwayi/feedback/` (or the file named with `--out`). It stays there after it is sent; nothing removes it. It is mode 0600, but anyone who can read the tester's files can read it.
+- The terminal check is that standard input and output are terminals. It cannot tell a person from a program that drives a pseudo terminal; the test of this command does exactly that.
+- Nothing is sent. The network mode is designed (in the pull request of W29) and not built, and the owner has not chosen a destination.
+
+## Layer 10 front door (W59), found while building
+
+### 288. A slow Kiro whoami now makes every Kiro start wait up to 30 seconds before it is refused
+
+The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every Kiro start, `agent check`, `agent login` and `umwayi login`.
+
+- A whoami that hangs costs 30 seconds each time before the refusal, twice as long as before. A goal run with Kiro agents pays it at every start.
+- 30 seconds is a value from one report (about 10 seconds on a Mac), not a measurement over many machines. A machine where whoami takes longer than 30 seconds is refused every time, with the words that the sign-in could not be confirmed.
+- No answer is still a refusal. umwayi cannot tell a slow network from a signed out account, so it starts nothing (fail closed).
