@@ -108,9 +108,7 @@ What it cannot do:
 
 ### The progress page as a workflow artifact
 
-`.github/workflows/progress-page.yml` (W27) runs on every push to main, and on nothing else. It checks out the repository, runs the W22 build in `ui/` (`npm ci --ignore-scripts`, then `node build.mjs`) and uploads `ui/dist/progress.html` as a workflow artifact named `progress-page`, kept for 30 days. To read the page, open the run on the Actions tab and download the artifact. The workflow fails when the page is not written.
-
-It publishes nothing. There is no Pages step, no deploy step, no secret and no write permission (`contents: read` only), because where the page is published is the owner's decision. The page is not committed (W22) and the workflow does not change the repository. `tests/test_progress_workflow.py` reads the file and fails if it stops triggering on a push to main, if it has a pages or deploy step or a secret or a write permission, or if it stops using the W22 build command. A workflow cannot run here, so that test pins the text and the first run on main is the record.
+`.github/workflows/progress-page.yml` (W27) runs on every push to main, and on nothing else. It checks out the repository, runs the W22 build in `ui/` (`npm ci --ignore-scripts`, then `node build.mjs`) and uploads `ui/dist/progress.html` as a workflow artifact named `progress-page`, kept for 30 days. To read the page, open the run on the Actions tab and download the artifact. The workflow fails when the page is not written. It publishes nothing. There is no Pages step, no deploy step, no secret and no write permission (`contents: read` only), because where the page is published is the owner's decision. The page is not committed (W22) and the workflow does not change the repository. `tests/test_progress_workflow.py` reads the file and fails if it stops triggering on a push to main, if it has a pages or deploy step or a secret or a write permission, or if it stops using the W22 build command. A workflow cannot run here, so that test pins the text and the first run on main is the record.
 
 ### What each test reads (the map)
 
@@ -149,6 +147,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/agents/test_claude_acp_package.py` | `*`, `adapters` |
 | `tests/agents/test_fake_opencode.py` | `adapters` |
 | `tests/agents/test_kiro_hook_root.py` | `adapters` |
+| `tests/agents/test_kiro_whoami_timeout.py` | `adapters` |
 | `tests/agents/test_login_wizard.py` | `adapters` |
 | `tests/agents/test_opencode_mutants.py` | `adapters`, `rules.yaml` |
 | `tests/autonomy/test_gates.py` | `rules.yaml` |
@@ -195,6 +194,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/serve/test_wire.py` | `ui`, `ui/dist` |
 | `tests/test_affected_tests.py` | `tools` |
 | `tests/test_automation.py` | `jobs.yaml`, `rules.yaml` |
+| `tests/test_builder_rules.py` | `*`, `adapters`, `rules.yaml` |
 | `tests/test_builder_workflow.py` | `.kiro`, `tools` |
 | `tests/test_checks.py` | `.kiro`, `adapters`, `ui` |
 | `tests/test_ci_map.py` | `.github`, `docs`, `tools` |
@@ -219,6 +219,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_routing.py` | `.github`, `.kiro`, `docs`, `jobs.yaml`, `schedule.example.yaml`, `workflows` |
 | `tests/test_rulelog.py` | `rules.yaml` |
 | `tests/test_rules.py` | `rules.yaml` |
+| `tests/test_rules_validate.py` | `rules.yaml` |
 | `tests/test_runlock.py` | `rules.yaml` |
 | `tests/test_scan_files.py` | `adapters`, `articles`, `rules.yaml`, `workflows` |
 | `tests/test_scan_receiver.py` | `adapters` |

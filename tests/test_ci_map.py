@@ -131,7 +131,8 @@ class RealMapTests(unittest.TestCase):
         self.assertGreaterEqual(len(adapters), 20)
         self.assertGreaterEqual(len(kiro), 3)  # the other .kiro mentions are Kiro's own home folder in temporary roots
         self.assertEqual(sorted(f for f, t in py.items() if "*" in t),
-                         ["tests/adapters/test_claude_code.py", "tests/agents/test_claude_acp_package.py"])
+                         ["tests/adapters/test_claude_code.py", "tests/agents/test_claude_acp_package.py",
+                          "tests/test_builder_rules.py"])  # W57: it uses the hook harness of test_claude_code
 
     def test_node_tests_that_read_outside_their_package(self):
         node = DATA["node"]

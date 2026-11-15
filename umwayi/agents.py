@@ -120,6 +120,9 @@ CLAUDE_ACP_ADAPTER = CLAUDE_ACP_PACKAGE_DIR + "/dist/index.js"
 CLAUDE_ACP_CANARY = CLAUDE_ACP_DIR + "/canary.py"
 NODE_COMMAND = "node"
 SIGNIN_TIMEOUT = 15.0  # seconds for the login check (`auth status --json`)
+# W59: `kiro-cli whoami` takes about 10 s on a Mac, so the Kiro login check waits longer. No answer in time is still a
+# refusal (fail closed), and it is called what it is: no answer, not "not signed in".
+KIRO_WHOAMI_TIMEOUT = 30.0
 SIGNIN_TEXT = ("Sign in to Claude Code with your Claude subscription first (claude, then /login, choose the Claude "
                "account), then try again.")
 CLAUDE_ACP_MODE = "default"  # sent with session/set_mode once the canary is seen
@@ -1160,11 +1163,13 @@ def _kiro_login_gate(kiro: str, cwd: str, env: dict, done) -> bool:
 
     Its output goes to /dev/null and is never read: the field names are not documented and it holds the email.
     """
-    code, _ = _run_child(_assert_allowed([kiro, "whoami"]), b"", SIGNIN_TIMEOUT, cwd, env=env, keep_output=False)
+    code, _ = _run_child(_assert_allowed([kiro, "whoami"]), b"", KIRO_WHOAMI_TIMEOUT, cwd, env=env, keep_output=False)
     if code == 0:
         return done("login", True, "Kiro is signed in (kiro-cli whoami exited 0)")
-    how = f"no answer within {SIGNIN_TIMEOUT:.0f} s" if code is None else f"kiro-cli whoami exited {code}"
-    return done("login", False, f"Kiro is not signed in ({how}). {KIRO_SIGNIN_TEXT}")
+    if code is None:
+        return done("login", False, f"the Kiro sign-in could not be confirmed (kiro-cli whoami gave no answer within "
+                                    f"{KIRO_WHOAMI_TIMEOUT:.0f} s). {KIRO_SIGNIN_TEXT}")
+    return done("login", False, f"Kiro is not signed in (kiro-cli whoami exited {code}). {KIRO_SIGNIN_TEXT}")
 
 
 CLAUDE_ACP_ORDER = ["node", "node version", "adapter file", "adapter package", "adapter version",

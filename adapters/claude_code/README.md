@@ -67,6 +67,15 @@ None. The adapter is Python standard library only (Python 3.10 or newer), like t
 | `--umwayi-src DIR` | the folder that holds the `umwayi` package. Default: the umwayi-os checkout this script is in |
 | `--timeout SECONDS` | how long to wait for `umwayi check` (default 10). After that, deny |
 
+## The folder of a tool call (`cwd`, W57)
+
+Claude Code puts `cwd`, the folder the session works in, in every hook input ([adapters/NOTES.md](../NOTES.md)). The hook adds it to the action as `cwd` when it is a clean absolute path (it starts with one `/`, has no `.`, `..` or empty part, is printable and at most 4096 characters). Anything else is left out, so a rule that needs `cwd` does not match and the answer falls to Ask me first. A rule matches it with `cwd__prefix` (see [rules](../../docs/rules.md)).
+
+- `cwd` is what Claude Code reports. umwayi does not check it on disk and does not resolve links.
+- A shell command that changes folder (`cd`) changes the `cwd` of the next call. The builder rules in `goal.rules.example.yaml` allow no `cd`, and a chained one is No.
+- `--root` is still never taken from the hook input. `cwd` only feeds the rules.
+- The Kiro and OpenCode adapters do not send `cwd`: Kiro's docs show `cwd` in one MCP tool example only and list no hook input fields (adapters/NOTES.md), and the OpenCode plugin was not changed.
+
 ## What is logged
 
 Every tool call that reaches `umwayi check` adds one logbook entry with the action type (for example `tool_bash`) and the answer. The command, the path and the rest of the tool input are not written to the logbook.
