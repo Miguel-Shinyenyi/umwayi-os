@@ -1523,9 +1523,21 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The layout tests prove no overlap for 0 to 12 tasks in the drawing's own units, with a character width that is a little wider than the monospace font. A system font that is much wider would make a cut line run past its card; the browser check found none in one Chromium on Linux.
 - The live view does not link the page yet, because the page rule of the live view allows the Repo and Docs links only. The owner decides.
 
+## Goal orchestration (W9), found while building W9.10
+
+### 279. The whole-system scenarios use a fake Kiro for every role, and a stall is tested with a lowered time
+
+The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run the real commands and the real `agent run`, but not a real helper.
+
+- Every role is a Kiro agent, because a Kiro run has a declared cost (10 UU) and so the budget scenarios are exact. A Claude Code run settles from the helper's own report, which the fake does not send, so no whole-system scenario starts Claude Code. The unit tests of the supervisor cover its argument list and caps only.
+- A stall is tested with a stall time of a few seconds, set through a test-only sitecustomize that replaces `goalwatch.Policy.for_role`. The real time of 1800 seconds is only tested by the unit tests of `goalwatch` (the judge is pure) and by the mutation pass, never by waiting for it.
+- An approval that passes its deadline is tested by moving `time.time` forward in the child with a test-only sitecustomize. The date of the entries comes from the election clock, which also reads the system date, so a deadline moved by days would show a date that is not the logbook's newest.
+- The mutation pass was run by a script kept outside the repository. It changed the code 48 times and 47 were caught. One survivor is equivalent: removing the tamper-checked read at the start of `supervise` changes nothing, because `goalstate.repair` reads the logbook with the same check on the next line.
+- The fake agent prints its script; it never tries to act against its rules. What a real helper does with its tools is checked only by the rules and the adapters, not by these scenarios.
+
 ## Goal map data (W37), found while building
 
-### 279. The goal map shows the newest goal only, guesses the supervisor from a lock, and hides words by their shape
+### 280. The goal map shows the newest goal only, guesses the supervisor from a lock, and hides words by their shape
 
 `umwayi goal map` and `GET /v1/goal-map` give the document of `docs/goal-map.md`. These are its limits.
 
