@@ -346,7 +346,7 @@
   },
   "tests/test_builder_rules.py": {
    "seconds": 20.8,
-   "shard": 3
+   "shard": 1
   },
   "tests/test_builder_workflow.py": {
    "seconds": 0.0,
@@ -406,7 +406,7 @@
   },
   "tests/test_feedback_send.py": {
    "seconds": 20.8,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_frontier_practices.py": {
    "seconds": 0.0,
@@ -490,7 +490,7 @@
   },
   "tests/test_rules_validate.py": {
    "seconds": 20.8,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_runlock.py": {
    "seconds": 14.3,
