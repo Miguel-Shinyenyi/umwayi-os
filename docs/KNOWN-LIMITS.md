@@ -1544,3 +1544,13 @@ The path rule 11.R1.4 allows `@` since W35, so a Homebrew Python path passes. Th
 - A path always starts with `/`, so `@` is never the first character of an `ExecStart=` command, where systemd reads `@` as a prefix, nor of a cron line, where `@daily` and the like start a line. systemd specifiers are `%` and variables are `$`, both still refused; `/bin/sh` gives `@` no meaning outside `$@`.
 - A unit name never holds a path (it is `umwayi-ROOTID-NAME`), so the `@` of a systemd template unit name cannot arise.
 - umwayi writes no launchd plist today. A plist is XML, where `@` has no meaning, but a future writer of another kind of file must check the rule again for that kind before it reuses `_safe_path`.
+
+## Budget governor, found while building W45
+
+### 281. Whole-number asDouble token counts were seen on Claude Code 2.1.322 only
+
+umwayi accepts a `claude_code.token.usage` count sent as `asDouble` when it is a whole number from 0 to 10^12 (W45). The shape was traced on one real run: Claude Code 2.1.322 on the owner's Mac, Nov 15 2026.
+
+- Older and newer versions of Claude Code are unchecked. One may send `asInt`, `asDouble`, or something else; anything other than these two keys with a whole number is still refused, so the run is marked invalid and settled at the full reservation (the safe side).
+- A whole-number double above 2^53 cannot hold every integer exactly. The cap of 10^12 is far below 2^53, so every accepted count is exact.
+- A point that carries both `asInt` and `asDouble` is refused even if they agree, because umwayi cannot know which one the sender meant.

@@ -1043,6 +1043,8 @@ When W9 is approved and built, this row moves into the main status table as its 
 - [ ] W42 Shared memory for agents: design first. Append-only notes, capped in size, no secrets, written through the rules gate and the logbook, and the owner can read and delete them. **Open: design first.**
 - [ ] W43 Agents as installable apps: a manifest, `umwayi agent list`, `show` and `run` through the supervisor, Steward first, and the owner approves the permissions in a real terminal. **Open: not started.**
 - [ ] W44 A single front door, `umwayi up`, after W28, W37 and W38b: from a clone to a running goal in under ten minutes, checked on a clean machine. **Open: waits for W28, W37 and W38b.**
+- [x] W45 Accept whole-number `asDouble` token counts from Claude Code (2.1.322 sends `claude_code.token.usage` that way; a good run was marked invalid and settled at the full reservation). In `umwayi/telemetry.py` `Totals.fold_metrics`: a token data point has exactly one of `asInt` (as before) or `asDouble`, which counts only as a whole number from 0 to 10^12 (an int, or a finite float with no fraction; never a bool, text, NaN, infinity, a fraction, a negative or above 10^12). Tests: TokenAsDoubleFoldTests and TokenAsDoubleRunTests in `tests/budget/test_telemetry.py`. The owner's rule of Nov 15; it loosens a check on the budget path, so the owner's word is needed before it merges.
+- [ ] W46 Docs and a message: the Kiro hook file must name the resolved root path (on macOS `/var` is `/private/var`). Say `pwd -P` in the setup docs, and name the expected resolved path in the "not gated" message of the Kiro hook file check. **Open.**
 
 ## Later tasks (named by the owner on Nov 13; numbers are given when each starts)
 
