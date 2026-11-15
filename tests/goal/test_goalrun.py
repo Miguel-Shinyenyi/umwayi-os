@@ -1345,6 +1345,23 @@ class KillTests(StartCase):
         self.assertEqual(self.children.started(), 0)
         self.assertEqual(before, 1)
 
+    def test_the_switch_is_read_before_each_of_the_three_runs(self):
+        """W9.R16.1: `kill.state` is read before every start, so a switch turned on between two runs of one task stops the
+        next one: the tester after the builder, the guide's check after the tester."""
+        for after, started in (("scope_check", 1), ("tester_run", 2)):
+            with self.subTest(after=after):
+                self.setUp()
+                goal = self.approved(1)
+                real = getattr(gr._Run, after)
+
+                def then_on(run, real=real):
+                    real(run)
+                    kill.turn_on(self.root, self.when)
+                with mock.patch.object(gr._Run, after, then_on):
+                    out = self.run_task(goal, "T-01", self.good_scripts())
+                self.assertEqual((out.exit, out.state, out.reason), (2, "stopped", "kill"), out)
+                self.assertEqual(self.children.started(), started)  # the next run never started
+
     def test_planted_fault_the_switch_is_read_only_at_the_start(self):
         with self.assertRaises(AssertionError):
             real = kill.state
