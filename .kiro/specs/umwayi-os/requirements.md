@@ -1407,11 +1407,14 @@ User story: as the owner, I want a request from the page to meet exactly the sam
    | logbook.verify | `GET /v1/logbook` | `logbook verify` | `logbook.verify` | read | no | 0, 1 | 0 |
    | budget.status | `GET /v1/budget` | `budget status` | `budget.status` | read | no | 0, 2, 3, 64 | 0 |
    | agents.list | `GET /v1/agents` | `agent list` | `agents.load` | read | no | 0, 2, 64 | 0 |
+   | goal.map | `GET /v1/goal-map` | `goal map` | `goal.map_data` | read | no | 0, 2 | 0 |
    | agents.check | `POST /v1/agents/{name}/check` | `agent check NAME` | `agents.check_agent` | run | yes | 0, 2, 3, 64 | 64 |
    | queue.add | `POST /v1/queue` | `queue add [--if-not-open]` | `taskqueue.add`, `taskqueue.add_once` | write | yes | 0, 1, 2, 64 | 4096 |
    | queue.answer | `POST /v1/queue/{id}/answer` | `queue answer` | `taskqueue.answer` | write | yes | 0, 1, 2, 64 | 4096 |
    | queue.close | `POST /v1/queue/{id}/close` | `queue close` | `taskqueue.close` | write | yes | 0, 1, 2, 64 | 64 |
    | kill.on | `POST /v1/kill/on` | `kill on` | `kill.turn_on` | write | never (it is the switch) | 0, 1, 2, 64 | 512 |
+
+   **For the owner (W37, added with the owner's word of Nov 15, to be confirmed before the pull request merges):** the row `goal.map` reads the goal map of the newest goal (`docs/goal-map.md`): the goal files, the task event logs, the kill switch, the logbook with its checks and the supervisor lock read as a file and never locked. It is logged like every other read (point 7 of W6.R7), it carries text only as the goal and task titles, cut to 80 characters with words that look like a path or a secret hidden, and every event text is a fixed label for its kind. It has no stream and the page does not poll it (W6.R14.6 unchanged).
 
    Later, each in its own spec and pull request, with the same table columns (W6.R9, W6.R10): the chat routes (W4) and the intake routes (W5). The table of `docs/serve.md` lists them as "specified, not built".
 2. **A response is a subset of what the command prints, never more.** A route returns fixed fields only. `agents.list` returns each agent's `name`, `platform` and `transport` and nothing else: the command prints the command and the working folder, and those are paths, so the route does not send them. `queue.list` returns each row's `id`, `kind`, `status`, `answered`, `title`, `recommendation`, `answer` and `revisit_if` (text from `queue.md`, which this route is allowed to carry, W6.R8.5). `snapshot` returns the same fields as the file of 12.R4.2, counts only. `logbook.verify` returns the counts, the chain length and the names of the failed checks, never a logbook line. `budget.status` returns the lines the command prints (the status text holds numbers and agent names, no path; a test plants a path in `agents.yaml` and `units.yaml` and checks it is absent). A test plants a sentinel in every other field of every file a route reads and checks that it is in no response.
@@ -1424,7 +1427,7 @@ User story: as the owner, I want a request from the page to meet exactly the sam
    - touch the logbook other than through the commands in the table: `logbook seal`, `recover`, `anchor`, a free write, an edit or a delete; `budget settle-lost` and `calibrate`;
    - take a path, a command line, an environment variable, a URL, a file upload or a file name from the request, read or write any file by name, proxy a request to another address, or fetch anything;
    - change what the rules check sees about it: the action of W6.R7.1.4 is built by the server from the route and never from the request.
-5. **Text the page may receive.** Rule 10 of the steering file kept "no text from any file" for the snapshot of counts; a route may carry text from a file only where this table says so: `queue.list` (queue rows), `budget.status` (its lines), and the chat events of W6.R9. Never a logbook line, the text of a rule, a memory file, an archive pointer, a prompt of an earlier run, an absolute path, an environment variable, a secret, or the argument list of an agent. The page treats all of it as text (W6.R6.7).
+5. **Text the page may receive.** Rule 10 of the steering file kept "no text from any file" for the snapshot of counts; a route may carry text from a file only where this table says so: `queue.list` (queue rows), `budget.status` (its lines), `goal.map` (the goal and task titles as labels, W37), and the chat events of W6.R9. Never a logbook line, the text of a rule, a memory file, an archive pointer, a prompt of an earlier run, an absolute path, an environment variable, a secret, or the argument list of an agent. The page treats all of it as text (W6.R6.7).
 6. **Adding a route** needs: the owner's approval, a row here, the core function it calls (an existing one; a route does not come with new rules of its own), its class and limits, a differential test against the command line, a spy test, a property test row, and an entry in `docs/serve.md` and in the "never" check of this section (a test lists the routes and the banned words).
 
 ### W6.R9 The chat routes (workstream W4, not built in W6)
@@ -1895,7 +1898,7 @@ As for every layer: tests first, and the normal suite stays standard library onl
 
 ### W9.R23 Not in W9
 
-- **A web route or page for goals.** Specified for later (W9.15): the snapshot may count goals that need the owner. Nothing is added to the route table of W6.R8, which needs the owner's approval.
+- **A web route or page for goals.** Specified for later (W9.15): the snapshot may count goals that need the owner. Changed by W37 (the owner's word of Nov 15): one read route, `goal.map` (`GET /v1/goal-map`), is added to the route table of W6.R8; it changes nothing and starts nothing.
 - **More than one task in review at once** (`--ahead N`): W9.12, the only option left of the worktree work. The worktree per task is not an option: it is core (W9.R8.1 to W9.R8.16).
 - **OpenCode as a builder, tester or guide:** it waits for task 10.48 and a non-interactive ACP run (W9.13). Version 1 uses Claude Code and Kiro through `agent run`.
 - **Automatic retry, a fix loop, or a guide that edits a packet** (W9-Q5).

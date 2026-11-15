@@ -1554,3 +1554,18 @@ umwayi accepts a `claude_code.token.usage` count sent as `asDouble` when it is a
 - Older and newer versions of Claude Code are unchecked. One may send `asInt`, `asDouble`, or something else; anything other than these two keys with a whole number is still refused, so the run is marked invalid and settled at the full reservation (the safe side).
 - A whole-number double above 2^53 cannot hold every integer exactly. The cap of 10^12 is far below 2^53, so every accepted count is exact.
 - A point that carries both `asInt` and `asDouble` is refused even if they agree, because umwayi cannot know which one the sender meant.
+
+## Goal map data (W37), found while building
+
+### 282. The goal map shows the newest goal only, guesses the supervisor from a lock, and hides words by their shape
+
+`umwayi goal map` and `GET /v1/goal-map` give the document of `docs/goal-map.md`. These are its limits.
+
+- Only the newest goal (the highest id) is shown. An older goal that still runs or needs the owner is not on the map; `umwayi goal status` lists every goal.
+- `alive` means a process holds a lock on `.umwayi/goal.lock` now, read from `/proc/locks` without taking the lock. It does not show the holder is a healthy supervisor, and another program that locks the same file would read as alive. Where `/proc/locks` cannot be read the supervisor is `unknown`, with a note. On macOS there is no `/proc/locks`, so once a goal command has made the lock file the map always shows the supervisor as `unknown` there, never alive or lost, even while a supervisor runs; only `umwayi goal status` (which takes the lock for a moment) can tell. `pid_known` says the table named a process, and the number is never sent.
+- `worktree.clean` and `pr` are always null: the first needs a git process, which the map never starts, and the goal files do not record a pull request number. The page shows neither yet.
+- A title shows the owner's own words. The label hides words by their shape (a digit, a slash, a sign, a leading dash, 8 or more capitals, more than 24 characters), so a secret written as an ordinary word in a goal or a task sentence would be shown. The cut at 80 characters hides what comes after it.
+- Every call of the route writes two logbook entries (the rules check and the request entry), as every read does under W6.R7.7. A page that asked often would grow the logbook; there is no stream and no polling for that reason.
+- Through the route, a logbook that fails its check refuses the request (500, `logbook`) before the map is read, so the page shows the refusal and not the document with its note. The command shows the document.
+- The event text is a fixed label per kind, so the page cannot show what changed (from which state to which, how many lines). `umwayi goal status` shows those words.
+- The ages count from the newest event and the last state change in the event logs. A clock set back gives `null` for an event dated after now, never a negative age.

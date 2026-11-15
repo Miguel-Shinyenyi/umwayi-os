@@ -29,6 +29,7 @@ TABLE = [
     ("logbook.verify", "GET", ["v1", "logbook"], "read", 0, []),
     ("budget.status", "GET", ["v1", "budget"], "read", 0, []),
     ("agents.list", "GET", ["v1", "agents"], "read", 0, []),
+    ("goal.map", "GET", ["v1", "goal-map"], "read", 0, []),
     ("agents.check", "POST", ["v1", "agents", ("name",), "check"], "run", 64, []),
     ("queue.add", "POST", ["v1", "queue"], "write", 4096, []),
     ("queue.answer", "POST", ["v1", "queue", ("id",), "answer"], "write", 4096, []),

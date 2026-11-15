@@ -148,6 +148,7 @@ ROUTES = (
     Route("logbook.verify", "GET", "/v1/logbook", "read", 0, False),
     Route("budget.status", "GET", "/v1/budget", "read", 0, False),
     Route("agents.list", "GET", "/v1/agents", "read", 0, False),
+    Route("goal.map", "GET", "/v1/goal-map", "read", 0, False),  # W37, the owner's word of Nov 15
     Route("agents.check", "POST", "/v1/agents/{name}/check", "run", 64, True),
     Route("queue.add", "POST", "/v1/queue", "write", 4096, True,
           fields=(("kind", "str"), ("title", "str"), ("recommendation", "str"), ("if_not_open", "bool")),
