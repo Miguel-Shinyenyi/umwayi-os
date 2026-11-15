@@ -68,7 +68,7 @@ A title is the owner's goal text or the task's goal sentence from the plan. It i
 
 ### Supervisor
 
-The supervisor holds `.umwayi/goal.lock` while it runs. The map never takes that lock: it reads the file's place on disk with `lstat` and the kernel's table of file locks (`/proc/locks`, Linux), and `alive` is true when some process holds a lock on that file now. This is a best guess: it says a lock is held, not that the holder is a healthy supervisor. Where the table cannot be read (not Linux, or a sandbox without `/proc`), `alive` and `pid_known` are false, `state` is `unknown` and a note says so.
+The supervisor holds `.umwayi/goal.lock` while it runs. The map never takes that lock: it reads the file's place on disk with `lstat` and the kernel's table of file locks (`/proc/locks`, Linux), and `alive` is true when some process holds a lock on that file now. This is a best guess: it says a lock is held, not that the holder is a healthy supervisor. Where the table cannot be read, `alive` and `pid_known` are false, `state` is `unknown` and a note says so. That is always the case on macOS, which has no `/proc/locks`, and in a sandbox without `/proc`. When the lock file does not exist at all (no goal command has run in the root), the table is not needed: the supervisor is `idle` on every system.
 
 ## Decisions log
 

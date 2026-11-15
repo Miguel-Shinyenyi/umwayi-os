@@ -29,7 +29,7 @@ schedules:
 ```
 
 - The files go to `~/.config/systemd/user` (or `$XDG_CONFIG_HOME/systemd/user`) as `umwayi-ID-NAME.service` and `.timer`, where ID comes from your root's path. The service is a oneshot that runs `python -m umwayi --root ROOT run JOBS --job JOB` (or `workflow run NAME`) with no shell, stops after 30 minutes, and stops everything it started. The timer has `Persistent=true`, so a run missed while the machine was off happens at the next start.
-- Every path in them must use only letters, digits and `/ . _ + -`; otherwise `validate` refuses it and says which path. Then nothing needs quoting.
+- Every path in them must use only letters, digits and `/ . _ + - @`; otherwise `validate` refuses it and says which path. Then nothing needs quoting.
 - `install` stops at the kill switch, asks the rules (`schedule_install`; the starter rule is Ask me first, so pass `--approved-by YOUR_NAME`), takes the run lock, writes each file only if it is new, and writes one logbook entry; if that entry fails, the files are removed. Then run what it prints:
 
   ```

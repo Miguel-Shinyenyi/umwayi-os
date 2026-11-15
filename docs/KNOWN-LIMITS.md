@@ -1535,14 +1535,24 @@ The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run t
 - The mutation pass was run by a script kept outside the repository. It changed the code 48 times and 47 were caught. One survivor is equivalent: removing the tamper-checked read at the start of `supervise` changes nothing, because `goalstate.repair` reads the logbook with the same check on the next line.
 - The fake agent prints its script; it never tries to act against its rules. What a real helper does with its tools is checked only by the rules and the adapters, not by these scenarios.
 
+## Scheduled runs (layer 11), found while building W35
+
+### 280. An `@` in a schedule path is safe for the files umwayi writes today, and only for them
+
+The path rule 11.R1.4 allows `@` since W35, so a Homebrew Python path passes. The reading that makes it safe is about the three outputs umwayi writes today: a systemd service, a systemd timer and a printed cron line.
+
+- A path always starts with `/`, so `@` is never the first character of an `ExecStart=` command, where systemd reads `@` as a prefix, nor of a cron line, where `@daily` and the like start a line. systemd specifiers are `%` and variables are `$`, both still refused; `/bin/sh` gives `@` no meaning outside `$@`.
+- A unit name never holds a path (it is `umwayi-ROOTID-NAME`), so the `@` of a systemd template unit name cannot arise.
+- umwayi writes no launchd plist today. A plist is XML, where `@` has no meaning, but a future writer of another kind of file must check the rule again for that kind before it reuses `_safe_path`.
+
 ## Goal map data (W37), found while building
 
-### 280. The goal map shows the newest goal only, guesses the supervisor from a lock, and hides words by their shape
+### 281. The goal map shows the newest goal only, guesses the supervisor from a lock, and hides words by their shape
 
 `umwayi goal map` and `GET /v1/goal-map` give the document of `docs/goal-map.md`. These are its limits.
 
 - Only the newest goal (the highest id) is shown. An older goal that still runs or needs the owner is not on the map; `umwayi goal status` lists every goal.
-- `alive` means a process holds a lock on `.umwayi/goal.lock` now, read from `/proc/locks` without taking the lock. It does not show the holder is a healthy supervisor, and another program that locks the same file would read as alive. Where `/proc/locks` cannot be read the supervisor is `unknown`. `pid_known` says the table named a process, and the number is never sent.
+- `alive` means a process holds a lock on `.umwayi/goal.lock` now, read from `/proc/locks` without taking the lock. It does not show the holder is a healthy supervisor, and another program that locks the same file would read as alive. Where `/proc/locks` cannot be read the supervisor is `unknown`, with a note. On macOS there is no `/proc/locks`, so once a goal command has made the lock file the map always shows the supervisor as `unknown` there, never alive or lost, even while a supervisor runs; only `umwayi goal status` (which takes the lock for a moment) can tell. `pid_known` says the table named a process, and the number is never sent.
 - `worktree.clean` and `pr` are always null: the first needs a git process, which the map never starts, and the goal files do not record a pull request number. The page shows neither yet.
 - A title shows the owner's own words. The label hides words by their shape (a digit, a slash, a sign, a leading dash, 8 or more capitals, more than 24 characters), so a secret written as an ordinary word in a goal or a task sentence would be shown. The cut at 80 characters hides what comes after it.
 - Every call of the route writes two logbook entries (the rules check and the request entry), as every read does under W6.R7.7. A page that asked often would grow the logbook; there is no stream and no polling for that reason.
