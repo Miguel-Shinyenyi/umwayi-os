@@ -1597,12 +1597,25 @@ W47a removes two sources of conflict and leaves the others for the owner. These 
 - The renumbering of a clashing limits part changes its number after the merge. A status row or a doc of the same branch that names the old number is not changed by it.
 - GitHub merge queue is not available for a public repository owned by a personal account, so it cannot test pull requests in merge order here.
 
-## Rules (W58a), found while building
+## Shard balance (W47b), found while building
 
-### 285. rules validate checks the form only, and a matcher with an unknown operator passes it and never matches
+### 285. The shards are balanced by one run, and the slowest file is most of one shard
 
-`umwayi rules validate` uses the gate's own reader, so it accepts what the gate accepts and refuses what the gate refuses. Two things follow.
+The shards of `tools/ci_shards.json` are balanced by the measured seconds of one full run of main. These are the limits of that.
 
-- A matcher name that ends in an unknown `__word` (for example `command__startswith`) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
-- It checks the form, not the meaning: a well formed rule that matches nothing, two rules that contradict each other, or a Yes rule wider than meant all pass.
-- It reports the first problem only; fixing it can show the next one.
+- The seconds are the mean over Python 3.10 to 3.13 of one run (Actions run 43723336890). One file can take a third more on one version than the mean, so a shard can still take longer than the others on that version.
+- `tests/test_merge_main.py` takes 529 to 901 s on its own, most of the 927 s of its shard. No shard can be faster than that file, whatever the balance.
+- A new test file is still counted as the average by `assign-missing` until someone runs `times` and `balance` with new reports, as W47b did. A slow new file can make its shard the bottleneck again.
+- The reports must be downloaded by hand from the run's artifacts (they expire after the retention time). Nothing updates the seconds on main by itself.
+- Running test files in parallel inside a shard was looked at and not built (see the pull request of W47b): the gain is bounded by the slowest file, one test binds the fixed port 8765, about 20 test files assert on real elapsed time, and the test runner and its check that every test ran work in one process.
+
+## Goal orchestration (W9), found while building W55a
+
+### 286. The shown spend of a goal is the measured one, while the caps still count the whole plan budget
+
+Since W55a, `goal status`, `goal report` and the goal map count the planning run at what it really spent, read from the budget ledger when the run ended and kept in `goal.json` as `plan_spent_uu`.
+
+- The supervisor's caps still count the whole plan budget against the goal budget, the safe over-count of the W9.7 entry. So the "left" of a report can be more than the next cap a run is given.
+- A goal file from before W55a has no `plan_spent_uu`; for it the old reading (the whole plan budget once a plan exists, 0 for a refused plan) is shown.
+- The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
+- `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.

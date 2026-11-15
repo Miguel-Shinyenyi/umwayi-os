@@ -307,5 +307,87 @@ class RulesTests(unittest.TestCase):
         self.assertIn("run must be job or workflow", text)
 
 
+class FirstRunFindingsTests(cs.CmdCase):
+    """W55a: findings of the first real goal runs by Claude Code in a scratch root (items 1, 2 and 4 through the
+    commands). Words only reach a record or a status line, never content."""
+
+    def refused(self, spend=4):
+        code = self.call("start", cs.GOAL_TEXT, "claude-guide", 20, scripts=[{"steps": [{"print": "no plan line"}], "spend": spend}])
+        self.assertEqual(code, 2, self.err)
+        return gs.list_goals(self.root)[-1]
+
+    def test_1_status_and_report_show_the_measured_spend_of_a_refused_plan(self):
+        goal = self.refused(spend=4)
+        self.assertEqual(gs.read_goal(self.root, goal)[gs.PLAN_SPENT_KEY], 4)
+        self.out.clear()
+        self.assertEqual(self.call("status", goal), 0)
+        self.assertIn("  Spent: 4 of 20 UU on the goal.", self.out)
+        self.out.clear()
+        self.assertEqual(self.call("report", goal), 0)
+        text = "\n".join(self.out)
+        self.assertIn("- Spent: 4 UU,", text)
+        self.assertIn("- Planning run: 4 UU of its budget of 20 UU, the plan was refused (unclear)", text)
+
+    def test_1_a_good_plan_records_its_measured_spend_too(self):
+        goal = self.g_start()
+        self.assertEqual(gs.read_goal(self.root, goal)[gs.PLAN_SPENT_KEY], 5)
+
+    def test_1_a_goal_file_from_before_w55a_still_reads_and_counts_the_plan_budget(self):
+        goal = self.g_start()
+        g = gs.read_goal(self.root, goal)
+        del g[gs.PLAN_SPENT_KEY]
+        (gs.goal_dir(self.root, goal) / "goal.json").write_text(json.dumps(g), encoding="utf-8")
+        self.assertEqual(gs.plan_used_uu(gs.read_goal(self.root, goal)), 20)
+        for bad in (-1, True, "4", 1.5):
+            with self.subTest(plan_spent=repr(bad)):
+                (gs.goal_dir(self.root, goal) / "goal.json").write_text(json.dumps(dict(g, plan_spent_uu=bad)))
+                with self.assertRaises(gs.GoalError):
+                    gs.read_goal(self.root, goal)
+
+    def test_2_a_refused_plan_removes_its_plan_worktree(self):
+        goal = self.refused()
+        self.assertFalse(__import__("os").path.exists(gr.GIT.worktree_path(self.root, goal, "plan")))
+        self.assertNotIn("plan worktree removed", self.logbook_text())  # the undo of our own step: an event only
+
+    def test_4_the_cause_word_of_a_failed_task_is_in_its_entry_status_and_report(self):
+        goal = self.g_approved()
+        steps = rs.builder_steps(goal, "T-01")[:-1] + [{"write": "umwayi/left-over.py", "text": "x"}, {"exit": 0}]
+        self.assertEqual(self.call("run", goal, scripts=[{"steps": steps, "spend": 2}]), 2)
+        [entry] = [e for e in self.entries() if "running to failed" in e.added]
+        self.assertIn("(reason outcome)", entry.added)
+        self.assertIn("Cause: tree_not_clean.", entry.checked)
+        self.out.clear()
+        self.call("status", goal)
+        self.assertIn("  Task T-01  failed (outcome: tree_not_clean)", self.out)
+        self.out.clear()
+        self.call("report", goal)
+        self.assertIn("- Cause: tree_not_clean", self.out)
+        gs.view(self.root)  # the new entry shape parses strictly
+
+    def test_4_other_cause_words_scope_and_status_file_missing(self):
+        for name, files, status, want in (("scope", {"umwayi/other.py": "x"}, rs.STATUS_PART, "file_outside_packet"),
+                                          ("missing status", {"umwayi/piece1.py": "x"}, None, "status_file_missing")):
+            with self.subTest(case=name):
+                self.setUp()
+                goal = self.g_approved()
+                steps = rs.builder_steps(goal, "T-01", files=files, status=status)
+                self.call("run", goal, scripts=[{"steps": steps, "spend": 1}])
+                [entry] = [e for e in self.entries() if "running to failed" in e.added]
+                self.assertIn(f"Cause: {want}.", entry.checked)
+
+    def test_4_an_unknown_cause_word_is_refused_by_the_entry_shape(self):
+        with self.assertRaises(ValueError):
+            gs.state_entry(self.when, "G-0001", "T-01", "running", "failed", "outcome",
+                           facts=[("cause", {"word": "rm -rf something"})])
+
+    def test_6_the_guidance_message_names_the_missing_source_path(self):
+        text = cs.GUIDANCE.replace('source_repo: hub\n    source: "understanding-first.md#3"',
+                                   'source_repo: umwayi-os\n    source: ".kiro/steering/missing.md#1"')
+        (self.root / "guidance.yaml").write_text(text, encoding="utf-8")
+        with self.assertRaises(guidance.SourceChanged) as e:
+            guidance.load(self.root)
+        self.assertIn("(.kiro/steering/missing.md)", str(e.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

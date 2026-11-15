@@ -548,7 +548,7 @@ def _goal_word(ctx, goal):
 
 def _spent(ctx, goal):
     g = gs.read_goal(ctx.root, goal)
-    total = int(g["plan_budget_uu"]) if g["plan"] is not None or g["approved"] else 0
+    total = gs.plan_used_uu(g)  # W55a: the measured spend of the planning run, also for a refused plan
     for task in gs.list_tasks(ctx.root, goal):
         total += int(gs.read_task(ctx.root, goal, task).get("spent_uu") or 0)
     return total
@@ -621,6 +621,21 @@ def status_lines(ctx, only=None):
     return lines
 
 
+def _causes(ctx):
+    """{(goal, task): the cause word of its failed entry} from the tamper checked logbook (W55a). A logbook that cannot
+    be read gives none: the cause is shown only when the record holds it."""
+    cached = getattr(ctx, "_w55a_causes", None)
+    if cached is not None:
+        return cached
+    try:
+        found = {(goal, task): tv.cause for goal, v in gs.view(ctx.root).items() for task, tv in v.tasks.items()
+                 if tv.cause and tv.state == "failed"}
+    except UmwayiError:
+        found = {}
+    ctx._w55a_causes = found  # read once per command: the logbook does not change while status or report reads it
+    return found
+
+
 def _task_lines(ctx, goal, g, t, supervisor_alive):
     events, skipped = _events(ctx, goal, t["id"])
     started = [e for e in events if e["kind"] == "started"]
@@ -631,7 +646,8 @@ def _task_lines(ctx, goal, g, t, supervisor_alive):
         age = _age(ctx, _at(started[-1])) if started else None
         head += f"  {role} {agent}  started {gw.ago(age)}"
     elif t["reason"]:
-        head += f" ({t['reason']})"
+        cause = _causes(ctx).get((goal, t["id"])) if t["state"] == "failed" else None
+        head += f" ({t['reason']}: {cause})" if cause else f" ({t['reason']})"
     out = [head]
     real = [e for e in events if goallog.is_real(e)]
     if real:
@@ -686,7 +702,7 @@ def report_lines(ctx, goal):
              f"Goal ({g['length']} characters, the owner's text): {g['text']}", "",
              f"State: {_goal_word(ctx, goal)}. Guide {g['guide']}, builder {g['builder'] or '(none)'}, "
              f"tester {g['tester'] or '(none)'}.", ""]
-    needs, review = [], []
+    needs, review, causes = [], [], _causes(ctx)
     for task in gs.list_tasks(ctx.root, goal):
         t = gs.read_task(ctx.root, goal, task)
         p = gp.packet_from_dict(t["packet"])
@@ -702,6 +718,8 @@ def report_lines(ctx, goal):
             {"rejected": "reject", "unclear": "unclear"}.get(t["reason"]) if len(runs) >= 3 else None)
         lines += [f"## {task}: {t['state']}" + (f" ({t['reason']})" if t["reason"] else ""), "",
                   f"- Goal: {p.goal}"]
+        if t["state"] == "failed" and causes.get((goal, task)):
+            lines.append(f"- Cause: {causes[(goal, task)]}")
         lines += [f"- Check {i}: {c}" for i, c in enumerate(p.checks, 1)]
         lines += [f"- Runs: " + (", ".join(f"{r['role']} {r['agent']} (cap {r['cap_uu']} UU)" for r in runs) or "none"),
                   f"- Minutes: {minutes}", f"- Spent: {int(t.get('spent_uu') or 0)} of {p.budget_uu} UU",
@@ -716,6 +734,8 @@ def report_lines(ctx, goal):
             review.append(f"{task} (branch {t['branch']}, tip {t['tip'][:12]})")
     left = (g["goal_budget_uu"] - _spent(ctx, goal)) if g["goal_budget_uu"] else 0
     lines += ["## The goal", "", f"- Spent: {_spent(ctx, goal)} UU, left {max(0, left)} UU of {g['goal_budget_uu']} UU",
+              f"- Planning run: {gs.plan_used_uu(g)} UU of its budget of {g['plan_budget_uu']} UU"
+              + (f", the plan was refused ({g['refused']})" if g["refused"] else ""),
               "- Needs you: " + (", ".join(needs) or "nothing"),
               "- Waiting for your merge: " + (", ".join(review) or "nothing")]
     d = _docs_line(ctx)
@@ -964,7 +984,7 @@ def map_data(root, now):
     except UmwayiError:
         gstate = "unknown"
     if readable:
-        plan_used = int(g["plan_budget_uu"]) if g["plan"] is not None or g["approved"] else 0
+        plan_used = gs.plan_used_uu(g)
         cap = g["goal_budget_uu"] or g["plan_budget_uu"]
         budget = {"used_uu": plan_used + used, "reserved_uu": reserved, "cap_uu": int(cap) if cap else None}
     else:

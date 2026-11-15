@@ -254,6 +254,8 @@ def planning_prompt(goal_text, nonce):
         "read, 1 to 8 acceptance checks that someone who did not write the code can answer pass or fail, a size of 15 "
         "to 90 minutes (aim for 60), and the files it may touch. Do not write any file. Do not choose a model, an "
         "effort or a budget.\n"
+        "Every context file must already exist in the repo and must not be rules.yaml, agents.yaml, units.yaml or "
+        "another private file; use [] if there is none.\n"
         "Print exactly one last line: UMWAYI-PLAN <nonce> <json>, where <json> is one object "
         '{"tasks": [{"goal": ..., "context": [...], "checks": [...], "size": N, "files": [...]}]} on that one line.\n'
         "The goal is the owner's text, between the marks:\n"
@@ -270,8 +272,9 @@ def builder_prompt(packet, goal, task, branch, date, nonce):
     lines += [f"{i}. {c}" for i, c in enumerate(packet.checks, 1)]
     lines += ["You may change only these files and folders (a name that ends with / is the folder and everything in it):"]
     lines += ["- " + f for f in packet.files]
-    lines += ["Commit your work on this branch. Do not push. Do not merge. Do not touch any other file. "
-              "Leave the work tree clean.",
+    lines += ["Create every file listed above that does not exist yet, and your status file below. Commit your work "
+              "on this branch. Do not push. Do not merge. Do not touch any other file. Leave the work tree clean: no "
+              "untracked file at all, such as a __pycache__ folder.",
               _STATUS_FORMAT.format(status=status, date=date).rstrip("\n"),
               _LIMITS_FORMAT.format(limits=limits).rstrip("\n"),
               "Write no em dash. When you are done, stop.", "Nonce: " + nonce]
@@ -620,6 +623,8 @@ class _Run:
     def finish(self, cause, **kw):
         """Record the end named by `cause` and stop. `reason_for` chooses state and reason."""
         new, reason = gp.reason_for(cause)
+        if new == "failed":  # W55a: the fixed cause word goes into the failed entry (a word, never content)
+            kw.setdefault("facts", [("cause", {"word": cause})])
         self.discard_unused_worktree()
         self.move(new, reason, **kw)
         raise _Done(Outcome(EXIT_OF_STATE[new], new, reason, cause))
@@ -854,7 +859,10 @@ class _Run:
 
     def run_child(self, role, argv, prompt, fp_fn, cap, before, agent, nonce_tag):
         e = self.env
-        proc = e.spawn(argv, self.root, e.child_environ())
+        environ = e.child_environ()
+        if role in ("builder", "tester"):  # W55a: no __pycache__ left in the worktree by a Python the helper runs
+            environ["PYTHONDONTWRITEBYTECODE"] = "1"
+        proc = e.spawn(argv, self.root, environ)
         # The `started` event, with the pid, comes before the prompt: the child reads its prompt first and does nothing
         # until it has it, so no helper acts before the start is on record. If the event cannot be written the child is
         # stopped and nothing was given to it.
@@ -1344,9 +1352,20 @@ class _PlanRun(_Run):
         res = self.run_child("guide", argv, planning_prompt(self.g["text"], nonce), None, cap, before, agent, None)
         word = self.plan_word(res, nonce)
         if word is not None:
-            gs.refuse_plan(self.root, self.goal, agent, word, when=e.when(), now=e.now())
+            gs.refuse_plan(self.root, self.goal, agent, word, when=e.when(), now=e.now(), plan_spent_uu=res.spent_uu)
+            if word != "readonly":  # W55a: a refused plan removes its worktree; a changed one stays as evidence
+                self.drop_plan_worktree()
             raise _Done(Outcome(2, "plan", "", word))
         return res
+
+    def drop_plan_worktree(self):
+        """The undo of our own step: the plan worktree goes when it is clean at BASE (goalgit.remove_unused, never
+        forced). Like the undo of a task worktree, it writes an event and no logbook entry."""
+        try:
+            if gg.remove_unused(self.root, self.goal, None, self.base).removed:
+                self.events().append("worktree", {"action": "removed", "base": self.base[:8]})
+        except (UmwayiError, ValueError):
+            pass
 
     def plan_word(self, res, nonce):
         """None, or the fixed word that refuses the plan (W9.R5.2, W9.R5.3). Stops end the run in place."""
@@ -1398,13 +1417,14 @@ def run_plan(env, goal):
     """The planning run of `goal start` (W9.R5.1): the guide is started once in the plan worktree with the planning
     prompt. On success the plan is recorded as a proposal (plan.json, the entry, the approval request, one queue row)
     and the Outcome has exit 0; a refused plan is exit 2 with its word and the goal stays in `plan` with no packets
-    (no retry); a rule, the kill switch, the run lock or a worktree problem is exit 3 and changes nothing. The plan
-    worktree stays until `remove_plan_worktree`."""
+    (no retry) and its worktree is removed unless the guide changed it (W55a); a rule, the kill switch, the run lock
+    or a worktree problem is exit 3 and changes nothing. A good plan's worktree stays until `remove_plan_worktree`."""
     run = _PlanRun(env, goal)
     with _Signals(env):
         try:
             res = run.run()
-            gs.record_plan(env.root, goal, run.packets, run.agent_of("guide"), when=env.when(), now=env.now())
+            gs.record_plan(env.root, goal, run.packets, run.agent_of("guide"), when=env.when(), now=env.now(),
+                           plan_spent_uu=res.spent_uu)
             return Outcome(0, "plan", "", "planned")
         except _Done as d:
             return d.outcome

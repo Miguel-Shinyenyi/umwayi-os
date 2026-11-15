@@ -50,6 +50,7 @@ None. Python standard library only (Python 3.10 or newer). The hook runs `umwayi
    ```
 
    - No `matcher`: the hook runs for every tool.
+   - Write both paths as their resolved paths, with no link in them. umwayi compares the command word for word with the paths it resolved itself, so a path through a link does not match. In the umwayi root run `pwd -P` and use what it prints for `--root`; do the same in `adapters/kiro` for the hook path. On macOS `/var` and `/tmp` are links to `/private/var` and `/private/tmp`, so a root under them must be written with `/private`. If the check refuses, `umwayi agent check NAME` prints the exact command it looks for.
    - `timeout` is in seconds in the Kiro hook file schema. The CLI tab of the Kiro Hook actions page also mentions `timeout_ms` with a 30 second default. Not confirmed which one a given Kiro version reads; the adapter's own wait for `umwayi check` (10 seconds, plus up to 5 seconds for the queue item) stays under both.
 
 ## Not confirmed by the Kiro docs
