@@ -1028,7 +1028,7 @@ When W9 is approved and built, this row moves into the main status table as its 
 
 ## Next tasks (named by the owner on Nov 13; all open, none started)
 
-- [ ] W28 The `umwayi login` wizard: one command that checks the sign-in of Claude Code, Kiro and OpenCode, offers the Google or GitHub accounts already registered with each tool first, then a way to register, and uses each tool's own login command. It never takes or stores a password or key, never passes `KIRO_API_KEY`, and needs a real terminal for the sign-in step.
+- [x] W28 (see the pull request, Nov 14) The `umwayi login` wizard, in the narrowed form the owner approved: `umwayi/loginwizard.py`, `umwayi login [--agents PATH]` in `umwayi/cli.py`, requirement 10.R12.14, `tests/agents/test_login_wizard.py`. One line per agent (ok, needs a sign-in, cannot be checked, not offered for OpenCode); on a terminal only, the question for each agent `umwayi agent login` serves and, for each yes, the same code as `umwayi agent login NAME`. It lists no account and passes no word to a sign-in. The first wording (offer the registered Google or GitHub accounts, OpenCode sign-ins, a way to register) conflicted with 10.R12.4, 10.R12.9, 10.R12.13 and 10.R13.12 and was not built.
 - [ ] W29 The `umwayi feedback send` command: opt-in only, shows the tester exactly what would be sent, sends nothing without a typed yes, removes secrets first. Depends on the W26 export, which does not exist yet.
 - [ ] W30 Fix `datetime.utcfromtimestamp` in `umwayi/goallog.py` (line 277), which is deprecated on Python 3.12 and later: use a timezone aware datetime, keep the same output text, add a test.
 - [ ] W31 Project A: the M-Pesa statement analyzer, built through the OS as the first real judged project.

@@ -538,6 +538,15 @@
       ]
     },
     {
+      "name": "login",
+      "path": [
+        "login"
+      ],
+      "help": "the login wizard: one line per agent (ok, needs a sign-in, not offered), then on a terminal the agent's own sign-in for each yes; 0, 2, 3 or 64, never 1",
+      "line": "the login wizard: one line per agent (ok, needs a sign-in, not offered), then on a terminal the agent's own sign-in for each yes",
+      "children": []
+    },
+    {
       "name": "feedback",
       "path": [
         "feedback"
