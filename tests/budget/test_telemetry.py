@@ -4,17 +4,19 @@ The fake `claude` is the fake sender: it posts to the receiver of its run with t
 a test plants. Every test runs `python -m umwayi agent run|chat ...` as a real child process.
 """
 
+import math
 import shutil
 import socket
 import subprocess
 import sys
 import unittest
 
+from umwayi import telemetry
 from umwayi.telemetry import TELEMETRY_NAMES
 
 from tests.agents.test_agents_claude_acp_chat import ClaudeChatCase
 from tests.budget.support import (PROMPT_TEXT, SECRET, BudgetCase, api_request, cost_point, logs, send_logs,
-                                  send_metrics, token_point, user_prompt_event)
+                                  UNITS_HEAD, rate, send_metrics, token_point, user_prompt_event)
 
 END = {"do": "exit", "code": 0}
 WAIT = {"do": "sleep", "s": 20}
@@ -310,6 +312,125 @@ class AcpChatTests(ClaudeChatCase):
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn("it passed its budget of 1 UU for one run", r.stdout)
         self.assert_agent_gone()
+
+
+# W45: whole-number asDouble token counts
+
+W45_RATES = UNITS_HEAD + f"""platforms:
+  claude-code:
+    reading: usd_micros
+    fallback: tokens
+models:
+  claude-sonnet-5:
+    input:{rate(3000000)}
+    output:{rate(15000000)}
+"""
+
+
+def w45_body(*points):
+    return {"resourceMetrics": [{"scopeMetrics": [{"metrics": [
+        {"name": telemetry.TOKEN_METRIC, "sum": {"dataPoints": list(points)}}]}]}]}
+
+
+def w45_point(kind="input", **value):
+    p = {"attributes": [{"key": "type", "value": {"stringValue": kind}},
+                        {"key": "model", "value": {"stringValue": "claude-sonnet-5"}}]}
+    p.update(value)
+    return p
+
+
+def double_point(n, kind="input"):
+    p = token_point(0, kind)
+    del p["asInt"]
+    p["asDouble"] = n
+    return p
+
+
+BAD_DOUBLES = {"1.5": 1.5, "-1": -1, "-1.0": -1.0, "the text 9012": "9012", "true": True, "false": False,
+               "1e13": 1e13, "10^12 + 1": 10 ** 12 + 1, "NaN": math.nan, "infinity": math.inf, "-infinity": -math.inf,
+               "null": None, "a list": [9012]}
+
+
+class TokenAsDoubleFoldTests(unittest.TestCase):
+    """W45: Claude Code 2.1.322 sends claude_code.token.usage counts under asDouble as whole numbers. The owner's rule
+    of Nov 15: asDouble counts only as a whole number from 0 to 10^12; asInt as before; both keys or neither refused."""
+
+    def fold(self, *points):
+        t = telemetry.Totals()
+        t.fold_metrics(w45_body(*points))
+        return t
+
+    def test_a_whole_number_asdouble_counts_as_its_integer(self):
+        t = self.fold(w45_point(asDouble=9012.0), w45_point("output", asDouble=7))
+        self.assertEqual(dict(t.metric_tokens), {("claude-sonnet-5", "input"): 9012, ("claude-sonnet-5", "output"): 7})
+        self.assertTrue(all(type(n) is int for n in t.metric_tokens.values()))
+
+    def test_the_edges_0_and_10_to_the_12_are_counts(self):
+        self.assertEqual(sum(self.fold(w45_point(asDouble=0.0)).metric_tokens.values()), 0)
+        self.assertEqual(sum(self.fold(w45_point(asDouble=float(10 ** 12))).metric_tokens.values()), 10 ** 12)
+
+    def test_every_other_asdouble_is_invalid(self):
+        for label, value in BAD_DOUBLES.items():
+            with self.subTest(value=label):
+                with self.assertRaises(telemetry.Invalid) as e:
+                    self.fold(w45_point(asDouble=value))
+                self.assertEqual(str(e.exception), "a count was not an integer from 0 to 10^12")
+
+    def test_asint_is_accepted_exactly_as_before(self):
+        self.assertEqual(sum(self.fold(w45_point(asInt=9012)).metric_tokens.values()), 9012)
+        for bad in (1.0, 9012.0, -1, "9012", True, 10 ** 12 + 1, None):
+            with self.subTest(asInt=repr(bad)):
+                with self.assertRaises(telemetry.Invalid):
+                    self.fold(w45_point(asInt=bad))
+
+    def test_neither_key_and_both_keys_are_refused(self):
+        with self.assertRaises(telemetry.Invalid):
+            self.fold(w45_point())
+        for both in ({"asInt": 9012, "asDouble": 9012.0}, {"asInt": 1, "asDouble": 2.0}):
+            with self.subTest(both=both):
+                with self.assertRaises(telemetry.Invalid):
+                    self.fold(w45_point(**both))
+
+    def test_one_bad_point_refuses_the_whole_body_and_folds_nothing(self):
+        t = telemetry.Totals()
+        with self.assertRaises(telemetry.Invalid):
+            t.fold_metrics(w45_body(w45_point(asDouble=5.0), w45_point(asDouble=1.5)))
+        self.assertEqual(sum(t.metric_tokens.values()), 0)
+
+    def test_the_cost_metric_is_unchanged(self):
+        t = telemetry.Totals()
+        t.fold_metrics({"resourceMetrics": [{"scopeMetrics": [{"metrics": [
+            {"name": telemetry.COST_METRIC, "sum": {"dataPoints": [{"asDouble": 0.0123}]}}]}]}]})
+        self.assertEqual(t.metric_micros, 12300)
+
+
+class TokenAsDoubleRunTests(BudgetCase):
+    """Through a real `agent run`: a whole-number asDouble is a declared reading, a bad one stops the run (exit 2)."""
+
+    def test_a_run_whose_token_counts_come_as_whole_number_doubles_is_declared_not_invalid(self):
+        self.units(W45_RATES)
+        r = self.run_agent("reviewer", send_metrics(token_points=[double_point(9012.0, "input"), double_point(1.0, "output")]))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.otlp_statuses(), [200])
+        [s] = self.settles()
+        # 9012 input tokens at 3000000 and 1 output token at 15000000 micros per million: 27036 + 15 = 27051 micros
+        self.assertIn(": declared 27051 micros (3 UU); models claude-sonnet-5; tokens input 9012, output 1,", s.added)
+
+    def test_a_fraction_or_a_text_count_under_asdouble_makes_the_run_invalid(self):
+        self.roomy_budget()
+        for label in ("1.5", "the text 9012", "NaN"):
+            with self.subTest(value=label):
+                self.fake_log.unlink(missing_ok=True)
+                n = len(self.settles())
+                value = BAD_DOUBLES[label]
+                step = send_metrics(token_points=[double_point("NaN" if label == "NaN" else value)])
+                if label == "NaN":  # JSON has no NaN; Python's json writes and reads it as the bare word NaN
+                    step["body"]["resourceMetrics"][0]["scopeMetrics"][0]["metrics"][0]["sum"]["dataPoints"][0]["asDouble"] = math.nan
+                r = self.run_agent("reviewer", step, WAIT)
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertIn("Agent reviewer was stopped: its telemetry report was not valid (", r.stdout)
+                self.assertEqual(self.otlp_statuses(), [400])
+                self.assertIn(": unknown 1000000 micros (100 UU);", self.settles()[n].added)  # the full reservation
 
 
 if __name__ == "__main__":
