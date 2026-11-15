@@ -1642,3 +1642,13 @@ The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every K
 - A whoami that hangs costs 30 seconds each time before the refusal, twice as long as before. A goal run with Kiro agents pays it at every start.
 - 30 seconds is a value from one report (about 10 seconds on a Mac), not a measurement over many machines. A machine where whoami takes longer than 30 seconds is refused every time, with the words that the sign-in could not be confirmed.
 - No answer is still a refusal. umwayi cannot tell a slow network from a signed out account, so it starts nothing (fail closed).
+
+## Rules (W58a), found while building
+
+### 289. rules validate checks the form only, and a matcher with an unknown operator passes it and never matches
+
+`umwayi rules validate` uses the gate's own reader, so it accepts what the gate accepts and refuses what the gate refuses. Two things follow.
+
+- A matcher name that ends in an unknown `__word` (for example `command__startswith`) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
+- It checks the form, not the meaning: a well formed rule that matches nothing, two rules that contradict each other, or a Yes rule wider than meant all pass.
+- It reports the first problem only; fixing it can show the next one.
