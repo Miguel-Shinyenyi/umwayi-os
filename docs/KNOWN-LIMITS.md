@@ -1535,12 +1535,12 @@ The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run t
 - The mutation pass was run by a script kept outside the repository. It changed the code 48 times and 47 were caught. One survivor is equivalent: removing the tamper-checked read at the start of `supervise` changes nothing, because `goalstate.repair` reads the logbook with the same check on the next line.
 - The fake agent prints its script; it never tries to act against its rules. What a real helper does with its tools is checked only by the rules and the adapters, not by these scenarios.
 
-## Budget governor, found while building W45
+## Scheduled runs (layer 11), found while building W35
 
-### 280. Whole-number asDouble token counts were seen on Claude Code 2.1.322 only
+### 280. An `@` in a schedule path is safe for the files umwayi writes today, and only for them
 
-umwayi accepts a `claude_code.token.usage` count sent as `asDouble` when it is a whole number from 0 to 10^12 (W45). The shape was traced on one real run: Claude Code 2.1.322 on the owner's Mac, Nov 15 2026.
+The path rule 11.R1.4 allows `@` since W35, so a Homebrew Python path passes. The reading that makes it safe is about the three outputs umwayi writes today: a systemd service, a systemd timer and a printed cron line.
 
-- Older and newer versions of Claude Code are unchecked. One may send `asInt`, `asDouble`, or something else; anything other than these two keys with a whole number is still refused, so the run is marked invalid and settled at the full reservation (the safe side).
-- A whole-number double above 2^53 cannot hold every integer exactly. The cap of 10^12 is far below 2^53, so every accepted count is exact.
-- A point that carries both `asInt` and `asDouble` is refused even if they agree, because umwayi cannot know which one the sender meant.
+- A path always starts with `/`, so `@` is never the first character of an `ExecStart=` command, where systemd reads `@` as a prefix, nor of a cron line, where `@daily` and the like start a line. systemd specifiers are `%` and variables are `$`, both still refused; `/bin/sh` gives `@` no meaning outside `$@`.
+- A unit name never holds a path (it is `umwayi-ROOTID-NAME`), so the `@` of a systemd template unit name cannot arise.
+- umwayi writes no launchd plist today. A plist is XML, where `@` has no meaning, but a future writer of another kind of file must check the rule again for that kind before it reuses `_safe_path`.
