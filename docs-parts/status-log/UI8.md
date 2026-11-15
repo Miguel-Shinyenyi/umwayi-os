@@ -1,0 +1,4 @@
+date: 2026-11-13
+pr: none
+what: UI.8, High steps down to Standard by itself after slow frames. `ui/src/engine/stage.js` reads the frame times (a new `frameNotes`, and `watchHigh` on the stage and the scene); `ui/src/engine/detail.js` has the pure window (20 frames averaging over 34 ms); `ui/src/boot.js` arms it when High is on, removes High once, shows one notice and leaves Standard, and only the visitor's click on the switch brings High back. A forced detail mode is kept. The detail ladder is unchanged. `ui/test/stepdown.test.mjs` (19 tests) covers the step down, no step down on fast frames and the notice, with planted faults checked by hand. KNOWN-LIMITS 156 is rewritten through the frozen base and a new limits part is added. `ui/dist` rebuilt. Not built: a measure on a real GPU, a record of the step down in the logbook (the page writes nothing).
+tests: see the pull request

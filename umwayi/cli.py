@@ -30,7 +30,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, goaldocs, guidance, jobs, kill, logbook,
+from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
                     petition, publish, report, routing, rules, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
@@ -358,6 +358,12 @@ def build_parser() -> argparse.ArgumentParser:
                                    "(default: .umwayi/snapshot.json)")
     vws.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD, the last of the seven budget days "
                                                     "(default: today, from the system clock)")
+
+    fb = sub.add_parser("feedback", help="feedback for the owner; exit 0, 2 or 64, never 1 or 3")
+    fbsub = fb.add_subparsers(dest="feedback_command", parser_class=_Parser)
+    fbsub.add_parser("export", help="print a summary of the logbook for a feedback issue: counts per kind and per verdict, "
+                                    "the date range, the chain status and the budget spent in UU; no paths, commands, "
+                                    "rules or file contents; writes nothing")
 
     sv = sub.add_parser("serve", help="the local backend for the web page (W6); exit 0, 1, 2 or 64, never 3")
     sv.add_argument("--port", type=_port_arg, default=servegate.DEFAULT_PORT,
@@ -710,6 +716,23 @@ def _cmd_view(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_feedback(args, out) -> int:
+    """W33. `umwayi feedback export`. Its own error handling: 0, 2 or 64, never 1 or 3. A logbook that does not pass its
+    check is 2 and no summary."""
+    try:
+        r = feedback.export(Path(args.root))
+        (out if r.code == 0 else sys.stderr).write("\n".join(r.lines) + "\n")
+        return r.code
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError:
+        sys.stderr.write(feedback.REFUSED + "\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _cmd_serve(args, out) -> int:
     """W6. `umwayi serve`: 0 stopped, 1 the logbook failed its tamper check (nothing started), 2, 64; never 3."""
     try:
@@ -964,6 +987,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_budget(args, out)
         if args.command == "view" and getattr(args, "view_command", None) == "snapshot":
             return _cmd_view(args, out)
+        if args.command == "feedback" and getattr(args, "feedback_command", None) == "export":
+            return _cmd_feedback(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
         if args.command == "autonomy" and getattr(args, "autonomy_command", None) == "record":

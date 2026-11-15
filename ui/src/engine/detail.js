@@ -31,3 +31,36 @@ export function shouldStepDown(times) {
   if (times.length < SLOW_FRAMES) return false;
   return times.reduce((a, b) => a + b, 0) / times.length > SLOW_MS;
 }
+
+// UI.8: the High tier (the picture of tier 3, built on top of Standard on the public site) steps down to Standard by itself.
+// It is not a rung of the ladder above: those rungs lower the detail inside a tier, this takes the tier off. It looks at a
+// shorter window than the ladder (HIGH_WINDOW frames, a little under a second at 30 frames a second) with the same measure
+// (an average above SLOW_MS), and it says so once: the watch calls onSlow a single time and is done. Nothing in it puts High
+// back; only the visitor's own choice of High (boot.js) arms a new watch.
+export const HIGH_WINDOW = 20;
+export function shouldLeaveHigh(times) {
+  if (!Array.isArray(times) || times.length < HIGH_WINDOW) return false;
+  const last = times.slice(-HIGH_WINDOW);
+  if (!last.every((t) => Number.isFinite(t) && t >= 0)) return false; // a frame time that is not a number is not evidence
+  return last.reduce((a, b) => a + b, 0) / last.length > SLOW_MS;
+}
+export function createHighWatch(onSlow) {
+  let times = [], done = false;
+  return {
+    get done() {
+      return done;
+    },
+    // true on the one frame that ended the watch
+    note(dt) {
+      if (done) return false;
+      times.push(dt);
+      if (times.length < HIGH_WINDOW) return false;
+      const slow = shouldLeaveHigh(times);
+      times = [];
+      if (!slow) return false;
+      done = true;
+      onSlow();
+      return true;
+    },
+  };
+}

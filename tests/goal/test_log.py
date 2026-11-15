@@ -14,6 +14,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from tests.goal.fakeroot import DATE
 from tests.goal import gen
 from umwayi import goallog
 from umwayi.errors import UmwayiError
@@ -581,8 +582,8 @@ class LogbookStaysStrictTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             for i in range(3):
-                logbook.append(root, logbook.Entry("2026-11-13", "umwayi goal", f"Goal G-000{i} started", "Checked.", "Nothing."))
-            logbook.seal(root, "2026-11-13", "test", start_chain=True)
+                logbook.append(root, logbook.Entry(DATE, "umwayi goal", f"Goal G-000{i} started", "Checked.", "Nothing."))
+            logbook.seal(root, DATE, "test", start_chain=True)
             p = root / "LOGBOOK.md"
             p.write_text(p.read_text().replace("G-0001", "G-0099"), encoding="utf-8")
             with self.assertRaises(UmwayiError):

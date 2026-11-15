@@ -761,9 +761,14 @@ The grass, soil and rock photographs are CC0 from Poly Haven and are not of Laik
 
 The fallback covers a High that cannot load its code, cannot load a photograph, throws while it is built, or is too slow. A failure after High is on (a shader that does not compile on a given GPU, a lost context) shows as whatever the browser does with it: three.js logs the shader error and the object is not drawn. A lost context goes through the Standard path (List, with the words). No test or browser run here had a shader fail to compile.
 
-### 156. High does not step down to Standard by itself (not built)
+### 156. High steps down to Standard by itself only on frame times, once, and it was tried on fake frames
 
-A device that is offered High, or whose visitor chooses it, and draws it slowly keeps High. The detail ladder lowers the pixel ratio, then the bloom and the multisampling, and thins the grass, after slow frames, but nothing takes High off when that is not enough, so a weak GPU with strong numbers can stay at a few frames a second. The visitor's way back is the switch. The owner asked for the automatic step down on PR 58 as a follow-up, not part of that pull request: it is the task UI.8 in tasks.md and is **not built**. Until it is, the sandbox runs of High in software drawing (1 to 3 frames a second) are what a slow device would show.
+When High is drawn and a window of 20 frames averages more than 34 ms, the page removes High, shows one notice and stays Standard (UI.8). The detail ladder (the pixel ratio, then the bloom and the multisampling) still works inside a tier. What this does not do is described in the limits part of UI.8; the points that matter here:
+
+- It measures frame times while the picture moves, so a device that is slow only at rest, or only at the first frame, is not caught, and one hitch in a fast run is not a weak machine.
+- It was tested with fake frame times and a fake page only, not in a real browser, and nothing here says where a real integrated GPU lands against the 34 ms line.
+- It is once per session. After it, the visitor's own click on the switch is the only way back to High, and a new step down needs a new slow window.
+- A forced detail mode (`#detail=high` or `#detail=low`) is kept, so a visitor who forces one never steps down.
 
 ## Layer 13: elections (found while building L13.1)
 
@@ -1476,12 +1481,56 @@ The tester feedback path is an issue template and a page. These are its limits.
 - The build writes `ui/dist/index.html`, `cli-map.html` and `build.json` too, but only `progress.html` is uploaded. If the build wrote a different `progress.html` path, the step would fail (`if-no-files-found: error`) and no page would be kept.
 - The page shows the sources as they are on main at that push, with the build date. A run that is cancelled or fails leaves the last artifact of an earlier run as the newest, so an old page can look current.
 
-## Scheduled runs (layer 11), found while building W35
+## Web interface (UI.8), found while building
 
-### 276. An `@` in a schedule path is safe for the files umwayi writes today, and only for them
+### 276. The High step down is a frame time rule, so it can step down a good device and miss a bad one
 
-The path rule 11.R1.4 allows `@` since W35, so a Homebrew Python path passes. The reading that makes it safe is about the three outputs umwayi writes today: a systemd service, a systemd timer and a printed cron line.
+`ui/src/engine/stage.js` takes High off after a slow window (KNOWN-LIMITS 156). The rule is small on purpose, and it is wrong in both directions sometimes.
 
-- A path always starts with `/`, so `@` is never the first character of an `ExecStart=` command, where systemd reads `@` as a prefix, nor of a cron line, where `@daily` and the like start a line. systemd specifiers are `%` and variables are `$`, both still refused; `/bin/sh` gives `@` no meaning outside `$@`.
-- A unit name never holds a path (it is `umwayi-ROOTID-NAME`), so the `@` of a systemd template unit name cannot arise.
-- umwayi writes no launchd plist today. A plist is XML, where `@` has no meaning, but a future writer of another kind of file must check the rule again for that kind before it reuses `_safe_path`.
+- A window is 20 frames that the loop reports while the picture moves, averaging over 34 ms. A tab that was in the background, a machine busy with something else, or a first frame that compiles shaders can fill a window with slow frames, and a good device then loses High until the visitor asks for it again.
+- A device that draws High slowly only at rest, or only when it is not moving, is never measured: the loop reports no frame time then.
+- The step down is not undone when the machine speeds up. One slow window ends High for the session. The visitor can click High again; nothing else will.
+- The notice is one line of text in the page. A screen reader that is not reading the notice area will not announce it, and the pressed state of the switch is what changes for it.
+- A forced detail mode in the address (`#detail=high` or `#detail=low`) is kept, so a visitor who forces one never steps down, even on a very slow device.
+- The 20 frames and the 34 ms are starting values, chosen with the ladder's own 34 ms. They were not tuned on a real device. The tests use fake frame times and a fake page; the change was not run in a real browser.
+
+## Feedback export (W33), found while building
+
+### 277. The feedback export prints no text of the logbook, and it still says when and how much you worked
+
+`umwayi feedback export` prints counts and dates for a tester to paste. These are its limits.
+
+- The summary shows when umwayi was used (the first and last date), how often (the counts) and which commands were used (the kinds, from a fixed list). That is a pattern of work, and the tester should read it before sharing, as `docs/feedback.md` says. A kind that is not in the fixed list is counted as `other`, so a new command shows as `other` until its name is added to `KINDS` in `umwayi/feedback.py`.
+- The verdict of a check is read from the start of the Added line of a `umwayi check` entry. An entry in another form counts as `unreadable`. The count of `Yes`, `No` and `Ask me first` is only as true as the logbook, which the tamper check shows is unchanged and not that it is right.
+- The chain line says intact and the number of chained entries, or not started. It does not say who started the chain or when.
+- The budget figure sums every day of the ledger in whole UU, rounding up each day, with an open reservation counted in full. It can differ by a few UU from the sum of the settled runs, and it says nothing of the units file in use.
+- A missing logbook is exit 2 with a fixed sentence, as a logbook that failed its check is. A tester who has not run anything yet therefore gets a refusal and not an empty summary.
+- `logbook.verify` and the checked reader both stop a hand edited logbook, so a test that disables only the first of them still passes. The two are kept on purpose, and the second alone is enough.
+- It does not check the kill switch and asks the rules nothing, as `umwayi view snapshot` does not. It is a read only command for the owner, and no rules action was added for it.
+- Nothing was sent anywhere. Sending the summary to the owner (W29) is not built.
+
+## Web interface (W38), found while building
+
+### 278. The goal map is drawn from a file until W37 lands, and its pictures and timing were checked in one browser only
+
+`ui/dist/goal-map.html` draws one goal as a map (W38). It is built against the W37 contract as the owner gave it, before W37 exists.
+
+- It is not live yet. The "Live" source sends nothing: the route `GET /api/goal-map` does not exist, and the page client has no route for it. The page says so in one line and tries again after 15, 30 and then every 60 seconds. Until W37 is merged and the route is added to the page client, the map is only as new as the file the visitor opened.
+- It reads only the fields of the contract, and a field it cannot read is drawn as unknown. If W37 ships other field names or other words for the kill switch than `on` and `off`, the map shows unknown, and a kill switch it cannot read is drawn as on.
+- The page cannot be opened from `umwayi serve` today: the server serves only the live view. Opened from disk it has nothing to ask.
+- The supervisor is grey when its last event is 300 seconds old or more, from the age the file gives. The page never compares any time with its own clock, so a file that is days old still shows the ages it held when it was written.
+- Readable at 12 tasks means one card size, words cut to fit with three dots, and a taller drawing; on a phone the drawing keeps a width of 900 pixels and scrolls sideways. More than 50 tasks are counted and not drawn.
+- The layout tests prove no overlap for 0 to 12 tasks in the drawing's own units, with a character width that is a little wider than the monospace font. A system font that is much wider would make a cut line run past its card; the browser check found none in one Chromium on Linux.
+- The live view does not link the page yet, because the page rule of the live view allows the Repo and Docs links only. The owner decides.
+
+## Goal orchestration (W9), found while building W9.10
+
+### 279. The whole-system scenarios use a fake Kiro for every role, and a stall is tested with a lowered time
+
+The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run the real commands and the real `agent run`, but not a real helper.
+
+- Every role is a Kiro agent, because a Kiro run has a declared cost (10 UU) and so the budget scenarios are exact. A Claude Code run settles from the helper's own report, which the fake does not send, so no whole-system scenario starts Claude Code. The unit tests of the supervisor cover its argument list and caps only.
+- A stall is tested with a stall time of a few seconds, set through a test-only sitecustomize that replaces `goalwatch.Policy.for_role`. The real time of 1800 seconds is only tested by the unit tests of `goalwatch` (the judge is pure) and by the mutation pass, never by waiting for it.
+- An approval that passes its deadline is tested by moving `time.time` forward in the child with a test-only sitecustomize. The date of the entries comes from the election clock, which also reads the system date, so a deadline moved by days would show a date that is not the logbook's newest.
+- The mutation pass was run by a script kept outside the repository. It changed the code 48 times and 47 were caught. One survivor is equivalent: removing the tamper-checked read at the start of `supervise` changes nothing, because `goalstate.repair` reads the logbook with the same check on the next line.
+- The fake agent prints its script; it never tries to act against its rules. What a real helper does with its tools is checked only by the rules and the adapters, not by these scenarios.

@@ -761,9 +761,14 @@ The grass, soil and rock photographs are CC0 from Poly Haven and are not of Laik
 
 The fallback covers a High that cannot load its code, cannot load a photograph, throws while it is built, or is too slow. A failure after High is on (a shader that does not compile on a given GPU, a lost context) shows as whatever the browser does with it: three.js logs the shader error and the object is not drawn. A lost context goes through the Standard path (List, with the words). No test or browser run here had a shader fail to compile.
 
-### 156. High does not step down to Standard by itself (not built)
+### 156. High steps down to Standard by itself only on frame times, once, and it was tried on fake frames
 
-A device that is offered High, or whose visitor chooses it, and draws it slowly keeps High. The detail ladder lowers the pixel ratio, then the bloom and the multisampling, and thins the grass, after slow frames, but nothing takes High off when that is not enough, so a weak GPU with strong numbers can stay at a few frames a second. The visitor's way back is the switch. The owner asked for the automatic step down on PR 58 as a follow-up, not part of that pull request: it is the task UI.8 in tasks.md and is **not built**. Until it is, the sandbox runs of High in software drawing (1 to 3 frames a second) are what a slow device would show.
+When High is drawn and a window of 20 frames averages more than 34 ms, the page removes High, shows one notice and stays Standard (UI.8). The detail ladder (the pixel ratio, then the bloom and the multisampling) still works inside a tier. What this does not do is described in the limits part of UI.8; the points that matter here:
+
+- It measures frame times while the picture moves, so a device that is slow only at rest, or only at the first frame, is not caught, and one hitch in a fast run is not a weak machine.
+- It was tested with fake frame times and a fake page only, not in a real browser, and nothing here says where a real integrated GPU lands against the 34 ms line.
+- It is once per session. After it, the visitor's own click on the switch is the only way back to High, and a new step down needs a new slow window.
+- A forced detail mode (`#detail=high` or `#detail=low`) is kept, so a visitor who forces one never steps down.
 
 ## Layer 13: elections (found while building L13.1)
 

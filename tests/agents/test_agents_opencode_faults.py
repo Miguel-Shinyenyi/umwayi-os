@@ -15,6 +15,7 @@ import tempfile
 import time
 import unittest
 from contextlib import ExitStack
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -25,6 +26,9 @@ from tests.agents.support import SECRET
 from tests.agents.test_agents_opencode_chat import ChatCase
 from tests.agents.test_agents_opencode_gate import GateCase
 from tests.agents.test_agents_opencode_turns import TurnCase, tool
+
+# The date of the runs these tests make (W34): today's UTC date, so it is never before an entry the code writes.
+TODAY = datetime.now(timezone.utc).date().isoformat()
 
 RULES = """rules:
   - id: perm-read
@@ -56,7 +60,7 @@ class FolderTests(unittest.TestCase):
     def prepare(self, mode):
         folder = Path(tempfile.mkdtemp(prefix="umwayi-canary-test-", dir=self.tmp))
         os.chmod(folder, mode)
-        run = agents._Run(self.root, opencode_agent(self.work), None, lambda: "2026-11-12", agents.CHAT)
+        run = agents._Run(self.root, opencode_agent(self.work), None, lambda: TODAY, agents.CHAT)
         with ExitStack() as stack, mock.patch.object(agents, "_canary_folder", return_value=str(folder)):
             problem = run._prepare_canary(stack)
         return problem, run
@@ -93,7 +97,7 @@ class NotLoggedTests(unittest.TestCase):
         (self.root / "rules.yaml").write_text(RULES, encoding="utf-8")
         work = self.root.parent / "work"
         work.mkdir()
-        self.run_ = agents._Run(self.root, opencode_agent(work), None, lambda: "2026-11-12", agents.CHAT)
+        self.run_ = agents._Run(self.root, opencode_agent(work), None, lambda: TODAY, agents.CHAT)
         self.read = {"kind": "read", "name": "read"}
 
     def test_a_logged_yes_is_allowed(self):  # the control: the rule says Yes and the entry is written
@@ -123,7 +127,7 @@ class PermissionGuardTests(unittest.TestCase):
         (self.root / "rules.yaml").write_text(RULES, encoding="utf-8")
         work = self.root.parent / "work"
         work.mkdir()
-        self.run_ = agents._Run(self.root, opencode_agent(work), None, lambda: "2026-11-12", agents.CHAT)
+        self.run_ = agents._Run(self.root, opencode_agent(work), None, lambda: TODAY, agents.CHAT)
         self.read = {"kind": "read", "name": "read"}
 
     def test_the_kill_switch_makes_every_request_a_reject_whatever_the_rules_say(self):

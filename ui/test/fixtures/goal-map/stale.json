@@ -1,0 +1,106 @@
+{
+ "version": 1,
+ "now": "03:41:30 UTC",
+ "kill_switch": "on",
+ "goal": {
+  "id": "G-0007",
+  "title": "Add a hello page with its tests and docs",
+  "state": "running",
+  "budget": {
+   "used_uu": 34,
+   "reserved_uu": 30,
+   "cap_uu": 200
+  },
+  "needs_owner": true
+ },
+ "supervisor": {
+  "alive": true,
+  "pid_known": true,
+  "last_event_age_s": 900,
+  "state": "watching T-01"
+ },
+ "tasks": [
+  {
+   "id": "T-01",
+   "title": "Add the hello page",
+   "state": "running",
+   "role_now": "builder",
+   "worktree": {
+    "branch": "umwayi/g-0007-t-01",
+    "clean": true
+   },
+   "age_s": 42,
+   "needs_owner_reason": null,
+   "pr": null
+  },
+  {
+   "id": "T-02",
+   "title": "Write the status line test",
+   "state": "needs owner",
+   "role_now": null,
+   "worktree": {
+    "branch": "umwayi/g-0007-t-02",
+    "clean": true
+   },
+   "age_s": 610,
+   "needs_owner_reason": "ask",
+   "pr": null
+  },
+  {
+   "id": "T-03",
+   "title": "Make the docs part for the page",
+   "state": "in review",
+   "role_now": "tester",
+   "worktree": {
+    "branch": "umwayi/g-0007-t-03",
+    "clean": true
+   },
+   "age_s": 1500,
+   "needs_owner_reason": null,
+   "pr": 103
+  },
+  {
+   "id": "T-04",
+   "title": "Check the feed order",
+   "state": "queued",
+   "role_now": null,
+   "worktree": null,
+   "age_s": 30,
+   "needs_owner_reason": null,
+   "pr": null
+  }
+ ],
+ "events": [
+  {
+   "t": "03:41:00",
+   "kind": "state",
+   "task": "T-01",
+   "text": "queued to running (start)"
+  },
+  {
+   "t": "03:41:01",
+   "kind": "worktree",
+   "task": "T-01",
+   "text": "worktree made, base 9f1c2e0a"
+  },
+  {
+   "t": "03:41:02",
+   "kind": "output",
+   "task": "T-01",
+   "text": "12 lines"
+  },
+  {
+   "t": "03:41:03",
+   "kind": "state",
+   "task": "T-02",
+   "text": "running to needs owner (ask)"
+  },
+  {
+   "t": "03:41:04",
+   "kind": "poll",
+   "task": null,
+   "text": "supervisor alive"
+  }
+ ],
+ "notes": []
+}

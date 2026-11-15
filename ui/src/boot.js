@@ -16,6 +16,7 @@ const HIGH_LOADING = 'Loading High. This is Standard until it is ready.';
 const HIGH_WARN = 'You chose High. It loads more and may be slow on this device.';
 const HIGH_FAILED = 'High could not start in this browser, so this is Standard.';
 const HIGH_SLOW = 'High took too long to load, so this is Standard.';
+const HIGH_STEPPED = 'High was slow on this device, so this is Standard now. You can choose High again.';
 // how long High may take to load and build before the page gives up and stays Standard
 export const HIGH_TIMEOUT_MS = 15000;
 
@@ -56,11 +57,20 @@ export function boot(win, options, loadApp) {
   let high = null;
   const highState = (s) => { if (options.loadHigh) doc.documentElement.setAttribute('data-high', s); };
   function dropHigh() {
+    if (app && app.watchHigh) app.watchHigh(null);
     if (high) { high.remove(); high = null; }
     if (options.loadHigh) highState('off');
   }
+  // UI.8: slow frames while High is drawn. High is removed, the page says so once in the notice, and it stays Standard.
+  function armHigh() {
+    if (app && app.watchHigh) app.watchHigh(() => {
+      if (!high) return;
+      dropHigh();
+      setTier(doc, 'standard', HIGH_STEPPED);
+    });
+  }
   function startHigh(mine, warn) {
-    if (high) { setTier(doc, 'high', warn ? HIGH_WARN : ''); highState('on'); return; }
+    if (high) { setTier(doc, 'high', warn ? HIGH_WARN : ''); highState('on'); armHigh(); return; }
     highState('loading'); // use() has already shown High with the loading words
     let late = false;
     const timer = win.setTimeout(() => {
@@ -75,6 +85,7 @@ export function boot(win, options, loadApp) {
       high = h;
       highState('on');
       setTier(doc, 'high', warn ? HIGH_WARN : '');
+      armHigh();
     }, () => {
       win.clearTimeout(timer);
       if (late || mine !== turn) return;
@@ -84,6 +95,8 @@ export function boot(win, options, loadApp) {
   }
 
   // The newest choice wins: a scene that finishes loading after the visitor chose List is built but not shown.
+  // use() is called for the first choice, after the picture is lost (then WebGL is marked gone, so never High) and for a click on
+  // the switch. After a step down (UI.8) none of the first two can come again, so only the visitor's click puts High back.
   function use(choice, message = '') {
     const mine = ++turn;
     if (choice.tier >= 2) {
