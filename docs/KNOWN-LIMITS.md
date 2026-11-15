@@ -1534,3 +1534,13 @@ The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run t
 - An approval that passes its deadline is tested by moving `time.time` forward in the child with a test-only sitecustomize. The date of the entries comes from the election clock, which also reads the system date, so a deadline moved by days would show a date that is not the logbook's newest.
 - The mutation pass was run by a script kept outside the repository. It changed the code 48 times and 47 were caught. One survivor is equivalent: removing the tamper-checked read at the start of `supervise` changes nothing, because `goalstate.repair` reads the logbook with the same check on the next line.
 - The fake agent prints its script; it never tries to act against its rules. What a real helper does with its tools is checked only by the rules and the adapters, not by these scenarios.
+
+## Budget governor, found while building W45
+
+### 280. Whole-number asDouble token counts were seen on Claude Code 2.1.322 only
+
+umwayi accepts a `claude_code.token.usage` count sent as `asDouble` when it is a whole number from 0 to 10^12 (W45). The shape was traced on one real run: Claude Code 2.1.322 on the owner's Mac, Nov 15 2026.
+
+- Older and newer versions of Claude Code are unchecked. One may send `asInt`, `asDouble`, or something else; anything other than these two keys with a whole number is still refused, so the run is marked invalid and settled at the full reservation (the safe side).
+- A whole-number double above 2^53 cannot hold every integer exactly. The cap of 10^12 is far below 2^53, so every accepted count is exact.
+- A point that carries both `asInt` and `asDouble` is refused even if they agree, because umwayi cannot know which one the sender meant.

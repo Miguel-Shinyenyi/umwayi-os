@@ -2258,7 +2258,7 @@ Kill switch (3), rules `agent_run`, run lock (3), gate checks (2), then the new 
   
   Only then does it read the body, `json.loads` it, walk only the named paths and fold the numbers into a `Totals` object (integers; `cost_usd_micros` summed; requests counted by event). It answers 200 with `{}` and drops the body.
 - Rejections are counted by reason, never logged with content.
-- **Numbers:** an integer from 0 to 10^12, or for `claude_code.cost.usage` a non-negative finite double converted to micros rounded up. Anything else marks the run `invalid`, which settles the full reservation.
+- **Numbers:** an integer from 0 to 10^12, or for `claude_code.cost.usage` a non-negative finite double converted to micros rounded up. A `claude_code.token.usage` data point has exactly one of `asInt` (an integer from 0 to 10^12, as before) or `asDouble`, which counts only when it is an int or float that is a whole number from 0 to 10^12 (W45, the owner's rule of Nov 15: Claude Code 2.1.322 sends token counts as whole-number doubles); a fraction, a negative number, text, a bool, NaN or infinity under `asDouble`, both keys or neither key mark the run invalid. Anything else marks the run `invalid`, which settles the full reservation.
 - **Which source counts:**
   - the `api_request` events (integers) are the measured reading;
   - if no event arrived but `claude_code.cost.usage` did, the metric is the reading (still measured);
