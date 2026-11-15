@@ -1596,3 +1596,13 @@ W47a removes two sources of conflict and leaves the others for the owner. These 
 - `ui/dist/build.json`, `ui/dist/cli-map.html` and `ui/src/data/cli-map.json` still conflict when two pull requests change the command line or the ui sources.
 - The renumbering of a clashing limits part changes its number after the merge. A status row or a doc of the same branch that names the old number is not changed by it.
 - GitHub merge queue is not available for a public repository owned by a personal account, so it cannot test pull requests in merge order here.
+
+## Rules (W57), builder rules and the new matchers
+
+### 285. the builder rules trust the cwd that Claude Code reports, and they match text, not shell syntax
+
+- `cwd` is what Claude Code puts in the hook input. umwayi does not check it on disk, so a `cd` that the owner allowed changes where the next call counts as running. The builder rules allow no `cd`.
+- `__prefix` does not resolve links: a link inside a worktree that points outside it is matched by where it sits.
+- The No list is plain text. Shell syntax the list does not name is allowed when the line starts with one of the five commands, for example input from a file with `<` or `<<<`. A here document is not Yes, because it needs a newline and `__startswith` takes one printable line. Other options of the five commands are allowed, for example `git commit --amend` or `git add -f`.
+- An unknown matcher `__word` still loads and is read as an equals matcher on that field name; it is not refused (the request assumed it was). Refusing it at load would change which existing rules files load, so it is left for the owner.
+- `cwd` reaches the rules only from the Claude Code hook. Kiro's docs show `cwd` in one example only, so the Kiro hook does not send it, and the builder rules do nothing for Kiro.
