@@ -13,7 +13,7 @@ It never runs systemctl, crontab, loginctl or any other program: it imports no p
 `systemctl --user` commands for the owner to type. What a timer starts is an existing front door, which checks
 the kill switch, the run lock, the rules and the logbook itself (layers 6 and 8); nothing new can run.
 
-Every path written into a unit file or a cron line obeys the path rule (letters, digits and / . _ + - only), so
+Every path written into a unit file or a cron line obeys the path rule (letters, digits and / . _ + - @ only), so
 no quoting, no systemd specifier (%) and no variable expansion ($) is ever needed.
 """
 
@@ -60,7 +60,7 @@ LINGER_LINE = ("Timers run only while you are logged in, unless you enable linge
 
 _NAME = re.compile(r"[a-z][a-z0-9-]{0,31}")  # always fullmatch: "$" would let a final newline through
 _AT = re.compile(r"([01][0-9]|2[0-3]):([0-5][0-9])")
-_SAFE_PATH = re.compile(r"/[A-Za-z0-9/._+-]*")
+_SAFE_PATH = re.compile(r"/[A-Za-z0-9/._+@-]*")  # W35: @ for Homebrew (python@3.13); see path_problems
 _PLAIN_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,39}$")
 _UNIT = re.compile(r"umwayi-([0-9a-f]{8})-([a-z][a-z0-9-]{0,31})\.(service|timer)")
 
@@ -303,12 +303,17 @@ def path_problems(paths: Paths) -> list:
                         ("the umwayi source folder path", paths.src)):
         if not _safe_path(value):
             out.append(Problem("path", f"{role} has a character a unit file cannot hold safely (allowed: letters, "
-                                       "digits, / . _ + -), or a '.' or '..' part, or is longer than 1024 characters. "
+                                       "digits, / . _ + - @), or a '.' or '..' part, or is longer than 1024 characters. "
                                        "Move it and try again."))
     return out
 
 
 def _safe_path(value: str) -> bool:
+    """The path rule (11.R1.4). `@` is allowed (W35, a Homebrew Python is /opt/homebrew/opt/python@3.13/...): a path
+    always starts with `/`, so `@` is never the first character of an ExecStart= command (where systemd reads it as a
+    prefix) or of a cron line (where it starts @daily and the like); systemd specifiers are `%`, variables are `$`, and
+    `/bin/sh` gives `@` no meaning outside `$@`, and `$` stays refused. Unit names never hold a path, so the `@` of a
+    template unit name cannot arise."""
     if not isinstance(value, str) or len(value) > MAX_PATH or not _SAFE_PATH.fullmatch(value):
         return False
     return not any(part in (".", "..") for part in value.split("/")[1:])
@@ -382,7 +387,7 @@ def _command(paths: Paths, entry: Entry) -> str:
         jobs_path = os.path.realpath(os.path.join(paths.root, entry.jobs_file))
         if not _safe_path(jobs_path):
             raise ConfigError("schedule: the jobs file path has a character a unit file cannot hold safely (allowed: "
-                              "letters, digits, / . _ + -). Move it and try again.")
+                              "letters, digits, / . _ + - @). Move it and try again.")
         return f"{paths.python} -m umwayi --root {paths.root} run {jobs_path} --job {entry.target}"
     if entry.run == "workflow":
         return f"{paths.python} -m umwayi --root {paths.root} workflow run {entry.target}"
