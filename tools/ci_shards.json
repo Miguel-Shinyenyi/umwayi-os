@@ -104,6 +104,10 @@
    "seconds": 10.1,
    "shard": 2
   },
+  "tests/agents/test_kiro_hook_root.py": {
+   "seconds": 20.8,
+   "shard": 2
+  },
   "tests/agents/test_login_wizard.py": {
    "seconds": 7.8,
    "shard": 2
@@ -190,7 +194,7 @@
   },
   "tests/goal/test_blocked.py": {
    "seconds": 20.8,
-   "shard": 2
+   "shard": 1
   },
   "tests/goal/test_budget.py": {
    "seconds": 0.4,

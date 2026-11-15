@@ -5,13 +5,14 @@
 // skips and says how to run it by hand. It builds into site/.next (ignored by git) and talks to 127.0.0.1 only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findBrowser, launch, HOW_TO_RUN } from '../../ui/tools/browser.mjs';
 import { PHONES, PHONES_LANDSCAPE, runPhones, problemsOf } from '../../ui/tools/phone-audit.mjs';
 import { scenario } from '../../ui/tools/phone-scenario.mjs';
+import { buildOnce } from '../scripts/build-once.mjs';
 
 const SITE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const exe = findBrowser();
@@ -27,8 +28,8 @@ const freePort = () => new Promise((resolve, reject) => {
 let browser = null, server = null, url = null;
 test.before(async () => {
   if (!exe) return;
-  const built = spawnSync(process.execPath, ['scripts/next.mjs', 'build'], { cwd: SITE, encoding: 'utf8' });
-  assert.equal(built.status, 0, `next build failed: ${built.stdout.slice(-600)} ${built.stderr.slice(-600)}`);
+  const built = buildOnce(); // one build for every test file of this run (W51a)
+  assert.equal(built.status, 0, `next build failed: ${built.out}`);
   const port = await freePort();
   server = spawn(process.execPath, ['scripts/next.mjs', 'start', '-H', '127.0.0.1', '-p', String(port)], { cwd: SITE, stdio: 'ignore' });
   url = `http://127.0.0.1:${port}/`;
