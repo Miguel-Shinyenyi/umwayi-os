@@ -116,6 +116,8 @@ def _goal_commands(glsub) -> None:
         sp.add_argument("goal", help="the goal id, for example G-0007")
     gst = glsub.add_parser("status", help="what waits for you, the last real event and its age (changes nothing)")
     gst.add_argument("goal", nargs="?", help="one goal id (default: every goal)")
+    glsub.add_parser("map", help="the goal map of the newest goal as JSON, the same document GET /v1/goal-map of "
+                                 "umwayi serve sends; no path or file text (changes nothing)")
     ga = glsub.add_parser("approve", help="your approval of a plan: roles, model, effort and budgets (needs a "
                                           "terminal); starts nothing")
     ga.add_argument("goal", help="the goal id")
@@ -765,7 +767,7 @@ def _cmd_goal_docs(args, out) -> int:
         return _crashed(e)
 
 
-GOAL_COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report")
+GOAL_COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report", "map")
 
 
 def _cmd_goal(args, out) -> int:

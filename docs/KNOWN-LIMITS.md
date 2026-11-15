@@ -1522,3 +1522,18 @@ The tester feedback path is an issue template and a page. These are its limits.
 - Readable at 12 tasks means one card size, words cut to fit with three dots, and a taller drawing; on a phone the drawing keeps a width of 900 pixels and scrolls sideways. More than 50 tasks are counted and not drawn.
 - The layout tests prove no overlap for 0 to 12 tasks in the drawing's own units, with a character width that is a little wider than the monospace font. A system font that is much wider would make a cut line run past its card; the browser check found none in one Chromium on Linux.
 - The live view does not link the page yet, because the page rule of the live view allows the Repo and Docs links only. The owner decides.
+
+## Goal map data (W37), found while building
+
+### 279. The goal map shows the newest goal only, guesses the supervisor from a lock, and hides words by their shape
+
+`umwayi goal map` and `GET /v1/goal-map` give the document of `docs/goal-map.md`. These are its limits.
+
+- Only the newest goal (the highest id) is shown. An older goal that still runs or needs the owner is not on the map; `umwayi goal status` lists every goal.
+- `alive` means a process holds a lock on `.umwayi/goal.lock` now, read from `/proc/locks` without taking the lock. It does not show the holder is a healthy supervisor, and another program that locks the same file would read as alive. Where `/proc/locks` cannot be read the supervisor is `unknown`. `pid_known` says the table named a process, and the number is never sent.
+- `worktree.clean` and `pr` are always null: the first needs a git process, which the map never starts, and the goal files do not record a pull request number. The page shows neither yet.
+- A title shows the owner's own words. The label hides words by their shape (a digit, a slash, a sign, a leading dash, 8 or more capitals, more than 24 characters), so a secret written as an ordinary word in a goal or a task sentence would be shown. The cut at 80 characters hides what comes after it.
+- Every call of the route writes two logbook entries (the rules check and the request entry), as every read does under W6.R7.7. A page that asked often would grow the logbook; there is no stream and no polling for that reason.
+- Through the route, a logbook that fails its check refuses the request (500, `logbook`) before the map is read, so the page shows the refusal and not the document with its note. The command shows the document.
+- The event text is a fixed label per kind, so the page cannot show what changed (from which state to which, how many lines). `umwayi goal status` shows those words.
+- The ages count from the newest event and the last state change in the event logs. A clock set back gives `null` for an event dated after now, never a negative age.

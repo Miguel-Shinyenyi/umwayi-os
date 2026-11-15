@@ -724,6 +724,16 @@
           "children": []
         },
         {
+          "name": "map",
+          "path": [
+            "goal",
+            "map"
+          ],
+          "help": "the goal map of the newest goal as JSON, the same document GET /v1/goal-map of umwayi serve sends; no path or file text (changes nothing)",
+          "line": "the goal map of the newest goal as JSON, the same document GET /v1/goal-map of umwayi serve sends",
+          "children": []
+        },
+        {
           "name": "approve",
           "path": [
             "goal",
