@@ -594,3 +594,74 @@ class HintTests(unittest.TestCase):
 
     def test_the_hint_is_the_one_in_the_list(self):
         self.assertEqual(ci_shards.regenerate_hint(), generated_files.regenerate_hint("tools/ci_shards.json"))
+
+
+class TimesTests(unittest.TestCase):
+    """W47b: `python -m tools.ci_shards times` makes the times file that `balance` reads, from the reports the shard jobs
+    upload (the measured seconds of each test file). It only reads the reports; the assignment changes only by balance."""
+
+    def reports(self, items):
+        tmp = tempfile.TemporaryDirectory(prefix="umwayi-times-")
+        self.addCleanup(tmp.cleanup)
+        d = Path(tmp.name)
+        for i, (version, shard, seconds, ok) in enumerate(items):
+            (d / f"report-{version}-{shard}.json").write_text(json.dumps(
+                {"schema": 1, "python": version, "shard": shard, "ok": ok, "seconds": seconds}))
+        return d
+
+    def times(self, d, *extra):
+        out = d / "times.json"
+        r = run_cli(d, "times", "--reports", str(d), "--out", str(out), *extra)
+        return r, (json.loads(out.read_text()) if out.exists() else None)
+
+    def test_the_seconds_of_a_file_are_the_mean_over_the_reports_rounded(self):
+        d = self.reports([("3.10", 1, {"tests/test_a.py": 10.0, "tests/test_b.py": 1.04}, True),
+                          ("3.13", 1, {"tests/test_a.py": 20.0}, True),
+                          ("3.12", 2, {"tests/test_b.py": 3.0, "tests/test_c.py": 0.0}, True)])
+        r, data = self.times(d)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(data, {"tests/test_a.py": 15.0, "tests/test_b.py": 2.0, "tests/test_c.py": 0.0})
+        self.assertIn("3 test files from 3 reports", r.stdout)
+
+    def test_a_failed_report_counts_too_and_a_bad_report_is_a_usage_error(self):
+        d = self.reports([("3.10", 1, {"tests/test_a.py": 4.0}, False)])
+        self.assertEqual(self.times(d)[1], {"tests/test_a.py": 4.0})
+        (d / "report-x.json").write_text("{not json")
+        r, _ = self.times(d)
+        self.assertEqual(r.returncode, 64)
+        self.assertIn("report-x.json", r.stderr)
+
+    def test_a_negative_or_non_number_second_and_a_bad_name_are_refused(self):
+        for seconds in ({"tests/test_a.py": -1}, {"tests/test_a.py": "5"}, {"tests/test_a.py": True}, {"../x.py": 1.0},
+                        {"/abs/test_a.py": 1.0}):
+            d = self.reports([("3.10", 1, seconds, True)])
+            r, _ = self.times(d)
+            self.assertEqual(r.returncode, 64, seconds)
+
+    def test_no_report_is_a_usage_error_and_nothing_is_written(self):
+        d = self.reports([])
+        r, data = self.times(d)
+        self.assertEqual((r.returncode, data), (64, None))
+
+    def test_the_bytes_are_deterministic_and_balance_reads_them(self):
+        d = self.reports([("3.10", 1, {"tests/test_b.py": 2.0, "tests/test_a.py": 9.0}, True)])
+        self.times(d)
+        first = (d / "times.json").read_bytes()
+        self.times(d)
+        self.assertEqual((d / "times.json").read_bytes(), first)
+        self.assertEqual(first, (json.dumps({"tests/test_a.py": 9.0, "tests/test_b.py": 2.0}, indent=1, sort_keys=True) + "\n").encode())
+
+    def test_without_out_it_prints_and_writes_nothing(self):
+        d = self.reports([("3.10", 1, {"tests/test_a.py": 1.0}, True)])
+        r = run_cli(d, "times", "--reports", str(d))
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(json.loads(r.stdout), {"tests/test_a.py": 1.0})
+        self.assertEqual(sorted(p.name for p in d.iterdir()), ["report-3.10-1.json"])
+
+    def test_the_committed_assignment_is_balanced_within_a_tenth_by_its_own_seconds(self):
+        # W47b: the seconds in tools/ci_shards.json are the measured ones, so the shards differ by at most a tenth
+        totals = {}
+        for v in ASSIGN["files"].values():
+            totals[v["shard"]] = totals.get(v["shard"], 0.0) + v["seconds"]
+        self.assertLessEqual(max(totals.values()) - min(totals.values()), 0.1 * max(totals.values()), totals)
+        self.assertGreater(ASSIGN["files"]["tests/test_merge_main.py"]["seconds"], 100.0)

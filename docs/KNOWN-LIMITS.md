@@ -1596,3 +1596,15 @@ W47a removes two sources of conflict and leaves the others for the owner. These 
 - `ui/dist/build.json`, `ui/dist/cli-map.html` and `ui/src/data/cli-map.json` still conflict when two pull requests change the command line or the ui sources.
 - The renumbering of a clashing limits part changes its number after the merge. A status row or a doc of the same branch that names the old number is not changed by it.
 - GitHub merge queue is not available for a public repository owned by a personal account, so it cannot test pull requests in merge order here.
+
+## Shard balance (W47b), found while building
+
+### 285. The shards are balanced by one run, and the slowest file is most of one shard
+
+The shards of `tools/ci_shards.json` are balanced by the measured seconds of one full run of main. These are the limits of that.
+
+- The seconds are the mean over Python 3.10 to 3.13 of one run (Actions run 43723336890). One file can take a third more on one version than the mean, so a shard can still take longer than the others on that version.
+- `tests/test_merge_main.py` takes 529 to 901 s on its own, most of the 927 s of its shard. No shard can be faster than that file, whatever the balance.
+- A new test file is still counted as the average by `assign-missing` until someone runs `times` and `balance` with new reports, as W47b did. A slow new file can make its shard the bottleneck again.
+- The reports must be downloaded by hand from the run's artifacts (they expire after the retention time). Nothing updates the seconds on main by itself.
+- Running test files in parallel inside a shard was looked at and not built (see the pull request of W47b): the gain is bounded by the slowest file, one test binds the fixed port 8765, about 20 test files assert on real elapsed time, and the test runner and its check that every test ran work in one process.
