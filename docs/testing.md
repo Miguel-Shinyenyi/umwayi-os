@@ -150,6 +150,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/agents/test_agents_run.py` | `adapters` |
 | `tests/agents/test_claude_acp_package.py` | `*`, `adapters` |
 | `tests/agents/test_fake_opencode.py` | `adapters` |
+| `tests/agents/test_kiro_hook_root.py` | `adapters` |
 | `tests/agents/test_login_wizard.py` | `adapters` |
 | `tests/agents/test_opencode_mutants.py` | `adapters`, `rules.yaml` |
 | `tests/autonomy/test_gates.py` | `rules.yaml` |
@@ -243,6 +244,7 @@ Node test files that read a path outside their own package (the others read noth
 | --- | --- |
 | `site/test/client.test.mjs` | `ui/src`, `ui/src/scene.js`, `ui/src/style.css` |
 | `site/test/home.test.mjs` | `ui/dist/index.html`, `ui/src/data/home.js`, `ui/src/index.html`, `ui/src/stations/meta.js` |
+| `site/test/icon.test.mjs` | `ui/assets/amwayi-logo-512.png` |
 | `site/test/phone.test.mjs` | `ui/tools/browser.mjs`, `ui/tools/phone-audit.mjs`, `ui/tools/phone-scenario.mjs` |
 | `ui/test/client.test.mjs` | `umwayi/serve.py`, `umwayi/servegate.py` |
 | `ui/test/faults.test.mjs` | `site/test/phone.test.mjs`, `tests/test_ui_package.py` |
