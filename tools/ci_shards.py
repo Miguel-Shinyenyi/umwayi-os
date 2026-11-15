@@ -16,6 +16,11 @@ Standard library only.
   python -m tools.ci_shards balance --times FILE [--shards N] [--root DIR] [--out FILE]
       Writes the assignment: every test file to a shard, balanced by the measured seconds in FILE (a JSON object
       {file: seconds}), longest first onto the lightest shard. The result is deterministic.
+  python -m tools.ci_shards times --reports DIR [--out FILE]
+      W47b. The times file that balance reads: for each test file, the mean of its measured seconds over every shard
+      report in DIR (the report-*.json files the shard jobs upload), rounded to a tenth. It only reads the reports. A
+      report that is not JSON, a name that is not a plain tests/ path or seconds that are not a number of 0 or more is a
+      usage error (64) and nothing is written. The file is written in sorted order, the same bytes for the same reports.
   python -m tools.ci_shards check [--assignments FILE] [--root DIR]
       Fails (exit 2) when a test file is in no shard or a listed file is gone.
   python -m tools.ci_shards assign-missing [--assignments FILE] [--root DIR]
@@ -514,6 +519,50 @@ def cmd_assign_missing(argv):
     return 0
 
 
+def _plain_test_name(name):
+    parts = name.split("/") if isinstance(name, str) else []
+    return (len(parts) >= 2 and parts[0] == "tests" and name.endswith(".py") and "\\" not in name
+            and all(p not in ("", ".", "..") for p in parts))
+
+
+def mean_times(reports):
+    """{test file: mean seconds over the reports that measured it, rounded to a tenth}. Raises UsageError on a bad value."""
+    sums, counts = {}, {}
+    for where, rep in reports:
+        seconds = rep.get("seconds") if isinstance(rep, dict) else None
+        if not isinstance(seconds, dict):
+            raise UsageError(f"{where} has no seconds")
+        for name, s in seconds.items():
+            if not _plain_test_name(name) or isinstance(s, bool) or not isinstance(s, (int, float)) or s < 0 or s != s:
+                raise UsageError(f"{where} has a bad entry in its seconds")
+            sums[name] = sums.get(name, 0.0) + float(s)
+            counts[name] = counts.get(name, 0) + 1
+    return {n: round(sums[n] / counts[n], 1) for n in sorted(sums)}
+
+
+def cmd_times(argv):
+    o = parse_opts(argv, ("--reports", "--out"))
+    if "--reports" not in o:
+        raise UsageError("--reports is required")
+    folder = Path(o["--reports"])
+    found = []
+    for p in sorted(folder.rglob("report-*.json")) if folder.is_dir() else []:
+        try:
+            found.append((p.name, json.loads(p.read_text(encoding="utf-8"))))
+        except (OSError, ValueError):
+            raise UsageError(f"{p.name} is not a shard report")
+    if not found:
+        raise UsageError(f"no shard report (report-*.json) in {folder}")
+    times = mean_times(found)
+    text = json.dumps(times, indent=1, sort_keys=True) + "\n"
+    if "--out" in o:
+        Path(o["--out"]).write_text(text, encoding="utf-8")
+        print(f"ci_shards: wrote the mean seconds of {len(times)} test files from {len(found)} reports")
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
 def cmd_check(argv):
     o = parse_opts(argv, ("--assignments", "--root"))
     assign = load_assignments(o.get("--assignments", ASSIGN_PATH))
@@ -528,13 +577,13 @@ def cmd_check(argv):
 
 
 COMMANDS = {"run": cmd_run, "verify": cmd_verify, "balance": cmd_balance, "check": cmd_check,
-            "assign-missing": cmd_assign_missing}
+            "assign-missing": cmd_assign_missing, "times": cmd_times}
 
 
 def main(argv):
     try:
         if not argv or argv[0] not in COMMANDS:
-            raise UsageError("usage: python -m tools.ci_shards run | verify | balance | check | assign-missing")
+            raise UsageError("usage: python -m tools.ci_shards run | verify | balance | check | assign-missing | times")
         return COMMANDS[argv[0]](argv[1:])
     except UsageError as e:
         print(f"ci_shards: {e}", file=sys.stderr)

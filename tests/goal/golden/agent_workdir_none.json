@@ -51,7 +51,7 @@
   "code": 2,
   "entries": [],
   "stderr": "",
-  "stdout": "Agent helper: kiro, transport cli, workdir WORK\nkill switch: off\nok: command: kiro-cli found at TMP/bin/kiro-cli\nok: version: 2.40.0 (at least 2.27.1)\nok: login: Kiro is signed in (kiro-cli whoami exited 0)\nok: hook script: REPO/adapters/kiro/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nno: kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself\nNot gated: agent helper would be refused (exit 2). Nothing was started.\n"
+  "stdout": "Agent helper: kiro, transport cli, workdir WORK\nkill switch: off\nok: command: kiro-cli found at TMP/bin/kiro-cli\nok: version: 2.40.0 (at least 2.27.1)\nok: login: Kiro is signed in (kiro-cli whoami exited 0)\nok: hook script: REPO/adapters/kiro/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nno: kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself. The root must be written as its resolved path, ROOT (pwd -P in the root prints it; on macOS /var is /private/var)\nNot gated: agent helper would be refused (exit 2). Nothing was started.\n"
  },
  "check-ok-claude": {
   "calls": [
@@ -394,13 +394,13 @@
    ],
    [
     "umwayi agent run",
-    "Refused agent helper: not gated (kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adap...",
+    "Refused agent helper: not gated (kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adapte...",
     "the kill switch, the rules (Yes), the run lock, then the gate checks",
     "Nothing was started."
    ]
   ],
   "stderr": "",
-  "stdout": "ok: command: kiro-cli found at TMP/bin/kiro-cli\nok: version: 2.40.0 (at least 2.27.1)\nok: login: Kiro is signed in (kiro-cli whoami exited 0)\nok: hook script: REPO/adapters/kiro/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nno: kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself\nRefused: agent helper cannot be gated, so it was not started (exit 2).\n"
+  "stdout": "ok: command: kiro-cli found at TMP/bin/kiro-cli\nok: version: 2.40.0 (at least 2.27.1)\nok: login: Kiro is signed in (kiro-cli whoami exited 0)\nok: hook script: REPO/adapters/kiro/hook.py\nok: hook self-test: the hook started and blocked the self-test event (exit 2)\nno: kiro hook file: no PreToolUse hook for every tool runs exactly 'python3 REPO/adapters/kiro/hook.py --root ROOT' in WORK/.kiro/hooks/ or ~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself. The root must be written as its resolved path, ROOT (pwd -P in the root prints it; on macOS /var is /private/var)\nRefused: agent helper cannot be gated, so it was not started (exit 2).\n"
  },
  "run-kill-on-kiro": {
   "calls": [],

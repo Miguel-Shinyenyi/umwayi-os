@@ -1527,7 +1527,9 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
         if path is None:
             done("kiro hook file", False,
                  f"no PreToolUse hook for every tool runs exactly '{want}' in {agent.workdir}/.kiro/hooks/ or "
-                 f"~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself{note}")
+                 f"~/.kiro/hooks/. Add the hook file from adapters/kiro/README.md yourself. The root must be "
+                 f"written as its resolved path, {root} (pwd -P in the root prints it; on macOS /var is "
+                 f"/private/var){note}")
             return gate
         done("kiro hook file", True, f"{path}{note}")
     return gate
