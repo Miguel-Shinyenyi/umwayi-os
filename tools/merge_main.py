@@ -24,6 +24,7 @@ Exit codes: 0 done, 2 failed (the tree is as it was), 3 ask first (the tree is a
 wrong. Never 1.
 """
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -276,12 +277,14 @@ def merge_and_repair(git, root):
                 raise Stop(FAILED, [f"could not take main's version of {p}", "The tree was put back as it was."])
         if git.run("add", "--", p).returncode != 0:
             raise Stop(FAILED, [f"could not stage {p}", "The tree was put back as it was."])
+    renumbered = renumber_clashes(git, root)
     outcome = repair(git, root, entries, conflicted)
     wrote = changes(git)
     stray = [p for p in wrote if not covered(p, entries)]
     if stray:
         raise Stop(FAILED, ["a command wrote a file that is not on the list:", *[f"  {p}" for p in stray],
                             "The tree was put back as it was."])
+    lines += renumbered
     for e in entries:
         line = outcome[e["path"]]
         if line.startswith("kept ") and e["path"] in wrote:  # written by a command that ran for another entry
@@ -311,6 +314,50 @@ def commit(git, args, what):
     if r.returncode != 0:
         raise Stop(FAILED, [f"{what} failed:", *tail((r.stdout + r.stderr).decode("utf-8", "replace")),
                             "The work tree was put back to the last commit."])
+
+
+LIMITS_DIR = "docs-parts/known-limits"
+_NUMBER_LINE = re.compile(r"^number: ([1-9][0-9]{0,5})\n", re.M)
+
+
+def _header_number(text):
+    """The number of a limits part, read from its header (the lines before the first blank line), or None."""
+    head = text.split("\n\n", 1)[0] + "\n"
+    m = _NUMBER_LINE.search(head)
+    return (int(m.group(1)), m) if m else None
+
+
+def renumber_clashes(git, root):
+    """W47a. When a limits part of this branch carries a number that a part on origin/main also carries (each branch ran
+    the docs build, so both took the same next number), remove the number line from this branch's part only, so the
+    build that runs next gives it the next free number after main's. Main's parts are never changed, and a number that
+    does not clash is left alone. Returns the lines to print."""
+    folder = root / LIMITS_DIR
+    if not folder.is_dir():
+        return []
+    found = {}
+    for p in sorted(folder.glob("*.md")):
+        if p.name.startswith("00-") or p.is_symlink() or not p.is_file():
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue  # the docs build refuses such a part by itself
+        n = _header_number(text)
+        if n is not None:
+            rel = f"{LIMITS_DIR}/{p.name}"
+            on_main = git.run("cat-file", "-e", f"origin/main:{rel}").returncode == 0
+            found.setdefault(n[0], []).append((rel, p, text, n[1], on_main))
+    lines = []
+    for number, parts in sorted(found.items()):
+        if len(parts) < 2 or not any(on_main for *_x, on_main in parts):
+            continue
+        for rel, p, text, m, on_main in parts:
+            if on_main:
+                continue
+            p.write_text(text[:m.start()] + text[m.end():], encoding="utf-8", newline="")
+            lines.append(f"renumbered {rel}: number {number} is taken on main; the build gives it the next free number")
+    return lines
 
 
 def repair(git, root, entries, conflicted):

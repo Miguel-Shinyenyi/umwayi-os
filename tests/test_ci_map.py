@@ -309,3 +309,18 @@ class UpdateAndBlockTests(unittest.TestCase):
 
 def tuple_of(scan):
     return {k: set(v) for k, v in scan.items()}
+
+
+class W47aTableTests(unittest.TestCase):
+    """W47a: the table in docs/testing.md must not change when a pull request adds a test file that reads nothing outside
+    its own area, so two such pull requests never touch the same line of docs/testing.md."""
+
+    def test_a_new_test_file_that_reads_nothing_outside_leaves_the_table_as_it_was(self):
+        more = json.loads(json.dumps(DATA))
+        more["python"]["tests/test_zzz_w47a_new.py"] = []
+        more["node"]["ui/test/zzz-w47a.test.mjs"] = []
+        self.assertEqual(ci_map.table_markdown(more), ci_map.table_markdown(DATA))
+
+    def test_the_table_holds_no_count_of_files(self):
+        self.assertNotRegex(ci_map.table_markdown(DATA), r"\d+ of \d+ files")
+

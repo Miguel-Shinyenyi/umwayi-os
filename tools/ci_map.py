@@ -444,7 +444,7 @@ def stale(data, root=REPO, scans=None):
 
 def table_markdown(data):
     lines = [TABLE_BEGIN, "", "Python test files that read a path outside `tests/` and `umwayi/` (every other Python test file reads nothing "
-             f"outside its own area: {sum(1 for t in data['python'].values() if not t)} of {len(data['python'])} files):", "",
+             "outside its own area; W47a: no count here, so a new test file that reads nothing outside changes no line):", "",
              "| test file | reads |", "| --- | --- |"]
     for name, toks in sorted(data["python"].items()):
         if toks:
