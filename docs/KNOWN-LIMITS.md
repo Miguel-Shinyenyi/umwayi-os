@@ -1596,3 +1596,16 @@ W47a removes two sources of conflict and leaves the others for the owner. These 
 - `ui/dist/build.json`, `ui/dist/cli-map.html` and `ui/src/data/cli-map.json` still conflict when two pull requests change the command line or the ui sources.
 - The renumbering of a clashing limits part changes its number after the merge. A status row or a doc of the same branch that names the old number is not changed by it.
 - GitHub merge queue is not available for a public repository owned by a personal account, so it cannot test pull requests in merge order here.
+
+## Feedback send (W29), found while building
+
+### 285. The feedback filter hides what looks like a secret, and the tester is the last reader
+
+`umwayi feedback send` writes a bundle after a typed yes. These are its limits.
+
+- The filter finds secrets by their shape: known key and token prefixes, a value after a key word, a password in an address, emails, home paths, any word of 32 or more letters and digits, the tester's own home folder, root path and user name. A secret written as an ordinary word, a short password with no key word before it, or a name of a person is not found. That is why every line is shown before the yes.
+- A hidden word is replaced, never shortened, so the owner cannot tell two hidden values apart. The count of hidden things is shown to the tester, not written into the bundle.
+- The user name is hidden as a whole word, so a user named like an ordinary word (for example `check`) also hides that word in the note.
+- The bundle is a file in `.umwayi/feedback/` (or the file named with `--out`). It stays there after it is sent; nothing removes it. It is mode 0600, but anyone who can read the tester's files can read it.
+- The terminal check is that standard input and output are terminals. It cannot tell a person from a program that drives a pseudo terminal; the test of this command does exactly that.
+- Nothing is sent. The network mode is designed (in the pull request of W29) and not built, and the owner has not chosen a destination.

@@ -16,6 +16,11 @@ exit 2 and no summary at all, and the message holds no text of the logbook.
 
 Exit codes: 0 done, 2 the logbook failed its check or an unexpected error, 64 usage. Never 1 or 3.
 Standard library only.
+
+W29: `redact` below is the one filter of everything a feedback bundle holds (tokens and keys, a secret after a key word, a
+password in an address, emails, home paths of macOS, Linux and Windows, the tester's own home folder, the root path and the
+user name). It is pure: text in, text out. `umwayi feedback send` (umwayi/feedbacksend.py) uses it and is the only feedback
+code that writes; this module stays read only.
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ KINDS = (
     "umwayi decision reopen", "umwayi goal", "umwayi kill", "umwayi logbook recover", "umwayi logbook seal", "umwayi petition",
     "umwayi publish-draft", "umwayi queue add", "umwayi queue answer", "umwayi queue close", "umwayi queue migrate",
     "umwayi report", "umwayi rules", "umwayi run", "umwayi schedule", "umwayi serve", "umwayi view snapshot",
+    "umwayi feedback send",
 )
 OTHER = "other"
 CHECK_KIND = "umwayi check"
@@ -111,3 +117,69 @@ def export(root) -> Result:
         return Result(0, summary(entries, chain_length))
     except UmwayiError:
         return Result(2, [REFUSED])
+
+
+# ------------------------------------------------------------------------------------------------ W29: the filter
+
+HIDDEN_SECRET, HIDDEN_EMAIL, HIDDEN_PATH = "[hidden secret]", "[hidden email]", "[hidden path]"
+_PRIVATE_KEY = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----|PRIVATE KEY-----")
+_TOKENS = re.compile(
+    r"\b(?:sk-(?:ant-|proj-|live-|test-)?[A-Za-z0-9_-]{12,}"
+    r"|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{16,}"
+    r"|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,}"
+    r"|umt1_[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{30,})")
+_BEARER = re.compile(r"(?i)\b(bearer|basic|token)\s+[A-Za-z0-9._~+/=-]{8,}")
+_KEYED = re.compile(r"(?i)\b((?:pass(?:word|wd)?|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|auth"
+                    r"|authorization|credentials?)\s*[:=]\s*)(?!\[hidden)\S+")
+_URL_PASSWORD = re.compile(r"\b([a-z][a-z0-9+.-]*://)[^/\s:@]+:[^/\s@]+@")
+_EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b")
+_HOME_PATH = re.compile(r"(?:(?<![\w/])/(?:Users|home)/[^\s/]+|(?<![\w/])/root(?=/|\b)|(?<![\w])~/"
+                        r"|\b[A-Za-z]:\\Users\\[^\s\\]+)[^\s]*")
+_LONG_WORD = re.compile(r"(?<![\w/.-])[A-Za-z0-9+/=_-]{32,}(?![\w/.-])")
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u2028\u2029]")
+
+
+def _real(path):
+    try:
+        return str(Path(path).resolve())
+    except (OSError, RuntimeError, ValueError):
+        return path
+
+
+def redact(text, home=None, root=None, user=None):
+    """(the text with every secret, email and home path replaced, how many things were replaced). One line in, one line
+    out: control characters become spaces. This is the one filter every line of a feedback bundle goes through."""
+    t = _CONTROL.sub(" ", str(text))
+    if _PRIVATE_KEY.search(t):
+        return HIDDEN_SECRET, 1
+    count = 0
+
+    def sub(rx, repl, s):
+        nonlocal count
+        out, n = rx.subn(repl, s)
+        count += n
+        return out
+
+    for literal in sorted({p for p in (root, home) if p and len(p) > 1 and p != "/"}, key=len, reverse=True):
+        for form in {literal, _real(literal)}:
+            if form and form in t:
+                count += t.count(form)
+                t = t.replace(form, HIDDEN_PATH)
+    t = sub(_URL_PASSWORD, lambda m: m.group(1) + HIDDEN_SECRET + "@", t)
+    t = sub(_EMAIL, HIDDEN_EMAIL, t)
+    t = sub(_TOKENS, HIDDEN_SECRET, t)
+    t = sub(_BEARER, lambda m: m.group(1) + " " + HIDDEN_SECRET, t)
+    t = sub(_KEYED, lambda m: m.group(1) + HIDDEN_SECRET, t)
+    t = sub(_HOME_PATH, HIDDEN_PATH, t)
+    def long_word(m):
+        nonlocal count
+        w = m.group(0)
+        if re.search(r"[A-Za-z]", w) and re.search(r"\d", w):
+            count += 1
+            return HIDDEN_SECRET
+        return w
+
+    t = _LONG_WORD.sub(long_word, t)
+    if user and len(user) >= 3:
+        t = sub(re.compile(rf"(?<![\w-]){re.escape(user)}(?![\w-])"), HIDDEN_PATH, t)
+    return t, count
