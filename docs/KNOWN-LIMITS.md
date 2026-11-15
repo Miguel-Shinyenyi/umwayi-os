@@ -1619,3 +1619,13 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - A goal file from before W55a has no `plan_spent_uu`; for it the old reading (the whole plan budget once a plan exists, 0 for a refused plan) is shown.
 - The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
 - `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
+
+## Rules (W58a), found while building
+
+### 287. rules validate checks the form only, and a matcher with an unknown operator passes it and never matches
+
+`umwayi rules validate` uses the gate's own reader, so it accepts what the gate accepts and refuses what the gate refuses. Two things follow.
+
+- A matcher name that ends in an unknown `__word` (for example `command__startswith`) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
+- It checks the form, not the meaning: a well formed rule that matches nothing, two rules that contradict each other, or a Yes rule wider than meant all pass.
+- It reports the first problem only; fixing it can show the next one.

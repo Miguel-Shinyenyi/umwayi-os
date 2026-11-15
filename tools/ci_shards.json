@@ -476,6 +476,10 @@
    "seconds": 0.7,
    "shard": 3
   },
+  "tests/test_rules_validate.py": {
+   "seconds": 20.8,
+   "shard": 1
+  },
   "tests/test_runlock.py": {
    "seconds": 14.3,
    "shard": 1
