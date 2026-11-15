@@ -120,10 +120,37 @@ def _read_json(path, limit, what):
     return obj
 
 
+# W55a: the measured spend of the planning run, in UU, written once the run has ended (planned or refused). A goal file
+# from before W55a has no such key, so the key is optional; when it is there it is a whole number of 0 or more.
+PLAN_SPENT_KEY = "plan_spent_uu"
+
+
 def _check_goal(obj, goal):
-    if set(obj) != set(GOAL_KEYS) or obj["goal"] != goal or obj["version"] != 1:
+    keys = set(obj) - {PLAN_SPENT_KEY}
+    if keys != set(GOAL_KEYS) or obj["goal"] != goal or obj["version"] != 1:
         raise GoalError("the goal file has the wrong shape")
+    if PLAN_SPENT_KEY in obj:
+        v = obj[PLAN_SPENT_KEY]
+        if not (isinstance(v, int) and not isinstance(v, bool) and v >= 0):
+            raise GoalError("the goal file has the wrong shape")
     return obj
+
+
+def _with_plan_spent(g, plan_spent_uu):
+    if plan_spent_uu is None:
+        return dict(g)
+    if not (isinstance(plan_spent_uu, int) and not isinstance(plan_spent_uu, bool) and plan_spent_uu >= 0):
+        raise GoalError("the plan spend must be a whole number of UU")
+    return dict(g, **{PLAN_SPENT_KEY: plan_spent_uu})
+
+
+def plan_used_uu(g):
+    """The UU the planning run counts for in what `status`, `report` and the goal map show: the measured spend when
+    the run recorded it (W55a), else, for a goal from before W55a, the plan budget once a plan exists (the old,
+    safe over-count). The caps of the supervisor still count the whole plan budget."""
+    if PLAN_SPENT_KEY in g:
+        return int(g[PLAN_SPENT_KEY])
+    return int(g["plan_budget_uu"]) if g["plan"] is not None or g["approved"] else 0
 
 
 def _check_task(obj, task):
@@ -282,6 +309,8 @@ FACTS = {
     "wt_clean": ("The worktree was clean.", {}),
     "wt_removed": ("The command git worktree remove ran without force.", {}),
     "branch_kept": ("The branch {branch} was kept.", {"branch": _BRANCH_RX}),
+    # W55a: the fixed word of the cause of a failed task (a key of goalpacket.CAUSES), never any content
+    "cause": ("Cause: {word}.", {"word": "|".join(sorted(gp.CAUSES))}),
 }
 NOT_DONE = {
     "text": "The goal text, the prompt and the helper's output were not recorded.",
@@ -533,6 +562,7 @@ class TaskView:
     def __init__(self, tid):
         self.id, self.state, self.reason, self.prev, self.seq = tid, "queued", "approved", None, 0
         self.role = self.agent = self.base = self.branch = self.tip = self.commit = self.deadline = None
+        self.cause = None  # W55a: the cause word of the last state entry, when it named one
 
 
 class GoalView:
@@ -593,6 +623,7 @@ def parse_entries(entries):
             if t is None or t.state != r.old:
                 raise bad
             t.prev, t.state, t.reason, t.seq = r.old, r.new, r.reason, t.seq + 1
+            t.cause = next((d["word"] for name, d in r.facts if name == "cause"), None)
             for a in ("role", "agent", "base", "branch", "tip", "commit"):
                 if getattr(r, a) is not None:
                     setattr(t, a, getattr(r, a))
@@ -787,7 +818,7 @@ def _goal_events(root, goal):
     return goal_dir(root, goal) / "goal.events.jsonl"
 
 
-def record_plan(root, goal, packets, agent, *, when, now):
+def record_plan(root, goal, packets, agent, *, when, now, plan_spent_uu=None):
     """The plan is a proposal: plan.json, the `planned` entry, the approval request (7 days) and one queue row."""
     g = read_goal(root, goal)
     if g["plan"] is not None or g["stopped"] or g["refused"]:
@@ -801,18 +832,19 @@ def record_plan(root, goal, packets, agent, *, when, now):
 
     def files(ctx):
         plan["row"] = ctx["row"]
-        return [(goal_dir(root, goal) / "goal.json", _dump(dict(g, plan=plan), MAX_GOAL_FILE))]
+        return [(goal_dir(root, goal) / "goal.json", _dump(dict(_with_plan_spent(g, plan_spent_uu), plan=plan), MAX_GOAL_FILE))]
 
     _commit(root, when, now, _goal_events(root, goal), entries, files, queue=(_row_title(goal, "", None), _row_recommendation("")))
 
 
-def refuse_plan(root, goal, agent, word, *, when, now):
+def refuse_plan(root, goal, agent, word, *, when, now, plan_spent_uu=None):
     """A plan that failed a check: the goal stays in `plan` with no packets and the word is recorded (W9.R5.2)."""
     g = read_goal(root, goal)
     if g["plan"] is not None or g["refused"] or g["stopped"]:
         raise GoalError("this goal already has a plan, or it was stopped")
     _commit(root, when, now, _goal_events(root, goal), [plan_refused_entry(when, goal, agent, word)],
-            lambda ctx: [(goal_dir(root, goal) / "goal.json", _dump(dict(g, refused=word), MAX_GOAL_FILE))])
+            lambda ctx: [(goal_dir(root, goal) / "goal.json",
+                          _dump(dict(_with_plan_spent(g, plan_spent_uu), refused=word), MAX_GOAL_FILE))])
 
 
 def _timed_out():

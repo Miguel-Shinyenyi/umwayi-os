@@ -1608,3 +1608,14 @@ The shards of `tools/ci_shards.json` are balanced by the measured seconds of one
 - A new test file is still counted as the average by `assign-missing` until someone runs `times` and `balance` with new reports, as W47b did. A slow new file can make its shard the bottleneck again.
 - The reports must be downloaded by hand from the run's artifacts (they expire after the retention time). Nothing updates the seconds on main by itself.
 - Running test files in parallel inside a shard was looked at and not built (see the pull request of W47b): the gain is bounded by the slowest file, one test binds the fixed port 8765, about 20 test files assert on real elapsed time, and the test runner and its check that every test ran work in one process.
+
+## Goal orchestration (W9), found while building W55a
+
+### 286. The shown spend of a goal is the measured one, while the caps still count the whole plan budget
+
+Since W55a, `goal status`, `goal report` and the goal map count the planning run at what it really spent, read from the budget ledger when the run ended and kept in `goal.json` as `plan_spent_uu`.
+
+- The supervisor's caps still count the whole plan budget against the goal budget, the safe over-count of the W9.7 entry. So the "left" of a report can be more than the next cap a run is given.
+- A goal file from before W55a has no `plan_spent_uu`; for it the old reading (the whole plan budget once a plan exists, 0 for a refused plan) is shown.
+- The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
+- `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.

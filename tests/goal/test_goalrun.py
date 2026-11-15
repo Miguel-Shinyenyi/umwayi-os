@@ -24,6 +24,7 @@ from pathlib import Path
 from unittest import mock
 
 from tests.goal import runsupport as rs
+from tests.goal.fakeroot import DATE
 from umwayi import agents, budget, kill, logbook, rules, runlock
 from umwayi import goalbudget as gb
 from umwayi import goalgit as gg
@@ -2082,7 +2083,10 @@ class OrderTests(StartCase):
         for argv, _ in self.children.calls:
             self.assertNotIn("Nonce", " ".join(argv))
 
-    def test_the_child_environment_is_the_supervisors_unchanged(self):
+    def test_the_child_environment_is_the_supervisors_and_the_builder_and_tester_write_no_bytecode(self):
+        """W55a changed this test: before, every child got the supervisor's environment unchanged. Now the builder and
+        the tester also get PYTHONDONTWRITEBYTECODE=1, so a Python they run leaves no __pycache__ in the worktree; the
+        guide's check is unchanged, and nothing else is added or removed."""
         goal = self.approved(1)
         seen = []
 
@@ -2091,8 +2095,13 @@ class OrderTests(StartCase):
             return self.children.spawn(argv, cwd, environ)
         self.make_env(self.good_scripts(), spawn=spawn, environ={"PATH": "/usr/bin", "KEEP": "1"})
         gr.run_task(self.env, goal, "T-01")
-        self.assertEqual(seen[0], {"PATH": "/usr/bin", "KEEP": "1"})
-        self.assertIsNot(seen[0], self.env.environ)
+        builder, tester, check = seen
+        for env in (builder, tester):
+            self.assertEqual(env, {"PATH": "/usr/bin", "KEEP": "1", "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertEqual(check, {"PATH": "/usr/bin", "KEEP": "1"})
+        for env in seen:
+            self.assertIsNot(env, self.env.environ)
+        self.assertEqual(self.env.environ, {"PATH": "/usr/bin", "KEEP": "1"})  # the supervisor's own is untouched
 
 
 
@@ -2215,6 +2224,30 @@ class PlantedFaultTests(StartCase):
         case.__dict__.update(self.__dict__)
         case._testMethodName = "runTest"
         return case
+
+
+class W55aPromptTests(unittest.TestCase):
+    """W55a items 3 and 5: the planning and the builder prompt."""
+
+    def test_3_the_planning_prompt_says_context_files_must_exist_and_not_be_private(self):
+        p = gr.planning_prompt("Build the thing in small steps.", "0123456789abcdef")
+        self.assertIn("Every context file must already exist in the repo and must not be rules.yaml, agents.yaml, "
+                      "units.yaml or another private file; use [] if there is none.", p)
+        self.assertTrue(p.startswith("You are the guide. Split"))
+        self.assertTrue(p.endswith("Nonce: 0123456789abcdef\n"))
+
+    def test_5_the_builder_prompt_says_create_every_file_and_leave_nothing_untracked(self):
+        p = gr.builder_prompt(PromptTests.PACKET, "G-0001", "T-01", "umwayi/g-0001-t-01", DATE, "0123456789abcdef")
+        self.assertIn("Create every file listed above that does not exist yet, and your status file below.", p)
+        self.assertIn("no untracked file at all, such as a __pycache__ folder", p)
+        self.assertIn("docs-parts/status-log/G-0001-T-01.md", p)
+        self.assertNotIn("\u2014", p)
+
+    def test_5_agent_run_passes_pythondontwritebytecode_on_to_claude_code_and_kiro(self):
+        """`agent run` builds the helper's own environment from the one it got: the setting reaches the helper."""
+        env = {"PATH": "/usr/bin", "PYTHONDONTWRITEBYTECODE": "1"}
+        self.assertEqual(agents.claude_env(env).get("PYTHONDONTWRITEBYTECODE"), "1")
+        self.assertEqual(agents.kiro_env(env).get("PYTHONDONTWRITEBYTECODE"), "1")
 
 
 if __name__ == "__main__":
