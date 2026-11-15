@@ -25,6 +25,10 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 
 Every pull request and its test count: [docs/status-log.md](docs/status-log.md). The schedule to Dec 3: [docs/schedule.md](docs/schedule.md).
 
+## What this is and is not
+
+umwayi-os is a governing layer for AI coding agents: a Python package and the `umwayi` command line that decide what an agent may do (Yes, No or Ask me first), record each decision in a tamper-evident logbook, cap spend with a budget, run a goal as supervised tasks in separate git worktrees, and stop everything with a kill switch, all on your own machine. It is not a full operating system, not a model or an agent, not a sandbox (enforcement is cooperative: a process that never asks is not checked), not a security product, and not a hosted service. It is early and experimental. The full page: [What it is and is not](docs/what-it-is.md).
+
 ## Install and test
 
 Python 3.10 or newer, no third party packages.
