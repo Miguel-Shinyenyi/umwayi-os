@@ -1596,3 +1596,14 @@ W47a removes two sources of conflict and leaves the others for the owner. These 
 - `ui/dist/build.json`, `ui/dist/cli-map.html` and `ui/src/data/cli-map.json` still conflict when two pull requests change the command line or the ui sources.
 - The renumbering of a clashing limits part changes its number after the merge. A status row or a doc of the same branch that names the old number is not changed by it.
 - GitHub merge queue is not available for a public repository owned by a personal account, so it cannot test pull requests in merge order here.
+
+## Goal orchestration (W9), found while building W55a
+
+### 285. The shown spend of a goal is the measured one, while the caps still count the whole plan budget
+
+Since W55a, `goal status`, `goal report` and the goal map count the planning run at what it really spent, read from the budget ledger when the run ended and kept in `goal.json` as `plan_spent_uu`.
+
+- The supervisor's caps still count the whole plan budget against the goal budget, the safe over-count of the W9.7 entry. So the "left" of a report can be more than the next cap a run is given.
+- A goal file from before W55a has no `plan_spent_uu`; for it the old reading (the whole plan budget once a plan exists, 0 for a refused plan) is shown.
+- The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
+- `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
