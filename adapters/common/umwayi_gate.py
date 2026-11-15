@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 import subprocess
 import sys
@@ -93,6 +94,23 @@ def type_for(tool_name: str) -> str:
     if len(part) > MAX_TYPE_NAME:
         return "tool_long_name"
     return f"tool_{part}"
+
+
+MAX_CWD = 4096
+
+
+def clean_cwd(value) -> str | None:
+    """W57: the folder a tool call runs in, from the `cwd` field of the hook input, or None. Only a plain absolute path
+    is taken (one leading slash, no '.', '..' or empty part, printable, at most MAX_CWD characters); anything else is
+    left out of the action, so a rule that needs it does not match."""
+    if not isinstance(value, str) or not value.startswith("/") or value.startswith("//") or len(value) > MAX_CWD:
+        return None
+    if "\x00" in value or not value.isprintable():
+        return None
+    body = value.rstrip("/")
+    if body and posixpath.normpath(body) != body:
+        return None
+    return value
 
 
 def tool_action(platform: str, tool_name, tool_input, extra: dict | None = None) -> dict:

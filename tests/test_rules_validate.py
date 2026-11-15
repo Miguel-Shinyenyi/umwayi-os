@@ -140,11 +140,11 @@ class GoodTests(Folder):
 
 class TodayTests(Folder):
     def test_a_matcher_name_with_an_unknown_operator_loads_today_and_never_matches(self):
-        """What the reader does today, unchanged by W58a: `command__startswith` is not an operator, so it is read as an equals
-        matcher on a field of that name, which no action has. The rule loads and never matches. A later task (W57) decides
-        whether an unknown operator becomes a refusal; validate reports what the gate does."""
+        """What the reader does today, unchanged by W58a: `command__endswith` is not an operator, so it is read as an equals
+        matcher on a field of that name, which no action has. The rule loads and never matches. W57 added `__startswith`
+        and `__prefix` and kept an unknown operator as it was; validate reports what the gate does."""
         p = self.write(GOOD + "  - id: second\n    title: t\n    text: x.\n    verdict: no\n    matchers:\n"
-                       "      command__startswith: git\n")
+                       "      command__endswith: git\n")
         self.assertEqual(rulesvalidate.validate(p).code, 0)
         [_, second] = rules.load_rules(p)
         self.assertFalse(rules.rule_matches(second, {"command": "git push"}))
