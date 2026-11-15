@@ -1583,3 +1583,16 @@ umwayi accepts a `claude_code.token.usage` count sent as `asDouble` when it is a
 - The answer is read from standard input in the terminal's line mode. A sign-in that leaves the terminal in another mode can make the next question hard to answer; the agent login code puts the terminal mode back after each sign-in, and the wizard asks the next question only after that.
 - The exit code joins several agents into one number: 2 wins over 3, so a run where one sign-in failed and another waits for a rule answer is 2. The lines say which agent is which.
 - Tested with fake `node`, `claude`, `kiro-cli` and `opencode` programs on a pseudo terminal on Linux. No real sign-in was run, and a real terminal of macOS was not tried.
+
+## Less waiting on CI (W47a), found while building
+
+### 284. Most generated files still make every open pull request conflict after a merge
+
+W47a removes two sources of conflict and leaves the others for the owner. These are the limits of that.
+
+- `docs/status-log.md` and `docs/KNOWN-LIMITS.md` are still built and committed by every pull request. Every new status row goes to the top of one table and every new limit to the end of one file, so two open pull requests always conflict there after the first merges. `merge_main` clears it, but the branch then has a new commit and CI runs again.
+- `tools/ci_shards.json` still changes with every new test file, and `tests/test_ci_shards.py` requires it to be what `balance` writes, which can move many files at once.
+- `.kiro/specs/umwayi-os/tasks.md` is written by hand, so a conflict there still stops `merge_main` with exit 3.
+- `ui/dist/build.json`, `ui/dist/cli-map.html` and `ui/src/data/cli-map.json` still conflict when two pull requests change the command line or the ui sources.
+- The renumbering of a clashing limits part changes its number after the merge. A status row or a doc of the same branch that names the old number is not changed by it.
+- GitHub merge queue is not available for a public repository owned by a personal account, so it cannot test pull requests in merge order here.

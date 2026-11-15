@@ -190,6 +190,41 @@ class PartsTests(MergeMainBase):
         self.assertEqual(subjects[0], "regenerate generated files after merging main")
         self.assertTrue(subjects[1].startswith("Merge"), subjects)
 
+    def test_w47a_two_branches_that_both_built_their_limits_part_get_distinct_numbers(self):
+        # what happened on W26, W27, W33 and W37: each branch ran the build, so both parts carry the same number
+        for repo, name in ((self.a, "Wa-one"), (self.b, "Wb-two")):
+            self.add_parts(repo, name, f"Section {name}")
+            self.assertEqual(self.py(repo, "umwayi", "goal", "docs", "build").returncode, 0)
+            git(repo, "add", "-A")
+            git(repo, "commit", "-qm", f"built {name}")
+        same = [re.search(r"^number: (\d+)$", (r / "docs-parts" / "known-limits" / f"{n}.md").read_text(), re.M).group(1)
+                for r, n in ((self.a, "Wa-one"), (self.b, "Wb-two"))]
+        self.assertEqual(same[0], same[1])
+        self.land(self.a)
+        main_part = (self.a / "docs-parts" / "known-limits" / "Wa-one.md").read_bytes()
+        r = self.merge_main(self.b)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, rf"(?m)^renumbered docs-parts/known-limits/Wb-two.md: number {same[0]} is taken on main; ")
+        self.assertEqual((self.b / "docs-parts" / "known-limits" / "Wa-one.md").read_bytes(), main_part)  # main's kept
+        mine = re.search(r"^number: (\d+)$", (self.b / "docs-parts" / "known-limits" / "Wb-two.md").read_text(), re.M)
+        self.assertEqual(int(mine.group(1)), int(same[0]) + 1)
+        limits = (self.b / "docs" / "KNOWN-LIMITS.md").read_text(encoding="utf-8")
+        self.assertEqual(len(re.findall(rf"^### {same[0]}\. ", limits, re.M)), 1)
+        self.assertEqual(self.py(self.b, "umwayi", "goal", "docs", "check").returncode, 0)
+        self.assertEqual(git(self.b, "status", "--porcelain").stdout, "")
+
+    def test_w47a_a_branch_number_that_does_not_clash_is_left_alone(self):
+        self.add_parts(self.b, "Wb-two", "Section two")
+        self.assertEqual(self.py(self.b, "umwayi", "goal", "docs", "build").returncode, 0)
+        git(self.b, "add", "-A")
+        git(self.b, "commit", "-qm", "built")
+        before = (self.b / "docs-parts" / "known-limits" / "Wb-two.md").read_bytes()
+        self.advance_main({"README.md": (self.a / "README.md").read_text(encoding="utf-8") + "\nmain moves\n"})
+        r = self.merge_main(self.b)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("renumbered", r.stdout)
+        self.assertEqual((self.b / "docs-parts" / "known-limits" / "Wb-two.md").read_bytes(), before)
+
     def test_a_conflict_in_the_status_log_is_cleared_by_the_build(self):
         # both branches ran the build for their own status part, so docs/status-log.md conflicts
         for repo, name in ((self.a, "Wa-one"), (self.b, "Wb-two")):
