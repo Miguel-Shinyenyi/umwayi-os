@@ -1649,6 +1649,16 @@ The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every K
 
 `umwayi rules validate` uses the gate's own reader, so it accepts what the gate accepts and refuses what the gate refuses. Two things follow.
 
-- A matcher name that ends in an unknown `__word` (for example `command__startswith`) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
+- A matcher name that ends in an unknown `__word` (for example `command__endswith`; `__startswith` became an operator in W57) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
 - It checks the form, not the meaning: a well formed rule that matches nothing, two rules that contradict each other, or a Yes rule wider than meant all pass.
 - It reports the first problem only; fixing it can show the next one.
+
+## Rules (W57), builder rules and the new matchers
+
+### 290. the builder rules trust the cwd that Claude Code reports, and they match text, not shell syntax
+
+- `cwd` is what Claude Code puts in the hook input. umwayi does not check it on disk, so a `cd` that the owner allowed changes where the next call counts as running. The builder rules allow no `cd`.
+- `__prefix` does not resolve links: a link inside a worktree that points outside it is matched by where it sits.
+- The No list is plain text. Shell syntax the list does not name is allowed when the line starts with one of the five commands, for example input from a file with `<` or `<<<`. A here document is not Yes, because it needs a newline and `__startswith` takes one printable line. Other options of the five commands are allowed, for example `git commit --amend` or `git add -f`.
+- An unknown matcher `__word` still loads and is read as an equals matcher on that field name; it is not refused (the request assumed it was). Refusing it at load would change which existing rules files load, so it is left for the owner.
+- `cwd` reaches the rules only from the Claude Code hook. Kiro's docs show `cwd` in one example only, so the Kiro hook does not send it, and the builder rules do nothing for Kiro.
