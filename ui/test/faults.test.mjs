@@ -35,7 +35,13 @@ test('nothing in the sources asks for an animation frame or sets a timer outside
   // The one exception (UI.7, 12.R16.4): boot.js keeps a single one-shot timer, HIGH_TIMEOUT_MS, that gives up on High after 15 s
   // and leaves Standard. It never redraws and never repeats, it is cleared as soon as High arrives or fails, and it runs only on
   // the public site (the live view passes no loadHigh, so boot() never starts it). Anything else in boot.js, or any other file, fails.
-  assert.deepEqual(timers, ['boot.js', 'ui/home.js'], 'the only timers are the High time limit in boot.js and the one that puts the word Copy back on a button');
+  // The other exception (W38): the goal map page (its own page, ui/dist/goal-map.html; the live view never imports it) reads its
+  // map again every few seconds and waits longer after a failure, with one one-shot timer at a time made in goalmap/page.js and
+  // handed to the feed. It never draws a frame by itself: a new reading is drawn once.
+  assert.deepEqual(timers, ['boot.js', 'goalmap/page.js', 'ui/home.js'], 'the only timers are the High time limit in boot.js, the reading of the goal map page and the one that puts the word Copy back on a button');
+  const gm = read(srcFiles.find((f) => f.endsWith(join('goalmap', 'page.js'))));
+  assert.equal((gm.match(/\bset(Timeout|Interval)\(/g) || []).length, 1, 'the goal map page sets exactly one kind of timer, in one place');
+  assert.ok(!/setInterval|requestIdleCallback/.test(gm), 'the goal map page repeats nothing by itself');
   const boot = read(srcFiles.find((f) => f.endsWith('boot.js')));
   assert.equal((boot.match(/\bset(Timeout|Interval)\(/g) || []).length, 1, 'boot.js sets exactly one timer');
   assert.ok(/setTimeout\([\s\S]{0,400}?HIGH_TIMEOUT_MS\)/.test(boot), 'the one timer in boot.js is the High time limit');

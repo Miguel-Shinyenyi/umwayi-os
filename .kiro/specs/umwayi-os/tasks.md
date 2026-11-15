@@ -1032,6 +1032,8 @@ When W9 is approved and built, this row moves into the main status table as its 
 - [ ] W30 Fix `datetime.utcfromtimestamp` in `umwayi/goallog.py` (line 277), which is deprecated on Python 3.12 and later: use a timezone aware datetime, keep the same output text, add a test.
 - [ ] W31 Project A: the M-Pesa statement analyzer, built through the OS as the first real judged project.
 - [ ] W32 Project B: the hub link checker, built by the owner and judged by Claude.
+- [x] W38 (see the pull request, Nov 14) The goal map page, the local visual dashboard, with a small Kiroween theme: `ui/dist/goal-map.html` (`ui/src/goalmap/`, `ui/src/goal-map.html`, `ui/src/goal-map.css`), the fixtures of the W37 contract in `ui/test/fixtures/goal-map/`, `ui/test/goalmap.test.mjs`, the screenshots in `ui/screenshots/w38/`. Built against the fixtures: the live source waits for W37 (`GET /api/goal-map`) and sends nothing. Not built: the link from the live view (its page rule allows Repo and Docs only; the owner decides), the stream.
+- [ ] W38b The live read of the goal map, after W37 is merged: `GET /api/goal-map` (and `/api/goal-map/stream` if W37 has it) as one route of the page client `ui/src/api/client.js`, the token in the Authorization header and never in the address, and `connect-src` for 127.0.0.1 only in the policy of `ui/dist/goal-map.html`. Until then the page reads a picked file only and sends nothing. **Open: waits for W37.**
 
 ## Later tasks (named by the owner on Nov 13; numbers are given when each starts)
 

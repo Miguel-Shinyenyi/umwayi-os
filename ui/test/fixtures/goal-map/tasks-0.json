@@ -1,0 +1,32 @@
+{
+ "version": 1,
+ "now": "03:41:30 UTC",
+ "kill_switch": "off",
+ "goal": {
+  "id": "G-0007",
+  "title": "Add a hello page with its tests and docs",
+  "state": "approved",
+  "budget": {
+   "used_uu": 34,
+   "reserved_uu": 30,
+   "cap_uu": 200
+  },
+  "needs_owner": false
+ },
+ "supervisor": {
+  "alive": true,
+  "pid_known": true,
+  "last_event_age_s": 12,
+  "state": "watching T-01"
+ },
+ "tasks": [],
+ "events": [
+  {
+   "t": "03:40:00",
+   "kind": "plan",
+   "task": null,
+   "text": "plan approved, no task kept"
+  }
+ ],
+ "notes": []
+}

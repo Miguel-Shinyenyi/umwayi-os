@@ -1,0 +1,70 @@
+{
+ "version": 1,
+ "now": "03:41:30 UTC",
+ "kill_switch": "off",
+ "goal": {
+  "id": "G-0007",
+  "title": "Add a hello page with its tests and docs",
+  "state": "running",
+  "budget": {
+   "used_uu": 34,
+   "reserved_uu": 30,
+   "cap_uu": 200
+  },
+  "needs_owner": false
+ },
+ "supervisor": {
+  "alive": true,
+  "pid_known": true,
+  "last_event_age_s": 12,
+  "state": "watching T-01"
+ },
+ "tasks": [
+  {
+   "id": "T-01",
+   "title": "Add the hello page",
+   "state": "running",
+   "role_now": "builder",
+   "worktree": {
+    "branch": "umwayi/g-0007-t-01",
+    "clean": true
+   },
+   "age_s": 42,
+   "needs_owner_reason": null,
+   "pr": null
+  }
+ ],
+ "events": [
+  {
+   "t": "03:41:00",
+   "kind": "state",
+   "task": "T-01",
+   "text": "queued to running (start)"
+  },
+  {
+   "t": "03:41:01",
+   "kind": "worktree",
+   "task": "T-01",
+   "text": "worktree made, base 9f1c2e0a"
+  },
+  {
+   "t": "03:41:02",
+   "kind": "output",
+   "task": "T-01",
+   "text": "12 lines"
+  },
+  {
+   "t": "03:41:03",
+   "kind": "state",
+   "task": "T-02",
+   "text": "running to needs owner (ask)"
+  },
+  {
+   "t": "03:41:04",
+   "kind": "poll",
+   "task": null,
+   "text": "supervisor alive"
+  }
+ ],
+ "notes": []
+}
