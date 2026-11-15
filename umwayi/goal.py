@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from umwayi import agents, fsutil, goalbudget, goaldocs, goallog, goalpacket as gp, goalrun as gr, goalstate as gs
+from umwayi import agents, fsutil, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalrun as gr, goalstate as gs
 from umwayi import goalwatch as gw, guidance, kill, logbook, rules, taskqueue, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
@@ -756,6 +756,238 @@ def report(ctx, goal):
 COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report")
 
 
+# ----------------------------------------------------------------------------------------------- the goal map (W37)
+#
+# One read-only document for the goal map page (docs/goal-map.md), shared by `umwayi goal map` and the route
+# `GET /v1/goal-map` of `umwayi serve`. It reads the goal files, the task event logs, the kill switch, the logbook with its
+# checks and the supervisor lock as a file (never by locking it). It writes nothing, starts no process and holds no path,
+# command text, file content or event data: titles are labels cut to 80 characters with secret-shaped words hidden, and
+# the text of an event is a fixed label for its kind.
+
+MAP_VERSION = 1
+MAP_TITLE = 80
+MAP_EVENTS = 40
+MAP_HIDDEN = "[hidden]"
+MAP_ROLES = ("builder", "tester", "guide")
+MAP_EVENT_TEXT = {
+    "state": "state changed", "started": "a helper started", "output": "the helper wrote output",
+    "error": "the helper hit an error", "fingerprint": "the work tree changed",
+    "approval_requested": "the owner was asked", "approval_answered": "the owner answered",
+    "check_result": "a check gave its verdict", "skipped": "a log line was skipped", "stopped": "the task was stopped",
+    "worktree": "a worktree was made or removed",
+}
+MAP_NOTES = {
+    "logbook": "The logbook did not pass its check, so every state is shown as unknown.",
+    "goals": "The goal folder could not be read, so no goal is shown. This is not the same as no goal.",
+    "goal": "The goal file could not be read, so the goal state is unknown.",
+    "task": "A task file could not be read, so that task is shown as unknown.",
+    "skipped": "Some event log lines could not be read and were left out.",
+    "supervisor": "The supervisor lock could not be read, so the supervisor is unknown.",
+    "kill": "The kill switch could not be read, so it is shown as unknown.",
+}
+_MAP_NUMBER_OK = re.compile(r"^[(]?\d{1,5}[).,;:!?]*$")
+_MAP_WORD_OK = re.compile(r"^[A-Za-z(\[\"'][A-Za-z'().,;:!?\"\]-]*$")
+
+
+def map_label(text):
+    """A title as a label: one line, cut to 80 characters, and every word that could be a path, a command flag, a key or a
+    secret is replaced by [hidden]: a word with a digit (a plain number of up to five digits is kept), a slash, or a sign
+    such as = or $; a word that starts with -; a word of 8 or more letters with no small letter; a word longer than 24
+    characters."""
+    if not isinstance(text, str):
+        return ""
+    words = []
+    for w in text.split():
+        bare = w.strip("().,;:!?\"'")
+        number = bare.isdigit() and len(bare) <= 5 and _MAP_NUMBER_OK.fullmatch(w)
+        bad = not number and (not _MAP_WORD_OK.fullmatch(w) or w.startswith("-") or len(w) > 24
+                              or (len(bare) >= 8 and bare.upper() == bare and any(c.isalpha() for c in bare)))
+        words.append(MAP_HIDDEN if bad else w)
+    out = " ".join(words)
+    return out if len(out) <= MAP_TITLE else out[:MAP_TITLE - 3].rstrip() + "..."
+
+
+def _map_iso(epoch):
+    return datetime.fromtimestamp(int(epoch), timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _map_lock_holder(root):
+    """(alive, pid_known), or None when it cannot be told. Reads `.umwayi/goal.lock` with lstat and the kernel's table of
+    file locks (/proc/locks) and never takes the lock, so it cannot block a supervisor. A best guess: a holder is a
+    process that holds a flock on that file now."""
+    p = Path(root) / gs.LOCK_REL
+    try:
+        st = os.lstat(p)
+    except FileNotFoundError:
+        return False, False
+    except OSError:
+        return None
+    if not os.path.isfile(p) or os.path.islink(p):
+        return None
+    want_dev = f"{os.major(st.st_dev):02x}:{os.minor(st.st_dev):02x}"
+    try:
+        with open("/proc/locks", encoding="ascii", errors="replace") as f:
+            lines = f.read(1 << 20).splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        parts = line.split()
+        if "->" in parts or len(parts) < 6 or parts[1] != "FLOCK":
+            continue
+        dev, _, ino = parts[5].rpartition(":")
+        if ino == str(st.st_ino) and dev.lower() == want_dev:
+            return True, parts[4].isdigit()
+    return False, False
+
+
+def _map_events(root, goal, task):
+    p = gs.events_path(root, goal, task)
+    if not p.exists():
+        return [], 0
+    try:
+        events, skipped = goallog.read(fsutil.read_regular(p, goallog.MAX_LOG + goallog.MAX_LINE + 1))
+    except OSError:
+        return [], 1
+    return events, len(skipped)
+
+
+def _map_age(now, ev):
+    t = _at(ev) if ev else None
+    return None if t is None or t > now else now - t
+
+
+def map_data(root, now):
+    """The goal map document of docs/goal-map.md. Read-only; every failure to read is a note and an unknown, never a guess."""
+    root = Path(root)
+    notes = []
+
+    def note(key):
+        if MAP_NOTES[key] not in notes:
+            notes.append(MAP_NOTES[key])
+
+    try:
+        ks = kill.state(root)
+    except Exception:
+        ks = kill.UNKNOWN
+    if ks not in (kill.ON, kill.OFF):
+        ks = kill.UNKNOWN
+        note("kill")
+    trusted = True
+    try:
+        logbook.read_checked_chain(root)
+        gs.view(root)
+    except UmwayiError:
+        trusted = False
+        note("logbook")
+    holder = _map_lock_holder(root)
+    if holder is None:
+        note("supervisor")
+    alive, pid_known = holder if holder is not None else (False, False)
+    doc = {"version": MAP_VERSION, "now": _map_iso(now), "kill_switch": ks, "goal": None,
+           "supervisor": {"alive": alive, "pid_known": pid_known, "last_event_age_s": None,
+                          "state": "unknown" if holder is None else ("alive" if alive else "idle")},
+           "tasks": [], "events": [], "notes": notes}
+    try:
+        goals = gs.list_goals(root)
+    except UmwayiError:
+        note("goals")
+        return doc
+    if not goals:
+        return doc
+    goal = max(goals, key=lambda g: int(g[2:]))
+    try:
+        g = gs.read_goal(root, goal)
+    except UmwayiError:
+        g = None
+        note("goal")
+    try:
+        task_ids = gs.list_tasks(root, goal)
+    except UmwayiError:
+        task_ids = []
+        note("goal")
+    tasks, events, newest, skipped = [], [], None, 0
+    used, reserved, readable = 0, 0, g is not None
+    running = []
+    for tid in task_ids:
+        try:
+            t = gs.read_task(root, goal, tid)
+        except UmwayiError:
+            note("task")
+            readable = False
+            tasks.append({"id": tid, "title": "unreadable", "state": "unknown", "role_now": "none", "worktree": None,
+                          "age_s": None, "needs_owner_reason": None, "pr": None})
+            continue
+        if t["dropped"]:
+            continue
+        evs, bad = _map_events(root, goal, tid)
+        skipped += bad
+        for e in evs:
+            at = _at(e)
+            if at is not None and at <= now and (newest is None or at > newest):
+                newest = at
+            if goallog.is_real(e) and e["kind"] in MAP_EVENT_TEXT:
+                events.append((e["at"], tid, e["n"], e["kind"]))
+        started = [e for e in evs if e["kind"] == "started"]
+        states = [e for e in evs if e["kind"] == "state"]
+        state = t["state"] if trusted else "unknown"
+        role = "none"
+        if state == "running":  # the builder runs first; a later run names its role in its started event (as status reads it)
+            role = started[-1]["data"]["role"] if started else "builder"
+            role = role if role in MAP_ROLES else "none"
+            reserved += int(started[-1]["data"]["cap_uu"]) if started else 0
+        if state == "running":
+            running.append(tid)
+        used += int(t.get("spent_uu") or 0)
+        reason = t["reason"] if state == "needs owner" and t["reason"] in gp.REASONS["needs owner"] else None
+        tasks.append({"id": tid, "title": map_label(t["packet"]["goal"]), "state": state, "role_now": role,
+                      "worktree": {"branch": gg.task_branch(goal, tid), "clean": None} if t["branch"] else None,
+                      "age_s": _map_age(now, states[-1] if states else None), "needs_owner_reason": reason, "pr": None})
+    if skipped:
+        note("skipped")
+    events.sort()
+    doc["events"] = [{"t": at, "kind": kind, "task": tid, "text": MAP_EVENT_TEXT[kind]}
+                     for at, tid, _n, kind in events[-MAP_EVENTS:]]
+    doc["tasks"] = tasks
+    sup = doc["supervisor"]
+    sup["last_event_age_s"] = None if newest is None else now - newest
+    if holder is not None:
+        if alive:
+            sup["state"] = f"watching {running[0]}" if running else "alive"
+        elif running and trusted:
+            sup["state"] = "lost"
+    if g is None:
+        doc["goal"] = {"id": goal, "title": "unreadable", "state": "unknown", "budget": None,
+                       "needs_owner": any(x["state"] == "needs owner" for x in tasks)}
+        return doc
+    try:
+        gstate = gr.goal_status(root, goal) if trusted else "unknown"
+    except UmwayiError:
+        gstate = "unknown"
+    if readable:
+        plan_used = int(g["plan_budget_uu"]) if g["plan"] is not None or g["approved"] else 0
+        cap = g["goal_budget_uu"] or g["plan_budget_uu"]
+        budget = {"used_uu": plan_used + used, "reserved_uu": reserved, "cap_uu": int(cap) if cap else None}
+    else:
+        budget = None
+    plan_waits = bool(g["plan"]) and g["plan"]["answer"] is None and not g["approved"] and not g["stopped"]
+    doc["goal"] = {"id": goal, "title": map_label(g["text"]), "state": gstate, "budget": budget,
+                   "needs_owner": plan_waits or any(x["state"] == "needs owner" for x in tasks)}
+    return doc
+
+
+def map_now():
+    """The time of a goal map, in whole seconds. The route and the command both take it from here."""
+    return int(time.time())
+
+
+def goal_map(ctx):
+    """`umwayi goal map`: the goal map document as JSON, the same as `GET /v1/goal-map` sends. Read-only, always 0."""
+    import json
+
+    ctx.say(json.dumps(map_data(ctx.root, ctx.now), indent=1, ensure_ascii=True))
+    return OK
+
+
 def dispatch(ctx, args):
     """Run one command from the parsed arguments and return its exit code. Every error fails closed."""
     c = args.goal_command
@@ -780,6 +1012,8 @@ def dispatch(ctx, args):
             return stop(ctx, args.goal)
         if c == "report":
             return report(ctx, args.goal)
+        if c == "map":
+            return goal_map(ctx)
         raise UsageError("goal: unknown command")
     except (UsageError, ConfigError, guidance.GuidanceError) as e:
         ctx.warn(f"umwayi: error: {e}")

@@ -24,6 +24,7 @@ GOLDEN = {
     "logbook.verify": ("GET", "/v1/logbook", None, "read"),
     "budget.status": ("GET", "/v1/budget", None, "read"),
     "agents.list": ("GET", "/v1/agents", None, "read"),
+    "goal.map": ("GET", "/v1/goal-map", None, "read"),
     "agents.check": ("POST", "/v1/agents/helper/check", {}, "run"),
     "queue.add": ("POST", "/v1/queue", {"kind": "task", "title": "T"}, "write"),
     "queue.answer": ("POST", "/v1/queue/Q-0001/answer", {"answer": "A"}, "write"),

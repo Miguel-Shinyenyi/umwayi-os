@@ -79,6 +79,7 @@ There is no CORS and no cookie. A request without a valid token is counted, not 
 | logbook.verify | `GET /v1/logbook` | `logbook verify` | `logbook.verify` | read | no | 0, 1 | 0 |
 | budget.status | `GET /v1/budget` | `budget status` | `budget.status` | read | no | 0, 2, 3, 64 | 0 |
 | agents.list | `GET /v1/agents` | `agent list` | `agents.load` | read | no | 0, 2, 64 | 0 |
+| goal.map | `GET /v1/goal-map` | `goal map` | `goal.map_data` | read | no | 0, 2 | 0 |
 | agents.check | `POST /v1/agents/{name}/check` | `agent check NAME` | `agents.check_agent` | run | yes | 0, 2, 3, 64 | 64 |
 | queue.add | `POST /v1/queue` | `queue add [--if-not-open]` | `taskqueue.add_row` (`add`, `add_once`) | write | yes | 0, 1, 2, 64 | 4096 |
 | queue.answer | `POST /v1/queue/{id}/answer` | `queue answer` | `taskqueue.answer` | write | yes | 0, 1, 2, 64 | 4096 |
@@ -86,6 +87,8 @@ There is no CORS and no cookie. A request without a valid token is counted, not 
 | kill.on | `POST /v1/kill/on` | `kill on` | `kill.turn_on` | write | never (it is the switch) | 0, 1, 2, 64 | 512 |
 
 In a chat the page can only reject an Ask me first (`chats.permission` accepts `reject_once` and nothing else); an approval is made at the console of `umwayi serve` with the prompt `Allow once? [y/N]`, and with no terminal attached the request is rejected (W6-Q12 and W6-Q28, both answered Nov 12). Specified for later, each in its own spec (workstreams W4 and W5, not built): the chat routes `chats.start`, `chats.list`, `chats.events` (a long poll), `chats.message`, `chats.permission`, `chats.cancel` and `chats.stop`; and the intake routes `intake.start`, `intake.get`, `intake.answer`, `intake.commit` and `intake.discard`. The intake step asks a fixed list of questions until a pure function says the intent is clear, with no model, and adds a queue row only when the owner commits what was shown; an intake written by an AI helper is an option for the W5 spec (W6-Q15).
+
+The row `goal.map` (W37, for the owner: added with the owner's word of Nov 15, before it merges) sends the goal map document of [goal-map.md](goal-map.md), the same JSON `umwayi goal map` prints. It is a read: it is logged with its rules check and its request entry like every other read, it writes no goal file and starts no process, and its titles are labels cut to 80 characters while the text of each event is a fixed label for its kind. There is no stream and no polling: the page asks when the owner acts, as for every other route.
 
 A response is a subset of what the command prints. `agents.list` sends the name, platform and transport and no path; `agents.check` sends the name and mark of each gate check and no detail; `queue.list` sends at most 500 rows with `id`, `kind`, `status`, `answered`, `title`, `recommendation` and `answer`.
 

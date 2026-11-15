@@ -538,6 +538,15 @@
       ]
     },
     {
+      "name": "login",
+      "path": [
+        "login"
+      ],
+      "help": "the login wizard: one line per agent (ok, needs a sign-in, not offered), then on a terminal the agent's own sign-in for each yes; 0, 2, 3 or 64, never 1",
+      "line": "the login wizard: one line per agent (ok, needs a sign-in, not offered), then on a terminal the agent's own sign-in for each yes",
+      "children": []
+    },
+    {
       "name": "feedback",
       "path": [
         "feedback"
@@ -721,6 +730,16 @@
           ],
           "help": "what waits for you, the last real event and its age (changes nothing)",
           "line": "what waits for you, the last real event and its age (changes nothing)",
+          "children": []
+        },
+        {
+          "name": "map",
+          "path": [
+            "goal",
+            "map"
+          ],
+          "help": "the goal map of the newest goal as JSON, the same document GET /v1/goal-map of umwayi serve sends; no path or file text (changes nothing)",
+          "line": "the goal map of the newest goal as JSON, the same document GET /v1/goal-map of umwayi serve sends",
           "children": []
         },
         {

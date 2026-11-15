@@ -31,7 +31,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
-                    petition, publish, report, routing, rules, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
+                    loginwizard, petition, publish, report, routing, rules, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -116,6 +116,8 @@ def _goal_commands(glsub) -> None:
         sp.add_argument("goal", help="the goal id, for example G-0007")
     gst = glsub.add_parser("status", help="what waits for you, the last real event and its age (changes nothing)")
     gst.add_argument("goal", nargs="?", help="one goal id (default: every goal)")
+    glsub.add_parser("map", help="the goal map of the newest goal as JSON, the same document GET /v1/goal-map of "
+                                 "umwayi serve sends; no path or file text (changes nothing)")
     ga = glsub.add_parser("approve", help="your approval of a plan: roles, model, effort and budgets (needs a "
                                           "terminal); starts nothing")
     ga.add_argument("goal", help="the goal id")
@@ -359,6 +361,9 @@ def build_parser() -> argparse.ArgumentParser:
     vws.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD, the last of the seven budget days "
                                                     "(default: today, from the system clock)")
 
+    lg = sub.add_parser("login", help="the login wizard: one line per agent (ok, needs a sign-in, not offered), then on a "
+                                      "terminal the agent's own sign-in for each yes; 0, 2, 3 or 64, never 1")
+    lg.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
     fb = sub.add_parser("feedback", help="feedback for the owner; exit 0, 2 or 64, never 1 or 3")
     fbsub = fb.add_subparsers(dest="feedback_command", parser_class=_Parser)
     fbsub.add_parser("export", help="print a summary of the logbook for a feedback issue: counts per kind and per verdict, "
@@ -633,6 +638,23 @@ def _cmd_archive(args, out) -> int:
     return 0 if counts[archive.OK] == len(results) else 1
 
 
+def _cmd_login(args, out) -> int:
+    """W28, the login wizard. The same error handling as `umwayi agent`: 64 for usage and config, 2 for anything else,
+    never 1."""
+    try:
+        return loginwizard.run(Path(args.root), _today, args.agents, out=out, stdin=sys.stdin)
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except (Exception, KeyboardInterrupt) as e:
+        try:
+            sys.stderr.write(f"umwayi: login: stopped by an unexpected error ({type(e).__name__}). "
+                             f"Exit {EXIT_CRASH}.\n")
+        except Exception:
+            pass
+        return EXIT_CRASH
+
+
 def _cmd_agent(args, out) -> int:
     """Layer 10. Its own error handling: 64 for usage and config, 2 for anything else, never 1."""
     try:
@@ -765,7 +787,7 @@ def _cmd_goal_docs(args, out) -> int:
         return _crashed(e)
 
 
-GOAL_COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report")
+GOAL_COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report", "map")
 
 
 def _cmd_goal(args, out) -> int:
@@ -981,6 +1003,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_rules(args, out)
         if args.command == "agent" and getattr(args, "agent_command", None):
             return _cmd_agent(args, out)
+        if args.command == "login":
+            return _cmd_login(args, out)
         if args.command == "schedule" and getattr(args, "schedule_command", None):
             return _cmd_schedule(args, out)
         if args.command == "budget" and getattr(args, "budget_command", None):

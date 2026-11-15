@@ -181,7 +181,7 @@ def _code_of(word: str) -> int:
 
 _WORD_OF_CODE = {0: "done", 1: "refused", 2: "error", 3: "ask", 64: "usage"}
 # the exit code the command line gives when a command raises UmwayiError (W6.R7.4): 1 for the queue, kill and logbook
-_ERROR_CODE = {"agents.list": 2, "agents.check": 2, "budget.status": 2}
+_ERROR_CODE = {"agents.list": 2, "agents.check": 2, "budget.status": 2, "goal.map": 2}
 
 
 def _declared_length(facts) -> int:
@@ -549,6 +549,11 @@ def _h_agents_list(b: Backend, params: dict, today: str) -> tuple:
     return 0, {"agents": [{"name": a.name, "platform": a.platform, "transport": a.transport} for a in found]}
 
 
+def _h_goal_map(b: Backend, params: dict, today: str) -> tuple:
+    from umwayi import goal  # imported here, as the command line does, so the other routes load nothing of it
+    return 0, goal.map_data(b.root, goal.map_now())
+
+
 _CHECK_LINE = re.compile(r"(ok|no|not run): ([A-Za-z0-9 ._-]{1,60}): ")
 
 
@@ -580,6 +585,7 @@ def _h_queue_close(b: Backend, params: dict, today: str) -> tuple:
 
 HANDLERS = {"status": _h_status, "snapshot": _h_snapshot, "queue.list": _h_queue_list,
             "logbook.verify": _h_logbook_verify, "budget.status": _h_budget_status, "agents.list": _h_agents_list,
+            "goal.map": _h_goal_map,
             "agents.check": _h_agents_check, "queue.add": _h_queue_add, "queue.answer": _h_queue_answer,
             "queue.close": _h_queue_close, "kill.on": _h_kill_on}
 
