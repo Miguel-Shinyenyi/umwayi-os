@@ -2,4 +2,6 @@
 node_modules/
 # what next build writes
 .next/
+# the lock of one test build at a time (scripts/build-once.mjs)
+.next-build-lock/
 next-env.d.ts

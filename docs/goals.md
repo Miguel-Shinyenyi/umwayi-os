@@ -37,8 +37,8 @@ umwayi goal report G-0007
 - **The guard first.** `start`, `approve` and `run` call the guard of W19.1 (`guidance.guard`) before they do anything else, without a task record: a missing `guidance.yaml` or a changed source is Ask me first (3), a malformed one is 64.
 - **Owner commands.** `approve`, `answer` and `merged` need a terminal on standard input and output. Without one they are exit 2 and change nothing. `stop` is open to everyone; a running `run` sees it within a second and stops its child.
 - **`approve`** checks the roles (the tester and the guide are not the builder), that the three agents pass `agent check`, the model and effort words for the platform, that the root is a git work tree with a local `main`, that the builder's `timeout_minutes` is at least 1.5 times the largest task kept (the refusal names the number), and that the goal budget covers the task budgets and the planning budget. A same platform and model for the builder and the tester is a warning. It removes the plan's worktree and starts nothing.
-- **`status`** prints, in order: what waits for you with its age and the time left, each task and its state, the last real event and its age (`QUIET` after 5 minutes, `age unknown` for a time it cannot trust), the supervisor line after it, the child's line, the spend and the skipped log lines. It writes nothing and takes no lock.
-- **`report`** writes `.umwayi/goals/G-0007/report.md` (mode 0600, a draft, never in `outbox/`) and prints it; `run` prints it at the end too. It names no helper output, diff or file content.
+- **`status`** prints, in order: what waits for you with its age and the time left, each task and its state, the last real event and its age (`QUIET` after 5 minutes, `age unknown` for a time it cannot trust), the supervisor line after it, the child's line, the spend and the skipped log lines. It writes nothing and takes no lock. A failed task shows its fixed cause word, for example `failed (outcome: tree_not_clean)` (W55a); the goal's spend counts the planning run's measured spend, also for a refused plan.
+- **`report`** writes `.umwayi/goals/G-0007/report.md` (mode 0600, a draft, never in `outbox/`) and prints it; `run` prints it at the end too. It names no helper output, diff or file content. Per failed task it has the cause word, and for the goal the planning run's measured spend and the refusal word of a refused plan (W55a).
 - **`goal_start`** is on the never list of graded autonomy (`umwayi/rules.py`, [rules.md](rules.md)). [goal.rules.example.yaml](../goal.rules.example.yaml) has the example rule, commented out: nothing is Yes by default.
 - **Not built:** the example rules of the adapters that deny these commands to an AI helper (the pinned hashes of `tests/test_starter_rules.py` need the owner's word), the tester's and the guide's own words in the report (the supervisor keeps no helper text), and the count of denied tool permissions.
 
@@ -111,6 +111,17 @@ The kill switch, the state, the rules (`goal_start`, then `agent_run` and `budge
 | a failed log write that lets work continue | every write is checked; a failure stops the child and the goal (exit 2) | W9.R13 |
 | parallel edits of shared files | one status part file and one limits part file per task; `umwayi goal docs build` makes `docs/status-log.md` and `docs/KNOWN-LIMITS.md` | W9.R14 |
 | cost growing with autonomy | a budget in UU per task and per goal, a cap handed to every run, the goal stops when spent | W9.R15 |
+
+### First goal in a new folder
+
+What a scratch root needs before `umwayi goal start` works (W55a, from the first real goal runs):
+
+- **The parent folder is yours.** The worktrees go in `ROOT-worktrees/` beside the root, and umwayi makes that folder only in a parent folder you own. Otherwise the plan run stops with exit 3 and the cause `worktree_not_made`.
+- **The root is the git repo itself:** `git init -b main` in the root, then one commit, so a local `main` exists.
+- **`guidance.yaml`** and the two steering files it pins, `.kiro/steering/builder-workflow.md` and `.kiro/steering/product.md`, copied from this repo. A missing source file is Ask me first, and the message names the missing path.
+- **A `.gitignore`** for umwayi's own files (`.umwayi/`, `LOGBOOK.md`, `LOGBOOK.record`, `queue.md`, `memory/`) and `__pycache__/`, so they never count as untracked files in a worktree.
+- **A Kiro hook file** whose `--root` is the resolved path of the root: take it from `pwd -P` (on macOS `/var` is `/private/var`), or the gate check says the agent is not gated.
+- **The two part files of a task** (`docs-parts/status-log/G-T.md` and `docs-parts/known-limits/G-T.md`) are added to each packet by the supervisor's rule; the plan does not need to list them.
 
 ### How it is tested
 
