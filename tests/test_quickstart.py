@@ -120,7 +120,7 @@ class QuickstartTests(unittest.TestCase):
 
     def test_the_page_is_honest_about_what_is_not_there(self):
         self.assertIn("Not yet available", self.text)
-        self.assertEqual(len(re.findall(r"^Not yet available", self.text, re.M)), 1)  # the logbook export, which is not built
+        self.assertEqual(len(re.findall(r"^Not yet available", self.text, re.M)), 1)  # W29: sending feedback over the network
         self.assertNotIn("Not yet available: `umwayi goal`", self.text)  # W9.8 is merged
         self.assertNotIn("umwayi init", "\n".join(l for t, ls, _ in blocks(self.text) if t in ("umwayi", "setup") for l in ls))
 

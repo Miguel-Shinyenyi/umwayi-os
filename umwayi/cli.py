@@ -369,6 +369,14 @@ def build_parser() -> argparse.ArgumentParser:
     fbsub.add_parser("export", help="print a summary of the logbook for a feedback issue: counts per kind and per verdict, "
                                     "the date range, the chain status and the budget spent in UU; no paths, commands, "
                                     "rules or file contents; writes nothing")
+    fbs = fbsub.add_parser("send", help="opt in: build the export and your note, hide secrets, emails and home paths, show "
+                                         "every line, and after a typed yes in a terminal write it to a file you send by "
+                                         "hand; sends nothing over a network; exit 0, 2 or 64, never 1 or 3")
+    fbn = fbs.add_mutually_exclusive_group()
+    fbn.add_argument("--note", help="your own note, one argument (it goes through the filter too)")
+    fbn.add_argument("--note-file", help="a UTF-8 text file with your note, at most 16 KB")
+    fbs.add_argument("--out", help="the new .txt file to write (default: .umwayi/feedback/feedback-DATE-TIME.txt); never "
+                                   "overwritten")
 
     sv = sub.add_parser("serve", help="the local backend for the web page (W6); exit 0, 1, 2 or 64, never 3")
     sv.add_argument("--port", type=_port_arg, default=servegate.DEFAULT_PORT,
@@ -738,6 +746,23 @@ def _cmd_view(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_feedback_send(args, out) -> int:
+    """W29. `umwayi feedback send`. Its own error handling: 0, 2 or 64, never 1 or 3."""
+    try:
+        import time
+        from umwayi import feedbacksend
+        return feedbacksend.send(Path(args.root), args.note, args.note_file, args.out, today=_today(), now=int(time.time()),
+                             say=lambda s: (out.write(s + "\n"), out.flush()), warn=lambda s: sys.stderr.write(s + "\n"))
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError:
+        sys.stderr.write(feedback.REFUSED + "\n")
+        return EXIT_CRASH
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
 def _cmd_feedback(args, out) -> int:
     """W33. `umwayi feedback export`. Its own error handling: 0, 2 or 64, never 1 or 3. A logbook that does not pass its
     check is 2 and no summary."""
@@ -1013,6 +1038,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_view(args, out)
         if args.command == "feedback" and getattr(args, "feedback_command", None) == "export":
             return _cmd_feedback(args, out)
+        if args.command == "feedback" and getattr(args, "feedback_command", None) == "send":
+            return _cmd_feedback_send(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
         if args.command == "autonomy" and getattr(args, "autonomy_command", None) == "record":

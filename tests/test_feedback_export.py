@@ -275,7 +275,8 @@ class FailClosedTests(Base):
 class UsageAndProcessTests(Base):
     def test_extra_arguments_and_a_missing_subcommand_are_exit_64(self):
         self.build()
-        for argv in (("feedback",), ("feedback", "export", "--out", "x"), ("feedback", "export", "extra"), ("feedback", "send")):
+        # W29 changed one word here: `feedback send` exists now, so the unknown subcommand of this test is `publish`
+        for argv in (("feedback",), ("feedback", "export", "--out", "x"), ("feedback", "export", "extra"), ("feedback", "publish")):
             self.assertEqual(run_main(self.root, *argv)[0], 64, argv)
 
     def test_the_exit_code_is_never_1_or_3_in_any_case_above(self):

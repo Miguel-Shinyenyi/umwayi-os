@@ -24,6 +24,20 @@ This page tells a tester how to report what happened when they tried umwayi, and
 
 What it does not do: it writes no file and adds no entry to the logbook, so running it twice gives the same answer and leaves your folder as it was. It does not repair anything and does not look at the kill switch. It cannot tell you what was in an entry, because it never prints one. The counts and dates can still show when you used umwayi and how much, and nothing else. It is not a substitute for the questions of the template: the exit code and what happened still have to be written by you.
 
+### Send a feedback bundle (opt in)
+
+`umwayi feedback send` makes one file you can attach to a feedback issue. It never runs by itself and it sends nothing over a network: you send the file by hand.
+
+1. Run it in the folder you used umwayi in, in a real terminal, with your own note if you like: `umwayi feedback send --note "what you tried and what happened"` (or `--note-file FILE` for a longer note, at most 16 KB).
+2. It builds the bundle: the umwayi and Python versions, the name of your system, the export above and your note. Every line goes through one filter that hides keys and tokens (for example `sk-` keys, GitHub and AWS keys, the token of the local backend), a value after a word such as `password=` or `token:`, a password in an address, emails, home paths (`/Users/...`, `/home/...`, `~/...`, `C:\Users\...`), your own home folder, the folder you ran it in and your user name. Each is shown as `[hidden secret]`, `[hidden email]` or `[hidden path]`.
+3. It shows you every line exactly as it would be written, between two marker lines, and how many things were hidden. Read them. The filter is a filter, not a promise: a secret written as an ordinary word is not found.
+4. Type `yes` to write the file. Anything else, an empty line or Ctrl-C writes nothing and sends nothing. The file goes to `.umwayi/feedback/feedback-DATE-TIME.txt` (or to the new `.txt` file you name with `--out`), with mode 0600, and it never replaces a file that is there. It prints the path.
+5. Attach that file to your feedback issue yourself. The logbook gets one entry, `umwayi feedback send`, with the SHA-256 of the file only: not its text, your note or the path.
+
+It is refused, with one line and exit 2, when it is not a real terminal (a pipe or a script cannot type the yes for you), when the kill switch is on or cannot be read, or when the logbook is missing or does not pass its check. Exit codes: [exit-codes.md](exit-codes.md).
+
+Not yet available: sending the bundle over the network. The owner has not chosen where feedback goes.
+
 What else exists, and is not that export:
 
 - `umwayi logbook verify` says whether the chain is intact. Its output is a status and a count, and it names the entry where a break begins.
@@ -34,6 +48,8 @@ What else exists, and is not that export:
 - 2026-11-13: the export was not built in the first version of this page, because no command gave the listed fields; the exporter was its own task.
 - 2026-11-14: W33 built it as `umwayi feedback export`. A kind is the source of an entry from a fixed list, never free text, and a verdict is read only from a check entry in its fixed form, so no word of the owner can reach the output. A logbook that does not pass its check gives exit 2 and no summary rather than a partial one.
 - 2026-11-13: the template asks for the exit code as a number and gives no place for a log or a file, so a tester is not led to paste one.
+
+- 2026-11-15: W29 built `umwayi feedback send` as a file you send by hand, because the owner has not chosen a destination. A network mode is designed in its pull request and not built.
 
 ## Open questions
 

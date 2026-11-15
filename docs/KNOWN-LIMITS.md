@@ -1620,18 +1620,18 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
 - `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
 
-## Goal orchestration (W9), found while building W56
+## Feedback send (W29), found while building
 
-### 287. A blocked builder is found from the logbook entries written while it ran
+### 287. The feedback filter hides what looks like a secret, and the tester is the last reader
 
-Since W56, a task whose builder was blocked by the rules gate needs the owner instead of failing. How the block is found sets its limits:
+`umwayi feedback send` writes a bundle after a typed yes. These are its limits.
 
-- The supervisor reads the `umwayi check` entries written between the builder's start and its end. Any check of a tool call in that time counts, also one by another helper or by the owner in the same root. A logbook that cannot be read with its checks gives no block, and the task ends as it did before W56.
-- Only the last block is named. Earlier blocks of the same run are in the logbook as `umwayi check` entries.
-- A block counts only when the builder then exited with 2, 3 or another code that is not 64, or exited 0 with no commit. A timeout, a budget stop, a stall or a loop keeps its own cause, and a builder that worked around a block and committed goes on to the tester.
-- An action type outside the fixed list of `goalstate.BLOCK_TYPES` is shown as `tool_other`, and a Kiro MCP tool as `tool_mcp`; the logbook's `umwayi check` entry has the full type.
-- With Kiro, an Ask me first also gives the hook's own queue row (`Kiro asks first: may it do TYPE?`), so the owner sees two rows: that one and the task's.
-- The worktree of the blocked run is kept. After the owner adds a Yes rule and answers yes, the next `goal run` stops with `leftover` until the worktree is removed, as for any builder that asked the owner (exit 3) before W56.
+- The filter finds secrets by their shape: known key and token prefixes, a value after a key word, a password in an address, emails, home paths, any word of 32 or more letters and digits, the tester's own home folder, root path and user name. A secret written as an ordinary word, a short password with no key word before it, or a name of a person is not found. That is why every line is shown before the yes.
+- A hidden word is replaced, never shortened, so the owner cannot tell two hidden values apart. The count of hidden things is shown to the tester, not written into the bundle.
+- The user name is hidden as a whole word, so a user named like an ordinary word (for example `check`) also hides that word in the note.
+- The bundle is a file in `.umwayi/feedback/` (or the file named with `--out`). It stays there after it is sent; nothing removes it. It is mode 0600, but anyone who can read the tester's files can read it.
+- The terminal check is that standard input and output are terminals. It cannot tell a person from a program that drives a pseudo terminal; the test of this command does exactly that.
+- Nothing is sent. The network mode is designed (in the pull request of W29) and not built, and the owner has not chosen a destination.
 
 ## Goal orchestration (W9), found while building W55b
 
@@ -1644,3 +1644,16 @@ Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first
 - The shell types are `tool_bash`, `tool_powershell`, `tool_execute_bash`, `tool_execute_pwsh` and `tool_shell`. A tool of another type that runs a command (an MCP tool, for example) gets no command word.
 - A plan refused for a context entry names only the first such entry. A context list that is too long, or files that are too big together, is still only `context`, with no entry named.
 - `missing` also covers a context entry that is a link or not a regular file.
+
+## Goal orchestration (W9), found while building W56
+
+### 289. A blocked builder is found from the logbook entries written while it ran
+
+Since W56, a task whose builder was blocked by the rules gate needs the owner instead of failing. How the block is found sets its limits:
+
+- The supervisor reads the `umwayi check` entries written between the builder's start and its end. Any check of a tool call in that time counts, also one by another helper or by the owner in the same root. A logbook that cannot be read with its checks gives no block, and the task ends as it did before W56.
+- Only the last block is named. Earlier blocks of the same run are in the logbook as `umwayi check` entries.
+- A block counts only when the builder then exited with 2, 3 or another code that is not 64, or exited 0 with no commit. A timeout, a budget stop, a stall or a loop keeps its own cause, and a builder that worked around a block and committed goes on to the tester.
+- An action type outside the fixed list of `goalstate.BLOCK_TYPES` is shown as `tool_other`, and a Kiro MCP tool as `tool_mcp`; the logbook's `umwayi check` entry has the full type.
+- With Kiro, an Ask me first also gives the hook's own queue row (`Kiro asks first: may it do TYPE?`), so the owner sees two rows: that one and the task's.
+- The worktree of the blocked run is kept. After the owner adds a Yes rule and answers yes, the next `goal run` stops with `leftover` until the worktree is removed, as for any builder that asked the owner (exit 3) before W56.
