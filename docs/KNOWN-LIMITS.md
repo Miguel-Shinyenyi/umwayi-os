@@ -1632,3 +1632,13 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - The bundle is a file in `.umwayi/feedback/` (or the file named with `--out`). It stays there after it is sent; nothing removes it. It is mode 0600, but anyone who can read the tester's files can read it.
 - The terminal check is that standard input and output are terminals. It cannot tell a person from a program that drives a pseudo terminal; the test of this command does exactly that.
 - Nothing is sent. The network mode is designed (in the pull request of W29) and not built, and the owner has not chosen a destination.
+
+## Layer 10 front door (W59), found while building
+
+### 288. A slow Kiro whoami now makes every Kiro start wait up to 30 seconds before it is refused
+
+The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every Kiro start, `agent check`, `agent login` and `umwayi login`.
+
+- A whoami that hangs costs 30 seconds each time before the refusal, twice as long as before. A goal run with Kiro agents pays it at every start.
+- 30 seconds is a value from one report (about 10 seconds on a Mac), not a measurement over many machines. A machine where whoami takes longer than 30 seconds is refused every time, with the words that the sign-in could not be confirmed.
+- No answer is still a refusal. umwayi cannot tell a slow network from a signed out account, so it starts nothing (fail closed).
