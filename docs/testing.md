@@ -6,11 +6,7 @@ Every layer is tested before the next starts, with the standard library `unittes
 
 ## Current state
 
-Run every test:
-
-```
-python -m unittest discover -s tests -t .
-```
+Run every test: `python -m unittest discover -s tests -t .`
 
 - CI (`.github/workflows/ci.yml`, W20) runs on every pull request and on every push to main. The counts after each pull request are in [status-log.md](status-log.md). It is described in [CI since W20](#ci-since-w20) below.
 - Each layer has its own test module (`tests/test_*.py`, `tests/agents/`, `tests/adapters/`, `tests/budget/`).
