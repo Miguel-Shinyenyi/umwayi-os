@@ -1976,7 +1976,7 @@ Read with `miniyaml`, checked as 11.R1 says. `at` is written in quotes; a value 
 
 ### The path rule
 
-`_SAFE_PATH = re.compile(r"^/[A-Za-z0-9/._+-]*$")`, at most 1024 characters, no path part that is `.` or `..`, and it is the real path (`os.path.realpath`), so no link in it is resolved later. It is applied to the root, the jobs file, `sys.executable` and the umwayi source folder (`agents.umwayi_src()`). With these characters only, a unit file line and a cron line need no quoting, no `%%` and no `$$`, and `/bin/sh` sees one word per path. A path outside the rule is refused with, for example, "schedule: the root path has a character a unit file cannot hold safely (allowed: letters, digits, / . _ + -). Move the root and try again." (64).
+`_SAFE_PATH = re.compile(r"^/[A-Za-z0-9/._+@-]*$")` (`@` since W35), at most 1024 characters, no path part that is `.` or `..`, and it is the real path (`os.path.realpath`), so no link in it is resolved later. It is applied to the root, the jobs file, `sys.executable` and the umwayi source folder (`agents.umwayi_src()`). With these characters only, a unit file line and a cron line need no quoting, no `%%` and no `$$`, and `/bin/sh` sees one word per path. A path outside the rule is refused with, for example, "schedule: the root path has a character a unit file cannot hold safely (allowed: letters, digits, / . _ + -). Move the root and try again." (64).
 
 ### The rendered files (exact templates)
 

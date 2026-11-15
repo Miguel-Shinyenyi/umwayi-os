@@ -1534,3 +1534,13 @@ The scenarios of `tests/test_whole_system.py` (class GoalWholeSystemTests) run t
 - An approval that passes its deadline is tested by moving `time.time` forward in the child with a test-only sitecustomize. The date of the entries comes from the election clock, which also reads the system date, so a deadline moved by days would show a date that is not the logbook's newest.
 - The mutation pass was run by a script kept outside the repository. It changed the code 48 times and 47 were caught. One survivor is equivalent: removing the tamper-checked read at the start of `supervise` changes nothing, because `goalstate.repair` reads the logbook with the same check on the next line.
 - The fake agent prints its script; it never tries to act against its rules. What a real helper does with its tools is checked only by the rules and the adapters, not by these scenarios.
+
+## Scheduled runs (layer 11), found while building W35
+
+### 280. An `@` in a schedule path is safe for the files umwayi writes today, and only for them
+
+The path rule 11.R1.4 allows `@` since W35, so a Homebrew Python path passes. The reading that makes it safe is about the three outputs umwayi writes today: a systemd service, a systemd timer and a printed cron line.
+
+- A path always starts with `/`, so `@` is never the first character of an `ExecStart=` command, where systemd reads `@` as a prefix, nor of a cron line, where `@daily` and the like start a line. systemd specifiers are `%` and variables are `$`, both still refused; `/bin/sh` gives `@` no meaning outside `$@`.
+- A unit name never holds a path (it is `umwayi-ROOTID-NAME`), so the `@` of a systemd template unit name cannot arise.
+- umwayi writes no launchd plist today. A plist is XML, where `@` has no meaning, but a future writer of another kind of file must check the rule again for that kind before it reuses `_safe_path`.

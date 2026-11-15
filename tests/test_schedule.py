@@ -285,6 +285,75 @@ class PathRuleTests(unittest.TestCase):
         self.assertIn("the path of the Python running umwayi", problem.message)
 
 
+class HomebrewAtTests(unittest.TestCase):
+    """W35: a Homebrew Python path holds `@` (/opt/homebrew/opt/python@3.13/bin/python3.13). It passes the path rule and
+    is written as it is into the service, the timer and the printed cron line; every other unsafe character stays
+    refused, in every place a path is used."""
+
+    BREW = "/opt/homebrew/opt/python@3.13/bin/python3.13"
+    UNSAFE = (" ", "'", '"', "\n", "$", "`", "%", ";", "\\", "*", "\u00e9")
+
+    def entry(self, run="job"):
+        return schedule.Entry("open-queue", run, "open-queue", "jobs.yaml", "daily", "07:30", None, "line 2")
+
+    def test_an_at_in_a_path_passes_the_rule_and_the_other_checks_stay(self):
+        for p in (self.BREW, "/a@b", "/x/@/y", "/opt/homebrew/Cellar/python@3.12/3.12.7/bin/python3.12"):
+            self.assertTrue(schedule._safe_path(p), p)
+        for p in ("/a@b/../c", "/a@b/./c", "a@b", "@/a", "/" + "@" * 1024, ""):
+            self.assertFalse(schedule._safe_path(p), repr(p))
+        self.assertEqual(schedule.path_problems(schedule.Paths("/r", "/r/schedule.yaml", self.BREW, "/src")), [])
+
+    def test_every_other_unsafe_character_is_still_refused_next_to_an_at(self):
+        for c in self.UNSAFE:
+            for role in range(4):
+                with self.subTest(char=repr(c), role=role):
+                    bad = f"/opt/homebrew/opt/python@3.13{c}x/bin/python3.13"
+                    values = ["/r", "/r/schedule.yaml", self.BREW, "/src"]
+                    values[role] = bad
+                    self.assertFalse(schedule._safe_path(bad))
+                    [problem] = schedule.path_problems(schedule.Paths(*values))
+                    self.assertIn("cannot hold safely", problem.message)
+                    self.assertNotIn(bad, problem.message)
+
+    def test_the_service_the_timer_and_the_cron_line_hold_the_at_path_as_it_is(self):
+        paths = schedule.Paths("/r", "/r/schedule.yaml", self.BREW, "/src")
+        for run in ("job", "workflow"):
+            with self.subTest(run=run):
+                entry = self.entry(run)
+                if run == "workflow":
+                    entry = schedule.Entry("content-loop", "workflow", "content-loop", None, "daily", "07:30", None, "line 2")
+                service, timer = schedule.render(paths, entry)
+                [start] = [ln for ln in service.splitlines() if ln.startswith("ExecStart=")]
+                self.assertTrue(start.startswith(f"ExecStart={self.BREW} -m umwayi --root /r "), start)  # @ never first
+                self.assertNotIn("@", timer)  # a unit name never holds a path, so no template unit name can arise
+                self.assertNotRegex(schedule.unit_base(paths, entry), "@")
+                cron = schedule.cron_line(paths, entry).splitlines()[1]
+                self.assertRegex(cron, r"^[0-9]")  # a cron line never starts with @
+                self.assertIn(f"/usr/bin/env PYTHONPATH=/src {self.BREW} -m umwayi", cron)
+                for c in ("%", "$", "`", "'", '"', "\\", ";"):
+                    self.assertNotIn(c, service + timer + cron)
+
+    def test_a_root_with_an_at_validates_and_shows_through_the_command_line(self):
+        case = ScheduleCase(methodName="run")
+        case.root_name = "root@3.13"
+        case.setUp()
+        try:
+            r = case.run_cli("validate")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            r = case.run_cli("show")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn(f"WorkingDirectory={real(case.root)}", r.stdout)
+        finally:
+            case.doCleanups()
+
+    def test_a_jobs_file_path_with_an_unsafe_character_is_still_refused_when_rendered(self):
+        for c in self.UNSAFE:
+            with self.subTest(char=repr(c)):
+                paths = schedule.Paths(f"/r@x{c}y", "/r/schedule.yaml", self.BREW, "/src")
+                with self.assertRaises(schedule.ConfigError):
+                    schedule.render(paths, self.entry("job"))
+
+
 # =================================================================== 11.2 show
 
 
