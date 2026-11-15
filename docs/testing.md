@@ -194,6 +194,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/serve/test_wire.py` | `ui`, `ui/dist` |
 | `tests/test_affected_tests.py` | `tools` |
 | `tests/test_automation.py` | `jobs.yaml`, `rules.yaml` |
+| `tests/test_builder_rules.py` | `*`, `adapters`, `rules.yaml` |
 | `tests/test_builder_workflow.py` | `.kiro`, `tools` |
 | `tests/test_checks.py` | `.kiro`, `adapters`, `ui` |
 | `tests/test_ci_map.py` | `.github`, `docs`, `tools` |
