@@ -35,9 +35,19 @@ Matchers (all must match):
 - `path__contains: secret` contains text
 - `amount__exists: true` field is present
 
+A matcher name that ends in any other `__word` is not an operator: it is read as an equals matcher on a field with that whole name, which no action has, so the rule loads and never matches (W58a found this; whether it should be refused is for the owner).
+
 Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input. `--kill-switch` answers No while the kill switch is on or its state is unknown (the adapters use it; without it your own checks are not stopped).
 
 Every check writes one logbook entry with the rule id and the answer. The action JSON is never written, only its `type` if that is a short plain word. If the logbook cannot be written (for example it was edited by hand), a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. Use `--no-log` for a dry run that writes nothing, and `--date` to set the entry date.
+
+### Checking the file: `umwayi rules validate` (W58a)
+
+```
+umwayi rules validate [--rules PATH]
+```
+
+Reads `rules.yaml` (or PATH) with the same reader the gate uses: the same size limit, the same regular file check and the same strict parser. Exit 0 and one `ok:` line when it loads and every rule is well formed. Exit 64 when it does not, with one line for the first problem: the line number of the rule (or of the YAML problem), the rule id when it has one, and the reader's own words, for example `no: rules.yaml: line 8: rule second: rule 'second': verdict must be yes, no or ask`. A file that cannot be read says `line unknown`. It writes nothing, not even a logbook entry, and never answers 1 or 3; a crash is 2. It checks the form only: it does not say what a rule matches. A rule file that does not load makes every `umwayi check` answer Ask me first, so this is the way to find why.
 
 ### Starter rules for the adapters (task 9.10)
 
@@ -150,6 +160,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-15 | `umwayi rules validate` checks the form of the rules file with the gate's own reader and says where the first problem is; 0 or 64, never 1 or 3 | W58a, the owner's task. The rule language, the matchers, the starter rules and the gate are unchanged. |
 | 2026-11-11 | An `ask` rule may opt its class in to graded autonomy with `autonomy`; the never list and the agreement of two rules are checked when the file is read; only a Yes rule lapses at `review_by` | Layer 13, L13.5 (13.R9.2, 13.R9.3, 13.R2.2). |
 | 2026-11-11 | Every caller that asks the rules logs a changed `rules.yaml` before it uses it; if that cannot be written, a Yes becomes Ask me first; a dry run logs nothing and keeps its answer | Layer 13, L13.3 (13.R7; L13-Q11 and the new L13-Q19 as proposed). |
 | 2026-11-11 | The 13 rules of the OpenCode example are in the repo `rules.yaml` too, after the older ones and unchanged beside them; Code Mode has no rule, so an owner's Yes for it can take effect | The OpenCode starter rules pull request (a follow-up of 9.10 and 10.45; see [adapters](adapters.md)). |

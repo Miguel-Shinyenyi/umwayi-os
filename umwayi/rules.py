@@ -219,47 +219,56 @@ def parse_rules(text: str) -> list[Rule]:
     rules: list[Rule] = []
     seen: set[str] = set()
     for idx, item in enumerate(items, 1):
-        if not isinstance(item, dict):
-            raise UmwayiError(f"rules.yaml: rule #{idx} must be a mapping")
-        rid = item.get("id")
-        if not isinstance(rid, str) or not _ID.match(rid):
-            raise UmwayiError(f"rules.yaml: rule #{idx} has a missing or bad id")
-        if rid in seen:
-            raise UmwayiError(f"rules.yaml: duplicate rule id '{rid}'")
-        seen.add(rid)
-        if set(item) - _RULE_KEYS:
-            raise UmwayiError(f"rule '{rid}': unknown field(s)")
-        verdict_raw = item.get("verdict")
-        if not isinstance(verdict_raw, str) or verdict_raw.strip().lower() not in _VERDICTS:
-            raise UmwayiError(f"rule '{rid}': verdict must be yes, no or ask")
-        cause = item.get("cause")
-        if cause is not None and (not isinstance(cause, str) or not cause.strip()):
-            raise UmwayiError(f"rule '{rid}': cause must be text")
-        verdict = _VERDICTS[verdict_raw.strip().lower()]
-        matchers = _parse_matchers(item.get("matchers"), rid)
-        autonomy = _parse_autonomy(item["autonomy"], verdict, matchers, rid) if "autonomy" in item else None
-        review_by = (_parse_review_by(item["review_by"], verdict, rid, autonomy is not None)
-                     if "review_by" in item else None)
-        rules.append(
-            Rule(
-                id=rid,
-                title=_req_str(item, "title", rid),
-                text=_req_str(item, "text", rid),
-                verdict=verdict,
-                cause=cause.strip() if cause else None,
-                matchers=matchers,
-                review_by=review_by,
-                autonomy=autonomy,
-            )
-        )
+        try:
+            rules.append(_parse_rule(item, idx, seen))
+        except UmwayiError as e:
+            e.rule_index = idx  # W58a: which rule the first problem is in, for `umwayi rules validate`; the text is unchanged
+            raise
     declared: dict = {}
-    for r in rules:  # 13.R9.2: two opt-in rules that give one class must declare it the same way
+    for idx, r in enumerate(rules, 1):  # 13.R9.2: two opt-in rules that give one class must declare it the same way
         if r.autonomy is not None:
-            seen = declared.setdefault(r.autonomy.cls, r.autonomy)
-            if (seen.reversible, seen.cost_uu) != (r.autonomy.reversible, r.autonomy.cost_uu):
-                raise UmwayiError(f"rule '{r.id}': another rule gives class {r.autonomy.cls} a different reversible "
-                                  "or cost_uu")
+            seen_cls = declared.setdefault(r.autonomy.cls, r.autonomy)
+            if (seen_cls.reversible, seen_cls.cost_uu) != (r.autonomy.reversible, r.autonomy.cost_uu):
+                e = UmwayiError(f"rule '{r.id}': another rule gives class {r.autonomy.cls} a different reversible "
+                                "or cost_uu")
+                e.rule_index = idx
+                raise e
     return rules
+
+
+def _parse_rule(item, idx: int, seen: set) -> Rule:
+    """One rule of the list, or the first problem in it (an UmwayiError). Exactly the checks parse_rules made inline before."""
+    if not isinstance(item, dict):
+        raise UmwayiError(f"rules.yaml: rule #{idx} must be a mapping")
+    rid = item.get("id")
+    if not isinstance(rid, str) or not _ID.match(rid):
+        raise UmwayiError(f"rules.yaml: rule #{idx} has a missing or bad id")
+    if rid in seen:
+        raise UmwayiError(f"rules.yaml: duplicate rule id '{rid}'")
+    seen.add(rid)
+    if set(item) - _RULE_KEYS:
+        raise UmwayiError(f"rule '{rid}': unknown field(s)")
+    verdict_raw = item.get("verdict")
+    if not isinstance(verdict_raw, str) or verdict_raw.strip().lower() not in _VERDICTS:
+        raise UmwayiError(f"rule '{rid}': verdict must be yes, no or ask")
+    cause = item.get("cause")
+    if cause is not None and (not isinstance(cause, str) or not cause.strip()):
+        raise UmwayiError(f"rule '{rid}': cause must be text")
+    verdict = _VERDICTS[verdict_raw.strip().lower()]
+    matchers = _parse_matchers(item.get("matchers"), rid)
+    autonomy = _parse_autonomy(item["autonomy"], verdict, matchers, rid) if "autonomy" in item else None
+    review_by = (_parse_review_by(item["review_by"], verdict, rid, autonomy is not None)
+                 if "review_by" in item else None)
+    return Rule(
+        id=rid,
+        title=_req_str(item, "title", rid),
+        text=_req_str(item, "text", rid),
+        verdict=verdict,
+        cause=cause.strip() if cause else None,
+        matchers=matchers,
+        review_by=review_by,
+        autonomy=autonomy,
+    )
 
 
 class RuleList(list):
