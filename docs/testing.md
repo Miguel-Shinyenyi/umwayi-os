@@ -151,6 +151,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/agents/test_claude_acp_package.py` | `*`, `adapters` |
 | `tests/agents/test_fake_opencode.py` | `adapters` |
 | `tests/agents/test_kiro_hook_root.py` | `adapters` |
+| `tests/agents/test_kiro_whoami_timeout.py` | `adapters` |
 | `tests/agents/test_login_wizard.py` | `adapters` |
 | `tests/agents/test_opencode_mutants.py` | `adapters`, `rules.yaml` |
 | `tests/autonomy/test_gates.py` | `rules.yaml` |

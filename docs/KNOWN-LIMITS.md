@@ -1619,3 +1619,13 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - A goal file from before W55a has no `plan_spent_uu`; for it the old reading (the whole plan budget once a plan exists, 0 for a refused plan) is shown.
 - The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
 - `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
+
+## Layer 10 front door (W59), found while building
+
+### 287. A slow Kiro whoami now makes every Kiro start wait up to 30 seconds before it is refused
+
+The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every Kiro start, `agent check`, `agent login` and `umwayi login`.
+
+- A whoami that hangs costs 30 seconds each time before the refusal, twice as long as before. A goal run with Kiro agents pays it at every start.
+- 30 seconds is a value from one report (about 10 seconds on a Mac), not a measurement over many machines. A machine where whoami takes longer than 30 seconds is refused every time, with the words that the sign-in could not be confirmed.
+- No answer is still a refusal. umwayi cannot tell a slow network from a signed out account, so it starts nothing (fail closed).
