@@ -31,7 +31,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
-                    loginwizard, petition, publish, report, routing, rules, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
+                    loginwizard, petition, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -249,6 +249,9 @@ def build_parser() -> argparse.ArgumentParser:
                      help=f"also list rules due within this many days (default {elections.DEFAULT_WITHIN}, 0 to "
                           f"{elections.MAX_WITHIN})")
     rud.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD; a date earlier than today changes nothing")
+    ruv = rusub.add_parser("validate", help="check that rules.yaml loads and every rule is well formed, with the line and the "
+                                            "rule id of the first problem (changes nothing); 0, or 64; never 1 or 3")
+    ruv.add_argument("--rules", help="path to rules.yaml (default: <root>/rules.yaml)")
 
     rn = sub.add_parser("run", help="run one job from a jobs file (asks the rules first)")
     rn.add_argument("jobfile", help="the jobs file, for example jobs.yaml")
@@ -369,6 +372,14 @@ def build_parser() -> argparse.ArgumentParser:
     fbsub.add_parser("export", help="print a summary of the logbook for a feedback issue: counts per kind and per verdict, "
                                     "the date range, the chain status and the budget spent in UU; no paths, commands, "
                                     "rules or file contents; writes nothing")
+    fbs = fbsub.add_parser("send", help="opt in: build the export and your note, hide secrets, emails and home paths, show "
+                                         "every line, and after a typed yes in a terminal write it to a file you send by "
+                                         "hand; sends nothing over a network; exit 0, 2 or 64, never 1 or 3")
+    fbn = fbs.add_mutually_exclusive_group()
+    fbn.add_argument("--note", help="your own note, one argument (it goes through the filter too)")
+    fbn.add_argument("--note-file", help="a UTF-8 text file with your note, at most 16 KB")
+    fbs.add_argument("--out", help="the new .txt file to write (default: .umwayi/feedback/feedback-DATE-TIME.txt); never "
+                                   "overwritten")
 
     sv = sub.add_parser("serve", help="the local backend for the web page (W6); exit 0, 1, 2 or 64, never 3")
     sv.add_argument("--port", type=_port_arg, default=servegate.DEFAULT_PORT,
@@ -485,8 +496,14 @@ def _cmd_check(args, out) -> int:
 
 
 def _cmd_rules(args, out) -> int:
-    """Layer 13, `umwayi rules due`. Its own error handling: 64 for usage, 2 for anything else, never 1 (13.R3.3)."""
+    """Layer 13, `umwayi rules due`, and W58a, `umwayi rules validate`. Their own error handling: 64 for usage, 2 for
+    anything else, never 1 (13.R3.3)."""
     try:
+        if args.rules_command == "validate":  # W58a: read only, 0 or 64 (2 for a crash), never 1 or 3
+            path = Path(args.rules) if args.rules else Path(args.root) / "rules.yaml"
+            r = rulesvalidate.validate(path)
+            out.write("\n".join(r.lines) + "\n")
+            return r.code
         code, lines = elections.due(Path(args.root), args.within, args.date)
         out.write("\n".join(lines) + "\n")
         return code
@@ -495,7 +512,7 @@ def _cmd_rules(args, out) -> int:
         return EXIT_USAGE
     except (Exception, KeyboardInterrupt) as e:
         try:
-            sys.stderr.write(f"umwayi: rules due: stopped by an unexpected error ({type(e).__name__}). "
+            sys.stderr.write(f"umwayi: rules {args.rules_command}: stopped by an unexpected error ({type(e).__name__}). "
                              f"Exit {EXIT_CRASH}. Nothing was changed.\n")
         except Exception:
             pass
@@ -734,6 +751,23 @@ def _cmd_view(args, out) -> int:
             sys.stderr.write("umwayi: error: a path is longer than this system allows. Nothing was changed.\n")
             return EXIT_USAGE
         return _crashed(e)
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
+
+
+def _cmd_feedback_send(args, out) -> int:
+    """W29. `umwayi feedback send`. Its own error handling: 0, 2 or 64, never 1 or 3."""
+    try:
+        import time
+        from umwayi import feedbacksend
+        return feedbacksend.send(Path(args.root), args.note, args.note_file, args.out, today=_today(), now=int(time.time()),
+                             say=lambda s: (out.write(s + "\n"), out.flush()), warn=lambda s: sys.stderr.write(s + "\n"))
+    except UsageError as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError:
+        sys.stderr.write(feedback.REFUSED + "\n")
+        return EXIT_CRASH
     except (Exception, KeyboardInterrupt) as e:
         return _crashed(e)
 
@@ -1013,6 +1047,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_view(args, out)
         if args.command == "feedback" and getattr(args, "feedback_command", None) == "export":
             return _cmd_feedback(args, out)
+        if args.command == "feedback" and getattr(args, "feedback_command", None) == "send":
+            return _cmd_feedback_send(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
         if args.command == "autonomy" and getattr(args, "autonomy_command", None) == "record":

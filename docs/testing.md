@@ -149,6 +149,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/agents/test_claude_acp_package.py` | `*`, `adapters` |
 | `tests/agents/test_fake_opencode.py` | `adapters` |
 | `tests/agents/test_kiro_hook_root.py` | `adapters` |
+| `tests/agents/test_kiro_whoami_timeout.py` | `adapters` |
 | `tests/agents/test_login_wizard.py` | `adapters` |
 | `tests/agents/test_opencode_mutants.py` | `adapters`, `rules.yaml` |
 | `tests/autonomy/test_gates.py` | `rules.yaml` |
@@ -218,6 +219,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_routing.py` | `.github`, `.kiro`, `docs`, `jobs.yaml`, `schedule.example.yaml`, `workflows` |
 | `tests/test_rulelog.py` | `rules.yaml` |
 | `tests/test_rules.py` | `rules.yaml` |
+| `tests/test_rules_validate.py` | `rules.yaml` |
 | `tests/test_runlock.py` | `rules.yaml` |
 | `tests/test_scan_files.py` | `adapters`, `articles`, `rules.yaml`, `workflows` |
 | `tests/test_scan_receiver.py` | `adapters` |

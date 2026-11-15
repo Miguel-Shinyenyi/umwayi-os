@@ -71,7 +71,8 @@ class DocTests(unittest.TestCase):
     def test_the_export_section_gives_the_real_command_and_steps_and_names_every_field(self):
         # W33 changed this test (it was test_the_export_is_marked_not_yet_available...): the export now exists, so the section
         # must give the command and the steps instead of the Not yet available line, and it must still name every field.
-        section = self.doc.split("### Export of a logbook summary")[1].split("## Decisions log")[0]
+        # W29: the export section ends at the next ### heading (the send section of W29 follows it)
+        section = self.doc.split("### Export of a logbook summary")[1].split("\n### ")[0].split("## Decisions log")[0]
         self.assertNotIn("Not yet available", section)
         self.assertTrue(section.lstrip().startswith("`umwayi feedback export` prints a summary"))
         for field in ("number of entries", "each kind", "each verdict", "first and last date", "hash chain", "budget spent in UU"):
@@ -81,9 +82,9 @@ class DocTests(unittest.TestCase):
 
     def test_the_doc_does_not_claim_a_command_that_does_not_exist(self):
         commands = set(re.findall(r"`umwayi ([a-z]+(?: [a-z]+)?)", self.doc))
-        self.assertEqual(commands, {"feedback export", "logbook verify", "view snapshot"})
+        self.assertEqual(commands, {"feedback export", "feedback send", "logbook verify", "view snapshot"})  # W29 added send
         text = (REPO / "umwayi" / "cli.py").read_text(encoding="utf-8")
-        for name in ("verify", "snapshot", "export"):
+        for name in ("verify", "snapshot", "export", "send"):
             self.assertIn(f'"{name}"', text)
         self.assertNotRegex(self.doc, r"umwayi (logbook|view|report) (export|summary)")
 

@@ -108,6 +108,10 @@
    "seconds": 20.8,
    "shard": 2
   },
+  "tests/agents/test_kiro_whoami_timeout.py": {
+   "seconds": 20.8,
+   "shard": 3
+  },
   "tests/agents/test_login_wizard.py": {
    "seconds": 7.8,
    "shard": 1
@@ -400,6 +404,10 @@
    "seconds": 2.9,
    "shard": 3
   },
+  "tests/test_feedback_send.py": {
+   "seconds": 20.8,
+   "shard": 1
+  },
   "tests/test_frontier_practices.py": {
    "seconds": 0.0,
    "shard": 3
@@ -479,6 +487,10 @@
   "tests/test_rules.py": {
    "seconds": 0.7,
    "shard": 3
+  },
+  "tests/test_rules_validate.py": {
+   "seconds": 20.8,
+   "shard": 2
   },
   "tests/test_runlock.py": {
    "seconds": 14.3,

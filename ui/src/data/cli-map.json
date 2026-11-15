@@ -208,6 +208,16 @@
           "help": "list the rules that have lapsed or are due for review (changes nothing); 0, or 3 when a rule has lapsed",
           "line": "list the rules that have lapsed or are due for review (changes nothing)",
           "children": []
+        },
+        {
+          "name": "validate",
+          "path": [
+            "rules",
+            "validate"
+          ],
+          "help": "check that rules.yaml loads and every rule is well formed, with the line and the rule id of the first problem (changes nothing); 0, or 64; never 1 or 3",
+          "line": "check that rules.yaml loads and every rule is well formed, with the line and the rule id of the first problem (changes nothing)",
+          "children": []
         }
       ]
     },
@@ -562,6 +572,16 @@
           ],
           "help": "print a summary of the logbook for a feedback issue: counts per kind and per verdict, the date range, the chain status and the budget spent in UU; no paths, commands, rules or file contents; writes nothing",
           "line": "print a summary of the logbook for a feedback issue: counts per kind and per verdict, the date range, the chain status and the budget spent in UU",
+          "children": []
+        },
+        {
+          "name": "send",
+          "path": [
+            "feedback",
+            "send"
+          ],
+          "help": "opt in: build the export and your note, hide secrets, emails and home paths, show every line, and after a typed yes in a terminal write it to a file you send by hand; sends nothing over a network; exit 0, 2 or 64, never 1 or 3",
+          "line": "opt in: build the export and your note, hide secrets, emails and home paths, show every line, and after a typed yes in a terminal write it to a file you send by hand",
           "children": []
         }
       ]
