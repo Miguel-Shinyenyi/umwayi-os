@@ -396,11 +396,13 @@ class KiroTests(KiroCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("not run: hook script", r.stdout)
 
-    def test_whoami_that_hangs_refuses_after_15_s(self):
+    def test_whoami_that_hangs_refuses_after_30_s(self):
+        # W59: the limit was 15 s and the line said "not signed in"; it is 30 s now and the line says "no answer"
         t = time.monotonic()
         r = self.umwayi("run", "helper", "--prompt", "hello", extra=self.kiro(FAKE_KIRO_WHOAMI_HANG="1"))
         self.assertEqual(r.returncode, 2, r.stdout)
-        self.assertIn("Kiro is not signed in (no answer within 15 s)", r.stdout)
+        self.assertIn("the Kiro sign-in could not be confirmed (kiro-cli whoami gave no answer within 30 s)", r.stdout)
+        self.assertNotIn("not signed in", r.stdout)
         self.assertLess(time.monotonic() - t, 60)
         self.assertEqual([c for c in self.calls() if c.get("started")], [])
 

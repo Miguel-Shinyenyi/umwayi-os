@@ -88,6 +88,8 @@ if KEY == "KIRO" and ARGS == ["whoami"]:
     rec(argv=ARGS, cwd=os.getcwd(), started=False, probe="whoami", env_keys=sorted(os.environ))
     if os.environ.get("FAKE_KIRO_WHOAMI_HANG"):
         time.sleep(60)
+    if os.environ.get("FAKE_KIRO_WHOAMI_SLEEP"):  # W59: a slow whoami that still answers (about 10 s on a Mac)
+        time.sleep(float(os.environ["FAKE_KIRO_WHOAMI_SLEEP"]))
     sys.stdout.write(json.dumps({"email": "owner@example.invalid", "note": os.environ.get("FAKE_PLANT", "")}) + "\n")
     state = os.environ.get("FAKE_KIRO_STATE")
     sys.exit(0 if state and os.path.exists(state) else int(os.environ.get("FAKE_KIRO_WHOAMI_EXIT", "0")))
