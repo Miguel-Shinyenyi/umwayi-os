@@ -590,5 +590,56 @@ class LogbookStaysStrictTests(unittest.TestCase):
                 logbook.read_checked(root)
 
 
+class StampTests(unittest.TestCase):
+    """W30: the time of an event is written with a timezone aware datetime in place of the deprecated
+    datetime.utcfromtimestamp. The text is byte for byte what it was, and no DeprecationWarning is raised."""
+
+    TIMES = (0, 1, 59, 1_794_000_000, 1_794_000_000.9, 1_798_761_599, 4_102_444_800, 951_782_400)  # 2000-02-29 too
+
+    @staticmethod
+    def old(now):
+        """The text the old code wrote, built without utcfromtimestamp: seconds since 1970 in UTC, as Python counts them."""
+        import time as t
+        return t.strftime("%Y-%m-%dT%H:%M:%SZ", t.gmtime(int(now)))
+
+    def test_the_text_is_byte_for_byte_the_same(self):
+        for now in self.TIMES:
+            with self.subTest(now=now):
+                self.assertEqual(goallog._stamp(now), self.old(now))
+        self.assertEqual(goallog._stamp(1_794_000_000), "2026-11-06T21:20:00Z")
+        self.assertEqual(goallog._stamp(0), "1970-01-01T00:00:00Z")
+
+    def test_the_text_does_not_depend_on_the_local_time_zone(self):
+        old_tz = os.environ.get("TZ")
+        try:
+            for tz in ("UTC", "Asia/Tokyo", "America/New_York", "Africa/Nairobi"):
+                os.environ["TZ"] = tz
+                if hasattr(time, "tzset"):
+                    time.tzset()
+                with self.subTest(tz=tz):
+                    self.assertEqual(goallog._stamp(1_794_000_000), "2026-11-06T21:20:00Z")
+        finally:
+            if old_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = old_tz
+            if hasattr(time, "tzset"):
+                time.tzset()
+
+    def test_no_deprecation_warning_is_raised(self):
+        import warnings
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            goallog._stamp(1_794_000_000)
+            with tempfile.TemporaryDirectory() as d:
+                goallog.Writer(Path(d) / "e.jsonl", lambda: 1_794_000_000).open().append("poll", {})
+        self.assertEqual([w for w in caught if issubclass(w.category, DeprecationWarning)], [])
+
+    def test_the_module_no_longer_names_utcfromtimestamp_or_utcnow(self):
+        src = Path(goallog.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("utcfromtimestamp", src)
+        self.assertNotIn("utcnow", src)
+
+
 if __name__ == "__main__":
     unittest.main()

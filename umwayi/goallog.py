@@ -20,7 +20,7 @@ import os
 import re
 import zlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from umwayi.errors import UmwayiError
@@ -274,7 +274,7 @@ def _fsync(fd):
 
 
 def _stamp(now):
-    return datetime.utcfromtimestamp(int(now)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(int(now), timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # W30: a timezone aware datetime
 
 
 def _failed():
