@@ -250,7 +250,9 @@ Budget: run RUNID settled, unknown 100 UU (1000000 micros).
 
 Open an issue on GitHub with the Tester feedback template and say what you ran, what you expected, what happened, your `umwayi --version`, your Python version and the exit code as a number. How, and what to leave out, is in [feedback](feedback.md). Read everything you paste first, and leave out secrets, private paths, the text of your rules and anything from your logbook or memory.
 
-Not yet available: an export of a logbook summary with no file contents. Until it exists, do not paste your logbook or its lines.
+To add numbers without file contents, run `umwayi feedback export` and paste what it prints, or run `umwayi feedback send` in a terminal: it shows you a bundle with your note, with secrets, emails and home paths hidden, and after you type yes writes it to a file you attach by hand. Never paste your logbook or its lines.
+
+Not yet available: sending feedback over the network. The owner has not chosen where it goes.
 
 ### The goal commands
 
