@@ -1619,3 +1619,13 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - A goal file from before W55a has no `plan_spent_uu`; for it the old reading (the whole plan budget once a plan exists, 0 for a refused plan) is shown.
 - The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
 - `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
+
+## Rules (W57), builder rules and the new matchers
+
+### 287. the builder rules trust the cwd that Claude Code reports, and they match text, not shell syntax
+
+- `cwd` is what Claude Code puts in the hook input. umwayi does not check it on disk, so a `cd` that the owner allowed changes where the next call counts as running. The builder rules allow no `cd`.
+- `__prefix` does not resolve links: a link inside a worktree that points outside it is matched by where it sits.
+- The No list is plain text. Shell syntax the list does not name is allowed when the line starts with one of the five commands, for example input from a file with `<` or `<<<`. A here document is not Yes, because it needs a newline and `__startswith` takes one printable line. Other options of the five commands are allowed, for example `git commit --amend` or `git add -f`.
+- An unknown matcher `__word` still loads and is read as an equals matcher on that field name; it is not refused (the request assumed it was). Refusing it at load would change which existing rules files load, so it is left for the owner.
+- `cwd` reaches the rules only from the Claude Code hook. Kiro's docs show `cwd` in one example only, so the Kiro hook does not send it, and the builder rules do nothing for Kiro.

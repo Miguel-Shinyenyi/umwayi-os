@@ -340,6 +340,10 @@
    "seconds": 0.0,
    "shard": 1
   },
+  "tests/test_builder_rules.py": {
+   "seconds": 20.8,
+   "shard": 1
+  },
   "tests/test_builder_workflow.py": {
    "seconds": 0.0,
    "shard": 1
