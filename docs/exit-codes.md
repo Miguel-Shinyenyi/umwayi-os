@@ -25,6 +25,7 @@ A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 | `umwayi check` | 0 Yes, 2 No, 3 Ask me first, 64 usage |
 | `logbook verify`, `archive verify` | 0 ok, 1 a problem found |
 | `umwayi agent`, `umwayi schedule`, `umwayi budget` | 0, 2, 3 or 64, never 1 |
+| `umwayi login` | 0 every agent it checks is signed in at the end, 2 one is not (or cannot be checked, or its sign-in failed), 3 every one that is not was held by the kill switch or Ask me first (2 wins), 64 usage or a bad agents file; never 1 (W28) |
 | `umwayi rules due` | 0 no rule has lapsed, 3 a rule has lapsed or `rules.yaml` is missing or broken, 64 usage, 2 an unexpected error, never 1 |
 | `umwayi view snapshot` | 0 done, 1 the logbook failed its tamper check (nothing written), 2 an unexpected error, 64 usage (a bad `--out` or `--date`); never 3 |
 | `umwayi feedback export` | 0 the summary was printed, 2 the logbook is missing or did not pass its check (a hand edit, a broken chain, a format problem; no summary is printed) or an unexpected error, 64 usage; never 1 or 3 (W33) |

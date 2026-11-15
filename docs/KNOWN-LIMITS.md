@@ -1569,3 +1569,17 @@ umwayi accepts a `claude_code.token.usage` count sent as `asDouble` when it is a
 - Through the route, a logbook that fails its check refuses the request (500, `logbook`) before the map is read, so the page shows the refusal and not the document with its note. The command shows the document.
 - The event text is a fixed label per kind, so the page cannot show what changed (from which state to which, how many lines). `umwayi goal status` shows those words.
 - The ages count from the newest event and the last state change in the event logs. A clock set back gives `null` for an event dated after now, never a negative age.
+
+## Layer 10 front door (W28), found while building
+
+### 283. The login wizard asks the same checks as agent login, so it knows no more about an account than they do
+
+`umwayi login` reports every agent and, on a terminal, runs `umwayi agent login NAME` for each yes. It adds nothing that reads an account, and these are the limits that follow.
+
+- It never says which account a tool is signed in to, or offers a list of accounts. The tool's own sign-in screen shows its choices. The owner who has two accounts with one tool chooses there, and umwayi cannot tell afterwards which one was chosen (only that a subscription pays, for Claude Code, and that `whoami` exits 0, for Kiro).
+- An OpenCode agent is "not offered": the wizard checks nothing for it and its line does not change the exit code. An OpenCode agent whose route needs a sign-in shows up only when its chat fails (10.R13.12).
+- A Claude Code agent with transport cli is never offered a sign-in, because no login command is approved for it. Its line says how to sign in by hand (`claude`, then `/login`).
+- The report runs the login probes in each agent's folder with the environment that agent gets. For a Claude Code agent with transport cli that environment is umwayi's own minus the Claude credential names (10.R12.6), so a `KIRO_API_KEY` that is set in the owner's shell still reaches `claude -v` and `claude auth status` (as it reaches every Claude Code start today). It never reaches a Kiro program or the Claude Code ACP sign-in.
+- The answer is read from standard input in the terminal's line mode. A sign-in that leaves the terminal in another mode can make the next question hard to answer; the agent login code puts the terminal mode back after each sign-in, and the wizard asks the next question only after that.
+- The exit code joins several agents into one number: 2 wins over 3, so a run where one sign-in failed and another waits for a rule answer is 2. The lines say which agent is which.
+- Tested with fake `node`, `claude`, `kiro-cli` and `opencode` programs on a pseudo terminal on Linux. No real sign-in was run, and a real terminal of macOS was not tried.
