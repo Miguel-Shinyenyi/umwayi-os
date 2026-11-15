@@ -1596,3 +1596,13 @@ W47a removes two sources of conflict and leaves the others for the owner. These 
 - `ui/dist/build.json`, `ui/dist/cli-map.html` and `ui/src/data/cli-map.json` still conflict when two pull requests change the command line or the ui sources.
 - The renumbering of a clashing limits part changes its number after the merge. A status row or a doc of the same branch that names the old number is not changed by it.
 - GitHub merge queue is not available for a public repository owned by a personal account, so it cannot test pull requests in merge order here.
+
+## Rules (W58a), found while building
+
+### 285. rules validate checks the form only, and a matcher with an unknown operator passes it and never matches
+
+`umwayi rules validate` uses the gate's own reader, so it accepts what the gate accepts and refuses what the gate refuses. Two things follow.
+
+- A matcher name that ends in an unknown `__word` (for example `command__startswith`) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
+- It checks the form, not the meaning: a well formed rule that matches nothing, two rules that contradict each other, or a Yes rule wider than meant all pass.
+- It reports the first problem only; fixing it can show the next one.
