@@ -1,0 +1,15 @@
+{
+ "version": 1,
+ "now": "03:41:30 UTC",
+ "kill_switch": "off",
+ "goal": null,
+ "supervisor": {
+  "alive": false,
+  "pid_known": false,
+  "last_event_age_s": null,
+  "state": "idle"
+ },
+ "tasks": [],
+ "events": [],
+ "notes": []
+}

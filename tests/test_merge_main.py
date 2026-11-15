@@ -291,7 +291,7 @@ class UiTests(MergeMainBase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertRegex(r.stdout, r"(?m)^regenerated ui/dist/build.json: .*; ran npm ci --ignore-scripts \(in ui/\) then node build.mjs")
         data = json.loads((self.b / "ui" / "dist" / "build.json").read_text(encoding="utf-8"))
-        self.assertEqual(sorted(data), ["cliMapPage", "files", "page"])  # no hash of the progress page
+        self.assertEqual(sorted(data), ["cliMapPage", "files", "goalMapPage", "page"])  # no hash of the progress page (W38 added the committed goal map page)
         self.assertEqual(self.py(self.b, "unittest", "tests.test_ui_package").returncode, 0)
         self.assertEqual(git(self.b, "status", "--porcelain").stdout, "")  # the built progress page is ignored, not committed
 
