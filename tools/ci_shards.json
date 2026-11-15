@@ -400,6 +400,10 @@
    "seconds": 2.9,
    "shard": 3
   },
+  "tests/test_feedback_send.py": {
+   "seconds": 20.8,
+   "shard": 3
+  },
   "tests/test_frontier_practices.py": {
    "seconds": 0.0,
    "shard": 3

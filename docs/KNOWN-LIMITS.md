@@ -1620,9 +1620,22 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - The cause word is written only into the entry of a task that failed. A task that needs the owner or was stopped still shows its reason word only.
 - `PYTHONDONTWRITEBYTECODE=1` stops Python from writing bytecode. A helper that runs another tool that leaves files (a build folder, a cache) still makes the tree not clean, and the task fails with the cause `tree_not_clean`.
 
+## Feedback send (W29), found while building
+
+### 287. The feedback filter hides what looks like a secret, and the tester is the last reader
+
+`umwayi feedback send` writes a bundle after a typed yes. These are its limits.
+
+- The filter finds secrets by their shape: known key and token prefixes, a value after a key word, a password in an address, emails, home paths, any word of 32 or more letters and digits, the tester's own home folder, root path and user name. A secret written as an ordinary word, a short password with no key word before it, or a name of a person is not found. That is why every line is shown before the yes.
+- A hidden word is replaced, never shortened, so the owner cannot tell two hidden values apart. The count of hidden things is shown to the tester, not written into the bundle.
+- The user name is hidden as a whole word, so a user named like an ordinary word (for example `check`) also hides that word in the note.
+- The bundle is a file in `.umwayi/feedback/` (or the file named with `--out`). It stays there after it is sent; nothing removes it. It is mode 0600, but anyone who can read the tester's files can read it.
+- The terminal check is that standard input and output are terminals. It cannot tell a person from a program that drives a pseudo terminal; the test of this command does exactly that.
+- Nothing is sent. The network mode is designed (in the pull request of W29) and not built, and the owner has not chosen a destination.
+
 ## Layer 10 front door (W59), found while building
 
-### 287. A slow Kiro whoami now makes every Kiro start wait up to 30 seconds before it is refused
+### 288. A slow Kiro whoami now makes every Kiro start wait up to 30 seconds before it is refused
 
 The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every Kiro start, `agent check`, `agent login` and `umwayi login`.
 
