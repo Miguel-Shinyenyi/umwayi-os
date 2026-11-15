@@ -54,6 +54,7 @@
       <li data-path="rules"><details><summary class="row"><span class="name">rules</span><span class="what">rules commands</span></summary>
         <ul>
           <li data-path="rules due"><span class="row"><span class="name">due</span><span class="what">list the rules that have lapsed or are due for review (changes nothing)</span></span></li>
+          <li data-path="rules validate"><span class="row"><span class="name">validate</span><span class="what">check that rules.yaml loads and every rule is well formed, with the line and the rule id of the first problem (changes nothing)</span></span></li>
         </ul>
       </details></li>
       <li data-path="run"><span class="row"><span class="name">run</span><span class="what">run one job from a jobs file (asks the rules first)</span></span></li>
@@ -182,7 +183,7 @@
     </ul>
   </nav>
   <footer>
-    <p>23 groups and 70 commands.</p>
+    <p>23 groups and 71 commands.</p>
     <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
   </footer>
 </main>

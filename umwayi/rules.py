@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import posixpath
 import re
 from dataclasses import dataclass, field, replace
 from datetime import date as _date
@@ -43,7 +44,7 @@ MAX_NAMED_FALLBACKS = 10  # the entry of a check names at most this many lapsed 
 @dataclass(frozen=True)
 class Matcher:
     field: str
-    op: str  # "equals" | "contains" | "exists"
+    op: str  # "equals" | "contains" | "exists" | "startswith" | "prefix" (the last two since W57)
     values: tuple[Any, ...]
 
 
@@ -148,8 +149,22 @@ def _parse_matchers(raw: object, rid: str) -> tuple[Matcher, ...]:
             field_name, op = key[: -len("__contains")], "contains"
         elif key.endswith("__exists"):
             field_name, op = key[: -len("__exists")], "exists"
+        elif key.endswith("__startswith"):  # W57: one printable line that starts with a value, case and spaces as written
+            field_name, op = key[: -len("__startswith")], "startswith"
+        elif key.endswith("__prefix"):  # W57: a clean absolute path at or below one of the folders
+            field_name, op = key[: -len("__prefix")], "prefix"
         if not field_name:
             raise UmwayiError(f"rule '{rid}': bad matcher name")
+        if op in ("startswith", "prefix"):
+            items = value if isinstance(value, list) else [value]
+            if not items or not all(isinstance(i, str) and i.strip() and i.isprintable() for i in items):
+                raise UmwayiError(f"rule '{rid}': __{op} needs non-empty printable text")
+            if op == "prefix" and not all(_clean_path(i) for i in items):
+                raise UmwayiError(f"rule '{rid}': __prefix needs clean absolute folders (start with /, no . or .. part, "
+                                  "no double slash)")
+            vals = tuple(i if op == "startswith" else i.rstrip("/") or "/" for i in items)
+            out.append(Matcher(field_name, op, vals))
+            continue
         if op == "exists":
             if not isinstance(value, bool):
                 raise UmwayiError(f"rule '{rid}': __exists needs true or false")
@@ -163,6 +178,15 @@ def _parse_matchers(raw: object, rid: str) -> tuple[Matcher, ...]:
             vals = tuple(_norm(i) for i in items)
         out.append(Matcher(field_name, op, vals))
     return tuple(out)
+
+
+def _clean_path(p: str) -> bool:
+    """W57: an absolute path that is already in its plain form: it starts with one slash and has no '.', '..' or empty part
+    (a trailing slash is allowed). Nothing on disk is read, so a link is not resolved: the path is taken as written."""
+    if not isinstance(p, str) or not p.startswith("/") or p.startswith("//") or "\x00" in p or not p.isprintable():
+        return False
+    body = p.rstrip("/")
+    return body == "" or posixpath.normpath(body) == body
 
 
 def _req_str(d: dict, key: str, rid: str) -> str:
@@ -219,47 +243,56 @@ def parse_rules(text: str) -> list[Rule]:
     rules: list[Rule] = []
     seen: set[str] = set()
     for idx, item in enumerate(items, 1):
-        if not isinstance(item, dict):
-            raise UmwayiError(f"rules.yaml: rule #{idx} must be a mapping")
-        rid = item.get("id")
-        if not isinstance(rid, str) or not _ID.match(rid):
-            raise UmwayiError(f"rules.yaml: rule #{idx} has a missing or bad id")
-        if rid in seen:
-            raise UmwayiError(f"rules.yaml: duplicate rule id '{rid}'")
-        seen.add(rid)
-        if set(item) - _RULE_KEYS:
-            raise UmwayiError(f"rule '{rid}': unknown field(s)")
-        verdict_raw = item.get("verdict")
-        if not isinstance(verdict_raw, str) or verdict_raw.strip().lower() not in _VERDICTS:
-            raise UmwayiError(f"rule '{rid}': verdict must be yes, no or ask")
-        cause = item.get("cause")
-        if cause is not None and (not isinstance(cause, str) or not cause.strip()):
-            raise UmwayiError(f"rule '{rid}': cause must be text")
-        verdict = _VERDICTS[verdict_raw.strip().lower()]
-        matchers = _parse_matchers(item.get("matchers"), rid)
-        autonomy = _parse_autonomy(item["autonomy"], verdict, matchers, rid) if "autonomy" in item else None
-        review_by = (_parse_review_by(item["review_by"], verdict, rid, autonomy is not None)
-                     if "review_by" in item else None)
-        rules.append(
-            Rule(
-                id=rid,
-                title=_req_str(item, "title", rid),
-                text=_req_str(item, "text", rid),
-                verdict=verdict,
-                cause=cause.strip() if cause else None,
-                matchers=matchers,
-                review_by=review_by,
-                autonomy=autonomy,
-            )
-        )
+        try:
+            rules.append(_parse_rule(item, idx, seen))
+        except UmwayiError as e:
+            e.rule_index = idx  # W58a: which rule the first problem is in, for `umwayi rules validate`; the text is unchanged
+            raise
     declared: dict = {}
-    for r in rules:  # 13.R9.2: two opt-in rules that give one class must declare it the same way
+    for idx, r in enumerate(rules, 1):  # 13.R9.2: two opt-in rules that give one class must declare it the same way
         if r.autonomy is not None:
-            seen = declared.setdefault(r.autonomy.cls, r.autonomy)
-            if (seen.reversible, seen.cost_uu) != (r.autonomy.reversible, r.autonomy.cost_uu):
-                raise UmwayiError(f"rule '{r.id}': another rule gives class {r.autonomy.cls} a different reversible "
-                                  "or cost_uu")
+            seen_cls = declared.setdefault(r.autonomy.cls, r.autonomy)
+            if (seen_cls.reversible, seen_cls.cost_uu) != (r.autonomy.reversible, r.autonomy.cost_uu):
+                e = UmwayiError(f"rule '{r.id}': another rule gives class {r.autonomy.cls} a different reversible "
+                                "or cost_uu")
+                e.rule_index = idx
+                raise e
     return rules
+
+
+def _parse_rule(item, idx: int, seen: set) -> Rule:
+    """One rule of the list, or the first problem in it (an UmwayiError). Exactly the checks parse_rules made inline before."""
+    if not isinstance(item, dict):
+        raise UmwayiError(f"rules.yaml: rule #{idx} must be a mapping")
+    rid = item.get("id")
+    if not isinstance(rid, str) or not _ID.match(rid):
+        raise UmwayiError(f"rules.yaml: rule #{idx} has a missing or bad id")
+    if rid in seen:
+        raise UmwayiError(f"rules.yaml: duplicate rule id '{rid}'")
+    seen.add(rid)
+    if set(item) - _RULE_KEYS:
+        raise UmwayiError(f"rule '{rid}': unknown field(s)")
+    verdict_raw = item.get("verdict")
+    if not isinstance(verdict_raw, str) or verdict_raw.strip().lower() not in _VERDICTS:
+        raise UmwayiError(f"rule '{rid}': verdict must be yes, no or ask")
+    cause = item.get("cause")
+    if cause is not None and (not isinstance(cause, str) or not cause.strip()):
+        raise UmwayiError(f"rule '{rid}': cause must be text")
+    verdict = _VERDICTS[verdict_raw.strip().lower()]
+    matchers = _parse_matchers(item.get("matchers"), rid)
+    autonomy = _parse_autonomy(item["autonomy"], verdict, matchers, rid) if "autonomy" in item else None
+    review_by = (_parse_review_by(item["review_by"], verdict, rid, autonomy is not None)
+                 if "review_by" in item else None)
+    return Rule(
+        id=rid,
+        title=_req_str(item, "title", rid),
+        text=_req_str(item, "text", rid),
+        verdict=verdict,
+        cause=cause.strip() if cause else None,
+        matchers=matchers,
+        review_by=review_by,
+        autonomy=autonomy,
+    )
 
 
 class RuleList(list):
@@ -299,6 +332,14 @@ def _matches_one(m: Matcher, action: dict) -> bool:
         return False
     value = action[m.field]
     candidates = value if isinstance(value, list) else [value]
+    if m.op == "startswith":
+        # One printable line only: a newline, a tab or another control character in the text never matches, so a second
+        # command on a new line cannot ride on an allowed first word.
+        return any(isinstance(c, str) and c.isprintable() and any(c.startswith(v) for v in m.values)
+                   for c in candidates)
+    if m.op == "prefix":
+        return any(isinstance(c, str) and _clean_path(c) and any(_under(c.rstrip("/") or "/", v) for v in m.values)
+                   for c in candidates)
     for c in candidates:
         n = _norm(c)
         if n is None:
@@ -308,6 +349,10 @@ def _matches_one(m: Matcher, action: dict) -> bool:
         if m.op == "contains" and any(v in n for v in m.values):
             return True
     return False
+
+
+def _under(path: str, folder: str) -> bool:
+    return path == folder or path.startswith(folder.rstrip("/") + "/")
 
 
 def rule_matches(rule: Rule, action: dict) -> bool:

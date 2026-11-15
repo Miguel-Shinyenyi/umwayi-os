@@ -29,3 +29,73 @@ rules: []
 #       type: goal_start
 #       agent: [claude-guide, claude-build, kiro-test]
 #       role: [guide, builder, tester, check]
+
+# Builder rules (W57): let a Claude Code builder work inside the goal worktrees without asking you for each step.
+# Copy them once into the rules.yaml of the umwayi root that runs your goals, and put your own worktree root in place
+# of /path/to/umwayi-root-worktrees (umwayi makes it next to the root, with "-worktrees" added to the root's name).
+#
+# Read these before you copy them:
+#   * Take the starter rules cc-ask-write and cc-ask-shell out of that rules.yaml. Ask me first beats Yes, so while
+#     they are there every builder write and shell command is still asked, and the Yes rules below do nothing. With
+#     them gone, a write or a command these rules do not allow still gets Ask me first, because no rule matches.
+#   * Keep every No starter rule (cc-no-push-main, cc-no-destroy, cc-no-guard-edits, cc-no-guard-shell, cc-no-secrets,
+#     cc-no-money). No beats Yes, so they still stop a write to .git, a secret path or a push to main.
+#   * These rules are for Claude Code only. They need `cwd`, the folder the tool call runs in, which only the Claude
+#     Code hook puts in the action. Without `cwd` none of them matches, so the answer stays Ask me first.
+#   * `command__startswith` takes one printable line: a command with a newline or a tab never matches it. Matching is
+#     plain text and not a shell parser, so keep the No rule for the chain characters with the Yes rules. Each value
+#     ends with a space, so "git diff " does not allow "git difftool"; builder-shell-bare allows the five written alone.
+#   * `path__prefix` and `cwd__prefix` take a clean absolute path only (no ".", ".." or "//"). A link is not resolved:
+#     a link inside the worktree that points outside it is matched by where it sits, not by where it points.
+#
+# rules:
+#   - id: builder-no-chain
+#     title: A builder shell command runs one command only
+#     text: A shell command in a goal worktree may not chain, pipe, run in the background, substitute or redirect.
+#     cause: A chain character would let a second command ride on an allowed one.
+#     verdict: no
+#     matchers:
+#       platform: claude-code
+#       type: tool_bash
+#       cwd__prefix: /path/to/umwayi-root-worktrees
+#       command__contains: ["&", ";", "|", "`", "$(", ">"]
+#
+#   - id: builder-no-git-output
+#     title: A builder git diff writes no file
+#     text: git diff --output writes a file anywhere, so it is not allowed in a goal worktree.
+#     verdict: no
+#     matchers:
+#       platform: claude-code
+#       type: tool_bash
+#       cwd__prefix: /path/to/umwayi-root-worktrees
+#       command__contains: "--output"
+#
+#   - id: builder-write
+#     title: A builder may write files in a goal worktree
+#     text: Writing and editing files inside the goal worktrees is allowed.
+#     verdict: yes
+#     matchers:
+#       platform: claude-code
+#       type: [tool_write, tool_edit, tool_multiedit]
+#       cwd__prefix: /path/to/umwayi-root-worktrees
+#       path__prefix: /path/to/umwayi-root-worktrees
+#
+#   - id: builder-shell
+#     title: A builder may run five commands in a goal worktree
+#     text: git status, git diff, git add, git commit and python3 -m unittest are allowed in the goal worktrees.
+#     verdict: yes
+#     matchers:
+#       platform: claude-code
+#       type: tool_bash
+#       cwd__prefix: /path/to/umwayi-root-worktrees
+#       command__startswith: ["git status ", "git diff ", "git add ", "git commit ", "python3 -m unittest "]
+#
+#   - id: builder-shell-bare
+#     title: The same five commands with nothing after them
+#     text: The five commands of builder-shell, written alone, are allowed in the goal worktrees.
+#     verdict: yes
+#     matchers:
+#       platform: claude-code
+#       type: tool_bash
+#       cwd__prefix: /path/to/umwayi-root-worktrees
+#       command: ["git status", "git diff", "git add", "git commit", "python3 -m unittest"]

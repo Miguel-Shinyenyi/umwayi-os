@@ -1633,9 +1633,39 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - The terminal check is that standard input and output are terminals. It cannot tell a person from a program that drives a pseudo terminal; the test of this command does exactly that.
 - Nothing is sent. The network mode is designed (in the pull request of W29) and not built, and the owner has not chosen a destination.
 
+## Layer 10 front door (W59), found while building
+
+### 288. A slow Kiro whoami now makes every Kiro start wait up to 30 seconds before it is refused
+
+The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every Kiro start, `agent check`, `agent login` and `umwayi login`.
+
+- A whoami that hangs costs 30 seconds each time before the refusal, twice as long as before. A goal run with Kiro agents pays it at every start.
+- 30 seconds is a value from one report (about 10 seconds on a Mac), not a measurement over many machines. A machine where whoami takes longer than 30 seconds is refused every time, with the words that the sign-in could not be confirmed.
+- No answer is still a refusal. umwayi cannot tell a slow network from a signed out account, so it starts nothing (fail closed).
+
+## Rules (W58a), found while building
+
+### 289. rules validate checks the form only, and a matcher with an unknown operator passes it and never matches
+
+`umwayi rules validate` uses the gate's own reader, so it accepts what the gate accepts and refuses what the gate refuses. Two things follow.
+
+- A matcher name that ends in an unknown `__word` (for example `command__endswith`; `__startswith` became an operator in W57) is not refused: it is read as an equals matcher on a field with that whole name, which no action has. The rule loads, `validate` says ok, and the rule never matches. For a No rule that is a rule that silently does nothing. Whether it should be refused is the owner's decision (W57); this task did not change the reader.
+- It checks the form, not the meaning: a well formed rule that matches nothing, two rules that contradict each other, or a Yes rule wider than meant all pass.
+- It reports the first problem only; fixing it can show the next one.
+
+## Rules (W57), builder rules and the new matchers
+
+### 290. the builder rules trust the cwd that Claude Code reports, and they match text, not shell syntax
+
+- `cwd` is what Claude Code puts in the hook input. umwayi does not check it on disk, so a `cd` that the owner allowed changes where the next call counts as running. The builder rules allow no `cd`.
+- `__prefix` does not resolve links: a link inside a worktree that points outside it is matched by where it sits.
+- The No list is plain text. Shell syntax the list does not name is allowed when the line starts with one of the five commands, for example input from a file with `<` or `<<<`. A here document is not Yes, because it needs a newline and `__startswith` takes one printable line. Other options of the five commands are allowed, for example `git commit --amend` or `git add -f`.
+- An unknown matcher `__word` still loads and is read as an equals matcher on that field name; it is not refused (the request assumed it was). Refusing it at load would change which existing rules files load, so it is left for the owner.
+- `cwd` reaches the rules only from the Claude Code hook. Kiro's docs show `cwd` in one example only, so the Kiro hook does not send it, and the builder rules do nothing for Kiro.
+
 ## Goal orchestration (W9), found while building W56
 
-### 288. A blocked builder is found from the logbook entries written while it ran
+### 291. A blocked builder is found from the logbook entries written while it ran
 
 Since W56, a task whose builder was blocked by the rules gate needs the owner instead of failing. How the block is found sets its limits:
 

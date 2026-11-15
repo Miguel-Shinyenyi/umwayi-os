@@ -208,6 +208,16 @@
           "help": "list the rules that have lapsed or are due for review (changes nothing); 0, or 3 when a rule has lapsed",
           "line": "list the rules that have lapsed or are due for review (changes nothing)",
           "children": []
+        },
+        {
+          "name": "validate",
+          "path": [
+            "rules",
+            "validate"
+          ],
+          "help": "check that rules.yaml loads and every rule is well formed, with the line and the rule id of the first problem (changes nothing); 0, or 64; never 1 or 3",
+          "line": "check that rules.yaml loads and every rule is well formed, with the line and the rule id of the first problem (changes nothing)",
+          "children": []
         }
       ]
     },

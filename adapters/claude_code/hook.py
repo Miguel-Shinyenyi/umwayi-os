@@ -74,6 +74,9 @@ def main(argv, stdin, stdout, stderr) -> int:
             raise gate.AdapterError("this hook only handles PreToolUse")
         extra = {k: data.get(k) for k in ("permission_mode", "agent_type")}
         action = gate.tool_action("claude-code", data.get("tool_name"), data.get("tool_input"), extra)
+        cwd = gate.clean_cwd(data.get("cwd"))  # W57: Claude Code documents cwd in every hook input
+        if cwd is not None:
+            action["cwd"] = cwd
     except gate.AdapterError as e:
         return _block(stderr, f"umwayi hook: blocked, {e}.")
 
