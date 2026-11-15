@@ -1544,3 +1544,42 @@ The path rule 11.R1.4 allows `@` since W35, so a Homebrew Python path passes. Th
 - A path always starts with `/`, so `@` is never the first character of an `ExecStart=` command, where systemd reads `@` as a prefix, nor of a cron line, where `@daily` and the like start a line. systemd specifiers are `%` and variables are `$`, both still refused; `/bin/sh` gives `@` no meaning outside `$@`.
 - A unit name never holds a path (it is `umwayi-ROOTID-NAME`), so the `@` of a systemd template unit name cannot arise.
 - umwayi writes no launchd plist today. A plist is XML, where `@` has no meaning, but a future writer of another kind of file must check the rule again for that kind before it reuses `_safe_path`.
+
+## Budget governor, found while building W45
+
+### 281. Whole-number asDouble token counts were seen on Claude Code 2.1.322 only
+
+umwayi accepts a `claude_code.token.usage` count sent as `asDouble` when it is a whole number from 0 to 10^12 (W45). The shape was traced on one real run: Claude Code 2.1.322 on the owner's Mac, Nov 15 2026.
+
+- Older and newer versions of Claude Code are unchecked. One may send `asInt`, `asDouble`, or something else; anything other than these two keys with a whole number is still refused, so the run is marked invalid and settled at the full reservation (the safe side).
+- A whole-number double above 2^53 cannot hold every integer exactly. The cap of 10^12 is far below 2^53, so every accepted count is exact.
+- A point that carries both `asInt` and `asDouble` is refused even if they agree, because umwayi cannot know which one the sender meant.
+
+## Goal map data (W37), found while building
+
+### 282. The goal map shows the newest goal only, guesses the supervisor from a lock, and hides words by their shape
+
+`umwayi goal map` and `GET /v1/goal-map` give the document of `docs/goal-map.md`. These are its limits.
+
+- Only the newest goal (the highest id) is shown. An older goal that still runs or needs the owner is not on the map; `umwayi goal status` lists every goal.
+- `alive` means a process holds a lock on `.umwayi/goal.lock` now, read from `/proc/locks` without taking the lock. It does not show the holder is a healthy supervisor, and another program that locks the same file would read as alive. Where `/proc/locks` cannot be read the supervisor is `unknown`, with a note. On macOS there is no `/proc/locks`, so once a goal command has made the lock file the map always shows the supervisor as `unknown` there, never alive or lost, even while a supervisor runs; only `umwayi goal status` (which takes the lock for a moment) can tell. `pid_known` says the table named a process, and the number is never sent.
+- `worktree.clean` and `pr` are always null: the first needs a git process, which the map never starts, and the goal files do not record a pull request number. The page shows neither yet.
+- A title shows the owner's own words. The label hides words by their shape (a digit, a slash, a sign, a leading dash, 8 or more capitals, more than 24 characters), so a secret written as an ordinary word in a goal or a task sentence would be shown. The cut at 80 characters hides what comes after it.
+- Every call of the route writes two logbook entries (the rules check and the request entry), as every read does under W6.R7.7. A page that asked often would grow the logbook; there is no stream and no polling for that reason.
+- Through the route, a logbook that fails its check refuses the request (500, `logbook`) before the map is read, so the page shows the refusal and not the document with its note. The command shows the document.
+- The event text is a fixed label per kind, so the page cannot show what changed (from which state to which, how many lines). `umwayi goal status` shows those words.
+- The ages count from the newest event and the last state change in the event logs. A clock set back gives `null` for an event dated after now, never a negative age.
+
+## Layer 10 front door (W28), found while building
+
+### 283. The login wizard asks the same checks as agent login, so it knows no more about an account than they do
+
+`umwayi login` reports every agent and, on a terminal, runs `umwayi agent login NAME` for each yes. It adds nothing that reads an account, and these are the limits that follow.
+
+- It never says which account a tool is signed in to, or offers a list of accounts. The tool's own sign-in screen shows its choices. The owner who has two accounts with one tool chooses there, and umwayi cannot tell afterwards which one was chosen (only that a subscription pays, for Claude Code, and that `whoami` exits 0, for Kiro).
+- An OpenCode agent is "not offered": the wizard checks nothing for it and its line does not change the exit code. An OpenCode agent whose route needs a sign-in shows up only when its chat fails (10.R13.12).
+- A Claude Code agent with transport cli is never offered a sign-in, because no login command is approved for it. Its line says how to sign in by hand (`claude`, then `/login`).
+- The report runs the login probes in each agent's folder with the environment that agent gets. For a Claude Code agent with transport cli that environment is umwayi's own minus the Claude credential names (10.R12.6), so a `KIRO_API_KEY` that is set in the owner's shell still reaches `claude -v` and `claude auth status` (as it reaches every Claude Code start today). It never reaches a Kiro program or the Claude Code ACP sign-in.
+- The answer is read from standard input in the terminal's line mode. A sign-in that leaves the terminal in another mode can make the next question hard to answer; the agent login code puts the terminal mode back after each sign-in, and the wizard asks the next question only after that.
+- The exit code joins several agents into one number: 2 wins over 3, so a run where one sign-in failed and another waits for a rule answer is 2. The lines say which agent is which.
+- Tested with fake `node`, `claude`, `kiro-cli` and `opencode` programs on a pseudo terminal on Linux. No real sign-in was run, and a real terminal of macOS was not tried.

@@ -110,6 +110,7 @@
           <li data-path="view snapshot"><span class="row"><span class="name">snapshot</span><span class="what">write one JSON file of counts for the page, and one logbook entry (no text, path or secret of any file)</span></span></li>
         </ul>
       </details></li>
+      <li data-path="login"><span class="row"><span class="name">login</span><span class="what">the login wizard: one line per agent (ok, needs a sign-in, not offered), then on a terminal the agent's own sign-in for each yes</span></span></li>
       <li data-path="feedback"><details><summary class="row"><span class="name">feedback</span><span class="what">feedback for the owner</span></summary>
         <ul>
           <li data-path="feedback export"><span class="row"><span class="name">export</span><span class="what">print a summary of the logbook for a feedback issue: counts per kind and per verdict, the date range, the chain status and the budget spent in UU</span></span></li>
@@ -141,6 +142,7 @@
           <li data-path="goal stop"><span class="row"><span class="name">stop</span><span class="what">stop this goal now (open to everyone: it only makes things safer)</span></span></li>
           <li data-path="goal report"><span class="row"><span class="name">report</span><span class="what">write .umwayi/goals/G/report.md (a draft) and print it</span></span></li>
           <li data-path="goal status"><span class="row"><span class="name">status</span><span class="what">what waits for you, the last real event and its age (changes nothing)</span></span></li>
+          <li data-path="goal map"><span class="row"><span class="name">map</span><span class="what">the goal map of the newest goal as JSON, the same document GET /v1/goal-map of umwayi serve sends</span></span></li>
           <li data-path="goal approve"><span class="row"><span class="name">approve</span><span class="what">your approval of a plan: roles, model, effort and budgets (needs a terminal)</span></span></li>
           <li data-path="goal answer"><span class="row"><span class="name">answer</span><span class="what">your answer to a task that needs you (needs a terminal)</span></span></li>
           <li data-path="goal merged"><span class="row"><span class="name">merged</span><span class="what">you say a task is merged (needs a terminal), for a squash merge the check cannot see</span></span></li>
@@ -179,7 +181,7 @@
     </ul>
   </nav>
   <footer>
-    <p>23 groups and 67 commands.</p>
+    <p>23 groups and 69 commands.</p>
     <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
   </footer>
 </main>

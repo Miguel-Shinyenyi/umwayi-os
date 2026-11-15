@@ -93,6 +93,19 @@ def _number(value) -> int:
     return value
 
 
+def _whole_double(value) -> int:
+    """A token count sent as an OTLP asDouble (W45: Claude Code 2.1.322 sends claude_code.token.usage this way). Only a
+    whole number from 0 to 10^12 is a count: an int, or a finite float with no fraction. A bool, text, NaN, infinity,
+    a fraction, a negative number or one above 10^12 is invalid, with the same fixed text as a bad asInt."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise Invalid("a count was not an integer from 0 to 10^12")
+    if isinstance(value, float) and (not math.isfinite(value) or not value.is_integer()):
+        raise Invalid("a count was not an integer from 0 to 10^12")
+    if not 0 <= value <= MAX_NUMBER:
+        raise Invalid("a count was not an integer from 0 to 10^12")
+    return int(value)
+
+
 def _usd_to_micros(value) -> int:
     """US dollars (a JSON whole number or a finite double, never below 0) to micros, rounded up. A negative number
     is invalid on every path, so no report can subtract from a run."""
@@ -196,10 +209,11 @@ class Totals:
                                 raise Invalid("a cost data point had no value")
                             seen = True
                         else:
-                            if "asInt" not in dp:
+                            # W45: asInt as before, or a whole-number asDouble; exactly one of the two, never both
+                            if ("asInt" in dp) == ("asDouble" in dp):
                                 raise Invalid("a count was not an integer from 0 to 10^12")
                             t = METRIC_TYPES.get(_string(attrs.get("type")))
-                            n = _number(dp["asInt"])
+                            n = _number(dp["asInt"]) if "asInt" in dp else _whole_double(dp["asDouble"])
                             tokens[(model, t or "other")] += n
                         if model is not None:
                             models.append(model)

@@ -1127,7 +1127,7 @@ Setup, once: install OpenCode 2.2.3 or newer yourself; put an `opencode` agent i
 Built in PR 33. What the receiver expects, from design.md "Budget governor", Facts (read Nov 9 2026, [Claude Code, Monitoring](https://code.claude.com/docs/en/monitoring-usage)):
 
 - `POST /v1/logs` with `resourceLogs[].scopeLogs[].logRecords[]`; an `api_request` event is a record whose attribute `event.name` is `api_request` (or whose `body.stringValue` is `claude_code.api_request`), with the attributes `cost_usd_micros` (an `intValue`), `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens` (each an `intValue`) and `model` (a `stringValue`).
-- `POST /v1/metrics` with `resourceMetrics[].scopeMetrics[].metrics[]`; `claude_code.cost.usage` data points with `asDouble` (or `asInt`), and `claude_code.token.usage` data points with `asInt` and the attributes `type` (`input`, `output`, `cacheRead`, `cacheCreation`) and `model`.
+- `POST /v1/metrics` with `resourceMetrics[].scopeMetrics[].metrics[]`; `claude_code.cost.usage` data points with `asDouble` (or `asInt`), and `claude_code.token.usage` data points with `asInt` (Claude Code 2.1.322 sends `asDouble` with a whole number instead, seen on the owner's Mac on Nov 15; umwayi accepts that since W45) and the attributes `type` (`input`, `output`, `cacheRead`, `cacheCreation`) and `model`.
 
 Not confirmed: the exact nesting and value shapes Claude Code emits, and whether a short run exports before it exits. The owner's capture (tasks.md B.10) records them.
 

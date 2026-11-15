@@ -11,7 +11,7 @@ from unittest import mock
 
 from tests.serve.support import (DATE, REPO, SENTINEL, TOKEN, InProc, RootCase, logbook_entries, make_logbook, make_root,
                                  write_agents)
-from umwayi import agents, budget, kill, logbook, rules, taskqueue, view
+from umwayi import agents, budget, goal, kill, logbook, rules, taskqueue, view
 from umwayi.cli import main
 
 SERVE_EXTRA_SOURCES = {"umwayi serve", "umwayi check", "umwayi rules"}
@@ -40,6 +40,7 @@ ROUTES = [
     ("logbook.verify", "GET", "/v1/logbook", None, "read", [("logbook.verify", (None,))]),
     ("budget.status", "GET", "/v1/budget", None, "read", [("budget.status", (DATE, DATE))]),
     ("agents.list", "GET", "/v1/agents", None, "read", [("agents.load", (None,))]),
+    ("goal.map", "GET", "/v1/goal-map", None, "read", [("goal.map_data", None)]),
     ("agents.check", "POST", "/v1/agents/helper/check", {}, "run", [("agents.check_agent", ("helper", None, None))]),
     ("queue.add", "POST", "/v1/queue", {"kind": "task", "title": "T", "recommendation": "R"}, "write",
      [("taskqueue.add", ("task", "T", "R", DATE))]),
@@ -59,7 +60,7 @@ class Spy:
         for dotted in names:
             mod, _, fn = dotted.partition(".")
             module = {"kill": kill, "rules": rules, "logbook": logbook, "taskqueue": taskqueue, "view": view,
-                      "budget": budget, "agents": agents}[mod]
+                      "budget": budget, "agents": agents, "goal": goal}[mod]
             real = getattr(module, fn)
             self.patches.append(mock.patch.object(module, fn, side_effect=self._wrap(dotted, real)))
 
@@ -89,7 +90,7 @@ class Spy:
 
 CORE = ["kill.state", "rules.check_and_log", "logbook.append", "taskqueue.list_rows", "taskqueue.add", "taskqueue.add_once",
         "taskqueue.answer", "taskqueue.close", "kill.turn_on", "logbook.read_checked_chain", "view.gather",
-        "logbook.verify", "budget.status", "agents.load", "agents.check_agent"]
+        "logbook.verify", "budget.status", "agents.load", "agents.check_agent", "goal.map_data"]
 
 
 INTERNAL = {"kill.state", "logbook.read_checked_chain", "logbook.verify"}
