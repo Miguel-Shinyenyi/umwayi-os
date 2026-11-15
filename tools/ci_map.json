@@ -159,7 +159,7 @@
   "tests/test_ui_package.py": [".gitignore", "ui", "ui/dist"],
   "tests/test_view.py": ["jobs.yaml", "ui", "umwayi.json", "workflows"],
   "tests/test_w21_goldens.py": ["docs", "tools"],
-  "tests/test_whole_system.py": ["adapters", "articles", "rules.yaml", "workflows"],
+  "tests/test_whole_system.py": ["adapters", "articles", "rules.yaml", "umwayi.json", "workflows"],
   "tests/test_workflows.py": ["rules.yaml"]
  },
  "node": {
