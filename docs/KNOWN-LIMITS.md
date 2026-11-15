@@ -1632,3 +1632,15 @@ Since W56, a task whose builder was blocked by the rules gate needs the owner in
 - An action type outside the fixed list of `goalstate.BLOCK_TYPES` is shown as `tool_other`, and a Kiro MCP tool as `tool_mcp`; the logbook's `umwayi check` entry has the full type.
 - With Kiro, an Ask me first also gives the hook's own queue row (`Kiro asks first: may it do TYPE?`), so the owner sees two rows: that one and the task's.
 - The worktree of the blocked run is kept. After the owner adds a Yes rule and answers yes, the next `goal run` stops with `leftover` until the worktree is removed, as for any builder that asked the owner (exit 3) before W56.
+
+## Goal orchestration (W9), found while building W55b
+
+### 288. The first word of a blocked shell command is kept only when it looks like a program name
+
+Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first ends with the first word of the command, and a refused plan names the place of its first bad context entry.
+
+- The first word is kept only when it is lowercase letters (and `_ . + -`) with at most two digits at its end, 24 characters at most. Anything else is `other`. A lowercase word of letters only is kept even when it is not a program name, so a secret that is the first word of a command and has that shape would be written. A secret in any later word, in a `NAME=value` before the command, or in the folders of a path is never written.
+- Only the first word is read. In `cd src && git push` the word is `cd`, and in `sudo rm -rf x` it is `sudo`.
+- The shell types are `tool_bash`, `tool_powershell`, `tool_execute_bash`, `tool_execute_pwsh` and `tool_shell`. A tool of another type that runs a command (an MCP tool, for example) gets no command word.
+- A plan refused for a context entry names only the first such entry. A context list that is too long, or files that are too big together, is still only `context`, with no entry named.
+- `missing` also covers a context entry that is a link or not a regular file.

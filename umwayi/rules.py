@@ -89,6 +89,9 @@ class Decision:
     # the entry's Checked line. None keeps the JSON and the entry the bytes of before.
     autonomy: dict | None = None
     autonomy_text: str | None = None
+    # W55b: the first word of the command of a shell tool call (command_word), named in the entry of a No or an
+    # Ask me first only. Never in the JSON answer, never the command or any argument.
+    command_word: str | None = None
 
     @property
     def exit_code(self) -> int:
@@ -408,6 +411,38 @@ def safe_action_type(action: dict) -> str | None:
     return t if isinstance(t, str) and _PLAIN_TYPE.match(t) else None
 
 
+# W55b: the tool types of a shell call, and the action fields that hold its command (Claude Code and the generic
+# adapter send `command`, Kiro sends `input_command`).
+SHELL_TYPES = ("tool_bash", "tool_powershell", "tool_execute_bash", "tool_execute_pwsh", "tool_shell")
+SHELL_FIELDS = ("command", "input_command")
+COMMAND_WORD_OTHER = "other"
+_COMMAND_WORD = re.compile(r"[a-z][a-z_.+-]{0,21}[0-9]{0,2}")
+_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+MAX_ASSIGNMENTS = 8
+
+
+def command_word(action: dict) -> str | None:
+    """The first word of the command of a shell tool call, for example `git` or `curl`, or None for any other action.
+
+    Leading `NAME=value` assignments are skipped, a path keeps only its last part (`/usr/bin/curl` is `curl`), and a
+    word that is not lowercase letters (and `_ . + -`) with at most two digits at its end, 24 characters at most, is
+    `other`: a word that could be a key, a secret or a path is never written. No argument is ever kept."""
+    if action.get("type") not in SHELL_TYPES:
+        return None
+    text = next((action[k] for k in SHELL_FIELDS if isinstance(action.get(k), str)), None)
+    if text is None:
+        return None
+    words = text.split()
+    skipped = 0
+    while words and skipped < MAX_ASSIGNMENTS and _ASSIGNMENT.match(words[0]):
+        words.pop(0)
+        skipped += 1
+    if not words:
+        return COMMAND_WORD_OTHER
+    word = words[0].rsplit("/", 1)[-1]
+    return word if _COMMAND_WORD.fullmatch(word) else COMMAND_WORD_OTHER
+
+
 def check(action_text: str | None, rules_path: Path, today: str | Callable[[], str] | None = None) -> Decision:
     """Return the Decision for an action. `today` is the date for the review_by of Yes rules (default: the system
     date); the callers without a root (jobs, helpers, publish, workflow steps) use the default.
@@ -433,6 +468,7 @@ def check(action_text: str | None, rules_path: Path, today: str | Callable[[], s
     decision.rules_count = len(rules)
     decision.action_type = action_type
     decision.rules_sha256 = getattr(rules, "sha256", None)
+    decision.command_word = command_word(action)
     return decision
 
 
@@ -493,6 +529,9 @@ def log_entry(decision: Decision, when: str) -> logbook.Entry:
     else:
         who = f"Rule {decision.rule_id} gave {decision.answer}" if decision.rule_id else f"No rule gave {decision.answer}"
     what = f"action type: {decision.action_type}" if decision.action_type else "action type not recorded"
+    if (decision.command_word and decision.action_type and not decision.stopped_by and decision.answer in (NO, ASK)
+            and not (decision.autonomy and decision.autonomy.get("moved"))):
+        what += f"; command word: {decision.command_word}"  # W55b: a blocked shell call names its first word only
     matched = ", ".join(decision.matched) if decision.matched else "none"
     return logbook.Entry(
         date=when,

@@ -843,8 +843,9 @@ class GoalWholeSystemTests(unittest.TestCase):
         r = self.goal_cmd("run", goal, code=3)
         self.assertEqual(w.state(goal), ("needs owner", "ask"))
         self.assertEqual(self.roles(), ["guide", "builder"])  # no tester after a blocked builder
-        sentence = "rule w-no-shell gave No for action type tool_execute_bash"
-        self.assertEqual(w.task(goal)["blocked"], {"rule": "w-no-shell", "answer": "No", "type": "tool_execute_bash"})
+        sentence = "rule w-no-shell gave No for action type tool_execute_bash, command word git"  # W55b: the first word
+        self.assertEqual(w.task(goal)["blocked"], {"rule": "w-no-shell", "answer": "No", "type": "tool_execute_bash",
+                                                   "command": "git"})
         self.assertIn(f"Blocked: {sentence}.", w.logbook_text())
         q = w.u("queue", "list", "--status", "open").stdout
         self.assertIn(f"Goal {goal} task T-01 needs you (ask)", q)

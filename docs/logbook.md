@@ -25,6 +25,7 @@ umwayi logbook seal --by "Your name" [--date 2026-11-07]
 umwayi logbook recover --torn-tail --by "Your name" [--date 2026-11-07]
 ```
 
+- A `umwayi check` entry for a shell call that gets No or Ask me first ends its Added line with `; command word: git`: the first word of the command only, or `other` when that word could be a key, a secret or a path. The rest of the command and every argument are never written (W55b).
 - A `umwayi check` entry ends its Checked line with `; election fallbacks: ID (review_by DATE), ...` only when a Yes rule was past its `review_by` date for that check (see [rules.md](rules.md)). Without a fallback the entry is the same as before.
 - After every write the SHA-256 of the whole file is recorded in `.umwayi/logbook.sha256`. Before every write it is checked. If you edit, delete or add a line by hand, every umwayi write is refused (and `umwayi check` answers Ask me first) until you look at the file and run `umwayi logbook seal`.
 - An existing logbook with no record is refused the same way. Nothing is sealed automatically.

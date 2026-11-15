@@ -97,10 +97,12 @@ class BlockedBuilderTests(rs.RunCase):
         parts += gl.status_lines(self.ctx()) + gl.report_lines(self.ctx(), goal) + self.out
         return "\n".join(parts)
 
-    def assert_blocked(self, goal, out, rule, answer, kind):
+    def assert_blocked(self, goal, out, rule, answer, kind, command=None):
         self.assertEqual((out.exit, out.state, out.reason, out.word), (3, "needs owner", "ask", "tool_blocked_by_rule"))
         self.assertEqual(self.children.started(), 1)  # no tester
         b = {"rule": rule, "answer": answer, "type": kind}
+        if command is not None:
+            b["command"] = command
         self.assertEqual(gs.read_task(self.root, goal, "T-01")[gs.BLOCKED_KEY], b)
         sentence = gs.block_sentence(b)
         last = [e for e in logbook.read_checked(self.root) if e.source == gs.SOURCE][-1]
@@ -118,7 +120,7 @@ class BlockedBuilderTests(rs.RunCase):
 
     def test_an_ask_and_no_commit_needs_the_owner_and_names_the_rule(self):
         goal, out = self.run_builder([{"hook": SHELL}, {"exit": 0}])
-        self.assert_blocked(goal, out, "kiro-ask-shell", "Ask me first", "tool_execute_bash")
+        self.assert_blocked(goal, out, "kiro-ask-shell", "Ask me first", "tool_execute_bash", "curl")
 
     def test_a_no_then_a_failing_exit_needs_the_owner_not_failed(self):
         goal, out = self.run_builder([{"hook": DELETE, "exit_if_blocked": 2}])
