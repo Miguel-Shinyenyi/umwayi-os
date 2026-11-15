@@ -46,6 +46,7 @@ COMMANDS = [
     (["kill", "status"], "umwayi.cli.kill.state"),
     (["view", "snapshot"], "umwayi.cli.view.snapshot"),
     (["feedback", "export"], "umwayi.cli.feedback.export"),
+    (["rules", "validate"], "umwayi.cli.rulesvalidate.validate"),
     (["login"], "umwayi.cli.loginwizard.run"),
     (["serve"], "umwayi.serve.run"),
     (["serve", "token", "status"], "umwayi.cli.servetoken.status"),
