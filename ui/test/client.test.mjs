@@ -59,6 +59,8 @@ const DATA = {
   'queue.answer': { id: 'Q-0001', answered: '2026-11-12' },
   'queue.close': { id: 'Q-0001', status: 'closed' },
   'kill.on': { kill_switch: 'on' },
+  // W38b: the goal map of W37, the top of its contract (the goal map page reads the rest)
+  'goal.map': { version: 1, now: '2026-11-15T18:00:00Z', kill_switch: 'off', goal: null, supervisor: { alive: false, pid_known: false, last_event_age_s: null, state: 'idle' }, tasks: [], events: [], notes: [] },
 };
 const ARGS = {
   status: undefined,
@@ -67,6 +69,7 @@ const ARGS = {
   'queue.answer': { id: 'Q-0001', body: { answer: 'Yes', revisit_if: 'It changes' } },
   'queue.close': { id: 'Q-0001' },
   'kill.on': { body: { reason: 'testing' } },
+  'goal.map': undefined,
 };
 const row = (i) => ({ id: `Q-${String(i + 1).padStart(4, '0')}`, kind: 'task', status: 'open', answered: '', title: 'x'.repeat(4096), recommendation: '', answer: '' });
 const good = (id) => reply(200, env('done', {}, DATA[id]));
@@ -151,7 +154,8 @@ function serverRoutes() {
 test('the client table is a subset of the closed route table of the server, with the same method, path, query and fields', () => {
   const server = serverRoutes();
   assert.ok(Object.keys(server).length >= 12, 'the server table was read');
-  assert.deepEqual(Object.keys(ROUTES).sort(), ['kill.on', 'queue.add', 'queue.answer', 'queue.close', 'queue.list', 'status']);
+  // W38b changed this list: goal.map (a read of W37) is in it, for the goal map page
+  assert.deepEqual(Object.keys(ROUTES).sort(), ['goal.map', 'kill.on', 'queue.add', 'queue.answer', 'queue.close', 'queue.list', 'status']);
   for (const [id, r] of Object.entries(ROUTES)) {
     const s = server[id];
     assert.ok(s, `${id} is not a route of the server`);
@@ -546,3 +550,19 @@ test('the word token forgets the token and sends nothing until a new one is past
   assert.equal(f.calls.length, 2);
   assert.equal(f.calls[1].init.headers.Authorization, `Bearer ${TOKEN2}`);
 });
+
+test('W38b: goal.map is a read with no body and no query, and its data is the contract of W37 or a bad answer', async () => {
+  assert.deepEqual({ ...ROUTES['goal.map'], query: [...ROUTES['goal.map'].query] }, { method: 'GET', path: '/v1/goal-map', query: [], fields: [], required: [] });
+  const { c } = ready(() => good('goal.map'));
+  assert.equal((await c.call('goal.map', { query: { goal: 'G-0001' } })).kind, 'usage', 'no query is taken');
+  assert.equal((await c.call('goal.map', { body: {} })).kind, 'usage', 'no body is taken');
+  for (const bad of [{ ...DATA['goal.map'], version: 2 }, { ...DATA['goal.map'], extra: 1 }, { ...DATA['goal.map'], tasks: {} },
+    { ...DATA['goal.map'], kill_switch: 'maybe' }, (({ notes, ...rest }) => rest)(DATA['goal.map'])]) {
+    const { c: c2, f } = ready(() => reply(200, env('done', {}, bad)));
+    const r = await c2.call('goal.map');
+    assert.equal(r.kind, 'shape', JSON.stringify(bad).slice(0, 60));
+    assert.equal(c2.stopped(), true);
+    assert.equal(f.calls.length, 1);
+  }
+});
+

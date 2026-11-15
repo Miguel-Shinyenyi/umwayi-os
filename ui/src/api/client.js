@@ -47,6 +47,8 @@ export const ROUTES = Object.freeze({
   }),
   'queue.close': Object.freeze({ method: 'POST', path: '/v1/queue/{id}/close', query: [], fields: [], required: [] }),
   'kill.on': Object.freeze({ method: 'POST', path: '/v1/kill/on', query: [], fields: [['reason', 'str']], required: [] }),
+  // W38b: the goal map (W37), read by the goal map page only. A read: no body, no query.
+  'goal.map': Object.freeze({ method: 'GET', path: '/v1/goal-map', query: [], fields: [], required: [] }),
 });
 
 // word -> [HTTP statuses it comes with, exit code]. The same words as umwayi/serve.py (WORDS) and umwayi/servegate.py (WORD_CODE).
@@ -99,6 +101,10 @@ const DATA = {
   'queue.answer': (d) => exact(d, ['id', 'answered']) && ID.test(d.id) && day(d.answered),
   'queue.close': (d) => exact(d, ['id', 'status']) && ID.test(d.id) && d.status === 'closed',
   'kill.on': (d) => exact(d, ['kill_switch']) && d.kill_switch === 'on',
+  // the top of the contract of docs/goal-map.md; the goal map page reads every field again, strictly (goalmap/model.js)
+  'goal.map': (d) => exact(d, ['version', 'now', 'kill_switch', 'goal', 'supervisor', 'tasks', 'events', 'notes']) && d.version === 1
+    && typeof d.now === 'string' && ['on', 'off', 'unknown'].includes(d.kill_switch) && (d.goal === null || plain(d.goal))
+    && plain(d.supervisor) && Array.isArray(d.tasks) && Array.isArray(d.events) && Array.isArray(d.notes),
 };
 
 const failure = (kind, message, word = null, request = null) => Object.freeze({ ok: false, kind, word, message, request });

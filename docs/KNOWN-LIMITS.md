@@ -1632,3 +1632,16 @@ Since W55a, `goal status`, `goal report` and the goal map count the planning run
 - The bundle is a file in `.umwayi/feedback/` (or the file named with `--out`). It stays there after it is sent; nothing removes it. It is mode 0600, but anyone who can read the tester's files can read it.
 - The terminal check is that standard input and output are terminals. It cannot tell a person from a program that drives a pseudo terminal; the test of this command does exactly that.
 - Nothing is sent. The network mode is designed (in the pull request of W29) and not built, and the owner has not chosen a destination.
+
+## Goal map live read (W38b), found while building
+
+### 288. The goal map page reads on open and on Refresh only, one page per server
+
+`umwayi serve --page ui/dist/goal-map.html` serves the goal map page, which reads `GET /v1/goal-map`. These are its limits.
+
+- The page shows the goal map as it was when it was last read. Nothing moves by itself: the owner presses Refresh. The line says when it was read (the `now` of the document).
+- The read on open sends nothing until a token has been pasted, so a freshly opened page asks for the token first. A reload forgets the token.
+- One server serves one page. To see the live view and the goal map at once, two servers are needed, each with its own root or port. The live view does not link the goal map (the owner decides that).
+- Each Refresh is one logged read: two logbook entries, as for every read of the page (W6.R7.7).
+- The page is served only if its SHA-256 equals `goalMapPage` in `build.json`, so a build of the ui that is not committed (or an edit by hand) makes the server answer 503 with the word `page`.
+- The screenshot of W38b was taken in a browser that could not reach the sandbox's 127.0.0.1, so the page bytes and the `/v1/goal-map` answer were first fetched from a real `umwayi serve` and then handed to the browser for the same address. The requests the page sent were recorded: one `GET /v1/goal-map` with the token and no body, and nothing more.

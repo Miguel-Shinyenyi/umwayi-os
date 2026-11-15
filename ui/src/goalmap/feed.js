@@ -1,51 +1,49 @@
-// W38: the source of the goal map. Two sources, chosen with a switch on the page:
+// W38, W38b: the source of the goal map. Two sources, chosen with a switch on the page:
 //   file  a goal map file the visitor opens (the fixtures in ui/test/fixtures are such files); read in this browser only
-//   live  the backend of W37 (GET /api/goal-map). It is not merged yet, so the page sends nothing: liveLoad() always says "not
-//         connected", the page shows one plain line and tries again slowly. When W37 lands, liveLoad becomes one route of the
-//         page client (src/api/client.js), the one module allowed to send a request, and nothing else here changes.
+//   live  GET /v1/goal-map of `umwayi serve` (W37), through the page client (src/api/client.js), the one module allowed to send
+//         a request. The page is served by `umwayi serve --page ui/dist/goal-map.html` (W38b). It reads once when the page opens
+//         and again only when the owner presses Refresh. There is no timer and no retry: W6.R14.6, the page does not poll.
 //
-// The loop never runs two loads at once, waits OK_MS between good reads and longer and longer (RETRY_MS) after a failure.
+// A reader never runs two reads at once: a press while a read is running is ignored.
 
-export const OK_MS = 5000;
-export const RETRY_MS = Object.freeze([15000, 30000, 60000]);
-
-export class NotConnected extends Error {
-  constructor() { super('not connected'); this.name = 'NotConnected'; }
-}
-export const liveLoad = () => Promise.reject(new NotConnected());
+import { createClient } from '../api/client.js';
 
 export const LINES = Object.freeze({
-  notConnected: (s) => `No live goal map: this page is not connected to umwayi yet. Open a goal map file instead. Trying again in ${s} s.`,
-  unreachable: (s) => `umwayi did not answer. Trying again in ${s} s.`,
+  reading: 'Reading the goal map from umwayi...',
+  read: (now) => `Read from umwayi${now ? ` at ${now}` : ''}. Press Refresh to read again.`,
 });
 
-// load(): a promise of the text (or object) of a goal map. onData(raw), onDown(line) are told what happened.
-export function createFeed({ load, onData, onDown, setTimer, clearTimer }) {
-  let timer = null, failures = 0, stopped = false, busy = false;
-  const next = (ms) => { if (!stopped) timer = setTimer(tick, ms); };
-  async function tick() {
-    timer = null;
-    if (stopped || busy) return;
+// The live load of the page: one call of the route goal.map. Returns { ok: true, data } or { ok: false, message }.
+export function liveLoad(client) {
+  return async () => {
+    const r = await client.call('goal.map');
+    return r.ok ? { ok: true, data: r.data } : { ok: false, message: r.message };
+  };
+}
+
+// load(): a promise of { ok: true, data } or { ok: false, message } (or, from a test, the text or object of a goal map). onData(data) and onDown(message) are told what happened.
+export function createReader({ load, onData, onDown }) {
+  let busy = false;
+  let reads = 0;
+  async function read() {
+    if (busy) return false;
     busy = true;
+    reads += 1;
     try {
-      const raw = await load();
-      if (stopped) return;
-      failures = 0;
-      onData(raw);
-      next(OK_MS);
+      const r = await load();
+      // a load gives { ok, data } or { ok: false, message }; a test may give the text or the object of a goal map itself
+      const wrapped = r !== null && typeof r === 'object' && typeof r.ok === 'boolean';
+      if (!wrapped) onData(r);
+      else if (r.ok) onData(r.data);
+      else onDown(typeof r.message === 'string' ? r.message : 'umwayi did not answer');
     } catch (e) {
-      if (stopped) return;
-      const ms = RETRY_MS[Math.min(failures, RETRY_MS.length - 1)];
-      failures += 1;
-      onDown((e instanceof NotConnected ? LINES.notConnected : LINES.unreachable)(Math.round(ms / 1000)));
-      next(ms);
+      onDown('umwayi did not answer');
     } finally {
       busy = false;
     }
+    return true;
   }
-  return {
-    start() { stopped = false; if (!timer) tick(); },
-    stop() { stopped = true; if (timer) clearTimer(timer); timer = null; },
-    get failures() { return failures; },
-  };
+  return { read, get busy() { return busy; }, get reads() { return reads; } };
 }
+
+export { createClient };

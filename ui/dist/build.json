@@ -1,9 +1,9 @@
 {
   "files": {
-    "build.mjs": "a0978ff01cb9de110c8e97b47b04a4a5aa7ed857bf3c15ca6033033753edbd82",
+    "build.mjs": "d6e913c5626697a2e59fe3b9328cec4b680cd86b8c3c3ca8ba921ab1ed38f2e3",
     "package-lock.json": "a12179959bc56837e80f9db3c76f1489cfead525ed358db7a6a8d4fa96e61141",
     "package.json": "5c98a0f5f546cf30405bce2bbcc172a60d99da1590606b8ca5f5a683a81a89ba",
-    "src/api/client.js": "2e7be51a5467d8117a9ca77cfa8f6bad9ffe68a50b964b4fb76f1ee70af5f18e",
+    "src/api/client.js": "cc62da9417c0333fa9cfbb86e5329db12d3e0e1f86fb3acec97714d21f57e7b4",
     "src/app.js": "a817e9631a608805957558b6a9857adff083b5e7f932149eb164eee4d8dab5d0",
     "src/boot.js": "691eda538e41eadc18c84a44b71851d28b6240894076fc5482c6845eef63cca2",
     "src/cli-map.css": "fede12e5b36d5349091c5e7141083b35825d2e697b2dc8eb5ce345c46d222fb7",
@@ -29,14 +29,14 @@
     "src/engine/settings.js": "59425bcb2a419c4403686b21231bfdbacec2d0ef416b18cf0610a848ad1e1891",
     "src/engine/stage.js": "ad9df675dca4ec24a2b22acab4f8b435c5058577ae78a2ba7a59043d36ea7a24",
     "src/engine/tier.js": "0c874c72777d288dd606a47b083690bb2d61f8f75d799c2a410aa27f16eebe08",
-    "src/goal-map.css": "f7f212587bc522b2de96b3dd41509bddbff7c3f44dcc2f51fdb2ae3972d59007",
-    "src/goal-map.html": "23137d6c67092ea7ce5276f507c032f8e64e4e8494e740d01bd372c92d6e8feb",
+    "src/goal-map.css": "445a2647b16ff416837ac03716c2be5d2aa991d19eb82f336bbf8b42015357cc",
+    "src/goal-map.html": "bd014907b1830fb5b827dc220bd8cbe0c651a25038b479751c91527aa1a2ce86",
     "src/goal-map.js": "7ceb9a7d6f20edc438d57e347ea9d84e62e958643039238068753e8fd7b1904c",
     "src/goalmap/draw.js": "a546329550a035518c6692cb30d6b9ed8782fac8fd6d0499302666ba09e1eff1",
-    "src/goalmap/feed.js": "517f4435f95a751661680af36f6ed6501ee518c8704df35a8d117e1f5087615c",
+    "src/goalmap/feed.js": "6e5e68c31ad1e3356daee73460e7ea4d162bfaf3e7b48dceb4de1a707751b4ee",
     "src/goalmap/layout.js": "dee7417ced4ab53db18f32741ea87760cd30a16d04123d1f8a564dca7a644aac",
     "src/goalmap/model.js": "c86789b2ec31b11c655251bbc14f6ea97d96df4426d50d8dc6146891230d900b",
-    "src/goalmap/page.js": "89f94e69690d19ea181004cec1df76be8ed7f1c1ec82122962891590ce9780a2",
+    "src/goalmap/page.js": "3c2af99e98bf89daedf8b622127d4d1544461a8c080a17dcf3fe96ce06610f73",
     "src/goalmap/theme.js": "17edf455f86987bb2950c08a205091dc306f53148a519e79de7d7f919ce9dffb",
     "src/high/assets.js": "c85a88b2ce1006e4fb8ebac19c1c3722e613788596c5b0e9a89f318ec97ddf1c",
     "src/high/build.js": "8d7141f4bd21c982f98f82749a4ee3b6a44a7f1755309ae239f90baed4732c76",
@@ -92,7 +92,7 @@
     "src/world/trails.js": "c6d7ba54bfbf010be700c9336a39d83d4e7a16027d293205db4699e854b357be",
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
-  "page": "15327f9c29225f5a6bcff3359f70160a31201fb33fc72dac41314c839a00d4b6",
+  "page": "57c397e24654953e178c26b2a615458a13bbe2df562df3da011a7be7c8306525",
   "cliMapPage": "df6be046f3cd29c2a9d4fb1c2c533c26d5a0b6d0ea70e6c647fa03189c8d8dfc",
-  "goalMapPage": "4cb0596bb3a4c955370ee174e76722b029cba799de4ff71818f0ad14fc825445"
+  "goalMapPage": "0a036dbbf3d5d3f660ca504b56bc7e6f284d8ddbf8556181497782f2ce79699c"
 }

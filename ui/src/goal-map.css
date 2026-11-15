@@ -27,6 +27,10 @@ main { padding: 12px 20px 32px; }
 .line { color: var(--muted); margin: 4px 0 12px; }
 .line:empty { display: none; }
 .file { margin: 0 0 12px; }
+.live { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.live label { flex-basis: 100%; color: var(--muted); }
+.live[hidden] { display: none; }
+.live input { min-width: 16em; flex: 1 1 16em; min-height: 44px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--glass); color: var(--ink); font: inherit; }
 .file label { display: block; color: var(--muted); margin-bottom: 4px; }
 .summary { margin: 0 0 12px; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
