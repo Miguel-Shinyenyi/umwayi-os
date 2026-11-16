@@ -1778,3 +1778,14 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
+## Verification (W73), found while designing
+
+### 301. umwayi-os is not yet built under its own gate, and its mutation passes were chosen by the writer of each change
+
+These are facts of main `6525606`, found while writing `docs/independent-verification.md`. Nothing was changed.
+
+- The builder sessions that build umwayi-os do not run through umwayi's gate; they follow the written builder rules, CI checks each pull request and the owner merges. The repo does not show that their tool calls were checked by umwayi, so "built under its own rules" cannot be claimed for them.
+- The mutation passes the repo records were planned, run and reported by the builder of that change, on its own tests.
+- In a goal run the tester runs in the builder's worktree, so it can read the builder's status and limits parts, and the guide's check is given the tester's evidence text.
+- A tester on the same platform and model as the builder is a warning only (W9-Q2), and the model is not in the in-review entry.
