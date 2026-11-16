@@ -1767,3 +1767,15 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
+## Threat model (W67), found while writing it
+
+### 300. a helper can pass the owner's terminal check, answer the queue, edit units.yaml and guidance.yaml with an Ask, and reach the owner's SSH agent on main
+
+These are facts of main `4f6ab21`, found while writing `docs/threat-model.md`. Nothing was changed.
+
+- The owner commands of `umwayi goal` check that stdin and stdout are a terminal. A pseudo-terminal passes that check, and a helper with a shell can make one (for example with `script`). No test covers this, and no starter rule denies these commands, `umwayi queue answer` or `script` to a helper.
+- `umwayi queue answer` has no terminal check. Answering does not start anything, but it can close or answer a question before the owner sees it.
+- The guard lists of the starter rules do not name `guidance.yaml`, `units.yaml`, `agents.yaml`, `tools/`, `.kiro/steering/` or `umwayi/`, so an edit of them is Ask me first, not No. A change of `units.yaml` is logged, not refused.
+- On main every helper still inherits `SSH_AUTH_SOCK`; W64 removes it on its branch.
+- An AI session that the owner opens outside umwayi is gated only if its own settings name the umwayi hook; the repo cannot show whether it does.
