@@ -2,61 +2,61 @@
 
 ## Purpose
 
-The owner's point: the merge gate must not depend on the guide reading carefully. This note designs `python -m tools.merge_ready PR`. It gives pass or fail from fixed rules, with no judgement. It is meant to run as a required CI check and to be run by the guide before every merge.
+umwayi-os runs by itself, with its own internal supervisor, and it never assumes an outside reader. So the decision "may this pull request be merged" must come from one deterministic command, not from someone reading carefully. This note designs that command, `python -m tools.merge_ready PR`. It prints pass or fail for each rule, with the reason, and exits 0, 2, 3 or 64. It has no judgement and no second reading of a value. The supervisor or the owner runs it. The merge itself stays the owner's: the command only reads.
 
 It is a design note only. Nothing here is built. No code, steering file, rules gate, safety check, workflow or ruleset changes with it.
 
 ## Current state
 
-Read at main `7bca468` and on GitHub on Nov 16, read only:
+Read at main `b247b66` and on GitHub on Nov 16, read only:
 
-- **The ruleset.** The repo has one active ruleset, "main requires result" (id 27314271). It requires the status check `result`, refuses a non-fast-forward and a deletion of main, and has no bypass actors. `strict_required_status_checks_policy` is false, so GitHub does not require a branch to be up to date with main.
-- **The `result` check.** `.github/workflows/ci.yml` has four jobs: `plan`, `test`, `node` and `result`. `result` runs `python -m tools.ci_shards verify` and is the only check the ruleset requires. The workflow has `permissions: contents: read`.
-- **The builder's GitHub identity.** In the builder's sandbox, `gh api user` returns `Miguel-Shinyenyi`, the owner's account. So anything the GitHub API lets that account do is something an agent can do too. That includes a review, a label or a comment. None of them can be the owner flag (see below).
-- **Commits.** The builder's commits are by `Kiro Agent` and are unsigned (`%G?` gives `N`). The sandbox has no SSH keys.
-- **Existing checks the tool can call in its own process:**
-  - `umwayi.goaldocs.check` (the docs check);
-  - `tools/ci_map.py` (the map check);
-  - `tools.ci_shards.assignment_problems` (the shards check);
-  - the em dash rule of `tests/test_docs.py`.
-- **Limits numbers.** A limits part gets its `number:` line from `umwayi goal docs build`, which `tools/merge_main.py` runs. So after a merge of main, the parts on a branch are numbered. The rule "unnumbered before the build" must therefore look at the part as it was first committed (rule 8 below).
-- **PR body sections.** builder rule 8 asks for Built, Not built and Could not verify. Recent pull requests use What changed, Checks run and Not verified. W62 open question 5 asks the owner to pick one set.
+- **The ruleset.** One active ruleset, "main requires result" (id 27314271). It requires the status check `result`, refuses a non-fast-forward and a deletion of main, and has no bypass actors. `strict_required_status_checks_policy` is false, so GitHub does not require a branch to contain main.
+- **The `result` check.** `.github/workflows/ci.yml` has the jobs `plan`, `test`, `node` and `result`, with `permissions: contents: read`. `result` runs `python -m tools.ci_shards verify`, and it is the only required check. The suite it gates includes `tests/test_docs.py` (the generated docs match their parts), `tests/test_ci_map.py` and `tests/test_ci_shards.py` (every test registered).
+- **In-process checks the command can reuse:** `umwayi.goaldocs` (the parts and their numbers), the em dash rule of `tests/test_docs.py`, and `tools.ci_shards`.
+- **How a limits part gets its number.** `umwayi goal docs build` writes `number: N` into every new part, and `umwayi goal docs check` fails while a part has none ("1 part not yet built"). `tools/merge_main.py` renumbers a part whose number main took. So on every branch the part is numbered at its head, and usually in the commit that first adds it.
+- **The network.** The core package `umwayi/` may import no network module (`tests/test_system.py`, `test_no_module_imports_a_network_library`). `tools/` has no network reader yet.
+- **What runs it today.** Nothing. W65 (branch `w65-work-ledger-design`) proposes a `ready` cell in its work ledger, recorded per head.
+
+## The command
+
+```
+python -m tools.merge_ready PR [--repo OWNER/NAME]
+```
+
+It runs every rule, prints one line per rule (`N pass`, `N fail: REASON` or `N cannot decide: REASON`), then a last line `merge-ready: pass`, `merge-ready: fail` or `merge-ready: cannot decide`. The exit code is the worst result: 2 beats 3, and 3 beats 0.
+
+**Who runs it.** The owner, by typing it. Or the supervisor, as a child process with this fixed argument list, only when the owner has turned on the network probe (`umwayi.json` `"work": {"probe": true}`, W65). The core never imports the network code, and only `tools/` does. The result goes into the work ledger through the logged `umwayi work record TASK ready pass|fail --head SHA` (W65), never into a GitHub write. A pass for one head says nothing about a later head.
+
+**The product equivalent.** There is no second implementation. The same command is the product's check, because umwayi-os works on one repository (W9-Q12) and the rules are about its pull requests.
 
 ## The rules
 
-Every rule runs. The report has one line per rule. The exit code is the worst result: 2 beats 3, and 3 beats 0.
-
-| # | rule | reads | decides | exit if not met | planted fault |
+| # | rule | reads | passes when | exit if not met | planted fault |
 | --- | --- | --- | --- | --- | --- |
-| 1 | the `result` check is green on the head | the check runs of the head SHA (API) | a check run named `result` with `status: completed` and `conclusion: success`, on exactly the PR's head SHA | 2 failed or cancelled; 3 queued, in progress or missing | accept a `result` of an older SHA |
-| 2 | mergeable and clean | the PR (API): `mergeable`, `mergeable_state` | `mergeable` is true and `mergeable_state` is `clean`. In CI mode (`--ci`), `blocked` also passes, but only when the one required check not yet green is `merge-ready` itself | 2 `dirty` (conflicts) or `mergeable: false`; 3 `null` or `unknown` (GitHub has not computed it) | treat `unknown` as clean |
-| 3 | the branch contains main | the compare of main's SHA with the head (API) | `behind_by` is 0 | 2 behind; 3 the compare cannot be read | compare against the PR's base SHA instead of main's current SHA |
-| 4 | changed paths are inside the allowlist | the PR's changed paths (git) and `tools/merge_ready.json` | each path matches an `allowed` pattern and no `protected` pattern; a protected path passes only with a valid owner flag for that path at the head | 2 | match a pattern as a prefix of a longer folder name |
-| 5 | no em dash in changed files | each changed file at the head (git), decoded as UTF-8 | no U+2014 in any added or changed file (a deleted file is not read) | 2, with the path and line number, never the line | read only the diff lines |
-| 6 | no em dash in the PR text | the PR title and body (API) | no U+2014 | 2 | read the body only |
-| 7 | the PR body has the sections, and no attribution | the PR body (API) and the commit messages of the PR (git) | every section heading of the allowlist file is there, once, as a `##` line. No line contains "Generated with" followed by Claude or Claude Code, in any case. No commit has a `Co-Authored-By:` trailer naming Claude | 2 | find the heading anywhere in a line |
-| 8 | limits parts unnumbered before the build | for each `docs-parts/known-limits/*.md` the PR adds, its content in the first commit that adds it (git) | that first version has no `number:` line | 2 | read the head version, which the build has numbered |
-| 9 | tests registered | `tools/ci_map.json`, `tools/ci_shards.json` and the test files at the head | the map check and the shards check of today pass, called in the same process | 2 | call the map check only |
-| 10 | docs check clean | the docs parts and the generated files at the head | `goaldocs.check` returns 0 | 2 | skip the limits file |
-| 11 | the PR is open and not a draft | the PR (API): `state`, `draft` | open and not a draft | 2 | accept a draft |
+| 1 | the `result` check is green on the head | the PR's head SHA and its check runs (API) | one check run named `result`, `status` completed, `conclusion` success, on exactly the head SHA | 2 failed or cancelled; 3 queued, in progress or missing | accept a green `result` of an older SHA |
+| 2 | mergeable and clean | the PR (API): `state`, `draft`, `mergeable`, `mergeable_state` | open, not a draft, `mergeable` true, `mergeable_state` `clean` | 2 closed, a draft, `dirty` or `mergeable` false; 3 `null` or `unknown` | treat `unknown` as clean |
+| 3 | the branch contains main | main's SHA (API) and the compare of main with the head (API) | `behind_by` is 0 against main's current SHA | 2 behind; 3 unreadable | compare with the PR's base SHA |
+| 4 | changed paths are inside the allowlist | the changed paths (git) and `tools/merge_ready.json` | each path matches an `allowed` pattern; a path that matches a `protected` pattern also has an owner flag for its blob at the head | 2, with the count and each path | match `docs/` against `docsx/a.md` |
+| 5 | no em dash | each added or changed file at the head (git, UTF-8), and the PR title and body (API) | no U+2014 in any of them | 2, with the path and line number, or "title" or "body", never the line | read only the diff lines, or the body only |
+| 6 | the PR body has its sections and no attribution | the PR body (API) and the PR's commit messages (git) | every heading of `sections` is a `##` line, once. No line says "Generated with" Claude or Claude Code, in any case; the template's own line `Made with umwayi-os` (W51) is allowed. No commit has a `Co-Authored-By:` trailer naming Claude | 2, with the missing heading or the kind of line | find a heading inside a sentence; a case-sensitive match |
+| 7 | limits parts are numbered by the build, not by hand | each `docs-parts/known-limits/*.md` the PR adds (git) and main's parts at the head's merge base | with its `number:` line taken out, `goaldocs` gives the part exactly the number it has | 2, with the part's id | trust any number that is not taken |
 
-Usage and config problems give 64 before any rule runs: a bad PR number, a missing or malformed `tools/merge_ready.json`, or no git repository.
+Rules 1 and 2 need the network, and so does reading the PR body for rules 5 and 6. Rules 3 to 7 also read git. Every rule runs, also after an earlier one failed, so the report is whole.
 
-## Where the PR data comes from
+**Why rule 7 is worded so.** The owner's rule is "limits parts unnumbered": a builder must not pick a number. But a part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `merge_main` renumbers it. Reading the part as first committed (the earlier version of this note) would fail every branch that ran the build before its first commit, which the builder rules ask for. Rule 7 checks what the rule is for instead: the number is the one the build gives, so no number was chosen by hand. The owner decides between the two readings (open question 4). The PR is required by rule 3 to contain main, so "main's parts" are the parts at the merge base.
 
-- **The GitHub REST API, read only, `GET` only:**
-  - `GET /repos/{owner}/{repo}/pulls/{n}`: `state`, `draft`, `title`, `body`, `head.sha`, `head.ref`, `base.ref`, `mergeable`, `mergeable_state`.
-  - `GET /repos/{owner}/{repo}/commits/{head_sha}/check-runs`: `name`, `head_sha`, `status`, `conclusion`.
-  - `GET /repos/{owner}/{repo}/branches/main`: `commit.sha`.
-  - `GET /repos/{owner}/{repo}/compare/{main_sha}...{head_sha}`: `behind_by`.
-- **The token.** It is read from `GITHUB_TOKEN` (CI's read-only token) or `GH_TOKEN`. It is never printed or logged. The requests use the standard library (`urllib.request`), with a 10 second timeout per request and at most 8 requests.
-- **Git, read only:** `git diff --name-only BASE...HEAD`, `git show SHA:PATH`, `git log --format=... BASE..HEAD` and `git log --diff-filter=A --format=%H -- PATH`. The arguments are a list and no shell is used. In CI the checkout needs the full history (`fetch-depth: 0`).
-- **Fail closed.** No network, a timeout, an HTTP error, a rate limit (403 or 429 with `x-ratelimit-remaining: 0`), a reply that is not JSON, or a field that is missing or has the wrong type all give exit 3: "cannot decide, stop and ask". Never pass and never fail on a guess.
-- **Where the code lives.** It lives in `tools/`, not in `umwayi/`. The core package stays free of network modules (`tests/test_system.py` `CodeTests.test_no_module_imports_a_network_library`). It would be the first network reader in `tools/` (open question 4).
+**Not repeated here.** Test registration and the generated docs are already part of the suite that `result` gates (rule 1), so they get no rule of their own.
 
-## The allowlist
+## Where the data comes from
 
-One file, `tools/merge_ready.json`, read strictly (unknown key, repeated key or wrong type is 64):
+- **The GitHub REST API, `GET` only:** `/repos/{o}/{r}/pulls/{n}` (`state`, `draft`, `title`, `body`, `head.sha`, `mergeable`, `mergeable_state`), `/repos/{o}/{r}/commits/{sha}/check-runs` (`name`, `head_sha`, `status`, `conclusion`), `/repos/{o}/{r}/branches/main` (`commit.sha`), and `/repos/{o}/{r}/compare/{main}...{head}` (`behind_by`).
+- **The token** comes from `GITHUB_TOKEN` or `GH_TOKEN`. It is never printed or logged. `urllib.request` from the standard library, a 10 second timeout, at most 8 requests.
+- **Git, read only, argument lists, no shell:** `git diff --name-only BASE...HEAD`, `git show SHA:PATH`, `git log --format=%B BASE..HEAD`, `git merge-base main HEAD`. It never fetches: the owner or the supervisor's caller makes sure the head is present, and a missing object is 3.
+- **Fail closed.** No network, a timeout, an HTTP error, a rate limit (403 or 429 with `x-ratelimit-remaining: 0`), a reply that is not JSON, or a field missing or of the wrong type: 3, "cannot decide". Never a pass and never a fail on a guess.
+
+## The allowlist and the owner flag
+
+One file, `tools/merge_ready.json`, read strictly (an unknown key, a repeated key or a wrong type is 64):
 
 ```json
 {
@@ -72,114 +72,96 @@ One file, `tools/merge_ready.json`, read strictly (unknown key, repeated key or 
 }
 ```
 
-- A pattern that ends in `/` is a folder and matches the paths under it. Any other pattern is one exact path. There are no wildcards.
-- A path in no `allowed` pattern fails. A path in a `protected` pattern needs the owner flag, even when it is also allowed.
-- The file protects itself. The tool and the shard verifier that `result` runs are protected too.
-- The exact lists are the owner's decision (open question 2). The list above is a starting proposal. "The rules gate" is read as the rules file, the reader, the kill switch and the adapter hooks. "The safety checks" are read as the files that decide or verify a pass.
+- A pattern ending in `/` is a folder; any other is one exact path. No wildcards. A path in no `allowed` pattern fails.
+- `protected` holds the four kinds the owner named: steering (`.kiro/steering/`), the rules gate (the rules file, its reader, the kill switch and the adapter hooks), the safety checks (the files that decide or verify a pass, this tool and its file included) and the workflows (`.github/`). The exact lists are the owner's (open question 2).
+- **The owner flag** must be something no helper can make. Any token on the machine where helpers run can be used by a helper, so a GitHub review, label or comment never counts. The flag is a record `owner-approvals/BRANCH.txt` with one line per protected path, `path BLOBSHA` (or `deleted`). The commit that last changed it must be signed by a key in `.github/owner_signers` (git's allowed signers format), checked with `git verify-commit` and `gpg.ssh.allowedSignersFile`, a git read. The owner signs on their own machine. A later change to the path breaks the blob match, and the rule fails again. `.github/owner_signers` is protected, so changing it needs a record signed by a key from the old file.
 
-## The owner flag
+## Exit codes and output
 
-The owner flag must be something an agent cannot make. A GitHub review, label or comment does not qualify: the builder's token is the owner's account. GitHub also does not let an author approve their own PR.
-
-The proposal is a **signed approval record**:
-
-- **The record.** A file `owner-approvals/BRANCH.txt` in the PR, with one line per protected path: `path SHA` (the git blob SHA of that path at the approved state, or `deleted`).
-- **The signature.** The commit that last changed the record must be signed with a key listed in `.github/owner_signers` (git's allowed signers format). The tool checks it with `git verify-commit` and `gpg.ssh.allowedSignersFile`, a git read command. The owner signs on their own machine, by typing the commit there. The key never reaches a sandbox.
-- **What passes.** For each protected path the PR changes, the record names that path with the same blob SHA as at the head. A later change to the path after approval breaks the match, and the rule fails again.
-- **The signers file.** `.github/owner_signers` is protected. A change to it needs a record signed by a key from the old file.
-- **Not trusted:** an unsigned record, a record signed by another key, a record for another branch, or a path not listed in it.
-
-## Exit codes
-
-Only 0, 2, 3 and 64:
-
-- 0: every rule is met; merge-ready.
-- 2: a rule is broken, or an unexpected error happened.
-- 3: cannot decide (no network, a rate limit, a check still running, `mergeable` not computed, a git object missing).
-- 64: usage or config.
+- 0: every rule passes.
+- 2: a rule fails, or an unexpected error.
+- 3: cannot decide.
+- 64: usage or config (a bad PR number, a bad `--repo`, a missing or malformed `tools/merge_ready.json`, no git repository), before any rule runs.
 - Never 1.
 
-## What it logs
-
-It prints one line per rule: the rule number, `pass`, `fail` or `cannot decide`, and counts. For example, `4 fail: 2 protected paths without an owner record`, or `5 fail: docs/x.md line 12`. Never a file's content, a line of the PR body, a commit message or the token.
-
-In CI the same lines go to the job summary. It writes no file in the repo and no logbook entry. CI has no umwayi root, and the guide's local run is read only.
+Each line names the rule, the result and counts or paths, never file content, a body line, a commit message or the token. It writes no file and no logbook entry. When the supervisor runs it, the only record is the `work record` entry (W65), with the PR number, the head and the word `pass` or `fail`.
 
 ## What it never does
 
-- It never merges, approves, comments, labels or writes anything to GitHub. It only sends `GET` requests.
-- It runs no shell, and no process except the git read commands listed above.
-- It never changes a ruleset, a workflow, the allowlist or a steering file.
-- It never fetches or pushes git refs.
-- It never decides on a guess. An unreadable value is 3.
-- It is never a reason to skip the owner's or the reviewer's reading.
+It never merges, approves, comments, labels or writes to GitHub: it sends only `GET`. It runs no shell and no process except the git reads above. It never fetches or pushes. It never changes a ruleset, a workflow, the allowlist or a steering file. It never decides on a guess.
 
 ## What it cannot decide
 
-These stay with the owner or the reviewer, and the tool says so in its last line:
+These stay with the owner, and the last line of the output says so:
 
-- whether a claim in a design note, a status part or a PR body is true or invented;
-- whether a test proves what its name says, or tests the right thing;
+- whether a claim in a design note, a status part or a PR body is true;
+- whether a test proves what its name says;
 - whether a design, a rule or a trade-off is wise;
-- whether the allowlist, the protected list or the required sections are right;
-- whether an owner-signed change to a protected path is safe (the signature shows who approved, not that it is good);
-- whether the work is the task that was asked for, or more or less than it.
+- whether the allowlist, the protected list or the sections are right;
+- whether an owner-signed change to a protected path is safe (a signature shows who approved, not that it is good);
+- whether the work is the task that was asked for.
 
 ## Spec lines it would add or change
 
-Added, a new section at the end of requirements.md, `### W63.R1` to `### W63.R6`:
+Added, `### W63.R1` to `### W63.R6` at the end of requirements.md:
 
-- **W63.R1 The command.** `python -m tools.merge_ready PR [--ci] [--repo OWNER/NAME]`, with the eleven rules of the table, every rule run and reported.
-- **W63.R2 The data.** The four `GET` endpoints and the git read commands above. Anything unreadable is exit 3, never a pass.
-- **W63.R3 The allowlist.** `tools/merge_ready.json` with `allowed`, `protected` and `sections`, read strictly. The file and the tool are protected.
-- **W63.R4 The owner flag.** A record in `owner-approvals/`, in a commit signed by a key of `.github/owner_signers`, binding each protected path to its blob SHA. A GitHub review, label or comment is never the owner flag.
-- **W63.R5 Exit codes and output.** 0, 2, 3 and 64. One line per rule with ids and counts only.
-- **W63.R6 What it never does,** and what it cannot decide, as above.
+- **W63.R1 The command.** `python -m tools.merge_ready PR [--repo OWNER/NAME]`, the seven rules of the table, every rule run and reported, run by the owner or by the supervisor as a child with a fixed argument list when `work.probe` is on.
+- **W63.R2 The data.** The four `GET` endpoints and the git reads; anything unreadable is 3.
+- **W63.R3 The allowlist.** `tools/merge_ready.json`, read strictly, the four protected kinds; the file and the tool protect themselves.
+- **W63.R4 The owner flag.** A record in `owner-approvals/`, in a commit signed by a key of `.github/owner_signers`, binding each protected path to its blob; a GitHub review, label or comment is never the flag.
+- **W63.R5 Exit codes and output.** 0, 2, 3 and 64; one line per rule with ids, paths and counts only.
+- **W63.R6 Never, and cannot decide,** as above.
 
-Changed, only when the owner approves open question 1:
-
-- `docs/testing.md`, "CI since W20": a fifth job `merge-ready`, after `result`, required by the ruleset.
-- W62 (`tools/pr_body.py`, the PR body check) is merged into rule 7 here, so the PR body is checked in one place.
+Changed: W65.R5 (once merged) gains "the `ready` cell is recorded only from a `tools.merge_ready` result for the same head". If the owner approves open question 1: `docs/testing.md` "CI since W20" gains a `merge-ready` job after `result`, and the ruleset requires it. W62's PR body check folds into rule 6.
 
 ## The tests it would need
 
-All of them use recorded JSON replies and a temporary git repo, so no test uses the network.
+All use recorded JSON replies and a temporary git repo, so no test uses the network.
 
 | rule | test | planted fault |
 | --- | --- | --- |
 | 1 | `test_result_must_be_green_on_the_head_sha` | accept a green `result` of an older SHA |
 | 1 | `test_a_running_result_is_3` | treat `in_progress` as green |
 | 2 | `test_unknown_mergeable_state_is_3` | treat `unknown` as clean |
-| 2 | `test_blocked_passes_in_ci_only_when_merge_ready_is_the_one_missing_check` | pass `blocked` with another check red |
+| 2 | `test_a_draft_or_closed_pr_fails` | accept a draft |
 | 3 | `test_a_branch_behind_main_fails` | compare with the base SHA |
-| 4 | `test_a_protected_path_without_a_record_fails` | skip the protected list when the path is allowed |
+| 4 | `test_a_protected_path_without_a_record_fails` | skip `protected` when the path is allowed |
 | 4 | `test_a_pattern_is_a_folder_or_an_exact_path` | `docs/` matching `docsx/a.md` |
 | 4 | `test_an_unsigned_or_foreign_signed_record_fails` | accept any signature |
-| 4 | `test_a_path_changed_after_approval_fails` | compare paths, not blob SHAs |
+| 4 | `test_a_path_changed_after_approval_fails` | compare paths, not blobs |
 | 5 | `test_an_em_dash_in_an_unchanged_line_of_a_changed_file_fails` | read only diff lines |
-| 6 | `test_an_em_dash_in_the_title_fails` | read the body only |
-| 7 | `test_each_section_heading_is_required_once` | find a heading inside a sentence |
-| 7 | `test_generated_with_and_co_authored_by_claude_fail` | case sensitive match |
-| 8 | `test_a_part_numbered_in_its_first_commit_fails` | read the head version |
-| 9 | `test_an_unregistered_test_file_fails` | run only the map check |
-| 10 | `test_a_stale_generated_doc_fails` | skip the limits file |
-| 11 | `test_a_draft_fails` | accept a draft |
+| 5 | `test_an_em_dash_in_the_title_fails` | read the body only |
+| 6 | `test_each_section_heading_is_required_once` | find a heading inside a sentence |
+| 6 | `test_attribution_lines_fail_in_any_case` | a case-sensitive match |
+| 6 | `test_a_co_authored_by_claude_trailer_fails` | read the PR body only |
+| 7 | `test_a_hand_picked_free_number_fails` | accept any number that is not taken |
+| 7 | `test_a_number_given_by_the_build_or_by_merge_main_passes` | read the part as first committed |
+| all | `test_every_rule_runs_after_a_failure` | stop at the first fail |
 | data | `test_no_network_rate_limit_and_bad_json_are_3` | return 0 on a timeout |
-| never | `test_only_get_requests_and_git_read_commands` (an `ast` scan and a spy) | send a `POST` |
-| output | `test_no_token_body_or_file_text_in_the_output` | print the body line that failed |
-| exit codes | `test_exit_codes_are_0_2_3_64_only` | a crash exits 1 |
+| never | `test_only_get_requests_and_git_reads` (an `ast` scan and a spy) | send a `POST`, or run `git fetch` |
+| output | `test_no_token_body_or_file_text_in_the_output` | print the failing body line |
+| core | `test_umwayi_never_imports_tools_merge_ready` | import it from the supervisor |
+| codes | `test_exit_codes_are_0_2_3_64_only` | a crash exits 1 |
+
+## Temporary: today's build setup (not product)
+
+This section describes how umwayi-os is built today, and goes when that setup goes.
+
+- In the build sandbox, `gh api user` returns `Miguel-Shinyenyi`, the owner's account, and commits are by `Kiro Agent`, unsigned (`%G?` gives `N`), with no SSH keys. This is why the owner flag cannot be a GitHub action: here an agent holds the owner's token.
+- Today an outside reviewer opens and merges pull requests. The command does not depend on that: it gives the same answer to whoever runs it.
 
 ## Decisions log
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-16 | Design note only. Eleven fixed rules. Unreadable data is exit 3. The owner flag is a signed record, because the builder's token is the owner's GitHub account. The tool only reads | W63, the owner's point of Nov 16. |
+| 2026-11-16 | Rewritten for the runtime: one command run by the supervisor or the owner, seven rules as the owner listed them, rule 7 checks that the build gave the number, the build-time facts moved to a temporary section | The owner's task of Nov 16: umwayi-os runs by itself and never assumes an outside guide. |
+| 2026-11-16 | Design note only. Unreadable data is exit 3. The owner flag is a signed record. The tool only reads | W63, the owner's point of Nov 16. |
 
 ## Open questions
 
-1. **Should `merge-ready` run as a required CI check?** That needs a new job in `.github/workflows/ci.yml` (after `result`, with `fetch-depth: 0`, `contents: read` and `pull-requests: read`) and a change to the ruleset "main requires result", so that it requires `merge-ready` too. Both stop for the owner and are not changed here. Recommendation: yes, after the tool has run by hand on five merged pull requests without a false fail. Keep `result` required as it is.
-2. **The allowlist and the protected list.** Recommendation: start with the lists above, and let the owner cut or add before the build. Changing the file later needs an owner record, because it protects itself.
-3. **The owner flag.** A signed record needs the owner to sign one commit per protected change on their own machine. Recommendation: yes, as proposed. A GitHub review cannot work while the builder's token is the owner's account. If the builder later gets its own GitHub account, an owner review on the head SHA could replace the record. That is a new decision.
-4. **A network reader in `tools/`.** Recommendation: allow it for this one tool, by name, and add a test that no other file in `tools/` imports a network module. The core package stays as it is.
-5. **The required sections.** Recommendation: What changed, Checks run and Not verified, as recent pull requests use. Decide W62 open question 5 at the same time, because builder rule 8 names other headings and is a steering line.
-6. **Should a merge commit made by GitHub be signed?** Not needed for these rules. GitHub signs its own merge commits (`%G?` gives `E` here, because the key is not known locally). Recommendation: leave it.
+1. **A required CI check.** A `merge-ready` job in `.github/workflows/ci.yml` (after `result`, `fetch-depth: 0`, `contents: read`, `pull-requests: read`) and the ruleset requiring it. Both stop for the owner. Recommendation: yes, after the command has run on five merged pull requests without a false fail. Keep `result` required.
+2. **The allowlist and the protected list.** Recommendation: start with the lists above; the owner cuts or adds before the build. A later change needs an owner record.
+3. **The owner flag.** Recommendation: the signed record. A GitHub review could replace it only if helpers never hold a token of the owner's account, which is not true today.
+4. **"Unnumbered" or "numbered by the build".** Recommendation: rule 7 as written. The literal reading fails every branch that follows the builder rules.
+5. **The sections.** Recommendation: What changed, Checks run and Not verified, as recent pull requests use. Decide W62 open question 5 at the same time, because builder rule 8 names other headings and is a steering line.
+6. **A network reader in `tools/`.** Recommendation: allow it for this one tool, by name, with a test that no other file in `tools/` imports a network module.
