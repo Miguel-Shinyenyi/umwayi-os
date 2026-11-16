@@ -21,7 +21,7 @@ This page says plainly what umwayi-os is, what it is not, what it does and does 
 
 - Not a full operating system. It has no kernel, no hardware scheduler and no window system. "Operating system" in the name means the layer that runs the owner's AI helpers, not the machine.
 - Not a model and not an agent. It has no model of its own; it starts the agents the owner already has.
-- Not a sandbox. It does not stop a process that never asks it. An agent that skips its hook, or a program the owner runs by hand, is not checked.
+- Not a sandbox. It does not stop a process that never asks it. An agent that skips its hook, or a program the owner runs by hand, is not checked. The options to go further are compared in [enforcement.md](enforcement.md) (W41, design only, nothing built).
 - Not a security product and not a substitute for review. The owner reviews and merges every change; umwayi never merges ([security.md](security.md)).
 - Not a hosted service. There is no account, no cloud part of the product and no telemetry sent anywhere. (The public site in `site/` is a page about umwayi; it holds and receives none of the owner's data.)
 - Not affiliated with or endorsed by Anthropic, Amazon, Kiro, OpenCode or any agent it can run.

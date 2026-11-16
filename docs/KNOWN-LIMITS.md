@@ -1746,9 +1746,31 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - A goal with a failed or stopped task before its queued tasks prints nothing new, because `goal run` would not start the next task; the failed or stopped task line above it is what the owner reads.
 - It reads the task files. While a task file is behind the logbook (the status says so), the line follows the file, not the logbook.
 
+## Enforcement (W41), found while writing the design
+
+### 298. Enforcement is cooperative, and nothing counts the tool calls that never reached a hook
+
+The design of W41 (`docs/enforcement.md`) is written; none of its options is built. Until the owner picks one:
+
+- A rule is checked only when a hook asks. A program that a checked command starts (a test run, a script, a Python that writes `__pycache__`) reads, writes and connects without a check of its own. In a goal run the scope check after the builder sees only what landed in the worktree.
+- Nothing in umwayi counts tool calls that ran with no `umwayi check` entry, so the absence of a recorded bypass in the real runs of Nov 15 is not evidence that none happened. The logbooks of those runs are not in the repo.
+- Claude Code `agent run`, its cli chat and every Kiro start get umwayi's whole environment less a few credential names, so any other secret in the owner's shell reaches the helper and the commands it runs.
+- The files that guard umwayi (`rules.yaml`, the logbook, `.umwayi/`, the hook files, the settings files) can be changed by a program a helper runs. The tamper check and the chain show an edit of the logbook; a change to another guard file is not detected after the run.
+
+## Provenance and verify (W49 and W50), found while designing
+
+### 299. No file has a provenance record yet, and AI helpers can use the owner's SSH agent
+
+The design is in [provenance-design.md](provenance-design.md). Nothing of it is built. These are the limits now and the ones the design keeps.
+
+- No file umwayi produced has a record, and `umwayi verify` does not exist. Nothing today can tell a file of a goal task from a file written by hand.
+- Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
+- When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
+- The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
 ## Agent environment (W64), the SSH agent
 
-### 298. removing SSH_AUTH_SOCK does not stop a helper from reaching an SSH agent or a key another way
+### 300. removing SSH_AUTH_SOCK does not stop a helper from reaching an SSH agent or a key another way
 
 W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper environment umwayi builds. That is all it does.
 
