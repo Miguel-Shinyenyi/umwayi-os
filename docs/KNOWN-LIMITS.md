@@ -1700,3 +1700,16 @@ Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first
 - The shell types are `tool_bash`, `tool_powershell`, `tool_execute_bash`, `tool_execute_pwsh` and `tool_shell`. A tool of another type that runs a command (an MCP tool, for example) gets no command word.
 - A plan refused for a context entry names only the first such entry. A context list that is too long, or files that are too big together, is still only `context`, with no entry named.
 - `missing` also covers a context entry that is a link or not a regular file.
+
+## The front door (W44), found while building
+
+### 294. umwayi up checks what exists and makes nothing, so a fresh clone still needs three files copied
+
+`umwayi up` is a thin layer over the existing commands. These are its limits.
+
+- It makes no root. There is no `init` command, so a fresh clone still needs `umwayi.json`, `rules.yaml` and an `agents.yaml` (with working folders outside the root) before `umwayi up` passes its config steps. A missing or bad file is exit 64 at that step, after the lines before it.
+- The ten minutes from a clone to a running goal were not measured on a clean machine. The agent sign-ins, the guide's first run and the owner's approval take most of that time, and none of them is done by `umwayi up`.
+- "A running goal" here means a goal whose plan waits for approval: `umwayi up` stops after `goal start`. The owner still runs `goal approve` and `goal run`.
+- The agent lines are the login check of `umwayi login`: they run each agent's version and login probes, which can take a few seconds each and may use the network of the agent's own tool. They do not run `agent check` in full (the rules check of a run is not asked).
+- The supervisor and goal lines are those of `umwayi goal status`. With more than one goal they are all printed.
+- Between the checks of `umwayi up` and the start of `goal start` the state can change (the kill switch turned on, a sign-in run out); `goal start` checks again and refuses on its own.

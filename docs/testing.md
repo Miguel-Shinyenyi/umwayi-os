@@ -39,9 +39,8 @@ Run every test: `python -m unittest discover -s tests -t .`
   After every scenario: `logbook verify`, `budget status`, nothing the scenario started still alive, and only the exit codes each command may give. A day step that fails skips the rest.
 - The security scan's tests (S.2): `tests/test_scan_receiver.py` (the telemetry receiver from the agent's side: binding, the run header, sizes, a slow client, 200 connections, the port after every way out), `tests/test_scan_files.py` (modes under umask 022 and 077, links, hard links, races, path arguments, and a guard on every mode change) and `tests/test_scan_secrets.py` (planted secrets in every entry place, and a sweep of every byte umwayi printed or wrote). The tool scans themselves are not tests; their record is [SECURITY-SCAN.md](SECURITY-SCAN.md).
 - `tests/test_elections.py` (layer 13, slice 1) runs `check`, `run`, `steward` and `rules due` as child processes with the system date set by a `sitecustomize.py` (`UMWAYI_TEST_TODAY`): the day after `review_by`, the last day, the three clocks, bad dates, a golden file of the bytes of a rules file with no `review_by`, the exact output of `rules due`, a snapshot of the root before and after (nothing written), and a code guard on the imports.
-- `tests/test_docs.py` checks the docs: every relative link resolves, the README is at most 120 lines, no em dash, every component doc has its four parts and is under 300 lines.
+- `tests/test_docs.py` checks the docs: every relative link resolves, the README is at most 120 lines, no em dash, every component doc has its four parts and is under 300 lines. Problems found while building, and what to do next time: [kiro-issues-log.md](kiro-issues-log.md).
 - `tests/test_frontier_practices.py` (W10) reads the table of [frontier-practices.md](frontier-practices.md) and fails on a missing or repeated row, a state outside the four, an evidence file that is not there or a guidance id that is not in `guidance.yaml`. It checks form and that evidence exists, never that a state is true; planted faults prove each failure.
-- Problems found while building, and what to do next time: [kiro-issues-log.md](kiro-issues-log.md).
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. The results are listed in each layer's pull request.
 
 ### CI since W20
@@ -230,6 +229,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_starter_rules.py` | `adapters`, `rules.yaml` |
 | `tests/test_system.py` | `articles`, `umwayi.json`, `workflows` |
 | `tests/test_ui_package.py` | `.gitignore`, `ui`, `ui/dist` |
+| `tests/test_up.py` | `rules.yaml`, `umwayi.json` |
 | `tests/test_view.py` | `jobs.yaml`, `ui`, `umwayi.json`, `workflows` |
 | `tests/test_w21_goldens.py` | `docs`, `tools` |
 | `tests/test_what_it_is.py` | `README.md`, `docs` |

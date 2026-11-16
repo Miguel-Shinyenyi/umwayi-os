@@ -254,6 +254,10 @@ To add numbers without file contents, run `umwayi feedback export` and paste wha
 
 Not yet available: sending feedback over the network. The owner has not chosen where it goes.
 
+### One command to see what is ready: umwayi up
+
+`umwayi up` runs the read-only checks of the commands above, one line each: the root, the logbook, the kill switch, each agent's sign-in, `guidance.yaml`, git and the goals. It writes nothing and starts no agent and no sign-in; a line that starts with `no:` or `ask:` says what to fix (in the scratch folder it stops at the agents, because there is no `agents.yaml`). When every line is ok, `umwayi up --goal "your goal" --guide NAME --plan-budget-uu N` runs `umwayi goal start` for you, with all of its own checks, and stops when the plan waits for your approval. Exit codes 0, 2, 3 and 64, as in [exit codes](exit-codes.md).
+
 ### The goal commands
 
 `umwayi goal` is built (W9.8): it splits one goal into small tasks, runs each in its own worktree with a builder and a different tester, and asks you before it spends or merges anything. It is not a first-run command. It needs three agents that pass `agent check`, a root that is a git repo with a `main` branch and the files `guidance.yaml` lists, and a terminal for `approve` and `answer`. The full list is in [goals](goals.md). In the scratch folder you can look and see it refuse:
