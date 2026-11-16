@@ -32,4 +32,4 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
-None open.
+- Shared notes for AI helpers (W42) are designed in [shared-memory-design.md](shared-memory-design.md), separate from these memory files. Nothing of it is built.
