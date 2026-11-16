@@ -1757,9 +1757,20 @@ The design of W41 (`docs/enforcement.md`) is written; none of its options is bui
 - Claude Code `agent run`, its cli chat and every Kiro start get umwayi's whole environment less a few credential names, so any other secret in the owner's shell reaches the helper and the commands it runs.
 - The files that guard umwayi (`rules.yaml`, the logbook, `.umwayi/`, the hook files, the settings files) can be changed by a program a helper runs. The tamper check and the chain show an edit of the logbook; a change to another guard file is not detected after the run.
 
+## Provenance and verify (W49 and W50), found while designing
+
+### 299. No file has a provenance record yet, and AI helpers can use the owner's SSH agent
+
+The design is in [provenance-design.md](provenance-design.md). Nothing of it is built. These are the limits now and the ones the design keeps.
+
+- No file umwayi produced has a record, and `umwayi verify` does not exist. Nothing today can tell a file of a goal task from a file written by hand.
+- Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
+- When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
+- The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
 ## Goal orchestration (W9.14), found while building the retry
 
-### 299. A retry reuses the packet as approved and leaves the old worktree in place
+### 300. A retry reuses the packet as approved and leaves the old worktree in place
 
 `umwayi goal retry` (W9.14) makes a new task from the packet of a task that failed or was stopped. What it does not do:
 
