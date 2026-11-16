@@ -1779,13 +1779,25 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
 
-## Verification (W73), found while designing
+## Connectors (W72), found while designing
 
-### 301. umwayi-os is not yet built under its own gate, and its mutation passes were chosen by the writer of each change
+### 301. umwayi has no connector, and the gh login in the builder's sandbox is the owner's full account
 
-These are facts of main `6525606`, found while writing `docs/independent-verification.md`. Nothing was changed.
+These are facts of main `6525606`, found while writing `docs/connectors.md`. Nothing was changed.
 
-- The builder sessions that build umwayi-os do not run through umwayi's gate; they follow the written builder rules, CI checks each pull request and the owner merges. The repo does not show that their tool calls were checked by umwayi, so "built under its own rules" cannot be claimed for them.
-- The mutation passes the repo records were planned, run and reported by the builder of that change, on its own tests.
-- In a goal run the tester runs in the builder's worktree, so it can read the builder's status and limits parts, and the guide's check is given the tester's evidence text.
-- A tester on the same platform and model as the builder is a warning only (W9-Q2), and the model is not in the in-review entry.
+- umwayi sends no message, mirrors no status and runs no scan on a timer: there is no email, push, Notion, error monitor or scan connector, and jobs allow only `report`, `check` and `queue-list`.
+- The only GitHub reader in the repo is `tools/board_status.py`, which uses the public API with no token and so cannot read a private repository.
+- In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
+- An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
+
+## Operations (W71), found while designing
+
+### 302. a helper may outlive a killed supervisor, and the pid check needs /proc
+
+The design is in [operations.md](operations.md). Nothing of it is built. These facts were read from the code at main 6525606 and were not run.
+
+- The helper child is started in its own session (`start_new_session=True`, `umwayi/goalrun.py`). When the supervisor is killed, the next goal command marks the task `stopped` with reason `supervisor` (`goalstate.mark_lost`), but nothing stops the child. It may keep running until it ends by itself.
+- `goal status` decides whether a child is alive by reading `/proc/PID/stat` (`umwayi/goal.py` `_pid_alive`). Without `/proc`, as on macOS, a live child is shown as `not running`.
+- Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
+- There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
+- `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
