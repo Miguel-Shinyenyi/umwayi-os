@@ -1778,3 +1778,14 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
+## Shared memory (W70), found while designing
+
+### 301. no note between sessions is hashed when written or checked when read, and helpers may write memory and steering with an Ask
+
+These are facts of main `6525606`, found while writing `docs/memory-supply-chain.md`. Nothing was changed.
+
+- `memory/`, `docs-parts/`, `.kiro/steering/` and `tasks.md` hold the notes a helper or a later session reads, and none of them is hashed in the logbook when written or compared when read. A note changed in between is used as it is. The packet of a goal task is the exception: its approval holds its SHA-256.
+- The starter guard lists do not name `memory/` or `.kiro/steering/`, so a helper's write to them is Ask me first, not No.
+- Claude Code, Kiro CLI and OpenCode are checked for a minimum version, not pinned by a hash; OpenCode also downloads `ripgrep` by itself (item 191).
+- umwayi-os itself is built by AI builders in branches and merged by the owner; that process is not an app and is not covered by an app's permissions.
