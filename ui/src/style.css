@@ -240,3 +240,6 @@ pre.cmd code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, mon
   .steps input[type="text"] { min-height: 44px; font-size: 16px; }
   .checks-tools { gap: 8px; }
 }
+
+/* W51: the owner's logo as a small mark before the title; decoration only, hidden from assistive technology */
+.logo { display: inline-block; width: 1.1em; height: 1.1em; margin-right: 0.4em; vertical-align: -0.15em; flex: none; }

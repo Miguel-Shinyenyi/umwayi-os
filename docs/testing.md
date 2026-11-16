@@ -6,10 +6,9 @@ Every layer is tested before the next starts, with the standard library `unittes
 
 ## Current state
 
-Run every test: `python -m unittest discover -s tests -t .`
+Run every test: `python -m unittest discover -s tests -t .`. Each layer has its own test module (`tests/test_*.py`, `tests/agents/`, `tests/adapters/`, `tests/budget/`).
 
 - CI (`.github/workflows/ci.yml`, W20) runs on every pull request and on every push to main. The counts after each pull request are in [status-log.md](status-log.md). It is described in [CI since W20](#ci-since-w20) below.
-- Each layer has its own test module (`tests/test_*.py`, `tests/agents/`, `tests/adapters/`, `tests/budget/`).
 - Tests that start umwayi run `python -m umwayi ...` as a real child process with `HOME` (and where it matters `XDG_CONFIG_HOME` and `TMPDIR`) in a temporary folder. The agents are fakes put first on `PATH`: a fake `claude` (also the fake telemetry sender), a fake `kiro-cli`, a fake `node` with a scripted ACP agent. No real agent, systemd, network or account is used.
 - `tests/test_ui_package.py` (layer 12, UI.1) checks the `ui/` package, its lockfile, `ui/dist/build.json` and the built page without npm, node or a browser, with a planted fault for each rule. The page's own logic (the engine, the layout and position function, the stations, the home content, the detail mode) is tested by `node --test` inside `ui/` (no package needed), and the look and the behaviour in a browser by a hand pass whose results are in [interface.md](interface.md). It also checks the snapshot reader on the built page (UI.3): one json file picker and no other input or form, the one refusal message once, `readAsText` only, none of the calls that set text as markup or code, sample before a file, the picker hidden without a script. `tests/test_view.py` `FixtureTests` checks that `ui/test/fixtures/snapshot.json` is the command's output on the fixed root byte for byte.
 - `tests/serve/` (the local backend, W6.1 to W6.6; [serve.md](serve.md)) is standard library only and needs no network beyond 127.0.0.1. `gen.py` has the seeded generators (only `getrandbits` and `random()`, so a seed means the same on Python 3.10 to 3.13), the golden request of each route, the catalogue of named faults and the shrinker; `oracle.py` is a second, naive implementation of the gate written from the text; `test_gate_properties.py` runs `UMWAYI_PROP_N` cases (default 5000) for each of three fixed seeds and one seed drawn per run (printed), and prints the seed, the case and the smallest request found on a failure; `test_wire.py` starts real servers (`UMWAYI_FUZZ_N`, default 5000, sets the size of the fuzz); `test_samecode.py` runs 41 scenarios through the command line and through a request on identical roots and compares the bytes; `test_token.py`, `test_entries.py` and `test_failclosed.py` cover the token, the entries and each row of the fail closed table. The tests of the test tools (`test_gen.py`) pass without the server.
@@ -209,6 +208,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_helpers.py` | `rules.yaml` |
 | `tests/test_honest.py` | `.kiro`, `adapters`, `docs`, `rules.yaml` |
 | `tests/test_logbook_chain.py` | `rules.yaml` |
+| `tests/test_logo.py` | `.github`, `ui`, `ui/dist` |
 | `tests/test_merge_main.py` | `.kiro`, `docs`, `docs-parts`, `tools`, `ui` |
 | `tests/test_petition.py` | `rules.yaml` |
 | `tests/test_progress_page.py` | `.gitignore`, `.kiro`, `docs`, `ui`, `ui/dist` |

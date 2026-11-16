@@ -1700,3 +1700,15 @@ Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first
 - The shell types are `tool_bash`, `tool_powershell`, `tool_execute_bash`, `tool_execute_pwsh` and `tool_shell`. A tool of another type that runs a command (an MCP tool, for example) gets no command word.
 - A plan refused for a context entry names only the first such entry. A context list that is too long, or files that are too big together, is still only `context`, with no entry named.
 - `missing` also covers a context entry that is a link or not a regular file.
+
+## The logo on the pages (W51), found while building
+
+### 294. The logo on the pages is a drawing of the file, not the file
+
+The owner's logo appears on the four local pages as an inline SVG made from the same shapes. These are its limits.
+
+- The SVG was drawn by measuring the PNG (two dark rounded squares, the amber square and the hook), not traced. At the size of the pages (about 22 pixels) it matches the file; a large copy would show small differences in the curve of the hook and the corners. If the owner changes the PNG, `ui/src/logo.svg` has to be drawn again by hand; `tests/test_logo.py` pins the PNG's SHA-256, so a changed file fails until then.
+- The pages do not use the PNG itself, because an image element is refused by the page tests and three of the four page policies allow no image at all. Using the file would mean changing those policies.
+- The pull request template is used only when a pull request is opened on GitHub's own page. A pull request opened through the API or by a session with its own body text does not get it, and the logo there is loaded by GitHub from the raw address of main.
+- No commit made for a goal carries a Made-with line: umwayi makes no commit, and asking the AI helper for one would be a request it may not follow.
+- The goal map at phone width is wider than the screen (the map drawing, 920 pixels), as it was before W51; the logo does not change that, and there is no phone test of the goal map.

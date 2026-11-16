@@ -144,6 +144,7 @@
   "tests/test_logbook_chain.py": ["rules.yaml"],
   "tests/test_logbook_crash.py": [],
   "tests/test_logbook_integration.py": [],
+  "tests/test_logo.py": [".github", "ui", "ui/dist"],
   "tests/test_memory.py": [],
   "tests/test_merge_main.py": [".kiro", "docs", "docs-parts", "tools", "ui"],
   "tests/test_miniyaml.py": [],
