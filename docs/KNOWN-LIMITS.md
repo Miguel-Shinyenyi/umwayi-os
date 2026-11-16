@@ -1779,13 +1779,25 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
 
-## Shared memory (W70), found while designing
+## Connectors (W72), found while designing
 
-### 301. no note between sessions is hashed when written or checked when read, and helpers may write memory and steering with an Ask
+### 301. umwayi has no connector, and the gh login in the builder's sandbox is the owner's full account
 
-These are facts of main `6525606`, found while writing `docs/memory-supply-chain.md`. Nothing was changed.
+These are facts of main `6525606`, found while writing `docs/connectors.md`. Nothing was changed.
 
-- `memory/`, `docs-parts/`, `.kiro/steering/` and `tasks.md` hold the notes a helper or a later session reads, and none of them is hashed in the logbook when written or compared when read. A note changed in between is used as it is. The packet of a goal task is the exception: its approval holds its SHA-256.
-- The starter guard lists do not name `memory/` or `.kiro/steering/`, so a helper's write to them is Ask me first, not No.
-- Claude Code, Kiro CLI and OpenCode are checked for a minimum version, not pinned by a hash; OpenCode also downloads `ripgrep` by itself (item 191).
-- umwayi-os itself is built by AI builders in branches and merged by the owner; that process is not an app and is not covered by an app's permissions.
+- umwayi sends no message, mirrors no status and runs no scan on a timer: there is no email, push, Notion, error monitor or scan connector, and jobs allow only `report`, `check` and `queue-list`.
+- The only GitHub reader in the repo is `tools/board_status.py`, which uses the public API with no token and so cannot read a private repository.
+- In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
+- An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
+
+## Operations (W71), found while designing
+
+### 302. a helper may outlive a killed supervisor, and the pid check needs /proc
+
+The design is in [operations.md](operations.md). Nothing of it is built. These facts were read from the code at main 6525606 and were not run.
+
+- The helper child is started in its own session (`start_new_session=True`, `umwayi/goalrun.py`). When the supervisor is killed, the next goal command marks the task `stopped` with reason `supervisor` (`goalstate.mark_lost`), but nothing stops the child. It may keep running until it ends by itself.
+- `goal status` decides whether a child is alive by reading `/proc/PID/stat` (`umwayi/goal.py` `_pid_alive`). Without `/proc`, as on macOS, a live child is shown as `not running`.
+- Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
+- There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
+- `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.

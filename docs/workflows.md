@@ -56,6 +56,7 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
+- Seeing and protecting umwayi-os when it runs by itself (a process table, quotas, backup, format versions, crash recovery, log rotation) is designed in [operations.md](operations.md). Nothing of it is built.
 - The kill switch is a file anyone with write access can remove ([KNOWN-LIMITS](KNOWN-LIMITS.md) item 2).
 - YAML syntax errors show only the first problem ([KNOWN-LIMITS](KNOWN-LIMITS.md) item 6).
 - Inside a workflow, the social step is one rules check for all channels ([KNOWN-LIMITS](KNOWN-LIMITS.md) item 7).
