@@ -1802,9 +1802,20 @@ The design is in [operations.md](operations.md). Nothing of it is built. These f
 - There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
 - `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
 
+## Signing (E5), found while designing
+
+### 303. an SSH signature holds no trusted time, and nothing refuses a private key in the repo today
+
+These are facts measured or read on Nov 16 while writing `docs/signing.md`. Nothing was changed.
+
+- `ssh-keygen -Y verify` (OpenSSH 9.9p1) compares a key's `valid-before` and `valid-after` with the time of the verify, not the time of the signing. After a key is retired, every old signature fails a bare verify unless the verifier passes `-O verify-time` with a trusted date, which for umwayi is the date of the logbook entry.
+- In an allowed signers file the options must be joined by commas with no space; a space makes the line an invalid key.
+- No check refuses a private key header in a tracked file today; the W62 secret scan is designed, not built.
+- The starter secret path rules name `id_rsa` and `id_ed25519`, not a key file under another name.
+
 ## Goal orchestration (W54), found while building the proposed budgets
 
-### 303. A proposal has history only from tasks run after W54, and its history is per task
+### 304. A proposal has history only from tasks run after W54, and its history is per task
 
 The proposed task budgets of W54 read the measured spend of each role from the task files (`measured_uu`). What follows:
 
