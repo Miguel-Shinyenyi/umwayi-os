@@ -8,7 +8,7 @@ This page says what umwayi does to keep the owner in control (fail closed, rules
 
 - Fail closed: no matching rule, a broken file, an unknown kill switch state or a logbook that cannot be written never give Yes ([rules.md](rules.md), [workflows.md](workflows.md), [logbook.md](logbook.md)).
 - The core makes no network connection except the budget governor's telemetry receiver, on 127.0.0.1 for one Claude Code run ([budget-governor.md](budget-governor.md)).
-- An agent is started only through the front door, gated by the layer 9 hook, its login checked (subscription first) and its budget reserved ([agent-front-door.md](agent-front-door.md)).
+- An agent is started only through the front door, gated by the layer 9 hook, its login checked (subscription first) and its budget reserved ([agent-front-door.md](agent-front-door.md)). Its environment holds no credential name and not the owner's SSH agent (`SSH_AUTH_SOCK`, `SSH_AGENT_PID`, W64).
 - Logbook entries never hold an action's JSON, a prompt, a conversation or a credential; the hash chain and an outside anchor make edits visible ([logbook.md](logbook.md)).
 - Everything that is known and not fixed is in [KNOWN-LIMITS](KNOWN-LIMITS.md).
 - Files: `LOGBOOK.md` and the logbook lock must be regular files with one name, and the append never follows a link; every other write replaces through a new file or creates with `O_EXCL`. The files that can hold a secret or an approval-like token are private (the canary folder 0700; the canary file, the capture file and the intent 0600); unit files are exactly 0644; everything else follows the owner's umask. `rules.yaml` and `umwayi.json` are read only as regular files of at most 1 MB and 64 KB.
