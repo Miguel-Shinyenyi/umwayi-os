@@ -238,8 +238,8 @@ FAULTS = [
     F("C9", "an unknown query key sent", CLIENT_JS, "Object.keys(q).some((k) => !route.query.includes(k))", "false", [NODE]),
     F("C10", "an item id of any shape sent", CLIENT_JS, "if (typeof a.id !== 'string' || !ID.test(a.id)) return null;",
       "if (typeof a.id !== 'string') return null;", [NODE]),
-    F("C11", "a kill.off route in the client table", CLIENT_JS, "  'kill.on': Object.freeze({ method: 'POST', path: '/v1/kill/on', query: [], fields: [['reason', 'str']], required: [] }),\n});",
-      "  'kill.on': Object.freeze({ method: 'POST', path: '/v1/kill/on', query: [], fields: [['reason', 'str']], required: [] }),\n"
+    F("C11", "a kill.off route in the client table", CLIENT_JS, "  'goal.map': Object.freeze({ method: 'GET', path: '/v1/goal-map', query: [], fields: [], required: [] }),\n});",
+      "  'goal.map': Object.freeze({ method: 'GET', path: '/v1/goal-map', query: [], fields: [], required: [] }),\n"
       "  'kill.off': Object.freeze({ method: 'POST', path: '/v1/kill/off', query: [], fields: [], required: [] }),\n});", [NODE]),
     F("C12", "the client keeps going after a word it should stop on", CLIENT_JS, "if (got.stop) halt();", "", [NODE]),
     F("C13", "the status of an answer not matched to its word", CLIENT_JS, "if (!statuses.includes(status) || env.code !== code) return null;",
