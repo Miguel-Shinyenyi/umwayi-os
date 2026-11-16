@@ -1812,3 +1812,14 @@ These are facts measured or read on Nov 16 while writing `docs/signing.md`. Noth
 - In an allowed signers file the options must be joined by commas with no space; a space makes the line an invalid key.
 - No check refuses a private key header in a tracked file today; the W62 secret scan is designed, not built.
 - The starter secret path rules name `id_rsa` and `id_ed25519`, not a key file under another name.
+
+## Rules library (W76), found while designing
+
+### 304. a rules set applies to the whole root, not to one agent, and rules cannot express a budget size
+
+These are facts of main `25b3a47`, checked while writing `docs/rules-library.md`. Nothing was changed.
+
+- The action an adapter hook sends names the platform and the tool, not the agent of `agents.yaml`, so a rule cannot single out one Claude Code helper of a root. A read only set makes every Claude Code helper of that root read only.
+- Rules match words: there is no less-than matcher, so a budget size cannot be a rule; it is set in `units.yaml`.
+- A matcher with an unknown operator is read as an equals matcher on a field no action has, so a copied rule that uses one never matches and nothing says so.
+- Text matching cannot see network use by code that names no listed word: `python3 -c "import urllib.request"` matched no rule of the no network set.
