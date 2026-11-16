@@ -1756,3 +1756,17 @@ The design of W41 (`docs/enforcement.md`) is written; none of its options is bui
 - Nothing in umwayi counts tool calls that ran with no `umwayi check` entry, so the absence of a recorded bypass in the real runs of Nov 15 is not evidence that none happened. The logbooks of those runs are not in the repo.
 - Claude Code `agent run`, its cli chat and every Kiro start get umwayi's whole environment less a few credential names, so any other secret in the owner's shell reaches the helper and the commands it runs.
 - The files that guard umwayi (`rules.yaml`, the logbook, `.umwayi/`, the hook files, the settings files) can be changed by a program a helper runs. The tamper check and the chain show an edit of the logbook; a change to another guard file is not detected after the run.
+
+## The work ledger and stall handling (W65), found while designing
+
+### 299. umwayi has no record of pull requests, and a stalled task cannot be restarted
+
+The design is in [work-ledger-design.md](work-ledger-design.md). Nothing of it is built.
+
+- No umwayi file holds a PR number, a branch head on origin or a CI result, so umwayi cannot say which branch is next to merge. `goalgit` has no read of whether a branch contains main, and none of `refs/remotes/origin/`.
+- A stalled helper ends its task `failed`, which is terminal, and the goal halts. W9.14 retry is not built, so nothing can start the task again except a new goal.
+- The stall time is the constant `STALL_SECONDS` (1800) in `umwayi/goalwatch.py`; the owner cannot set it. The supervisor stops a stalled helper without asking the rules gate.
+- `umwayi stalls check` still reads a JSON file that nothing writes.
+- The core may not import a network module, so a probe of PR checks cannot be a command of `umwayi/` without the owner's word.
+- Every `kiro-cli` session fact in the design is from the Kiro docs and was not tried: the fields of `--list-sessions`, whether `--resume-id` works with `--no-interactive`, the fields of `diagnostic --format json`, and what SIGTERM does to an unsaved turn. Whether `--resume-id` reaches a Kiro web session is an owner test.
+- No measured quiet gap per role exists; the proposed default of 30 minutes is today's constant, not a measurement.
