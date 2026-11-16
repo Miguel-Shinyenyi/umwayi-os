@@ -51,6 +51,7 @@ umwayi-os/
     concerns.md             W19: umwayi concerns check, the 111 concepts record (built)
     model-routing.md        W19 part 3b: the Kiro and OpenCode model options with sources and review dates, and umwayi routing check (built; it only proposes, the owner chooses)
     model-routing-design.md W48: model routing from umwayi's own records, the record, the table and the picker (design note, not built)
+    network-credentials.md  W69: network reach and credentials for helpers, and the options (design note)
     task-log.md             W19 part 3b: the task log format and the starter rows for PRs 66 to 79 (built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
