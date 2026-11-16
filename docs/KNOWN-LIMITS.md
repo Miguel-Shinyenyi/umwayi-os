@@ -1778,3 +1778,15 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
+## Operations (W71), found while designing
+
+### 301. a helper may outlive a killed supervisor, and the pid check needs /proc
+
+The design is in [operations.md](operations.md). Nothing of it is built. These facts were read from the code at main 6525606 and were not run.
+
+- The helper child is started in its own session (`start_new_session=True`, `umwayi/goalrun.py`). When the supervisor is killed, the next goal command marks the task `stopped` with reason `supervisor` (`goalstate.mark_lost`), but nothing stops the child. It may keep running until it ends by itself.
+- `goal status` decides whether a child is alive by reading `/proc/PID/stat` (`umwayi/goal.py` `_pid_alive`). Without `/proc`, as on macOS, a live child is shown as `not running`.
+- Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
+- There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
+- `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
