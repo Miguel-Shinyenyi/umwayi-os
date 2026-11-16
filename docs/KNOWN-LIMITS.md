@@ -1801,3 +1801,11 @@ The design is in [operations.md](operations.md). Nothing of it is built. These f
 - Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
 - There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
 - `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
+
+## Guidance (W66), the merge main wording
+
+### 303. the merge main entry says the supervisor records the paths and asks the owner, but no supervisor runs merge_main yet
+
+- The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
+- The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
+- `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
