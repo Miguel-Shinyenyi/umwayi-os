@@ -594,8 +594,10 @@ def status_lines(ctx, only=None):
             t = gs.read_task(ctx.root, goal, task)
             if t["state"] == "needs owner" and t["approval"]:
                 waiting += [f"  Goal {goal} task {task} needs you ({t['reason']}). "
-                            f"{gw.approval_sentence(_approval(goal, t), ctx.now)}",
-                            f"  Answer with: umwayi goal answer {goal} {task} yes   (or no)"]
+                            f"{gw.approval_sentence(_approval(goal, t), ctx.now)}"]
+                if t.get(gs.BLOCKED_KEY):  # W56: what the builder asked and which rule answered
+                    waiting.append(f"  Blocked: {gs.block_sentence(t[gs.BLOCKED_KEY])}. Add a Yes rule for it, or answer no.")
+                waiting.append(f"  Answer with: umwayi goal answer {goal} {task} yes   (or no)")
     if waiting:
         lines += ["Waiting for you"] + waiting
     supervisor_alive = not gs.lock_free(ctx.root)
@@ -649,6 +651,8 @@ def _task_lines(ctx, goal, g, t, supervisor_alive):
         cause = _causes(ctx).get((goal, t["id"])) if t["state"] == "failed" else None
         head += f" ({t['reason']}: {cause})" if cause else f" ({t['reason']})"
     out = [head]
+    if t["state"] == "needs owner" and t.get(gs.BLOCKED_KEY):
+        out.append(f"  Blocked: {gs.block_sentence(t[gs.BLOCKED_KEY])}.")
     real = [e for e in events if goallog.is_real(e)]
     if real:
         last = real[-1]
@@ -720,6 +724,8 @@ def report_lines(ctx, goal):
                   f"- Goal: {p.goal}"]
         if t["state"] == "failed" and causes.get((goal, task)):
             lines.append(f"- Cause: {causes[(goal, task)]}")
+        if t["state"] == "needs owner" and t.get(gs.BLOCKED_KEY):
+            lines.append(f"- Blocked: {gs.block_sentence(t[gs.BLOCKED_KEY])}")
         lines += [f"- Check {i}: {c}" for i, c in enumerate(p.checks, 1)]
         lines += [f"- Runs: " + (", ".join(f"{r['role']} {r['agent']} (cap {r['cap_uu']} UU)" for r in runs) or "none"),
                   f"- Minutes: {minutes}", f"- Spent: {int(t.get('spent_uu') or 0)} of {p.budget_uu} UU",

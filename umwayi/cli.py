@@ -31,7 +31,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
-                    loginwizard, petition, publish, report, routing, rules, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
+                    loginwizard, petition, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -249,6 +249,9 @@ def build_parser() -> argparse.ArgumentParser:
                      help=f"also list rules due within this many days (default {elections.DEFAULT_WITHIN}, 0 to "
                           f"{elections.MAX_WITHIN})")
     rud.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD; a date earlier than today changes nothing")
+    ruv = rusub.add_parser("validate", help="check that rules.yaml loads and every rule is well formed, with the line and the "
+                                            "rule id of the first problem (changes nothing); 0, or 64; never 1 or 3")
+    ruv.add_argument("--rules", help="path to rules.yaml (default: <root>/rules.yaml)")
 
     rn = sub.add_parser("run", help="run one job from a jobs file (asks the rules first)")
     rn.add_argument("jobfile", help="the jobs file, for example jobs.yaml")
@@ -493,8 +496,14 @@ def _cmd_check(args, out) -> int:
 
 
 def _cmd_rules(args, out) -> int:
-    """Layer 13, `umwayi rules due`. Its own error handling: 64 for usage, 2 for anything else, never 1 (13.R3.3)."""
+    """Layer 13, `umwayi rules due`, and W58a, `umwayi rules validate`. Their own error handling: 64 for usage, 2 for
+    anything else, never 1 (13.R3.3)."""
     try:
+        if args.rules_command == "validate":  # W58a: read only, 0 or 64 (2 for a crash), never 1 or 3
+            path = Path(args.rules) if args.rules else Path(args.root) / "rules.yaml"
+            r = rulesvalidate.validate(path)
+            out.write("\n".join(r.lines) + "\n")
+            return r.code
         code, lines = elections.due(Path(args.root), args.within, args.date)
         out.write("\n".join(lines) + "\n")
         return code
@@ -503,7 +512,7 @@ def _cmd_rules(args, out) -> int:
         return EXIT_USAGE
     except (Exception, KeyboardInterrupt) as e:
         try:
-            sys.stderr.write(f"umwayi: rules due: stopped by an unexpected error ({type(e).__name__}). "
+            sys.stderr.write(f"umwayi: rules {args.rules_command}: stopped by an unexpected error ({type(e).__name__}). "
                              f"Exit {EXIT_CRASH}. Nothing was changed.\n")
         except Exception:
             pass

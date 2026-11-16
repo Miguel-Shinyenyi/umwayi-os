@@ -34,10 +34,22 @@ Matchers (all must match):
 - `type: [payment, transfer]` equals any
 - `path__contains: secret` contains text
 - `amount__exists: true` field is present
+- `command__startswith: ["git status ", "git diff "]` one printable line that starts with a value, case and spaces as written (W57). A newline, a tab or another control character in the text never matches.
+- `path__prefix: /home/me/work` a clean absolute path at or below the folder (W57). The folder and the path must start with one `/` and have no `.`, `..` or empty part; a path that is not clean never matches. Nothing on disk is read, so a link is not resolved.
+
+A `__startswith` or `__prefix` value that is empty, not text, or (for `__prefix`) not a clean absolute folder makes `rules.yaml` malformed, so every check gives Ask me first. A matcher name ending in any other `__word` (for example `command__not` or `command__endswith`) is not refused: it is read as an equals matcher on a field with that whole name, as before W57. No adapter sends such a field, so the rule never matches an adapter's action. There is no `not` operator. W58a found this; whether an unknown `__word` should be refused is for the owner.
 
 Use `--rules PATH` for another rules file, `--json` for JSON output, and `-` as the action to read it from standard input. `--kill-switch` answers No while the kill switch is on or its state is unknown (the adapters use it; without it your own checks are not stopped).
 
 Every check writes one logbook entry with the rule id and the answer. The action JSON is never written, only its `type` if that is a short plain word. If the logbook cannot be written (for example it was edited by hand), a No stays No (exit 2), a Yes becomes Ask me first (exit 3), and the reason says why. Use `--no-log` for a dry run that writes nothing, and `--date` to set the entry date.
+
+### Checking the file: `umwayi rules validate` (W58a)
+
+```
+umwayi rules validate [--rules PATH]
+```
+
+Reads `rules.yaml` (or PATH) with the same reader the gate uses: the same size limit, the same regular file check and the same strict parser. Exit 0 and one `ok:` line when it loads and every rule is well formed. Exit 64 when it does not, with one line for the first problem: the line number of the rule (or of the YAML problem), the rule id when it has one, and the reader's own words, for example `no: rules.yaml: line 8: rule second: rule 'second': verdict must be yes, no or ask`. A file that cannot be read says `line unknown`. It writes nothing, not even a logbook entry, and never answers 1 or 3; a crash is 2. It checks the form only: it does not say what a rule matches. A rule file that does not load makes every `umwayi check` answer Ask me first, so this is the way to find why.
 
 ### Starter rules for the adapters (task 9.10)
 
@@ -85,6 +97,25 @@ The 13 rules of `adapters/opencode/rules.example.yaml` follow the others in the 
 - The permission rules see only the kind, never the path or the command; the first gate has already looked at those.
 - Nothing about the other groups changed: no rule above this section was edited, and an action from another platform gets no answer from the `oc-` rules. A test pins each older rule by a hash of what it says.
 - `tests/test_starter_rules.py` has the OpenCode checks: every example rule is in the file with the same verdict and matchers, the decisions table is run with the real `umwayi check` on a real root, the older rules are unchanged, and planted faults (a verdict changed, a matcher dropped, a rule missing, an Ask rule for `tool_execute` added) are found.
+
+### Builder rules for goal worktrees (W57)
+
+With the starter rules, every file write and every shell command of a Claude Code builder is Ask me first (`cc-ask-write`, `cc-ask-shell`), so a goal stops at each step. `goal.rules.example.yaml` has builder rules, commented out, that the owner copies once into the `rules.yaml` of the umwayi root that runs the goals:
+
+| rule id | answer | what it covers, in a folder at or below the worktree root (`cwd__prefix`) |
+| --- | --- | --- |
+| `builder-no-chain` | No | a shell command with `&`, `;`, `\|`, a backtick, `$(` or `>` |
+| `builder-no-git-output` | No | a shell command with `--output` (`git diff --output` writes a file anywhere) |
+| `builder-write` | Yes | a write or edit of a file at or below the worktree root (`path__prefix`) |
+| `builder-shell` | Yes | `git status`, `git diff`, `git add`, `git commit` or `python3 -m unittest`, then a space and more |
+| `builder-shell-bare` | Yes | the same five commands written alone |
+
+- **Take `cc-ask-write` and `cc-ask-shell` out of that `rules.yaml` when you copy the builder rules.** No beats Ask me first and Ask me first beats Yes, so while those two Ask rules are there they match every builder write and command, and the Yes rules do nothing. With them gone, anything the builder rules do not allow still gets Ask me first, because no rule matches.
+- Keep every No starter rule. They still win over the Yes rules: a write to `.git`, a secret path or a guard file, and a push to main, stay No.
+- The rules use `cwd`, which only the Claude Code hook adds to the action (see the [Claude Code README](../adapters/claude_code/README.md)). Without it no builder rule matches, so for Kiro, OpenCode and the generic adapter nothing changes.
+- The repo `rules.yaml` is not changed: its bytes are pinned by `tests/test_builder_rules.py`, and no starter rule uses the new operators.
+- The list has `&` in place of `&&`: it covers `&&` and also a command sent to the background with one `&`. A newline is not in the list (a `__contains` value cannot be only spaces); `__startswith` already refuses a command with a newline.
+- Matching is plain text, not a shell parser. `git commit` runs the repo's hooks and `python3 -m unittest` runs the repo's tests, so the builder can run code it wrote. That is what a builder does; the worktree and the No rules are the bounds.
 
 ### Review dates: a Yes rule that runs out (layer 13, elections)
 
@@ -150,6 +181,8 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-15 | Two matchers are added, `__startswith` (one printable line, as written) and `__prefix` (clean absolute paths); an unknown `__word` stays an equals matcher on that field name, as before; the Claude Code hook adds `cwd`; builder rules are an example only, and the owner removes `cc-ask-write` and `cc-ask-shell` in the goal root | W57. |
+| 2026-11-15 | `umwayi rules validate` checks the form of the rules file with the gate's own reader and says where the first problem is; 0 or 64, never 1 or 3 | W58a, the owner's task. The rule language, the matchers, the starter rules and the gate are unchanged. |
 | 2026-11-11 | An `ask` rule may opt its class in to graded autonomy with `autonomy`; the never list and the agreement of two rules are checked when the file is read; only a Yes rule lapses at `review_by` | Layer 13, L13.5 (13.R9.2, 13.R9.3, 13.R2.2). |
 | 2026-11-11 | Every caller that asks the rules logs a changed `rules.yaml` before it uses it; if that cannot be written, a Yes becomes Ask me first; a dry run logs nothing and keeps its answer | Layer 13, L13.3 (13.R7; L13-Q11 and the new L13-Q19 as proposed). |
 | 2026-11-11 | The 13 rules of the OpenCode example are in the repo `rules.yaml` too, after the older ones and unchanged beside them; Code Mode has no rule, so an owner's Yes for it can take effect | The OpenCode starter rules pull request (a follow-up of 9.10 and 10.45; see [adapters](adapters.md)). |

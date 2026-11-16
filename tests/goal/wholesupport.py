@@ -227,7 +227,7 @@ class GoalWorld:
                if k not in ("PYTHONPATH", "UMWAYI_FAULT") and not k.startswith(("FAKE_", "UMWAYI_TEST_"))}
         env.update(PATH=os.pathsep.join([str(self.bin), env.get("PATH", "")]), HOME=str(self.home), TMPDIR=str(self.tmp),
                    PYTHONPATH=os.pathsep.join([str(self.site), str(REPO)]), FAKE_LOG=str(self.fake_log),
-                   FAKE_GOAL_SCRIPTS=str(self.scripts), **GIT_ENV)
+                   FAKE_GOAL_SCRIPTS=str(self.scripts), FAKE_UMWAYI_ROOT=str(self.root), **GIT_ENV)
         env.update(extra or {})
         return env
 
