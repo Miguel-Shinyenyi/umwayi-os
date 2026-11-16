@@ -1767,3 +1767,14 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
+## Network and credentials (W69), found while designing
+
+### 300. a helper can reach any host and cloud metadata address, and holds every credential variable but a fixed list
+
+These are facts of main `4f6ab21`, found while writing `docs/network-credentials.md`. Nothing was changed.
+
+- umwayi sets no network limit on a helper. Shell commands, web tools and MCP tools are Ask me first by the starter rules, but the owner's Yes rules and the programs a checked command starts reach any host the owner's user can reach.
+- No rule or check names a cloud metadata address such as `169.254.169.254`. On a cloud machine a helper can ask it for the machine's credentials.
+- Claude Code `agent run`, its cli chat and every Kiro start get the owner's environment minus a fixed list of names, so other tokens and cloud keys in the owner's shell reach them (item 88 for Kiro).
+- There is no way to give a run a credential for that run only: a credential reaches a helper only if it is already in the owner's environment or on disk.
