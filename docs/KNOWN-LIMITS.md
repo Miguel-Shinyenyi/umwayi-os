@@ -1790,9 +1790,21 @@ These are facts of main `6525606`, found while writing `docs/connectors.md`. Not
 - In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
 - An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
 
+## Operations (W71), found while designing
+
+### 302. a helper may outlive a killed supervisor, and the pid check needs /proc
+
+The design is in [operations.md](operations.md). Nothing of it is built. These facts were read from the code at main 6525606 and were not run.
+
+- The helper child is started in its own session (`start_new_session=True`, `umwayi/goalrun.py`). When the supervisor is killed, the next goal command marks the task `stopped` with reason `supervisor` (`goalstate.mark_lost`), but nothing stops the child. It may keep running until it ends by itself.
+- `goal status` decides whether a child is alive by reading `/proc/PID/stat` (`umwayi/goal.py` `_pid_alive`). Without `/proc`, as on macOS, a live child is shown as `not running`.
+- Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
+- There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
+- `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
+
 ## Signing (E5), found while designing
 
-### 302. an SSH signature holds no trusted time, and nothing refuses a private key in the repo today
+### 303. an SSH signature holds no trusted time, and nothing refuses a private key in the repo today
 
 These are facts measured or read on Nov 16 while writing `docs/signing.md`. Nothing was changed.
 
