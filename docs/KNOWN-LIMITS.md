@@ -1736,3 +1736,15 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - A task that fails is never run again (`failed` has no way out), so review rounds per task are always 1. A rejection is seen only as `Cause: guide_rejected`.
 - No record says how many small facts were wrong; only pass, fail and unclear exist.
 - The lines a task changed are not recorded (only the count of files), the context size is checked when the plan is read and not kept, and spend per role is kept only in memory. Budget settle entries carry no goal or task and are matched to a task by agent name and time window (the over-count of item 218), so a route record could name the wrong run's model.
+
+## Backlog (W61), found while designing
+
+### 297. the backlog follows the owner's ranks, scopes and statuses, and cannot tell when they are wrong
+
+These are limits of the design in `docs/backlog-design.md`, written before anything is built.
+
+- A rank, a scope, a blocker or a hold can be wrong. The function follows them exactly and never second-guesses them.
+- A row's status is the owner's word, not goal state: a row marked `running` may have no goal running.
+- Nothing fills `backlog.md` from `tasks.md`. The build plan's open items are prose, and reading them would be a guess, so the owner writes the rows.
+- The `Backlog:` line in `goal status` waits for W60 (PR 132), which was not on main when this was written.
+- `backlog next` speaks only when someone runs it; nothing watches the backlog.
