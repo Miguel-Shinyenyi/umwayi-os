@@ -536,6 +536,21 @@ class Committed(unittest.TestCase):
         self.assertTrue(all(re.fullmatch(r"[0-9a-f]{64}", e.source_hash) for e in es))
         self.assertTrue(all(1 <= e.tier <= 6 for e in es))
 
+    def test_the_merge_main_entry_says_the_supervisor_asks_the_owner(self):
+        """W66 (the owner's approval of Nov 16): exit 3 of merge_main stops the helper; the supervisor records the
+        printed paths and asks the owner. No entry tells a helper to ask the guide."""
+        es = {e.id: e for e in guidance.load(REPO)}
+        e = es["merge-main-before-push"]
+        self.assertEqual(e.text, "Merge main with python -m tools.merge_main, never a raw git merge, before every push "
+                                 "and whenever main moves. Exit 3: the helper stops, the supervisor logs the printed "
+                                 "paths and asks the owner.")
+        self.assertEqual(e.prompt_line, "Merge main with python -m tools.merge_main, never raw git merge. Exit 3 means "
+                                        "you stop; the supervisor records the printed paths in the logbook and asks "
+                                        "the owner. Confirm GitHub shows no conflicts.")
+        for x in es.values():
+            for words in (x.text, x.prompt_line or ""):
+                self.assertNotIn("ask the guide", words.lower(), x.id)
+
     def test_committed_tiers_follow_the_brief(self):
         es = {e.id: e for e in guidance.load(REPO)}
         for i in ("goal-sentence-present", "consequences-and-undo-present", "acceptance-checks-present"):

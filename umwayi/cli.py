@@ -108,8 +108,16 @@ def _goal_commands(glsub) -> None:
     gs_.add_argument("--plan-budget-uu", type=_whole, required=True, help="the planning run's budget, 1 to limits.per_run")
     gs_.add_argument("--guide-model", help="the guide's model word (optional)")
     gs_.add_argument("--guide-effort", help="the guide's effort: low, medium, high, xhigh or max (optional)")
-    for name, text in (("show", "print the packets of a goal (changes nothing)"),
-                       ("run", "run the next task whose turn has come, in the foreground, then the report; 0, 2, 3 or 64"),
+    gsh = glsub.add_parser("show", help="print the packets of a goal; with --builder, --tester, --model and --effort also "
+                                        "the proposed budget of each task and its proposal id (changes nothing)")
+    gsh.add_argument("goal", help="the goal id, for example G-0007")
+    gsh.add_argument("--builder", help="the builder you plan to approve (for the proposal)")
+    gsh.add_argument("--tester", help="the tester you plan to approve (for the proposal)")
+    gsh.add_argument("--model", help="the builder's model word (for the proposal)")
+    gsh.add_argument("--effort", help="the builder's effort (for the proposal)")
+    gsh.add_argument("--tester-model", help="the tester's model word (optional, for the proposal)")
+    gsh.add_argument("--tester-effort", help="the tester's effort (optional, for the proposal)")
+    for name, text in (("run", "run the next task whose turn has come, in the foreground, then the report; 0, 2, 3 or 64"),
                        ("stop", "stop this goal now (open to everyone: it only makes things safer)"),
                        ("report", "write .umwayi/goals/G/report.md (a draft) and print it")):
         sp = glsub.add_parser(name, help=text)
@@ -125,9 +133,14 @@ def _goal_commands(glsub) -> None:
     ga.add_argument("--tester", required=True, help="the tester: an agent name that is not the builder")
     ga.add_argument("--model", required=True, help="the builder's model word")
     ga.add_argument("--effort", required=True, help="the builder's effort: low, medium, high, xhigh or max")
-    ga.add_argument("--task-budget-uu", type=_whole, required=True, help="the budget of every task, in UU")
-    ga.add_argument("--goal-budget-uu", type=_whole, required=True,
-                    help="the goal's budget, at least the task budgets and the planning budget")
+    ga.add_argument("--task-budget-uu", type=_whole,
+                    help="the budget of every task, in UU (needed unless --accept-proposed)")
+    ga.add_argument("--goal-budget-uu", type=_whole,
+                    help="the goal's budget, at least the task budgets and the planning budget (needed unless "
+                         "--accept-proposed)")
+    ga.add_argument("--accept-proposed", metavar="ID",
+                    help="take the proposed budgets that goal show printed with this id, for every number you do not "
+                         "give; refused if the proposal changed or a task has no history")
     ga.add_argument("--budget", action="append", default=[], help="T-02=N: another budget for one task")
     ga.add_argument("--keep", action="append", help="keep this task (repeat); the others are dropped")
     ga.add_argument("--tester-model", help="the tester's model word (optional)")

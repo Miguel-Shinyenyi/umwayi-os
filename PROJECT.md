@@ -51,6 +51,7 @@ umwayi-os/
     concerns.md             W19: umwayi concerns check, the 111 concepts record (built)
     model-routing.md        W19 part 3b: the Kiro and OpenCode model options with sources and review dates, and umwayi routing check (built; it only proposes, the owner chooses)
     model-routing-design.md W48: model routing from umwayi's own records, the record, the table and the picker (design note, not built)
+    merge-ready-design.md   W63: tools.merge_ready, a pass or fail merge gate from fixed rules (design note, not built)
     connectors.md           W72: connectors to outside services, the rule for each and the build order (design note)
     signing.md              E5: a dedicated umwayi signing key, what it signs, rotation, loss and fail closed (design note)
     rules-library.md        W76: a base rules library, ready sets to copy, validated and hashed (design note)
