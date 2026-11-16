@@ -1770,3 +1770,15 @@ The design is in [work-ledger-design.md](work-ledger-design.md). Nothing of it i
 - The core may not import a network module, so a probe of PR checks cannot be a command of `umwayi/` without the owner's word.
 - Every `kiro-cli` session fact in the design is from the Kiro docs and was not tried: the fields of `--list-sessions`, whether `--resume-id` works with `--no-interactive`, the fields of `diagnostic --format json`, and what SIGTERM does to an unsaved turn. Whether `--resume-id` reaches a Kiro web session is an owner test.
 - No measured quiet gap per role exists; the proposed default of 30 minutes is today's constant, not a measurement.
+
+## The stalls producer (W65, E6), found while designing
+
+### 300. no helper says whether it is thinking or hung, and no session list is confirmed
+
+The design is in [work-ledger-design.md](work-ledger-design.md), "The producer for the stalls check (E6)". Nothing of it is built.
+
+- None of Claude Code, Kiro or OpenCode reports whether a quiet run is thinking or hung. The producer sees only output bytes, the worktree head, tool call entries and check results, so a long silent thought looks like a stall.
+- No helper's session list is confirmed: Kiro's `--list-sessions` fields are unknown, Claude Code's transcript format is not documented in the repo, and whether OpenCode offers a session list over ACP was not checked.
+- The `umwayi check` entries of tool calls carry no goal or task id, so they show life only by time.
+- OpenCode cannot report to a goal at all until W9.13 is decided by the owner: `agent run` refuses it.
+- Kiro gives no spend per run; units.yaml counts its runs.

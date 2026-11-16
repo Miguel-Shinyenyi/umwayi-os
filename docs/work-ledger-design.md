@@ -136,6 +136,39 @@ The commands the owner runs once and pastes, so the design can stop saying unkno
 
 Claude Code helpers get the same shape once their own resume flags are checked; that is not done here (unknown).
 
+## The producer for the stalls check (E6)
+
+`umwayi stalls check EVENTS.json` ([stalls.md](stalls.md)) reads a JSON file that nothing writes. The producer is umwayi-os's own supervisor, at runtime. No outside guide and no browser tab is involved.
+
+**The choice.** `umwayi stalls check` gains a second input, `--goals`, and the old `EVENTS.json` input stays as it is. The supervisor already records everything the check needs, so the producer is the supervisor's own records, not a report that an adapter sends. Reading each helper's own session command line (the replacement) is not chosen now: none of those outputs is confirmed (table below). A session fact joins the input only after the owner pins its format.
+
+**Inputs**, all read only, for each task in `running`:
+
+- `length`: the total `bytes` of the task's `output` events (`umwayi/goallog.py`). It is the runtime form of "the text length of a session", counted by the supervisor as the child writes, never sent by the helper;
+- `head`: the worktree's `HEAD`, from the existing `goalgit` list `head`;
+- the times of the last real event, the last `fingerprint` with `changed: true`, and the last `check_result` (`goallog.is_real`);
+- `stall_minutes` from `umwayi.json` (W65.R2).
+
+**Output**, one JSON list on stdout with `--json`, else one line per session:
+
+```json
+[{"session": "G-0007/T-02", "length": 48213, "head": "3f9c...", "minutes_unchanged": 34, "verdict": "stalled"}]
+```
+
+`minutes_unchanged` is the whole minutes since the newest of these: a change of `length`, a change of `head`, a changed fingerprint, a check result. `verdict` is `working` (under `stall_minutes`), `stalled` (at or over it, the `helper_state` rule) or `idle` (no task running and a goal that `idle_line` calls idle). A value that cannot be read leaves the session out of the list and gives exit 2, never a guess.
+
+**Exit codes:** 0 every session is `working` or `idle`; 3 any session is `stalled` (Ask me first, as every finding of the check is today); 2 an unreadable event log, state file or git answer, or an unexpected error; 64 usage (both inputs given, or neither). Never 1. It writes nothing and takes no lock. The supervisor acts on `stalled` only through the `helper_stalled` gate question above.
+
+**What each helper can report:**
+
+| helper | what umwayi can see at runtime | what the helper cannot report |
+| --- | --- | --- |
+| Claude Code (`claude -p`, started by `agent run`) | the process and its exit; stdout bytes; one `umwayi check` logbook entry per tool call, through the layer 9 hook; the spend through the telemetry receiver (`umwayi/telemetry.py`). The hook input carries `session_id` and `transcript_path` (`adapters/NOTES.md`), which umwayi does not keep | whether it is thinking or hung; a list of its sessions from the command line (not checked); the format of the transcript file (not documented in the repo, so not read) |
+| Kiro (`kiro-cli chat --v3 --no-interactive`) | the process and its exit; stdout bytes; one `umwayi check` entry per tool call, when the owner's Kiro hook file is in place | whether it is thinking or hung; its spend per run (units.yaml counts Kiro by runs); a progress event (no event hook is documented); the fields of `--list-sessions` (unknown until the owner pastes them) |
+| OpenCode (`opencode acp`, chat only today) | the process; every ACP `session/update` (message chunks, `tool_call`, `tool_call_update`, `NOTES-layer10.md`); one `umwayi check` entry per tool call through the plugin; each permission request | a run without a terminal: `agent run` refuses OpenCode (W9.13 waits for the owner), so it cannot take a goal role and has nothing to report to a goal; whether a quiet session is thinking or hung; a session list (whether OpenCode offers one over ACP is not checked) |
+
+The `umwayi check` entries carry no goal or task id. They count as a sign of life only by time, which is safe while one task runs at a time.
+
 ## Delivery and CI signals
 
 - **Delivered.** The helper's process exit, which the supervisor sees, and then the branch head on origin. umwayi never pushes and never fetches. In the product the owner, or a script of the owner's, pushes the branch and records it: `umwayi work record G-0007 T-02 delivered --head SHA`. The record command checks that SHA is the local branch head, with a git read.
@@ -168,6 +201,7 @@ Added, `### W65.R1` to `### W65.R8` at the end of requirements.md:
 - **W65.R6 Exit codes.** 0, 2, 3 and 64, as in the table.
 - **W65.R7 What it never does,** as above.
 - **W65.R8 Tests,** the table below.
+- **W65.R9 The stalls producer (E6).** `umwayi stalls check --goals [--json]` reads the supervisor's own records (output bytes, the worktree head, the event times) and prints one entry per running task with `session`, `length`, `head`, `minutes_unchanged` and `verdict`; 0, 2, 3 and 64; it writes nothing.
 
 Changed:
 
@@ -177,7 +211,7 @@ Changed:
 - **W9.R8.9 and `goalgit`:** two new read lists, 20 in all, and no new write.
 - **13.R9.3:** `helper_restart` joins `NEVER_AUTONOMY`.
 - **10.R5 (`agents.py` argument lists):** `--resume` and, once confirmed, `--resume-id ID` (a UUID) for a Kiro `agent run`; `--list-sessions` as a probe list; `--delete-session` a forbidden word.
-- **stalls.md:** `umwayi stalls check` stays as it is. `work next` reports stalls from the real event logs, so the question of who writes the JSON file is answered by "nothing needs to" (open question 5).
+- **stalls.md:** the `EVENTS.json` input stays; the new `--goals` input of W65.R9 is its producer, and its open question "who writes the events file?" is answered by the supervisor's own records.
 
 ## The tests it would need
 
@@ -213,6 +247,9 @@ Dates and times come from today's UTC clock in the test, never a fixed day.
 | R5 record one row | `test_record_changes_one_row_and_logs_once` | rewrite the table |
 | R5 record head | `test_a_head_that_is_not_the_branch_head_is_refused` | trust the typed SHA |
 | R5 rollback | `test_record_is_rolled_back_when_the_entry_fails` | write the file first |
+| R9 length | `test_new_output_bytes_reset_minutes_unchanged` | read the helper's own word for its length |
+| R9 unreadable | `test_an_unreadable_event_log_is_2_not_working` | report `working` |
+| R9 one input | `test_both_inputs_or_neither_is_64` | prefer one silently |
 | R6 codes | rows in `tests/test_exit_codes.py` | a bad cell exits 1 |
 | R7 never | a source scan of `umwayi/work.py` | a socket import, a shell, a push list, a `goal.dispatch` call |
 
@@ -247,6 +284,6 @@ This section describes the way umwayi-os is built today, with an outside guide a
 2. **Where the probe lives.** `python -m tools.work_probe` (this design), or `umwayi work probe` with a network exception in the core. Recommendation: `tools/`. The core's no-network test is a safety check, and changing it is the owner's decision.
 3. **CI option B.** Recommendation: no workflow step. A notification has no local receiver, and the probe reads the same facts.
 4. **Restarts.** `restarts` default 1, and the Ask answer does not restart. Recommendation: keep both. A second stall of the same task is more likely a cause than bad luck.
-5. **`umwayi stalls check`.** Recommendation: keep it for now, and retire it once `work next` has reported stalls in one real goal run.
+5. **`umwayi stalls check`.** Recommendation: keep both inputs. The `--goals` input is the runtime producer, and the `EVENTS.json` input stays for the owner's own files.
 6. **Resume or start fresh.** Recommendation: resume the Kiro session in the same worktree, because its commits and saved turns are kept; start fresh only when the owner's test shows a resume does not work headless.
 7. **Slots.** Recommendation: 1 until W9.12 `--ahead` is asked for. The functions take `slots`, so nothing changes in them later.
