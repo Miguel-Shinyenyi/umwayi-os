@@ -1801,3 +1801,14 @@ The design is in [operations.md](operations.md). Nothing of it is built. These f
 - Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
 - There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
 - `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
+
+## Merge gate (W63), found while designing
+
+### 303. an agent can act as the owner on GitHub today, and a merge-ready pass says nothing about whether the work is right
+
+These are facts read on Nov 16 and limits of the design in `docs/merge-ready-design.md`.
+
+- Any token on the machine where helpers run can be used by a helper. In today's build sandbox, `gh api user` returns the owner's account, so any GitHub review, label or comment the owner can make, an agent there can make too, and none of them shows the owner's approval.
+- The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
+- A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
+- A limits part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `tools/merge_main.py` renumbers it. So the design checks that the number is the one the build gives, not that the part has none; the owner decides which reading is meant.
