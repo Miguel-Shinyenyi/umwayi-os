@@ -156,6 +156,35 @@ def goal_state(states, stopped=False):
     return "active" if first == "queued" else "waiting"
 
 
+_GOAL_ID = re.compile(r"G-[0-9]{4,}")
+_TASK_ID = re.compile(r"T-[0-9]{2}")
+_BUSY = ("running", "in review", "failed", "stopped")
+
+
+def idle_line(goal, tasks):
+    """W60: the one line that says a goal is idle while tasks remain, or None. Pure: no file, no clock, no process.
+
+    `goal` is the goal id and `tasks` the kept (not dropped) tasks of an approved goal that is not stopped, in their
+    order, as (task id, state) pairs. A task that needs the owner wins: `Waiting for you: T-02 needs an answer.`
+    (several are named in order). Otherwise, when a task is queued and none is running, in review, failed or stopped
+    (exactly when `goal run` would start the next one), `Idle: N tasks queued and nothing is running. Next: python -m
+    umwayi goal run G-0007`. Anything else, an unknown state or a bad id included, is None: nothing new is printed."""
+    if not isinstance(goal, str) or not _GOAL_ID.fullmatch(goal):
+        return None
+    pairs = list(tasks)
+    if not all(isinstance(p, tuple) and len(p) == 2 and isinstance(p[0], str) and _TASK_ID.fullmatch(p[0])
+               and p[1] in STATES for p in pairs):
+        return None
+    owner = [tid for tid, state in pairs if state == "needs owner"]
+    if owner:
+        return f"Waiting for you: {', '.join(owner)} {'needs' if len(owner) == 1 else 'need'} an answer."
+    queued = sum(1 for _tid, state in pairs if state == "queued")
+    if not queued or any(state in _BUSY for _tid, state in pairs):
+        return None
+    word = "task" if queued == 1 else "tasks"
+    return f"Idle: {queued} {word} queued and nothing is running. Next: python -m umwayi goal run {goal}"
+
+
 # ----------------------------------------------------------------------------------------------- ids and names
 
 

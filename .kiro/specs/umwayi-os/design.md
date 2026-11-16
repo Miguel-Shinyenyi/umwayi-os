@@ -3896,6 +3896,8 @@ Goal G-0007  active  (2 of 5 tasks merged, 1 in review)
 Docs: 2 parts not yet built
 ```
 
+The idle line (W60, W9.R11.8 and W44.R1.7) comes right after the line of its goal: `Waiting for you: T-03 needs an answer.` when a task needs the owner, or `Idle: 2 tasks queued and nothing is running. Next: python -m umwayi goal run G-0007` when a task is queued and none is running, in review, failed or stopped. It is decided by the pure `goalpacket.idle_line(goal, tasks)` from the (task id, state) pairs of the kept tasks, and is printed only for an approved goal that is not stopped. `umwayi up` prints the same lines through `goal.status_lines`. A later backlog function can call the same function.
+
 "Last event" is always printed before the supervisor line. If no real event exists yet it prints `Last event: none yet (task started 3 min ago)`. The test compares the text with a golden.
 
 ### Approvals, in detail

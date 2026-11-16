@@ -6,6 +6,7 @@ Waiting for you
 Goal G-0001  plan  (0 of 0 tasks merged, 0 in review)
   Spent: 5 of 20 UU on the goal.
 Goal G-0002  waiting  (0 of 1 tasks merged, 0 in review)
+  Waiting for you: T-01 needs an answer.
   Task T-01  needs owner (busy)
   Last event: state: queued to needs owner (busy), 7 min ago
   Spent: 0 of 30 UU on this task.
