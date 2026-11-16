@@ -196,6 +196,12 @@ def start(ctx, text, guide, plan_budget_uu, guide_model="", guide_effort=""):
         _print_show(ctx, goal)
         return OK
     word = o.word or "refused"
+    try:
+        g = gs.read_goal(ctx.root, goal)
+        if g["refused"] and g["refused"] == word:
+            word = _refused_words(g)  # W55b: a refused context entry says where and why
+    except UmwayiError:
+        pass
     if o.exit == ASK:
         ctx.warn(f"{rules.ASK}: the planning run of goal {goal} did not start ({word}). Nothing was planned.")
     else:
@@ -546,6 +552,12 @@ def _goal_word(ctx, goal):
         return "unknown"
 
 
+def _refused_words(g):
+    """`unclear`, or for a refused context entry `context: task 1, entry 2, private` (W55b): never the path."""
+    c = g.get(gs.REFUSED_CONTEXT_KEY)
+    return f"{g['refused']}: {gs.refused_context_words(c)}" if c else g["refused"]
+
+
 def _spent(ctx, goal):
     g = gs.read_goal(ctx.root, goal)
     total = gs.plan_used_uu(g)  # W55a: the measured spend of the planning run, also for a refused plan
@@ -594,8 +606,10 @@ def status_lines(ctx, only=None):
             t = gs.read_task(ctx.root, goal, task)
             if t["state"] == "needs owner" and t["approval"]:
                 waiting += [f"  Goal {goal} task {task} needs you ({t['reason']}). "
-                            f"{gw.approval_sentence(_approval(goal, t), ctx.now)}",
-                            f"  Answer with: umwayi goal answer {goal} {task} yes   (or no)"]
+                            f"{gw.approval_sentence(_approval(goal, t), ctx.now)}"]
+                if t.get(gs.BLOCKED_KEY):  # W56: what the builder asked and which rule answered
+                    waiting.append(f"  Blocked: {gs.block_sentence(t[gs.BLOCKED_KEY])}. Add a Yes rule for it, or answer no.")
+                waiting.append(f"  Answer with: umwayi goal answer {goal} {task} yes   (or no)")
     if waiting:
         lines += ["Waiting for you"] + waiting
     supervisor_alive = not gs.lock_free(ctx.root)
@@ -606,6 +620,8 @@ def status_lines(ctx, only=None):
         n_merged = sum(1 for t in kept if t["state"] == "merged")
         n_review = sum(1 for t in kept if t["state"] == "in review")
         lines.append(f"Goal {goal}  {_goal_word(ctx, goal)}  ({n_merged} of {len(kept)} tasks merged, {n_review} in review)")
+        if g["refused"]:
+            lines.append(f"  The plan was refused ({_refused_words(g)}).")
         for t in kept:
             if t["state"] in ("merged", "queued"):
                 continue
@@ -649,6 +665,8 @@ def _task_lines(ctx, goal, g, t, supervisor_alive):
         cause = _causes(ctx).get((goal, t["id"])) if t["state"] == "failed" else None
         head += f" ({t['reason']}: {cause})" if cause else f" ({t['reason']})"
     out = [head]
+    if t["state"] == "needs owner" and t.get(gs.BLOCKED_KEY):
+        out.append(f"  Blocked: {gs.block_sentence(t[gs.BLOCKED_KEY])}.")
     real = [e for e in events if goallog.is_real(e)]
     if real:
         last = real[-1]
@@ -720,6 +738,8 @@ def report_lines(ctx, goal):
                   f"- Goal: {p.goal}"]
         if t["state"] == "failed" and causes.get((goal, task)):
             lines.append(f"- Cause: {causes[(goal, task)]}")
+        if t["state"] == "needs owner" and t.get(gs.BLOCKED_KEY):
+            lines.append(f"- Blocked: {gs.block_sentence(t[gs.BLOCKED_KEY])}")
         lines += [f"- Check {i}: {c}" for i, c in enumerate(p.checks, 1)]
         lines += [f"- Runs: " + (", ".join(f"{r['role']} {r['agent']} (cap {r['cap_uu']} UU)" for r in runs) or "none"),
                   f"- Minutes: {minutes}", f"- Spent: {int(t.get('spent_uu') or 0)} of {p.budget_uu} UU",
@@ -735,7 +755,7 @@ def report_lines(ctx, goal):
     left = (g["goal_budget_uu"] - _spent(ctx, goal)) if g["goal_budget_uu"] else 0
     lines += ["## The goal", "", f"- Spent: {_spent(ctx, goal)} UU, left {max(0, left)} UU of {g['goal_budget_uu']} UU",
               f"- Planning run: {gs.plan_used_uu(g)} UU of its budget of {g['plan_budget_uu']} UU"
-              + (f", the plan was refused ({g['refused']})" if g["refused"] else ""),
+              + (f", the plan was refused ({_refused_words(g)})" if g["refused"] else ""),
               "- Needs you: " + (", ".join(needs) or "nothing"),
               "- Waiting for your merge: " + (", ".join(review) or "nothing")]
     d = _docs_line(ctx)

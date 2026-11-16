@@ -196,6 +196,10 @@
    "seconds": 0.5,
    "shard": 1
   },
+  "tests/goal/test_blocked.py": {
+   "seconds": 20.8,
+   "shard": 1
+  },
   "tests/goal/test_budget.py": {
    "seconds": 0.4,
    "shard": 2
@@ -252,6 +256,10 @@
    "seconds": 1.8,
    "shard": 1
   },
+  "tests/goal/test_planted_words.py": {
+   "seconds": 20.8,
+   "shard": 2
+  },
   "tests/goal/test_report.py": {
    "seconds": 1.7,
    "shard": 1
@@ -299,6 +307,10 @@
   "tests/serve/test_gen.py": {
    "seconds": 0.2,
    "shard": 2
+  },
+  "tests/serve/test_goal_map_page.py": {
+   "seconds": 20.8,
+   "shard": 3
   },
   "tests/serve/test_goal_map_route.py": {
    "seconds": 0.6,

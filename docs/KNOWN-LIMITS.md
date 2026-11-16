@@ -1662,3 +1662,41 @@ The Kiro login check waits up to 30 seconds for `kiro-cli whoami` before every K
 - The No list is plain text. Shell syntax the list does not name is allowed when the line starts with one of the five commands, for example input from a file with `<` or `<<<`. A here document is not Yes, because it needs a newline and `__startswith` takes one printable line. Other options of the five commands are allowed, for example `git commit --amend` or `git add -f`.
 - An unknown matcher `__word` still loads and is read as an equals matcher on that field name; it is not refused (the request assumed it was). Refusing it at load would change which existing rules files load, so it is left for the owner.
 - `cwd` reaches the rules only from the Claude Code hook. Kiro's docs show `cwd` in one example only, so the Kiro hook does not send it, and the builder rules do nothing for Kiro.
+
+## Goal orchestration (W9), found while building W56
+
+### 291. A blocked builder is found from the logbook entries written while it ran
+
+Since W56, a task whose builder was blocked by the rules gate needs the owner instead of failing. How the block is found sets its limits:
+
+- The supervisor reads the `umwayi check` entries written between the builder's start and its end. Any check of a tool call in that time counts, also one by another helper or by the owner in the same root. A logbook that cannot be read with its checks gives no block, and the task ends as it did before W56.
+- Only the last block is named. Earlier blocks of the same run are in the logbook as `umwayi check` entries.
+- A block counts only when the builder then exited with 2, 3 or another code that is not 64, or exited 0 with no commit. A timeout, a budget stop, a stall or a loop keeps its own cause, and a builder that worked around a block and committed goes on to the tester.
+- An action type outside the fixed list of `goalstate.BLOCK_TYPES` is shown as `tool_other`, and a Kiro MCP tool as `tool_mcp`; the logbook's `umwayi check` entry has the full type.
+- With Kiro, an Ask me first also gives the hook's own queue row (`Kiro asks first: may it do TYPE?`), so the owner sees two rows: that one and the task's.
+- The worktree of the blocked run is kept. After the owner adds a Yes rule and answers yes, the next `goal run` stops with `leftover` until the worktree is removed, as for any builder that asked the owner (exit 3) before W56.
+
+## Goal map live read (W38b), found while building
+
+### 292. The goal map page reads on open and on Refresh only, one page per server
+
+`umwayi serve --page ui/dist/goal-map.html` serves the goal map page, which reads `GET /v1/goal-map`. These are its limits.
+
+- The page shows the goal map as it was when it was last read. Nothing moves by itself: the owner presses Refresh. The line says when it was read (the `now` of the document).
+- The read on open sends nothing until a token has been pasted, so a freshly opened page asks for the token first. A reload forgets the token.
+- One server serves one page. To see the live view and the goal map at once, two servers are needed, each with its own root or port. The live view does not link the goal map (the owner decides that).
+- Each Refresh is one logged read: two logbook entries, as for every read of the page (W6.R7.7).
+- The page is served only if its SHA-256 equals `goalMapPage` in `build.json`, so a build of the ui that is not committed (or an edit by hand) makes the server answer 503 with the word `page`.
+- The screenshot of W38b was taken in a browser that could not reach the sandbox's 127.0.0.1, so the page bytes and the `/v1/goal-map` answer were first fetched from a real `umwayi serve` and then handed to the browser for the same address. The requests the page sent were recorded: one `GET /v1/goal-map` with the token and no body, and nothing more.
+
+## Goal orchestration (W9), found while building W55b
+
+### 293. The first word of a blocked shell command is kept only when it looks like a program name
+
+Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first ends with the first word of the command, and a refused plan names the place of its first bad context entry.
+
+- The first word is kept only when it is lowercase letters (and `_ . + -`) with at most two digits at its end, 24 characters at most. Anything else is `other`. A lowercase word of letters only is kept even when it is not a program name, so a secret that is the first word of a command and has that shape would be written. A secret in any later word, in a `NAME=value` before the command, or in the folders of a path is never written.
+- Only the first word is read. In `cd src && git push` the word is `cd`, and in `sudo rm -rf x` it is `sudo`.
+- The shell types are `tool_bash`, `tool_powershell`, `tool_execute_bash`, `tool_execute_pwsh` and `tool_shell`. A tool of another type that runs a command (an MCP tool, for example) gets no command word.
+- A plan refused for a context entry names only the first such entry. A context list that is too long, or files that are too big together, is still only `context`, with no entry named.
+- `missing` also covers a context entry that is a link or not a regular file.

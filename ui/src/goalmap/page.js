@@ -5,11 +5,11 @@
 import { readGoalMap, MESSAGES, MAX_BYTES } from './model.js';
 import { drawMap, drawList, drawFeed, drawLamp, goalWords, supervisorWords } from './draw.js';
 import { createTheme, themeFromHash, themeHash, isThemeKey, TITLE_WORD } from './theme.js';
-import { createFeed, liveLoad } from './feed.js';
+import { createReader, createClient, liveLoad, LINES } from './feed.js';
 import { readTextFile } from '../data/snapshot.js';
 import { parseTier, tierHash } from '../engine/tier.js';
 
-export function startGoalMap(win, { load = liveLoad } = {}) {
+export function startGoalMap(win, { load, client } = {}) {
   const doc = win.document;
   const $ = (id) => doc.getElementById(id);
   const root = doc.documentElement;
@@ -18,6 +18,8 @@ export function startGoalMap(win, { load = liveLoad } = {}) {
   const theme = createTheme({ chosen: themeFromHash(win.location.hash), reduced: !!(media && media.matches) });
   let tier = parseTier(win.location.hash) === 1 ? 'list' : 'standard';
   let model = null, source = 'live';
+  const api = client || createClient({ location: win.location });
+  const loadLive = load || liveLoad(api);
 
   const line = (text) => { $('line').textContent = text; };
   function render() {
@@ -35,6 +37,7 @@ export function startGoalMap(win, { load = liveLoad } = {}) {
     $('src-live').setAttribute('aria-pressed', String(source === 'live'));
     $('src-file').setAttribute('aria-pressed', String(source === 'file'));
     $('file').hidden = source !== 'file';
+    $('live').hidden = source !== 'live';
     const kill = model ? model.kill : { lit: false, word: 'unknown', note: 'drawn as on' };
     drawLamp(doc, $('lamp'), kill, theme.on);
     $('lamp-words').textContent = `Kill switch: ${kill.word}, ${kill.note}`;
@@ -48,24 +51,35 @@ export function startGoalMap(win, { load = liveLoad } = {}) {
 
   function take(raw) {
     const r = readGoalMap(raw);
-    if (!r.ok) { line(r.message); return; }
+    if (!r.ok) { line(r.message); return false; }
     model = r.model;
     line(model.goal ? '' : MESSAGES.noGoal);
     render();
+    return true;
   }
 
-  const feed = createFeed({
-    load,
-    onData: take,
+  const reader = createReader({
+    load: loadLive,
+    onData: (data) => { if (source === 'live' && take(data) && model.goal) line(LINES.read(model.now)); },
     onDown: (text) => { if (source === 'live') line(text); },
-    setTimer: (f, ms) => win.setTimeout(f, ms),
-    clearTimer: (t) => win.clearTimeout(t),
   });
+
+  // the one way a live read starts: on open, and on a press of Refresh (or Enter in the token field)
+  function refresh() {
+    const field = $('token');
+    const value = field.value;
+    field.value = ''; // emptied before anything else happens
+    if (value) api.setToken(value.trim());
+    if (source !== 'live' || reader.busy) return;
+    $('refresh').disabled = true;
+    line(LINES.reading);
+    reader.read().finally(() => { $('refresh').disabled = false; });
+  }
 
   function useSource(next) {
     source = next;
-    if (next === 'live') feed.start(); else { feed.stop(); line('Open a goal map file to draw it.'); }
     render();
+    if (next === 'live') refresh(); else line('Open a goal map file to draw it.');
   }
 
   const handlers = [];
@@ -85,6 +99,8 @@ export function startGoalMap(win, { load = liveLoad } = {}) {
   on(doc, 'keydown', (e) => { if (isThemeKey(e)) { e.preventDefault(); toggle(); } });
   on($('src-live'), 'click', () => useSource('live'));
   on($('src-file'), 'click', () => useSource('file'));
+  on($('refresh'), 'click', refresh);
+  on($('token'), 'keydown', (e) => { if (e && e.key === 'Enter') { e.preventDefault(); refresh(); } });
   on($('file-input'), 'change', () => {
     const f = $('file-input').files && $('file-input').files[0];
     readTextFile(f, win.FileReader, MAX_BYTES).then((text) => (text === null ? line(MESSAGES.tooBig) : take(text)));
@@ -93,9 +109,11 @@ export function startGoalMap(win, { load = liveLoad } = {}) {
 
   line('');
   render();
-  feed.start();
+  refresh(); // the one read on open
   return {
-    stop() { feed.stop(); for (const [t, ty, f] of handlers) t.removeEventListener(ty, f); },
+    stop() { for (const [t, ty, f] of handlers) t.removeEventListener(ty, f); },
+    refresh,
+    get reads() { return reader.reads; },
     get model() { return model; },
     get theme() { return theme; },
     take,
