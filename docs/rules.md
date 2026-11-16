@@ -117,6 +117,8 @@ With the starter rules, every file write and every shell command of a Claude Cod
 - The list has `&` in place of `&&`: it covers `&&` and also a command sent to the background with one `&`. A newline is not in the list (a `__contains` value cannot be only spaces); `__startswith` already refuses a command with a newline.
 - Matching is plain text, not a shell parser. `git commit` runs the repo's hooks and `python3 -m unittest` runs the repo's tests, so the builder can run code it wrote. That is what a builder does; the worktree and the No rules are the bounds.
 
+Ready sets of rules an owner can copy (read only, tester, no network, no credentials, budget check), each validated, versioned and hashed, are designed in [rules library](rules-library.md) (W76, design note; nothing in it is active).
+
 ### Review dates: a Yes rule that runs out (layer 13, elections)
 
 A Yes rule may have `review_by: 2026-12-01` (a real date, `YYYY-MM-DD`). The rule is in force through the whole of that day. From the next day it counts as an Ask me first rule in every check: `umwayi check`, the agent gates, the schedule, and the callers that have no logbook (jobs, AI helpers, `publish-draft`, the inner checks of a workflow). The file is not edited and the rule is not deleted; the owner renews it by editing the date.
