@@ -1844,3 +1844,14 @@ The proposed task budgets of W54 read the measured spend of each role from the t
 - The design note said the `started` events give the model and the effort; they do not. The builder's model and effort come from the packet, the tester's and the guide's from `goal.json`.
 - A Kiro term is the declared run or the unknown worst case, capped at per_run. A declared Kiro run above per_run gives a term of per_run, and that run is still refused at its start, as before.
 - `calibrate` names Claude Code's own model id in its settle entries (for example `claude-sonnet-5`), while the owner gives a model word (for example `sonnet`). They match only when the words are the same; otherwise the number for all measured runs is used.
+
+## Rules library (W76), found while designing
+
+### 307. a rules set applies to the whole root, not to one agent, and rules cannot express a budget size
+
+These are facts of main `25b3a47`, checked while writing `docs/rules-library.md`. Nothing was changed.
+
+- The action an adapter hook sends names the platform and the tool, not the agent of `agents.yaml`, so a rule cannot single out one Claude Code helper of a root. A read only set makes every Claude Code helper of that root read only.
+- Rules match words: there is no less-than matcher, so a budget size cannot be a rule; it is set in `units.yaml`.
+- A matcher with an unknown operator is read as an equals matcher on a field no action has, so a copied rule that uses one never matches and nothing says so.
+- Text matching cannot see network use by code that names no listed word: `python3 -c "import urllib.request"` matched no rule of the no network set.
