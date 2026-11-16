@@ -1779,13 +1779,25 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
 
-## Merge gate (W63), found while designing
+## Connectors (W72), found while designing
 
-### 301. an agent can act as the owner on GitHub today, and a merge-ready pass says nothing about whether the work is right
+### 301. umwayi has no connector, and the gh login in the builder's sandbox is the owner's full account
 
-These are facts read on Nov 16 and limits of the design in `docs/merge-ready-design.md`.
+These are facts of main `6525606`, found while writing `docs/connectors.md`. Nothing was changed.
 
-- Any token on the machine where helpers run can be used by a helper. In today's build sandbox, `gh api user` returns the owner's account, so any GitHub review, label or comment the owner can make, an agent there can make too, and none of them shows the owner's approval.
-- The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
-- A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
-- A limits part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `tools/merge_main.py` renumbers it. So the design checks that the number is the one the build gives, not that the part has none; the owner decides which reading is meant.
+- umwayi sends no message, mirrors no status and runs no scan on a timer: there is no email, push, Notion, error monitor or scan connector, and jobs allow only `report`, `check` and `queue-list`.
+- The only GitHub reader in the repo is `tools/board_status.py`, which uses the public API with no token and so cannot read a private repository.
+- In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
+- An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
+
+## Operations (W71), found while designing
+
+### 302. a helper may outlive a killed supervisor, and the pid check needs /proc
+
+The design is in [operations.md](operations.md). Nothing of it is built. These facts were read from the code at main 6525606 and were not run.
+
+- The helper child is started in its own session (`start_new_session=True`, `umwayi/goalrun.py`). When the supervisor is killed, the next goal command marks the task `stopped` with reason `supervisor` (`goalstate.mark_lost`), but nothing stops the child. It may keep running until it ends by itself.
+- `goal status` decides whether a child is alive by reading `/proc/PID/stat` (`umwayi/goal.py` `_pid_alive`). Without `/proc`, as on macOS, a live child is shown as `not running`.
+- Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
+- There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
+- `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
