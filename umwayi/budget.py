@@ -332,6 +332,14 @@ def status(root: Path, day: str, today: str) -> tuple:
 # ------------------------------------------------------------ calibrate (B.5, B-Q3)
 
 
+def per_run_proposal_uu(runs: list) -> int:
+    """1.5 times the 95th percentile (nearest rank) of the micros of one measured run, rounded up to a whole UU: the
+    per_run that `calibrate` proposes (B.5), shared with the goal budget proposal (W54). `runs` is not empty."""
+    ordered = sorted(runs)
+    p95 = ordered[-(-95 * len(ordered) // 100) - 1]
+    return -(-(3 * p95) // (2 * units.MICROS_PER_UU))
+
+
 def calibrate(root: Path, today: str) -> tuple:
     """(code, lines) for `umwayi budget calibrate`. Only proposes; the owner edits units.yaml (B-Q3)."""
     try:
@@ -360,7 +368,7 @@ def calibrate(root: Path, today: str) -> tuple:
     m = len(totals)
     twice_median = 2 * totals[m // 2] if m % 2 else totals[m // 2 - 1] + totals[m // 2]
     median = f"{twice_median // 2}" + (".5" if twice_median % 2 else "")
-    per_run = -(-(3 * p95) // (2 * units.MICROS_PER_UU))
+    per_run = per_run_proposal_uu(runs)
     per_day = -(-twice_median // units.MICROS_PER_UU)
     return 0, [
         f"Data: {len(runs)} measured run(s) over {len(days)} day(s) (the newest {max(days)}, the oldest {min(days)}).",

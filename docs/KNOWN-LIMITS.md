@@ -1767,3 +1767,16 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
+## Goal orchestration (W54), found while building the proposed budgets
+
+### 300. A proposal has history only from tasks run after W54, and its history is per task
+
+The proposed task budgets of W54 read the measured spend of each role from the task files (`measured_uu`). What follows:
+
+- Only tasks run after W54 have it. Until 5 tasks of the same platform, model and effort reach review, a Claude Code role comes from `umwayi budget calibrate` (20 measured runs over 7 days) or is `no history`, and the owner types the number.
+- The tester's and the check's history is their spend per task, not per run. A task whose tester ran twice (after the owner answered yes) counts both runs as one sample.
+- A role's history counts only when every one of its runs was settled with a measured reading. A run settled from token counts at the rates in units.yaml (`declared`) or at the worst case (`unknown`) is not history.
+- The design note said the `started` events give the model and the effort; they do not. The builder's model and effort come from the packet, the tester's and the guide's from `goal.json`.
+- A Kiro term is the declared run or the unknown worst case, capped at per_run. A declared Kiro run above per_run gives a term of per_run, and that run is still refused at its start, as before.
+- `calibrate` names Claude Code's own model id in its settle entries (for example `claude-sonnet-5`), while the owner gives a model word (for example `sonnet`). They match only when the words are the same; otherwise the number for all measured runs is used.

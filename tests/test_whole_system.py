@@ -857,6 +857,32 @@ class GoalWholeSystemTests(unittest.TestCase):
             self.assertNotIn(gw.SECRET, text)
         self.end_checks()
 
+    def test_05_the_owner_approves_the_proposed_budgets_and_the_task_runs_inside_them(self):
+        """W54: `goal show` with the roles prints the proposal (three Kiro runs declared at 10 UU) and writes nothing;
+        `approve --accept-proposed ID` in a pseudo terminal takes exactly those numbers; the run stays inside them."""
+        w = self.w
+        goal = self.start()
+        before = w.snapshot()
+        r = self.goal_cmd("show", goal, "--builder", "kiro-build", "--tester", "kiro-test", "--model", "sonnet",
+                          "--effort", "high", code=0)
+        self.assertEqual(w.snapshot(), before)
+        self.assertIn("    Proposed: 30 UU = builder 10 (declared) + tester 10 (declared) + check 10 (declared)", r.stdout)
+        pid = re.search(r"Proposal id ([0-9a-f]{8})\.", r.stdout).group(1)
+        rc, out = w.tty("goal", "approve", goal, "--builder", "kiro-build", "--tester", "kiro-test", "--model", "sonnet",
+                        "--effort", "high", "--accept-proposed", "0" * 8)
+        self.assertEqual(rc, 2, out)  # not the proposal that was shown
+        self.assertIn("The proposal changed since you read it", out)
+        rc, out = w.tty("goal", "approve", goal, "--builder", "kiro-build", "--tester", "kiro-test", "--model", "sonnet",
+                        "--effort", "high", "--accept-proposed", pid)
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(w.task(goal)["packet"]["budget_uu"], 30)
+        self.assertIn("Proposed and accepted: T-01 30; goal budget 50.", w.logbook_text())
+        self.good(goal, "T-01", 1)
+        self.goal_cmd("run", goal, code=0)
+        self.assertEqual(w.state(goal), ("in review", "checked"))
+        self.assertLessEqual(w.task(goal)["spent_uu"], 30)
+        self.end_checks()
+
     # ---- pitfall 1: an approval that waits silently
 
     def test_10_an_approval_nobody_answers_is_visible_and_then_denied_by_the_next_command(self):
