@@ -1779,9 +1779,20 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
 
+## Connectors (W72), found while designing
+
+### 301. umwayi has no connector, and the gh login in the builder's sandbox is the owner's full account
+
+These are facts of main `6525606`, found while writing `docs/connectors.md`. Nothing was changed.
+
+- umwayi sends no message, mirrors no status and runs no scan on a timer: there is no email, push, Notion, error monitor or scan connector, and jobs allow only `report`, `check` and `queue-list`.
+- The only GitHub reader in the repo is `tools/board_status.py`, which uses the public API with no token and so cannot read a private repository.
+- In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
+- An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
+
 ## Goal orchestration (W54), found while building the proposed budgets
 
-### 301. A proposal has history only from tasks run after W54, and its history is per task
+### 302. A proposal has history only from tasks run after W54, and its history is per task
 
 The proposed task budgets of W54 read the measured spend of each role from the task files (`measured_uu`). What follows:
 
