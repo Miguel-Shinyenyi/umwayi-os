@@ -1802,10 +1802,13 @@ The design is in [operations.md](operations.md). Nothing of it is built. These f
 - There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
 - `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
 
-## Guidance (W66), the merge main wording
+## Signing (E5), found while designing
 
-### 303. the merge main entry says the supervisor records the paths and asks the owner, but no supervisor runs merge_main yet
+### 303. an SSH signature holds no trusted time, and nothing refuses a private key in the repo today
 
-- The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
-- The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
-- `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
+These are facts measured or read on Nov 16 while writing `docs/signing.md`. Nothing was changed.
+
+- `ssh-keygen -Y verify` (OpenSSH 9.9p1) compares a key's `valid-before` and `valid-after` with the time of the verify, not the time of the signing. After a key is retired, every old signature fails a bare verify unless the verifier passes `-O verify-time` with a trusted date, which for umwayi is the date of the logbook entry.
+- In an allowed signers file the options must be joined by commas with no space; a space makes the line an invalid key.
+- No check refuses a private key header in a tracked file today; the W62 secret scan is designed, not built.
+- The starter secret path rules name `id_rsa` and `id_ed25519`, not a key file under another name.
