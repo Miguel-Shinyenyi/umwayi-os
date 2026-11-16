@@ -1789,3 +1789,14 @@ These are facts of main `6525606`, found while writing `docs/connectors.md`. Not
 - The only GitHub reader in the repo is `tools/board_status.py`, which uses the public API with no token and so cannot read a private repository.
 - In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
 - An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
+
+## Signing (E5), found while designing
+
+### 302. an SSH signature holds no trusted time, and nothing refuses a private key in the repo today
+
+These are facts measured or read on Nov 16 while writing `docs/signing.md`. Nothing was changed.
+
+- `ssh-keygen -Y verify` (OpenSSH 9.9p1) compares a key's `valid-before` and `valid-after` with the time of the verify, not the time of the signing. After a key is retired, every old signature fails a bare verify unless the verifier passes `-O verify-time` with a trusted date, which for umwayi is the date of the logbook entry.
+- In an allowed signers file the options must be joined by commas with no space; a space makes the line an invalid key.
+- No check refuses a private key header in a tracked file today; the W62 secret scan is designed, not built.
+- The starter secret path rules name `id_rsa` and `id_ed25519`, not a key file under another name.
