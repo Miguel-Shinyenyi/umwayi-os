@@ -1768,13 +1768,13 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
 
-## Merge gate (W63), found while designing
+## Agent environment (W64), the SSH agent
 
-### 300. an agent can act as the owner on GitHub today, and a merge-ready pass says nothing about whether the work is right
+### 300. removing SSH_AUTH_SOCK does not stop a helper from reaching an SSH agent or a key another way
 
-These are facts read on Nov 16 and limits of the design in `docs/merge-ready-design.md`.
+W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper environment umwayi builds. That is all it does.
 
-- Any token on the machine where helpers run can be used by a helper. In today's build sandbox, `gh api user` returns the owner's account, so any GitHub review, label or comment the owner can make, an agent there can make too, and none of them shows the owner's approval.
-- The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
-- A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
-- A limits part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `tools/merge_main.py` renumbers it. So the design checks that the number is the one the build gives, not that the part has none; the owner decides which reading is meant.
+- A helper still runs as the owner's user. It can look for an agent socket by itself (for example under `/tmp/ssh-*` or a path the owner's shell config names), or open a socket of another program (gpg-agent, a keyring, a password manager) by its own path. The file permissions of the owner's user allow it.
+- It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
+- A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
+- The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.

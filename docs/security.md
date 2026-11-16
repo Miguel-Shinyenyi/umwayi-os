@@ -8,7 +8,7 @@ This page says what umwayi does to keep the owner in control (fail closed, rules
 
 - Fail closed: no matching rule, a broken file, an unknown kill switch state or a logbook that cannot be written never give Yes ([rules.md](rules.md), [workflows.md](workflows.md), [logbook.md](logbook.md)).
 - The core makes no network connection except the budget governor's telemetry receiver, on 127.0.0.1 for one Claude Code run ([budget-governor.md](budget-governor.md)).
-- An agent is started only through the front door, gated by the layer 9 hook, its login checked (subscription first) and its budget reserved ([agent-front-door.md](agent-front-door.md)).
+- An agent is started only through the front door, gated by the layer 9 hook, its login checked (subscription first) and its budget reserved ([agent-front-door.md](agent-front-door.md)). Its environment holds no credential name and not the owner's SSH agent (`SSH_AUTH_SOCK`, `SSH_AGENT_PID`, W64).
 - Logbook entries never hold an action's JSON, a prompt, a conversation or a credential; the hash chain and an outside anchor make edits visible ([logbook.md](logbook.md)).
 - Everything that is known and not fixed is in [KNOWN-LIMITS](KNOWN-LIMITS.md).
 - Enforcement is cooperative: a helper is checked only when its hook asks. The design note [enforcement.md](enforcement.md) (W41) compares a launcher with a scrubbed environment, optional OS confinement and detect-after; nothing of it is built.
