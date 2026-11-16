@@ -168,6 +168,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/budget/test_telemetry.py` | `adapters` |
 | `tests/budget/test_units.py` | `adapters` |
 | `tests/goal/test_approvals.py` | `umwayi.json` |
+| `tests/goal/test_blocked.py` | `umwayi.json` |
 | `tests/goal/test_cli.py` | `umwayi.json` |
 | `tests/goal/test_docs_parts.py` | `.gitignore`, `PROJECT.md`, `README.md`, `docs`, `docs-parts` |
 | `tests/goal/test_entries.py` | `umwayi.json` |

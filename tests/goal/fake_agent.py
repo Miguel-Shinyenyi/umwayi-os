@@ -19,6 +19,10 @@ FAKE_GOAL_SCRIPT, one after the other. A script says what it does:
   {"ignore_sigterm": true}             ignore SIGTERM from here on
   {"git": [ARG, ...]}                  run `git ARG ...` in the working folder (hooks off, no global config); a
                                        failure is exit 99. This is how a fake builder commits.
+  {"hook": {"tool_name": N, "tool_input": {...}}, "exit_if_blocked": CODE}
+                                       ask the real Kiro hook (adapters/kiro/hook.py --root $FAKE_UMWAYI_ROOT) about
+                                       one tool call, as Kiro does before it runs the tool (W56); when the hook blocks
+                                       (exit 2) and "exit_if_blocked" is given, exit with that code
   {"exit": CODE}                       exit with CODE
 
 With no script it prints one line and exits 0. The session id is new for every run.
@@ -81,6 +85,13 @@ def main():
             if subprocess.run(["git", "-c", "core.hooksPath=/dev/null", *step["git"]], env=env,
                               capture_output=True).returncode != 0:
                 return 99
+        elif "hook" in step:
+            event = dict(step["hook"], hook_event_name="PreToolUse")
+            hook = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "adapters", "kiro", "hook.py")
+            code = subprocess.run([sys.executable, hook, "--root", os.environ["FAKE_UMWAYI_ROOT"]],
+                                  input=json.dumps(event).encode("utf-8"), capture_output=True).returncode
+            if code != 0 and step.get("exit_if_blocked") is not None:
+                return int(step["exit_if_blocked"])
         elif step.get("ignore_sigterm"):
             signal.signal(signal.SIGTERM, signal.SIG_IGN)
         elif "exit" in step:

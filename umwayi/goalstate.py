@@ -153,9 +153,60 @@ def plan_used_uu(g):
     return int(g["plan_budget_uu"]) if g["plan"] is not None or g["approved"] else 0
 
 
-def _check_task(obj, task):
-    if set(obj) != set(TASK_KEYS) or obj["id"] != task or obj["version"] != 1 or obj["state"] not in TASK_STATES:
+# W56: a builder blocked by the rules gate. The words come from fixed lists only: the answer is No or Ask me first, the
+# action type one of BLOCK_TYPES (any other tool type is `tool_other`), the rule an id of rules.yaml or `none` when no
+# rule matched (an id that rules.yaml no longer holds is `unlisted`). Never a command, a path or any other argument.
+BLOCKED_KEY = "blocked"
+BLOCK_ANSWERS = ("No", "Ask me first")
+BLOCK_TYPES = tuple("tool_" + n for n in (
+    # the Kiro tool ids of adapters/kiro/rules.example.yaml
+    "read_file", "grep_search", "execute_bash", "execute_pwsh", "fs_write", "fs_append", "str_replace", "delete_file",
+    # the tools of adapters/common/umwayi_gate.py FIELDS (Claude Code and the generic adapter)
+    "bash", "powershell", "write", "edit", "multiedit", "read", "notebookedit", "glob", "grep", "webfetch", "websearch",
+    "agent",
+    # the fixed words of umwayi_gate.type_for, and the word for every other tool
+    "mcp", "unknown", "long_name", "other"))
+BLOCK_RULE_RX = r"[a-z0-9][a-z0-9_-]{0,99}"
+
+
+def block_words(rule_id, answer, action_type, rule_ids):
+    """The fixed words of one block: {"rule", "answer", "type"}. `rule_ids` is the set of ids in rules.yaml now."""
+    if answer not in BLOCK_ANSWERS:
+        raise ValueError("answer")
+    if rule_id is None:
+        rule = "none"
+    elif isinstance(rule_id, str) and re.fullmatch(BLOCK_RULE_RX, rule_id) and rule_id in rule_ids:
+        rule = rule_id
+    else:
+        rule = "unlisted"
+    if action_type in BLOCK_TYPES:
+        kind = action_type
+    elif isinstance(action_type, str) and action_type.startswith("tool_mcp_"):
+        kind = "tool_mcp"  # a Kiro MCP tool is mcp_SERVER_TOOL: the server and tool names are not kept
+    else:
+        kind = "tool_other"
+    return {"rule": rule, "answer": answer, "type": kind}
+
+
+def _check_blocked(b):
+    if not (isinstance(b, dict) and set(b) == {"rule", "answer", "type"} and b["answer"] in BLOCK_ANSWERS
+            and b["type"] in BLOCK_TYPES and isinstance(b["rule"], str) and re.fullmatch(BLOCK_RULE_RX, b["rule"])):
         raise GoalError("the task file has the wrong shape")
+    return b
+
+
+def block_sentence(b):
+    """`rule kiro-ask-shell gave Ask me first for action type tool_execute_bash` (or `no rule gave ...`)."""
+    who = "no rule" if b["rule"] == "none" else f"rule {b['rule']}"
+    return f"{who} gave {b['answer']} for action type {b['type']}"
+
+
+def _check_task(obj, task):
+    keys = set(obj) - {BLOCKED_KEY}
+    if keys != set(TASK_KEYS) or obj["id"] != task or obj["version"] != 1 or obj["state"] not in TASK_STATES:
+        raise GoalError("the task file has the wrong shape")
+    if BLOCKED_KEY in obj:
+        _check_blocked(obj[BLOCKED_KEY])
     if not (isinstance(obj["seq"], int) and not isinstance(obj["seq"], bool) and obj["seq"] >= 0):
         raise GoalError("the task file has the wrong shape")
     try:
@@ -311,7 +362,23 @@ FACTS = {
     "branch_kept": ("The branch {branch} was kept.", {"branch": _BRANCH_RX}),
     # W55a: the fixed word of the cause of a failed task (a key of goalpacket.CAUSES), never any content
     "cause": ("Cause: {word}.", {"word": "|".join(sorted(gp.CAUSES))}),
+    # W56: the rule and the action type of the call that blocked the builder, fixed words only (block_words)
+    "blocked": ("Blocked: {who} gave {answer} for action type {type}.",
+                {"who": rf"no rule|rule {BLOCK_RULE_RX}", "answer": "|".join(BLOCK_ANSWERS),
+                 "type": "|".join(BLOCK_TYPES)}),
 }
+
+
+def blocked_fact(b):
+    """The `blocked` fact of the fixed words of one block."""
+    _check_blocked(b)
+    return ("blocked", {"who": "no rule" if b["rule"] == "none" else f"rule {b['rule']}", "answer": b["answer"],
+                        "type": b["type"]})
+
+
+def _blocked_of_fact(d):
+    who = d["who"]
+    return {"rule": "none" if who == "no rule" else who[len("rule "):], "answer": d["answer"], "type": d["type"]}
 NOT_DONE = {
     "text": "The goal text, the prompt and the helper's output were not recorded.",
     "nodiff": "No diff, file content or helper output was recorded. Nothing was pushed or merged.",
@@ -563,6 +630,7 @@ class TaskView:
         self.id, self.state, self.reason, self.prev, self.seq = tid, "queued", "approved", None, 0
         self.role = self.agent = self.base = self.branch = self.tip = self.commit = self.deadline = None
         self.cause = None  # W55a: the cause word of the last state entry, when it named one
+        self.blocked = None  # W56: the fixed words of the block named by the last state entry, when it named one
 
 
 class GoalView:
@@ -624,6 +692,7 @@ def parse_entries(entries):
                 raise bad
             t.prev, t.state, t.reason, t.seq = r.old, r.new, r.reason, t.seq + 1
             t.cause = next((d["word"] for name, d in r.facts if name == "cause"), None)
+            t.blocked = next((_blocked_of_fact(d) for name, d in r.facts if name == "blocked"), None)
             for a in ("role", "agent", "base", "branch", "tip", "commit"):
                 if getattr(r, a) is not None:
                     setattr(t, a, getattr(r, a))
@@ -918,14 +987,26 @@ def approve_plan(root, goal, *, builder, tester, guide, model, effort, task_budg
 
 
 def change_state(root, goal, task, new, reason, *, when, now, role=None, agent=None, cap_uu=None, branch=None, tip=None,
-                 base=None, commit=None, facts=None, not_done="text", spent_uu=None, pre=(), close_row=None):
+                 base=None, commit=None, facts=None, not_done="text", spent_uu=None, pre=(), close_row=None, blocked=None,
+                 recommendation=None):
     """Move one task to a new state in the fixed write order (W9.R13.1). Raises GoalError for a move the table does not
-    allow (nothing changed) and RecordFailed when a record write fails. Returns the new task object."""
+    allow (nothing changed) and RecordFailed when a record write fails. Returns the new task object.
+
+    W56: `blocked` (the fixed words of `block_words`) is kept in the task file of a task that needs the owner because
+    the rules gate blocked its builder; any later move drops it. `recommendation` replaces the fixed text of the queue
+    row of a move to `needs owner`."""
     g = read_goal(root, goal)
     t = read_task(root, goal, task)
     old = t["state"]
     if old not in gp.STATES or not gp.can_move(old, new) or reason not in gp.REASONS.get(new, ()):
         raise GoalError("that move is not in the state table")
+    if blocked is not None:
+        if new != "needs owner":
+            raise GoalError("only a task that needs the owner keeps a block")
+        _check_blocked(blocked)
+    if recommendation is not None and not (new == "needs owner" and isinstance(recommendation, str)
+                                           and 1 <= len(recommendation) <= 400 and recommendation.isprintable()):
+        raise GoalError("a value of the change is outside its pattern")
     try:
         state = state_entry(when, goal, task, old, new, reason, role=role, agent=agent, cap_uu=cap_uu, branch=branch, tip=tip,
                             base=base, commit=commit, facts=facts, not_done=not_done)
@@ -938,9 +1019,12 @@ def change_state(root, goal, task, new, reason, *, when, now, role=None, agent=N
         deadline = int(now) + g["wait_hours"] * 3600
         approval = {"kind": "needs-owner", "asked": int(now), "deadline": deadline, "row": None}
         entries.append(approval_requested_entry(when, goal, task, reason, _dt(deadline)))
-        queue = (_row_title(goal, task, reason), _row_recommendation(task))
+        queue = (_row_title(goal, task, reason), recommendation or _row_recommendation(task))
     entries.append(state)
     obj = dict(t, state=new, reason=reason, seq=t["seq"] + 1, approval=approval)
+    obj.pop(BLOCKED_KEY, None)
+    if blocked is not None:
+        obj[BLOCKED_KEY] = dict(blocked)
     for key, val in (("branch", branch), ("tip", tip), ("base", base), ("commit", commit)):
         if val is not None:
             obj[key] = val
@@ -1088,6 +1172,7 @@ def repair(root, *, when, now):
                 continue
             if t["seq"] > tv.seq:
                 fixed = dict(t, state=tv.state, reason=tv.reason, seq=tv.seq)
+                fixed.pop(BLOCKED_KEY, None)
                 _run_step("file", _write_file, goal_dir(root, goal) / f"{task}.json", _dump(fixed, MAX_TASK_FILE))
                 done.append(f"{goal} {task} file ahead")
                 if gp.can_move(tv.state, "needs owner"):
@@ -1096,6 +1181,9 @@ def repair(root, *, when, now):
             fixed = dict(t)
             if t["state"] == "plan" or t["seq"] < tv.seq:
                 fixed.update(state=tv.state, reason=tv.reason, seq=tv.seq)
+                fixed.pop(BLOCKED_KEY, None)  # W56: the logbook's block, if its last state entry named one
+                if tv.blocked is not None and tv.state == "needs owner":
+                    fixed[BLOCKED_KEY] = dict(tv.blocked)
                 for key in ("branch", "tip", "base", "commit"):
                     if getattr(tv, key):
                         fixed[key] = getattr(tv, key)
