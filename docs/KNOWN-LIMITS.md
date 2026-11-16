@@ -1778,3 +1778,14 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
+## Shared mode (W74), found while designing
+
+### 301. umwayi has one owner, one rules file and one logbook, and a shared store would be a network call the core may not make
+
+These are facts of main `6525606`, found while writing `docs/multi-user.md`. Nothing was changed.
+
+- There is no person id anywhere: the owner is whoever has a terminal or the serve token, and every logbook entry is the owner's or a helper's.
+- There is one `rules.yaml`, one `units.yaml`, one logbook and one global kill switch; none can be scoped to a person or a group.
+- Product rule 5 and `tests/test_system.py` allow the core only two loopback servers, so a shared store such as a hosted database needs a change to that rule first.
+- The local gate of `umwayi serve` is built for 127.0.0.1 and one token; it is not a gate for a hosted service.
