@@ -106,7 +106,7 @@ The sections below follow the parts of an operating system: processes, permissio
   - Helpers draft only. A post, send or publish is No (`tests/test_helpers.py` `BaseStepTests.test_post_send_and_publish_types_are_no_for_helpers`).
   - No helper can set an approver (`tests/test_system.py` `CodeTests.test_no_helper_has_a_code_path_that_sets_an_approver`).
 - **What it does not stop:**
-  - Installable apps (W43) are designed, not built ([agent apps](agent-apps-design.md)).
+  - Installable apps (W43) are designed, not built (`docs/agent-apps-design.md` on branch `w43-agent-apps-design`, not merged).
   - A helper's draft can still do harm if the owner publishes it unread.
 
 ## Drivers
@@ -150,7 +150,7 @@ What must hold, and whether it holds today:
 | it never approves its own Ask me first | **enforced in part.** Answering a queue item never lets a run go on; only a Yes rule does. `goal approve`, `answer` and `merged` need a terminal. **Not enforced:** a pseudo-terminal passes that check, `umwayi queue answer` has none, and no starter rule denies these commands to a helper | `tests/test_helpers.py`; `tests/goal/test_owner_commands.py`; [goals](goals.md) "Not built" |
 | a hostile page or file cannot raise a budget | **enforced in part.** An approved budget is the hard cap; no rule or answer raises it (W9.R15.7), and `budget_check` is on the never list. **Not enforced:** an edit of `units.yaml` is Ask me first, not No, and is only logged | `umwayi/goalbudget.py`; `umwayi/rules.py` `NEVER_AUTONOMY` |
 | it cannot sign | **not enforced on main.** The owner's SSH agent is in every helper's environment until W64 merges. Key files under `id_rsa` and `id_ed25519` names are No for Claude Code (`cc-no-secrets`); other agents (gpg-agent, a keyring) are not covered | `umwayi/agents.py` `claude_env`; `rules.yaml` |
-| it cannot merge | **enforced for umwayi:** umwayi's git list has no merge and no push (`tests/goal/test_worktree.py` `ListGuardTests`), and a push to main is No for Claude Code (`cc-no-push-main`). **Not enforced** outside it: a shell `gh pr merge` is only Ask me first, and in the builder's sandbox the GitHub token is the owner's account | `umwayi/goalgit.py`; [merge-ready design](merge-ready-design.md) |
+| it cannot merge | **enforced for umwayi:** umwayi's git list has no merge and no push (`tests/goal/test_worktree.py` `ListGuardTests`), and a push to main is No for Claude Code (`cc-no-push-main`). **Not enforced** outside it: a shell `gh pr merge` is only Ask me first, and in the builder's sandbox the GitHub token is the owner's account | `umwayi/goalgit.py`; the W63 merge-ready design (branch `w63-merge-ready-design`, not merged) |
 | it cannot change a rule | **enforced for `rules.yaml`** for Claude Code: an edit or a shell command that names it is No, and any change is logged before use. The Kiro and OpenCode starter rules guard the same files. **Not enforced** for `guidance.yaml` and `.kiro/steering/` (an edit is Ask me first, not No), or for a shell command that changes a file without naming it | `rules.yaml` `cc-no-guard-edits`, `cc-no-guard-shell`; `tests/test_rulelog.py` |
 
 ## Decisions log
