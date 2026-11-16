@@ -11,6 +11,13 @@ const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cspHash = (text) => `sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}`;
 
+// W51: the owner's logo (ui/assets/amwayi-logo-512.png, unchanged) drawn again as one inline SVG of the same shapes, put into the
+// header of every page by the placeholder <!--@logo-->. It is markup, not a request: no page policy changes, and no page needs
+// img-src for it. aria-hidden, so it adds nothing to the names a screen reader reads.
+const logo = readFileSync(join(root, 'src/logo.svg'), 'utf8').trim();
+if (!/^<svg class="logo" [^>]*aria-hidden="true" focusable="false">[\s\S]*<\/svg>$/.test(logo) || /https?:|<script|\bhref|\bsrc=|url\(/i.test(logo)) throw new Error('src/logo.svg is not the plain logo mark');
+const withLogo = (text) => text.replace('<!--@logo-->', () => logo);
+
 const walk = (dir) => readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? walk(join(dir, n)) : [join(dir, n)]));
 
 // the words of the stations make the label buttons and the list view, and the home content makes its sections, so all of it is in
@@ -50,7 +57,7 @@ const csp = [
   "default-src 'none'", `script-src '${cspHash(script)}'`, `style-src '${cspHash(css)}'`, 'img-src data:', "base-uri 'none'", "form-action 'none'", "connect-src 'self'",
 ].join('; ');
 
-let html = readFileSync(join(root, 'src/index.html'), 'utf8');
+let html = withLogo(readFileSync(join(root, 'src/index.html'), 'utf8'));
 html = html
   .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${csp}">`)
   .replace('<!--@style-->', () => css)
@@ -84,7 +91,7 @@ const branch = (nodes, pad) => `${pad}<ul>\n${nodes.map((n) => {
 const mapCss = (await transform(readFileSync(join(root, 'src/cli-map.css'), 'utf8'), { loader: 'css', minify: true })).code;
 const mapCsp = ["default-src 'none'", `style-src '${cspHash(mapCss)}'`, "base-uri 'none'", "form-action 'none'"].join('; ');
 const total = countNodes(cliMap.children);
-let mapHtml = readFileSync(join(root, 'src/cli-map.html'), 'utf8')
+let mapHtml = withLogo(readFileSync(join(root, 'src/cli-map.html'), 'utf8'))
   .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${mapCsp}">`)
   .replace('<!--@style-->', () => mapCss)
   .replace('<!--@program-->', () => escapeHtml(cliMap.program))
@@ -108,7 +115,7 @@ const progressModel = progress.model({
 const parts = progress.render(progressModel, process.env.UMWAYI_BUILD_DATE || new Date().toISOString().slice(0, 10));
 const progressCss = (await transform(readFileSync(join(root, 'src/progress.css'), 'utf8'), { loader: 'css', minify: true })).code;
 const progressCsp = ["default-src 'none'", `style-src '${cspHash(progressCss)}'`, "base-uri 'none'", "form-action 'none'"].join('; ');
-const progressHtml = readFileSync(join(root, 'src/progress.html'), 'utf8')
+const progressHtml = withLogo(readFileSync(join(root, 'src/progress.html'), 'utf8'))
   .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${progressCsp}">`)
   .replace('<!--@style-->', () => progressCss)
   .replace('<!--@totals-->', () => escapeHtml(parts.totals))
@@ -129,7 +136,7 @@ const gmBundle = await build({
 const gmScript = gmBundle.outputFiles[0].text.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
 const gmCss = (await transform(readFileSync(join(root, 'src/goal-map.css'), 'utf8'), { loader: 'css', minify: true })).code;
 const gmCsp = ["default-src 'none'", `script-src '${cspHash(gmScript)}'`, `style-src '${cspHash(gmCss)}'`, "base-uri 'none'", "form-action 'none'", "connect-src 'self'"].join('; ');
-const gmHtml = readFileSync(join(root, 'src/goal-map.html'), 'utf8')
+const gmHtml = withLogo(readFileSync(join(root, 'src/goal-map.html'), 'utf8'))
   .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${gmCsp}">`)
   .replace('<!--@style-->', () => gmCss)
   .replace('<!--@script-->', () => gmScript);

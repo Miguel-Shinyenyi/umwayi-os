@@ -71,3 +71,6 @@ html:not([data-tier="list"]) .list { display: none; }
 .lamp-pic .glow { animation: pulse 3s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pulse, .heart.beat, .flicker, .lamp-pic .glow { animation: none; } }
 html[data-reduced] .pulse, html[data-reduced] .heart.beat, html[data-reduced] .flicker, html[data-reduced] .lamp-pic .glow { animation: none; }
+
+/* W51: the owner's logo as a small mark before the title; decoration only, hidden from assistive technology */
+.logo { display: inline-block; width: 1.1em; height: 1.1em; margin-right: 0.4em; vertical-align: -0.15em; flex: none; }

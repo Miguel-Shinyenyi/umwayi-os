@@ -32,3 +32,6 @@ progress::-moz-progress-bar { background: var(--mint); }
 footer { margin-top: 28px; color: var(--muted); font-size: 0.875rem; }
 footer p { margin: 0 0 8px; }
 code { font-family: var(--mono); color: var(--ink); }
+
+/* W51: the owner's logo as a small mark before the title; decoration only, hidden from assistive technology */
+.logo { display: inline-block; width: 1.1em; height: 1.1em; margin-right: 0.4em; vertical-align: -0.15em; flex: none; }

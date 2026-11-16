@@ -576,7 +576,8 @@ test('the built page: one inline script and style by hash, requests to its own o
   assert.ok(!/unsafe-inline|unsafe-eval|\*|https?:/.test(csp));
   assert.equal((html.match(/<script\b/g) || []).length, 1);
   assert.ok(!/<script[^>]*\bsrc=|<link\b|<img\b|<iframe\b|@import|url\(/i.test(html));
-  assert.match(html, /<h1>umwayi goal map <span class="kiro" id="kiro" hidden>Kiroween<\/span><\/h1>/);
+  // W51 changed this: the owner's logo mark comes first in the title, as an inline SVG hidden from assistive technology
+  assert.match(html, /<h1><svg class="logo" [^>]*aria-hidden="true" focusable="false">[\s\S]*?<\/svg>umwayi goal map <span class="kiro" id="kiro" hidden>Kiroween<\/span><\/h1>/);
   const addresses = [...html.matchAll(/https?:\/\/[^\s"'<>)]+/g)].map((m) => m[0]);
   assert.deepEqual(addresses, [], 'no address at all, not even a namespace: the drawing takes it from the page');
   assert.match(html, /data-tier="list"/, 'List in its HTML, before any script');
