@@ -53,6 +53,7 @@ umwayi-os/
     model-routing-design.md W48: model routing from umwayi's own records, the record, the table and the picker (design note, not built)
     merge-ready-design.md   W63: tools.merge_ready, a pass or fail merge gate from fixed rules (design note, not built)
     connectors.md           W72: connectors to outside services, the rule for each and the build order (design note)
+    signing.md              E5: a dedicated umwayi signing key, what it signs, rotation, loss and fail closed (design note)
     task-log.md             W19 part 3b: the task log format and the starter rows for PRs 66 to 79 (built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
