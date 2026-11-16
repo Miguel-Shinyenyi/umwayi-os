@@ -1812,3 +1812,11 @@ These are facts measured or read on Nov 16 while writing `docs/signing.md`. Noth
 - In an allowed signers file the options must be joined by commas with no space; a space makes the line an invalid key.
 - No check refuses a private key header in a tracked file today; the W62 secret scan is designed, not built.
 - The starter secret path rules name `id_rsa` and `id_ed25519`, not a key file under another name.
+
+## Guidance (W66), the merge main wording
+
+### 304. the merge main entry says the supervisor records the paths and asks the owner, but no supervisor runs merge_main yet
+
+- The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
+- The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
+- `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
