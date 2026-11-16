@@ -1813,9 +1813,52 @@ These are facts measured or read on Nov 16 while writing `docs/signing.md`. Noth
 - No check refuses a private key header in a tracked file today; the W62 secret scan is designed, not built.
 - The starter secret path rules name `id_rsa` and `id_ed25519`, not a key file under another name.
 
+## Merge gate (W63), found while designing
+
+### 304. an agent can act as the owner on GitHub today, and a merge-ready pass says nothing about whether the work is right
+
+These are facts read on Nov 16 and limits of the design in `docs/merge-ready-design.md`.
+
+- Any token on the machine where helpers run can be used by a helper. In today's build sandbox, `gh api user` returns the owner's account, so any GitHub review, label or comment the owner can make, an agent there can make too, and none of them shows the owner's approval.
+- The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
+- A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
+- A limits part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `tools/merge_main.py` renumbers it. So the design checks that the number is the one the build gives, not that the part has none; the owner decides which reading is meant.
+
+## Guidance (W66), the merge main wording
+
+### 305. the merge main entry says the supervisor records the paths and asks the owner, but no supervisor runs merge_main yet
+
+- The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
+- The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
+- `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
+
+## Goal orchestration (W54), found while building the proposed budgets
+
+### 306. A proposal has history only from tasks run after W54, and its history is per task
+
+The proposed task budgets of W54 read the measured spend of each role from the task files (`measured_uu`). What follows:
+
+- Only tasks run after W54 have it. Until 5 tasks of the same platform, model and effort reach review, a Claude Code role comes from `umwayi budget calibrate` (20 measured runs over 7 days) or is `no history`, and the owner types the number.
+- The tester's and the check's history is their spend per task, not per run. A task whose tester ran twice (after the owner answered yes) counts both runs as one sample.
+- A role's history counts only when every one of its runs was settled with a measured reading. A run settled from token counts at the rates in units.yaml (`declared`) or at the worst case (`unknown`) is not history.
+- The design note said the `started` events give the model and the effort; they do not. The builder's model and effort come from the packet, the tester's and the guide's from `goal.json`.
+- A Kiro term is the declared run or the unknown worst case, capped at per_run. A declared Kiro run above per_run gives a term of per_run, and that run is still refused at its start, as before.
+- `calibrate` names Claude Code's own model id in its settle entries (for example `claude-sonnet-5`), while the owner gives a model word (for example `sonnet`). They match only when the words are the same; otherwise the number for all measured runs is used.
+
+## Rules library (W76), found while designing
+
+### 307. a rules set applies to the whole root, not to one agent, and rules cannot express a budget size
+
+These are facts of main `25b3a47`, checked while writing `docs/rules-library.md`. Nothing was changed.
+
+- The action an adapter hook sends names the platform and the tool, not the agent of `agents.yaml`, so a rule cannot single out one Claude Code helper of a root. A read only set makes every Claude Code helper of that root read only.
+- Rules match words: there is no less-than matcher, so a budget size cannot be a rule; it is set in `units.yaml`.
+- A matcher with an unknown operator is read as an equals matcher on a field no action has, so a copied rule that uses one never matches and nothing says so.
+- Text matching cannot see network use by code that names no listed word: `python3 -c "import urllib.request"` matched no rule of the no network set.
+
 ## Owner status (W77), found while designing
 
-### 304. no single place lists what waits for the owner, and queue rows have an age but no deadline
+### 308. no single place lists what waits for the owner, and queue rows have an age but no deadline
 
 These are facts of main `25b3a47`, found while writing `docs/owner-status-design.md`. Nothing was changed.
 
