@@ -28,7 +28,7 @@ BEFORE_JSON = """{
 BEFORE_TEXT = "Ask me first\nRule: commit-ask\nReason: The owner is asked before an AI helper commits.\n"
 BEFORE_ENTRY = {
     "source": "umwayi check",
-    "added": "Rule commit-ask gave Ask me first; action type: tool_bash",
+    "added": "Rule commit-ask gave Ask me first; action type: tool_bash; command word: git",
     "checked": ("action read as a JSON object without duplicate keys: yes; rules.yaml loaded: yes (1 rules); rules "
                 "matched: commit-ask"),
     "not_done": "The action was not run. The action JSON was not stored in the logbook.",

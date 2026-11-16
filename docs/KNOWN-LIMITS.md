@@ -1688,3 +1688,15 @@ Since W56, a task whose builder was blocked by the rules gate needs the owner in
 - Each Refresh is one logged read: two logbook entries, as for every read of the page (W6.R7.7).
 - The page is served only if its SHA-256 equals `goalMapPage` in `build.json`, so a build of the ui that is not committed (or an edit by hand) makes the server answer 503 with the word `page`.
 - The screenshot of W38b was taken in a browser that could not reach the sandbox's 127.0.0.1, so the page bytes and the `/v1/goal-map` answer were first fetched from a real `umwayi serve` and then handed to the browser for the same address. The requests the page sent were recorded: one `GET /v1/goal-map` with the token and no body, and nothing more.
+
+## Goal orchestration (W9), found while building W55b
+
+### 293. The first word of a blocked shell command is kept only when it looks like a program name
+
+Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first ends with the first word of the command, and a refused plan names the place of its first bad context entry.
+
+- The first word is kept only when it is lowercase letters (and `_ . + -`) with at most two digits at its end, 24 characters at most. Anything else is `other`. A lowercase word of letters only is kept even when it is not a program name, so a secret that is the first word of a command and has that shape would be written. A secret in any later word, in a `NAME=value` before the command, or in the folders of a path is never written.
+- Only the first word is read. In `cd src && git push` the word is `cd`, and in `sudo rm -rf x` it is `sudo`.
+- The shell types are `tool_bash`, `tool_powershell`, `tool_execute_bash`, `tool_execute_pwsh` and `tool_shell`. A tool of another type that runs a command (an MCP tool, for example) gets no command word.
+- A plan refused for a context entry names only the first such entry. A context list that is too long, or files that are too big together, is still only `context`, with no entry named.
+- `missing` also covers a context entry that is a link or not a regular file.

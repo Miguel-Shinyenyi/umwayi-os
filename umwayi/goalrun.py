@@ -333,8 +333,9 @@ def child_argv(name, cap_uu, workdir, model_effort=()):
 
 # W56: the added line of a `umwayi check` entry (rules.log_entry) that blocked a tool call: a rule or no rule gave No or
 # Ask me first to an action type `tool_...`. A kill switch entry ("The kill switch gave No") is not a block by a rule.
+# W55b: a blocked shell call also names the first word of its command (rules.command_word).
 _BLOCK_ADDED = re.compile(r"(?:Rule (?P<rule>[a-z0-9][a-z0-9_-]{0,99}) gave|No rule gave) (?P<answer>No|Ask me first); "
-                          r"action type: (?P<type>tool_[A-Za-z0-9_.:-]{1,40})")
+                          r"action type: (?P<type>tool_[A-Za-z0-9_.:-]{1,40})(?:; command word: (?P<word>[a-z0-9_.+-]{1,24}))?")
 BLOCK_SOURCE = "umwayi check"
 
 
@@ -369,7 +370,7 @@ def block_since(root, mark):
         ids = {r.id for r in rules.load_rules(root / "rules.yaml")}
     except UmwayiError:
         ids = set()
-    return gs.block_words(found.group("rule"), found.group("answer"), found.group("type"), ids)
+    return gs.block_words(found.group("rule"), found.group("answer"), found.group("type"), ids, found.group("word"))
 
 
 def block_recommendation(goal, task, b):
@@ -1422,7 +1423,8 @@ class _PlanRun(_Run):
         res = self.run_child("guide", argv, planning_prompt(self.g["text"], nonce), None, cap, before, agent, None)
         word = self.plan_word(res, nonce)
         if word is not None:
-            gs.refuse_plan(self.root, self.goal, agent, word, when=e.when(), now=e.now(), plan_spent_uu=res.spent_uu)
+            gs.refuse_plan(self.root, self.goal, agent, word, when=e.when(), now=e.now(), plan_spent_uu=res.spent_uu,
+                           context=getattr(self, "refused_context", None))
             if word != "readonly":  # W55a: a refused plan removes its worktree; a changed one stays as evidence
                 self.drop_plan_worktree()
             raise _Done(Outcome(2, "plan", "", word))
@@ -1462,6 +1464,8 @@ class _PlanRun(_Run):
         try:
             self.packets = gp.parse_plan(parsed.raw, file_size=self.file_size, is_private=self.is_private)
         except gp.PlanError as err:
+            if err.word == "context" and err.entry and err.why in gp.CONTEXT_WHYS:  # W55b: where and why, not the path
+                self.refused_context = {"task": err.index, "entry": err.entry, "why": err.why}
             return err.word
         return None
 

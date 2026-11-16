@@ -270,7 +270,7 @@ class LogbookTests(TurnCase):
         r = self.run_turn()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         hooks, perms = self.hook_checks(), self.perm_checks()
-        self.assertEqual([e.added.split("action type: ")[1].split(",")[0].split("\n")[0].split(" ")[0]
+        self.assertEqual([e.added.split("action type: ")[1].split(";")[0].split(",")[0].split("\n")[0].split(" ")[0]
                           for e in hooks], ["tool_read", "tool_shell", "tool_shell", "tool_write"])
         self.assertEqual(len(perms), 3)  # read, ls, write; the rm -rf never asked
         others = [e.added.split("action type: ")[1] for e in self.checks() if e not in hooks and e not in perms]

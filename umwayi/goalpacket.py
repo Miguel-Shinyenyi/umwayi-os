@@ -194,13 +194,20 @@ def weak_independence(a, b):
 # ----------------------------------------------------------------------------------------------- the packet
 
 
-class PlanError(ValueError):
-    """A plan or packet that is refused. `word` is a fixed word, `index` the packet number (1 based) or 0."""
+CONTEXT_WHYS = ("private", "missing", "bad path")  # W55b: why one context entry was refused
 
-    def __init__(self, word, index=0):
+
+class PlanError(ValueError):
+    """A plan or packet that is refused. `word` is a fixed word, `index` the packet number (1 based) or 0. For a
+    context entry that was refused (W55b), `entry` is its place in the packet's context list (1 based) and `why` one
+    of CONTEXT_WHYS; otherwise 0 and None. Never the path text."""
+
+    def __init__(self, word, index=0, entry=0, why=None):
         super().__init__(f"plan refused: {word}" + (f" (packet {index})" if index else ""))
         self.word = word
         self.index = index
+        self.entry = entry
+        self.why = why
 
 
 @dataclass(frozen=True)
@@ -377,16 +384,16 @@ def _guide_task(t, i, file_size, is_private):
     if not isinstance(context, list) or len(context) > MAX_CONTEXT_FILES:
         raise PlanError("context", i)
     total = 0
-    for c in context:
+    for j, c in enumerate(context, 1):
         parts = _norm_parts(c)
         if parts is None:
-            raise PlanError("context", i)
+            raise PlanError("context", i, j, "bad path")
         if is_private is not None and is_private(c):
-            raise PlanError("context", i)
+            raise PlanError("context", i, j, "private")
         if file_size is not None:
             size = file_size(c)
             if not _int(size) or size < 0:
-                raise PlanError("context", i)
+                raise PlanError("context", i, j, "missing")
             total += size
     if total > MAX_CONTEXT_BYTES:
         raise PlanError("context", i)

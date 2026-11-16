@@ -155,7 +155,7 @@ class WholeTurnTests(TurnCase):
         checks = self.checks()
         hook = [e for e in checks if "action type: tool_" in e.added]
         self.assertEqual(len(hook), 3)
-        self.assertEqual([e.added.split("action type: ")[1] for e in hook], ["tool_read", "tool_bash", "tool_bash"])
+        self.assertEqual([e.added.split("action type: ")[1].split(";")[0] for e in hook], ["tool_read", "tool_bash", "tool_bash"])
         self.assertIn("hook-read-claude", hook[0].checked)
         self.assertIn("hook-bash-claude", hook[1].checked)
         self.assertIn("bash-no-rm", hook[2].checked)
