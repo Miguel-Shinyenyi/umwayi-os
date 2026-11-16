@@ -97,3 +97,5 @@ models and gives no strength for any single one, so only the rows where the page
 - Is 30 days (maximum 45) the right wait before a row must be read again? Recommendation: keep 30.
 - Should a later task connect this table to the guidance loader or the agents files? That was out of scope here.
   Recommendation: not yet. Keep it a page the owner reads.
+- W48 designs a picker from umwayi's own records instead, with this table only as a help for the owner:
+  [model-routing-design.md](model-routing-design.md) (design note, not built).
