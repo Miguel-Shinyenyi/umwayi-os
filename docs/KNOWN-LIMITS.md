@@ -1745,3 +1745,15 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - The line names the next command but never runs it: `goal run` still needs the owner.
 - A goal with a failed or stopped task before its queued tasks prints nothing new, because `goal run` would not start the next task; the failed or stopped task line above it is what the owner reads.
 - It reads the task files. While a task file is behind the logbook (the status says so), the line follows the file, not the logbook.
+
+## Guidance audit (W62), found while designing
+
+### 298. most advise entries are checked by tests the loader cannot name, and five rules cannot be checked by a machine
+
+These are facts of the code at main `7bca468` and limits of the design in `docs/enforce-audit-design.md`.
+
+- An `enforce` entry must name a registered task-record check, so a rule that a CI test already proves can only be labelled advise today. 11 of the 26 advise entries are such rules.
+- Five advise rules leave no record a machine could read: explaining AI output, rewriting a broken base, writing tests first, doing it yourself first, and a question in a chat carrying a recommendation.
+- A `proof` would show that a named test exists, not that it still tests what the entry says, and a passing test shows the behaviour only on the inputs it tries.
+- Whether a person pushed to main is held only by GitHub branch protection, which the repo cannot show.
+- The pull request headings of builder rule 8 (Built, Not built, Could not verify) differ from the headings recent pull requests use.
