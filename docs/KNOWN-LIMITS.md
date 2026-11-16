@@ -1855,3 +1855,14 @@ These are facts of main `25b3a47`, checked while writing `docs/rules-library.md`
 - Rules match words: there is no less-than matcher, so a budget size cannot be a rule; it is set in `units.yaml`.
 - A matcher with an unknown operator is read as an equals matcher on a field no action has, so a copied rule that uses one never matches and nothing says so.
 - Text matching cannot see network use by code that names no listed word: `python3 -c "import urllib.request"` matched no rule of the no network set.
+
+## Owner status (W77), found while designing
+
+### 308. no single place lists what waits for the owner, and queue rows have an age but no deadline
+
+These are facts of main `25b3a47`, found while writing `docs/owner-status-design.md`. Nothing was changed.
+
+- What waits for the owner is spread over `goal status` (plan approvals and tasks in needs owner), `queue.md` (decisions and tasks, many added by an Ask me first), `umwayi rules due`, `umwayi kill status` and `umwayi logbook verify`; no command lists all of them.
+- A queue row has no deadline, only the date of its `umwayi queue add` entry, so a waiting decision can stay open for ever without anything saying it is late.
+- `umwayi stalls check` reads a JSON file of events that nothing produces, so no command lists stalled sessions across goals.
+- Exit 2 already means a No, a refusal or an unexpected error in every command (product rule 8), so a new command that also uses 2 for "items wait" must say which in its output.
