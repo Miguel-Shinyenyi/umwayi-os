@@ -27,6 +27,7 @@ umwayi petition RULE_ID --helper NAME --reason TEXT [--date 2026-11-07]
 - Ids are never reused. `add` uses one more than the highest id found in `queue.md` and in the logbook, even if you delete a row by hand. If `LOGBOOK.md` exists but cannot be read, `add` refuses and says why.
 - A queue.md in the old six column layout (no answer column) is refused with a message. Run `umwayi queue migrate` once to convert it. Old answered rows get the text `not recorded before migration`.
 - Without `--date` the system clock is used. A malformed `queue.md` is an error with a line number, and nothing is changed. Only the row a command touches is rewritten. `queue.md` is rewritten through the shared atomic writer: an existing file keeps its mode, a new one follows the owner's umask.
+- The queue holds questions and answers, not a backlog of work. A separate `backlog.md` with scopes, ranks and a promotion rule is designed in [backlog-design.md](backlog-design.md) (W61, not built).
 - Every change appends an entry to `LOGBOOK.md` (date, source, added, checked, not done). Earlier logbook lines are never edited. The logbook records the length of an answer, not its text.
 
 ## Decisions log
