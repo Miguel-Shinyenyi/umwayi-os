@@ -1757,9 +1757,54 @@ The design of W41 (`docs/enforcement.md`) is written; none of its options is bui
 - Claude Code `agent run`, its cli chat and every Kiro start get umwayi's whole environment less a few credential names, so any other secret in the owner's shell reaches the helper and the commands it runs.
 - The files that guard umwayi (`rules.yaml`, the logbook, `.umwayi/`, the hook files, the settings files) can be changed by a program a helper runs. The tamper check and the chain show an edit of the logbook; a change to another guard file is not detected after the run.
 
+## Provenance and verify (W49 and W50), found while designing
+
+### 299. No file has a provenance record yet, and AI helpers can use the owner's SSH agent
+
+The design is in [provenance-design.md](provenance-design.md). Nothing of it is built. These are the limits now and the ones the design keeps.
+
+- No file umwayi produced has a record, and `umwayi verify` does not exist. Nothing today can tell a file of a goal task from a file written by hand.
+- Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
+- When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
+- The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
+## Agent environment (W64), the SSH agent
+
+### 300. removing SSH_AUTH_SOCK does not stop a helper from reaching an SSH agent or a key another way
+
+W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper environment umwayi builds. That is all it does.
+
+- A helper still runs as the owner's user. It can look for an agent socket by itself (for example under `/tmp/ssh-*` or a path the owner's shell config names), or open a socket of another program (gpg-agent, a keyring, a password manager) by its own path. The file permissions of the owner's user allow it.
+- It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
+- A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
+- The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
+## Connectors (W72), found while designing
+
+### 301. umwayi has no connector, and the gh login in the builder's sandbox is the owner's full account
+
+These are facts of main `6525606`, found while writing `docs/connectors.md`. Nothing was changed.
+
+- umwayi sends no message, mirrors no status and runs no scan on a timer: there is no email, push, Notion, error monitor or scan connector, and jobs allow only `report`, `check` and `queue-list`.
+- The only GitHub reader in the repo is `tools/board_status.py`, which uses the public API with no token and so cannot read a private repository.
+- In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
+- An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
+
+## Operations (W71), found while designing
+
+### 302. a helper may outlive a killed supervisor, and the pid check needs /proc
+
+The design is in [operations.md](operations.md). Nothing of it is built. These facts were read from the code at main 6525606 and were not run.
+
+- The helper child is started in its own session (`start_new_session=True`, `umwayi/goalrun.py`). When the supervisor is killed, the next goal command marks the task `stopped` with reason `supervisor` (`goalstate.mark_lost`), but nothing stops the child. It may keep running until it ends by itself.
+- `goal status` decides whether a child is alive by reading `/proc/PID/stat` (`umwayi/goal.py` `_pid_alive`). Without `/proc`, as on macOS, a live child is shown as `not running`.
+- Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
+- There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
+- `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
+
 ## The work ledger and stall handling (W65), found while designing
 
-### 299. umwayi has no record of pull requests, and a stalled task cannot be restarted
+### 303. umwayi has no record of pull requests, and a stalled task cannot be restarted
 
 The design is in [work-ledger-design.md](work-ledger-design.md). Nothing of it is built.
 
@@ -1773,7 +1818,7 @@ The design is in [work-ledger-design.md](work-ledger-design.md). Nothing of it i
 
 ## The stalls producer (W65, E6), found while designing
 
-### 300. no helper says whether it is thinking or hung, and no session list is confirmed
+### 304. no helper says whether it is thinking or hung, and no session list is confirmed
 
 The design is in [work-ledger-design.md](work-ledger-design.md), "The producer for the stalls check (E6)". Nothing of it is built.
 
