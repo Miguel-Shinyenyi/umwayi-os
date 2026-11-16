@@ -1745,3 +1745,14 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - The line names the next command but never runs it: `goal run` still needs the owner.
 - A goal with a failed or stopped task before its queued tasks prints nothing new, because `goal run` would not start the next task; the failed or stopped task line above it is what the owner reads.
 - It reads the task files. While a task file is behind the logbook (the status says so), the line follows the file, not the logbook.
+
+## Merge gate (W63), found while designing
+
+### 298. an agent can act as the owner on GitHub today, and a merge-ready pass says nothing about whether the work is right
+
+These are facts read on Nov 16 and limits of the design in `docs/merge-ready-design.md`.
+
+- In the builder's sandbox, `gh api user` returns the owner's account. Any GitHub review, label or comment the owner can make, an agent there can make too, so none of them shows the owner's approval.
+- The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
+- A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
+- `tools/merge_main.py` runs the docs build, which writes a number into every limits part on the branch, so "unnumbered" can only be checked in the commit that first adds a part.
