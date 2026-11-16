@@ -167,6 +167,7 @@
   "tests/test_starter_rules.py": ["adapters", "rules.yaml"],
   "tests/test_system.py": ["articles", "umwayi.json", "workflows"],
   "tests/test_ui_package.py": [".gitignore", "ui", "ui/dist"],
+  "tests/test_up.py": ["rules.yaml", "umwayi.json"],
   "tests/test_view.py": ["jobs.yaml", "ui", "umwayi.json", "workflows"],
   "tests/test_w21_goldens.py": ["docs", "tools"],
   "tests/test_what_it_is.py": ["README.md", "docs"],
