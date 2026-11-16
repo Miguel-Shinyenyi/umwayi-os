@@ -1746,9 +1746,20 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - A goal with a failed or stopped task before its queued tasks prints nothing new, because `goal run` would not start the next task; the failed or stopped task line above it is what the owner reads.
 - It reads the task files. While a task file is behind the logbook (the status says so), the line follows the file, not the logbook.
 
+## Enforcement (W41), found while writing the design
+
+### 298. Enforcement is cooperative, and nothing counts the tool calls that never reached a hook
+
+The design of W41 (`docs/enforcement.md`) is written; none of its options is built. Until the owner picks one:
+
+- A rule is checked only when a hook asks. A program that a checked command starts (a test run, a script, a Python that writes `__pycache__`) reads, writes and connects without a check of its own. In a goal run the scope check after the builder sees only what landed in the worktree.
+- Nothing in umwayi counts tool calls that ran with no `umwayi check` entry, so the absence of a recorded bypass in the real runs of Nov 15 is not evidence that none happened. The logbooks of those runs are not in the repo.
+- Claude Code `agent run`, its cli chat and every Kiro start get umwayi's whole environment less a few credential names, so any other secret in the owner's shell reaches the helper and the commands it runs.
+- The files that guard umwayi (`rules.yaml`, the logbook, `.umwayi/`, the hook files, the settings files) can be changed by a program a helper runs. The tamper check and the chain show an edit of the logbook; a change to another guard file is not detected after the run.
+
 ## CI (W47c), found while measuring tests/test_merge_main.py
 
-### 298. Most of the merge_main tests' time is the ui verify, run twice in every merge_main
+### 299. Most of the merge_main tests' time is the ui verify, run twice in every merge_main
 
 After W47c, `tests/test_merge_main.py` still takes about 860 s on the machine it was measured on (1299 s before).
 
