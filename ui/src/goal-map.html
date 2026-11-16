@@ -29,6 +29,11 @@
 </header>
 <main>
   <p class="line" id="line" role="status" aria-live="polite">This page needs a script to read a goal map. Without one it shows nothing.</p>
+  <div class="live" id="live">
+    <label for="token">The token of umwayi serve. It is kept in this page's memory only, until you close or reload the page, and sent only to umwayi.</label>
+    <input type="password" id="token" autocomplete="off" spellcheck="false" maxlength="64">
+    <button type="button" class="btn" id="refresh">Refresh</button>
+  </div>
   <div class="file" id="file" hidden>
     <label for="file-input">A goal map file (JSON), read in this browser only. It is not uploaded, sent or kept.</label>
     <input type="file" id="file-input" accept=".json,application/json">

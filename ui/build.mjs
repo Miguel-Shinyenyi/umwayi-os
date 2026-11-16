@@ -119,15 +119,16 @@ const progressHtml = readFileSync(join(root, 'src/progress.html'), 'utf8')
 if (/<!--@/.test(progressHtml)) throw new Error('a placeholder was not replaced in the progress page');
 writeFileSync(join(dist, 'progress.html'), progressHtml);
 
-// W38: the goal map, a fourth page. One inline script and one inline style, both by hash. It sends nothing (W37, the route it
-// will read, is not merged), so its policy has no connect-src: default-src 'none' covers every request. img-src is none too.
+// W38, W38b: the goal map, a fourth page. One inline script and one inline style, both by hash. W38b: it reads GET /v1/goal-map of
+// umwayi serve, which serves it (umwayi serve --page ui/dist/goal-map.html), so its policy gains connect-src 'self' and nothing
+// else, as the live view's did in W6.9. img-src stays none.
 const gmBundle = await build({
   entryPoints: [join(root, 'src/goal-map.js')], bundle: true, minify: true, format: 'iife', target: 'es2020',
   write: false, legalComments: 'inline', logLevel: 'warning',
 });
 const gmScript = gmBundle.outputFiles[0].text.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
 const gmCss = (await transform(readFileSync(join(root, 'src/goal-map.css'), 'utf8'), { loader: 'css', minify: true })).code;
-const gmCsp = ["default-src 'none'", `script-src '${cspHash(gmScript)}'`, `style-src '${cspHash(gmCss)}'`, "base-uri 'none'", "form-action 'none'"].join('; ');
+const gmCsp = ["default-src 'none'", `script-src '${cspHash(gmScript)}'`, `style-src '${cspHash(gmCss)}'`, "base-uri 'none'", "form-action 'none'", "connect-src 'self'"].join('; ');
 const gmHtml = readFileSync(join(root, 'src/goal-map.html'), 'utf8')
   .replace('<!--@csp-->', `<meta http-equiv="Content-Security-Policy" content="${gmCsp}">`)
   .replace('<!--@style-->', () => gmCss)

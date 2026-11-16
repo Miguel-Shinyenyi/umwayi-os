@@ -13,6 +13,8 @@ Built by W37 with the owner's word of Nov 15. The same document comes from two p
 
 There is no stream and no polling. The page asks once when the owner acts, as for every other route, because W6.R14.6 says the page does not poll and every request is logged.
 
+The page (W38b): `umwayi serve --page ui/dist/goal-map.html` serves `ui/dist/goal-map.html`, checked against `goalMapPage` in `ui/dist/build.json`. Paste the token in the field and press Refresh (or Enter). The page reads `GET /v1/goal-map` through the page client (`ui/src/api/client.js`): once when it opens (which sends nothing until there is a token) and again only on a press of Refresh. It has no timer and no retry, sends no body and uses no other route. The token is kept in the page's memory only and the field is emptied at once. Its policy is the W38 one plus `connect-src 'self'`. Opened from disk it says to open it with `umwayi serve` and sends nothing; From a file still draws a goal map file.
+
 ### The document
 
 ```

@@ -10,7 +10,8 @@ import { readGoalMap, STATES, UNKNOWN, MESSAGES, STALE_S, supervisorOf, killOf, 
 import { layout, textBoxes, overlap, inside, grow, segmentHits, HALO, BAT, CARD, W } from '../src/goalmap/layout.js';
 import { drawMap, drawList, drawFeed, drawLamp } from '../src/goalmap/draw.js';
 import { createTheme, themeFromHash, themeHash, isThemeKey, slotPicture, hasBat, TITLE_WORD } from '../src/goalmap/theme.js';
-import { createFeed, liveLoad, LINES, RETRY_MS, OK_MS } from '../src/goalmap/feed.js';
+import { createReader, liveLoad, LINES } from '../src/goalmap/feed.js';
+import { createClient, NO_TOKEN_MESSAGE, UNAVAILABLE_MESSAGE } from '../src/api/client.js';
 import { readTextFile } from '../src/data/snapshot.js';
 import { startGoalMap } from '../src/goalmap/page.js';
 
@@ -399,51 +400,135 @@ test('the feed shows the newest events first, at most eight', () => {
   assert.equal(ol.children[7].children[2].textContent, 'line 4');
 });
 
-test('an unreachable backend is one plain line and the page tries again slowly, never faster than 15 s', async () => {
+// W38b replaced three tests of W38 here: "an unreachable backend ... tries again slowly, never faster than 15 s", "the live
+// source is not connected until W37 is merged" and "a new reading replaces the drawing" (which moved on by firing the timer).
+// The page now reads once on open and again only on a press of Refresh, with no timer (W6.R14.6), through the page client.
+
+const ORIGIN = 'http://127.0.0.1:8765';
+const TOKEN = 'umt1_u8jzPde0IgxLd6GncfBAepfJBd0Kh8oOOL8dKLzd-oc';
+const done = (data) => ({ status: 200, headers: { get: (k) => (k.toLowerCase() === 'content-type' ? 'application/json; charset=utf-8' : null) },
+  text: async () => JSON.stringify({ schema: 1, ok: true, code: 0, word: 'done', request: 'R-0a1b2c3d', logged: true, data }) });
+function liveWin(answers) {
+  const win = fakeWin();
+  win.location.origin = ORIGIN;
+  const calls = [];
+  const fetchImpl = async (url, init) => { calls.push({ url, init }); return answers.length ? answers.shift() : done(JSON.parse(raw('no-goal.json'))); };
+  const client = createClient({ location: win.location, fetchImpl });
+  return { win, calls, client };
+}
+
+test('W38b fixture: the live read gets GET /v1/goal-map through the page client and draws the W37 document', async () => {
+  const { win, calls, client } = liveWin([done(JSON.parse(raw('tasks-4.json')))]);
+  client.setToken(TOKEN);
+  const page = startGoalMap(win, { client });
+  await flush();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/v1/goal-map');
+  assert.equal(calls[0].init.method, 'GET');
+  assert.equal('body' in calls[0].init, false, 'no body is sent');
+  assert.deepEqual(Object.keys(calls[0].init.headers), ['Authorization']);
+  assert.equal(calls[0].init.headers.Authorization, `Bearer ${TOKEN}`);
+  assert.equal(win.document.getElementById('task-list').children.length, 4);
+  assert.match(win.document.getElementById('line').textContent, /^Read from umwayi at .*Press Refresh to read again\.$/);
+  page.stop();
+});
+
+test('W38b: one read on open, then only a press of Refresh reads again, and no timer is ever set', async () => {
+  const { win, calls, client } = liveWin([done(JSON.parse(raw('tasks-1.json'))), done(JSON.parse(raw('tasks-4.json')))]);
+  client.setToken(TOKEN);
+  const page = startGoalMap(win, { client });
+  await flush(); await flush();
+  assert.equal(calls.length, 1, 'one read on open');
+  assert.equal(win.timers.length, 0, 'no timer');
+  assert.equal(win.document.getElementById('task-list').children.length, 1);
+  win.document.getElementById('refresh').fire('click');
+  await flush();
+  assert.equal(calls.length, 2);
+  assert.equal(win.document.getElementById('task-list').children.length, 4);
+  for (let i = 0; i < 5; i++) await flush();
+  assert.equal(calls.length, 2, 'nothing more without a press');
+  assert.equal(win.timers.length, 0);
+  page.stop();
+});
+
+test('W38b: a press while a read runs is ignored, and the button is off until it ends', async () => {
+  let release;
+  const slow = new Promise((r) => { release = r; });
+  const win = fakeWin();
+  let loads = 0;
+  const page = startGoalMap(win, { load: async () => { loads++; await slow; return { ok: true, data: JSON.parse(raw('tasks-1.json')) }; } });
+  await flush();
+  assert.equal(win.document.getElementById('refresh').disabled, true);
+  win.document.getElementById('refresh').fire('click');
+  win.document.getElementById('refresh').fire('click');
+  assert.equal(loads, 1);
+  release();
+  await flush();
+  assert.equal(win.document.getElementById('refresh').disabled, false);
+  assert.equal(page.reads, 1);
+  page.stop();
+});
+
+test('W38b: without a token nothing is sent; a pasted token goes to the client and the field is emptied at once', async () => {
+  const { win, calls, client } = liveWin([done(JSON.parse(raw('tasks-4.json')))]);
+  const page = startGoalMap(win, { client });
+  await flush();
+  assert.equal(calls.length, 0, 'the read on open sends nothing without a token');
+  assert.equal(win.document.getElementById('line').textContent, NO_TOKEN_MESSAGE);
+  const field = win.document.getElementById('token');
+  field.value = ` ${TOKEN} `;
+  field.fire('keydown', { key: 'Enter' });
+  assert.equal(field.value, '', 'the field is emptied before the request');
+  await flush();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].init.headers.Authorization, `Bearer ${TOKEN}`);
+  for (const n of Object.values(win.document.ids).flatMap((x) => x.all())) {
+    assert.ok(!String(n._text).includes(TOKEN) && !Object.values(n.attrs).some((v) => v.includes(TOKEN)), 'the token is in no element');
+  }
+  assert.ok(!JSON.stringify(win.location).includes(TOKEN) && !String(win.location.hash).includes(TOKEN), 'nor in the address');
+  page.stop();
+});
+
+test('W38b: opened from disk the page says to open it with umwayi serve and sends nothing; the file source still works', async () => {
+  const win = fakeWin();
+  win.location.origin = 'null';
+  let sent = 0;
+  const client = createClient({ location: win.location, fetchImpl: async () => { sent++; return done({}); } });
+  const page = startGoalMap(win, { client });
+  await flush();
+  assert.equal(sent, 0);
+  assert.equal(win.document.getElementById('line').textContent, UNAVAILABLE_MESSAGE);
+  win.document.getElementById('src-file').fire('click');
+  assert.equal(win.document.getElementById('live').hidden, true);
+  page.take(raw('tasks-4.json'));
+  assert.equal(win.document.getElementById('task-list').children.length, 4);
+  page.stop();
+});
+
+test('W38b: a bad answer keeps the last drawing and says why, and the client sends nothing more', async () => {
+  const bad = { status: 200, headers: { get: () => 'application/json; charset=utf-8' }, text: async () => '{"not":"an answer"}' };
+  const { win, calls, client } = liveWin([done(JSON.parse(raw('tasks-4.json'))), bad]);
+  client.setToken(TOKEN);
+  const page = startGoalMap(win, { client });
+  await flush();
+  win.document.getElementById('refresh').fire('click');
+  await flush();
+  assert.equal(win.document.getElementById('task-list').children.length, 4, 'the last good drawing stays');
+  assert.match(win.document.getElementById('line').textContent, /did not answer in the expected shape/);
+  win.document.getElementById('refresh').fire('click');
+  await flush();
+  assert.equal(calls.length, 2, 'a stopped client sends nothing more');
+  page.stop();
+});
+
+test('W38b: the reader runs one read at a time and reports a failure as one line', async () => {
   const lines = [];
-  const timers = [];
-  let calls = 0;
-  const feed = createFeed({
-    load: () => { calls++; return Promise.reject(new Error('down')); },
-    onData: () => assert.fail('no data'),
-    onDown: (l) => lines.push(l),
-    setTimer: (f, ms) => { timers.push({ f, ms }); return timers.length; },
-    clearTimer: () => {},
-  });
-  feed.start();
-  for (let i = 0; i < 4; i++) { await flush(); timers[timers.length - 1].f(); }
-  await flush();
-  assert.equal(calls, 5);
-  assert.deepEqual(timers.map((t) => t.ms), [...RETRY_MS, 60000, 60000]);
-  assert.ok(timers.every((t) => t.ms >= 15000));
-  assert.equal(lines[0], LINES.unreachable(15));
-  feed.stop();
-  assert.ok(OK_MS >= 5000);
-});
-
-test('the live source is not connected until W37 is merged: the page says so in one line and sends nothing', async () => {
-  await assert.rejects(liveLoad(), { name: 'NotConnected' });
-  const win = fakeWin();
-  const page = startGoalMap(win);
-  await flush();
-  assert.equal(win.document.getElementById('line').textContent, LINES.notConnected(15));
-  assert.equal(win.timers.at(-1).ms, 15000);
-  page.stop();
-});
-
-test('a new reading replaces the drawing (a live map), and a bad one keeps the last drawing and says why', async () => {
-  const win = fakeWin();
-  const texts = [raw('tasks-1.json'), raw('tasks-4.json'), '{bad'];
-  const page = startGoalMap(win, { load: async () => texts.shift() });
-  await flush();
-  const count = () => win.document.getElementById('task-list').children.length;
-  assert.equal(count(), 1);
-  win.timers.at(-1).f(); await flush();
-  assert.equal(count(), 4);
-  win.timers.at(-1).f(); await flush();
-  assert.equal(count(), 4, 'the last good drawing stays');
-  assert.equal(win.document.getElementById('line').textContent, MESSAGES.notJson);
-  page.stop();
+  const r = createReader({ load: async () => { throw new Error('x'); }, onData: () => assert.fail('no data'), onDown: (l) => lines.push(l) });
+  assert.equal(await r.read(), true);
+  assert.deepEqual(lines, ['umwayi did not answer']);
+  const live = liveLoad({ call: async (id) => { assert.equal(id, 'goal.map'); return { ok: true, data: { version: 1 } }; } });
+  assert.deepEqual(await live(), { ok: true, data: { version: 1 } });
+  assert.equal(LINES.read('now'), 'Read from umwayi at now. Press Refresh to read again.');
 });
 
 // ---------------------------------------------------------------- nothing becomes markup
@@ -483,15 +568,30 @@ test('no module of the goal map writes markup, reads the query, stores anything 
   }
 });
 
-test('the built page: one inline script and style by hash, no request allowed, no outside file, and the header has its title', () => {
+test('the built page: one inline script and style by hash, requests to its own origin only, no outside file, and the header has its title', () => {
   const html = readFileSync(join(here, '..', 'dist', 'goal-map.html'), 'utf8');
   const csp = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)">/)[1];
-  assert.match(csp, /^default-src 'none'; script-src 'sha256-[^']+'; style-src 'sha256-[^']+'; base-uri 'none'; form-action 'none'$/);
-  assert.ok(!/connect-src|unsafe-inline|unsafe-eval|\*/.test(csp));
+  // W38b changed this: the page reads its own origin (umwayi serve), so the policy gains connect-src 'self' and nothing else
+  assert.match(csp, /^default-src 'none'; script-src 'sha256-[^']+'; style-src 'sha256-[^']+'; base-uri 'none'; form-action 'none'; connect-src 'self'$/);
+  assert.ok(!/unsafe-inline|unsafe-eval|\*|https?:/.test(csp));
   assert.equal((html.match(/<script\b/g) || []).length, 1);
   assert.ok(!/<script[^>]*\bsrc=|<link\b|<img\b|<iframe\b|@import|url\(/i.test(html));
   assert.match(html, /<h1>umwayi goal map <span class="kiro" id="kiro" hidden>Kiroween<\/span><\/h1>/);
   const addresses = [...html.matchAll(/https?:\/\/[^\s"'<>)]+/g)].map((m) => m[0]);
   assert.deepEqual(addresses, [], 'no address at all, not even a namespace: the drawing takes it from the page');
   assert.match(html, /data-tier="list"/, 'List in its HTML, before any script');
+});
+
+test('W38b: the built page sends only through the page client: exactly one fetch, inside its region, and a token field', () => {
+  const html = readFileSync(join(here, '..', 'dist', 'goal-map.html'), 'utf8');
+  const b = html.indexOf('/*! umwayi-client:begin */');
+  const e = html.indexOf('/*! umwayi-client:end */');
+  assert.ok(b > 0 && e > b, 'the region of the page client is in the bundle once');
+  assert.equal(html.indexOf('/*! umwayi-client:begin */', b + 1), -1);
+  const n = (s) => (s.match(/\bfetch\s*\(/g) || []).length;
+  assert.deepEqual([n(html.slice(0, b)), n(html.slice(b, e)), n(html.slice(e))], [0, 1, 0]);
+  assert.ok(!/XMLHttpRequest|EventSource|WebSocket|sendBeacon|setInterval|setTimeout/.test(html.slice(0, b) + html.slice(e)), 'no other way out and no timer');
+  assert.match(html, /<input type="password" id="token" autocomplete="off"/);
+  assert.match(html, /<button type="button" class="btn" id="refresh">Refresh<\/button>/);
+  assert.ok(html.includes('"/v1/goal-map"') || html.includes("'/v1/goal-map'"), 'the one route it reads');
 });
