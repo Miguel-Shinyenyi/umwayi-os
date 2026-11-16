@@ -1725,3 +1725,13 @@ The owner's logo appears on the four local pages as an inline SVG made from the 
 - The pull request template is used only when a pull request is opened on GitHub's own page. A pull request opened through the API or by a session with its own body text does not get it, and the logo there is loaded by GitHub from the raw address of main.
 - No commit made for a goal carries a Made-with line: umwayi makes no commit, and asking the AI helper for one would be a request it may not follow.
 - The goal map at phone width is wider than the screen (the map drawing, 920 pixels), as it was before W51; the logo does not change that, and there is no phone test of the goal map.
+
+## CI (W47c), found while measuring tests/test_merge_main.py
+
+### 296. Most of the merge_main tests' time is the ui verify, run twice in every merge_main
+
+After W47c, `tests/test_merge_main.py` still takes about 860 s on the machine it was measured on (1299 s before).
+
+- A `python -m tools.merge_main` that has nothing to do takes about 49 s. About 40 s of that is `python -m unittest tests.test_ui_package` (about 20 s), which `merge_main` runs twice: once in its verify pass and once in the final pass that checks every file again. The file runs `merge_main` 26 times.
+- Making it faster would change what `merge_main` does (one verify pass instead of two, or skipping the ui verify when no ui file changed), what the test fixture checks (a verify list without the ui entry), or `tests/test_ui_package.py` itself (most of its time is its own regular expressions and the copies of the ui tree for each planted fault). Each is the owner's decision.
+- The seconds in `tools/ci_shards.json` are from CI reports. They were not changed: a local run is not a CI report, so the new time on CI is known only after a CI run.

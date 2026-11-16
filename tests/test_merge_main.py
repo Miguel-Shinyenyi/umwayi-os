@@ -66,31 +66,47 @@ def limits_part(section, title):
     return f"section: {section}\ntitle: {title}\n\nA body for {title}.\n"
 
 
+_SEED = {}
+
+
+def build_seed():
+    """The committed tree of this repository with the W21 tools laid over it, made consistent and committed as `main`.
+    Built once for the whole module (W47c): every test only clones it (into a bare origin), so no test can change it."""
+    if "path" not in _SEED:
+        _SEED["dir"] = tempfile.TemporaryDirectory(prefix="umwayi-mm-")
+        _SEED["path"] = _make_seed(Path(_SEED["dir"].name))
+    return _SEED["path"]
+
+
+def tearDownModule():
+    if "dir" in _SEED:
+        _SEED.pop("dir").cleanup()
+        _SEED.pop("path", None)
+
+
+def _make_seed(base):
+    seed = base / "seed"
+    seed.mkdir()
+    archive = subprocess.run(["git", "archive", "HEAD"], cwd=REPO, capture_output=True, check=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(seed)
+    for name in ("generated_files.py", "generated_files.json", "merge_main.py", "ci_map.py", "ci_shards.py"):
+        shutil.copy2(REPO / "tools" / name, seed / "tools" / name)
+    for args in (("tools.ci_map", "update"), ("tools.ci_shards", "assign-missing"), ("tools.ci_map", "table", "--write")):
+        r = subprocess.run([sys.executable, "-m", *args], cwd=seed, capture_output=True, text=True, env=ENV)
+        assert r.returncode == 0, (args, r.stderr)
+    git(seed, "init", "-q", "-b", "main")
+    git(seed, "add", "-A")
+    git(seed, "commit", "-qm", "seed")
+    return seed
+
+
 class MergeMainBase(unittest.TestCase):
     seed = None
 
     @classmethod
     def setUpClass(cls):
-        cls.base = tempfile.TemporaryDirectory(prefix="umwayi-mm-")
-        base = Path(cls.base.name)
-        seed = base / "seed"
-        seed.mkdir()
-        archive = subprocess.run(["git", "archive", "HEAD"], cwd=REPO, capture_output=True, check=True).stdout
-        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-            tar.extractall(seed)
-        for name in ("generated_files.py", "generated_files.json", "merge_main.py", "ci_map.py", "ci_shards.py"):
-            shutil.copy2(REPO / "tools" / name, seed / "tools" / name)
-        for args in (("tools.ci_map", "update"), ("tools.ci_shards", "assign-missing"), ("tools.ci_map", "table", "--write")):
-            r = subprocess.run([sys.executable, "-m", *args], cwd=seed, capture_output=True, text=True, env=ENV)
-            assert r.returncode == 0, (args, r.stderr)
-        git(seed, "init", "-q", "-b", "main")
-        git(seed, "add", "-A")
-        git(seed, "commit", "-qm", "seed")
-        cls.seed = seed
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.base.cleanup()
+        cls.seed = build_seed()
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="umwayi-mm-case-")
