@@ -334,7 +334,7 @@ def status(root: Path, day: str, today: str) -> tuple:
 
 def per_run_proposal_uu(runs: list) -> int:
     """1.5 times the 95th percentile (nearest rank) of the micros of one measured run, rounded up to a whole UU: the
-    per_run that `calibrate` proposes (B.5), shared with the goal budget proposal (W54). `runs` is not empty."""
+    per_run that `calibrate` proposes (B.5), shared with the goal budget proposal (W54). `runs` holds one run or more."""
     ordered = sorted(runs)
     p95 = ordered[-(-95 * len(ordered) // 100) - 1]
     return -(-(3 * p95) // (2 * units.MICROS_PER_UU))
