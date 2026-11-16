@@ -100,7 +100,8 @@ def _whole(text: str) -> int:
 
 
 def _goal_commands(glsub) -> None:
-    """W9.8: the goal commands, each in umwayi/goal.py; the owner commands (approve, answer, merged) need a terminal."""
+    """W9.8: the goal commands, each in umwayi/goal.py; the owner commands (approve, answer, merged, retry) need a
+    terminal."""
     gs_ = glsub.add_parser("start", help="split a goal into packets: the guide runs once and the plan waits for your "
                                          "approval; 0, 2, 3 or 64")
     gs_.add_argument("text", help="the goal, 10 to 1000 printable characters (it reaches only the guide's prompts)")
@@ -143,6 +144,13 @@ def _goal_commands(glsub) -> None:
     gm.add_argument("goal", help="the goal id")
     gm.add_argument("task", help="the task id")
     gm.add_argument("--commit", help="the merge commit on your local main (default: the task's tip)")
+    gr_ = glsub.add_parser("retry", help="your retry of a task that failed or was stopped: a new task from the same "
+                                         "packet with your new budget (needs a terminal); starts nothing")
+    gr_.add_argument("goal", help="the goal id")
+    gr_.add_argument("task", help="the task that failed or was stopped, for example T-02")
+    gr_.add_argument("--budget-uu", type=_whole, required=True, help="the retry's budget, 1 to limits.per_day, in UU")
+    gr_.add_argument("--goal-budget-uu", type=_whole,
+                     help="raise the goal's budget to this, when it does not cover the retry (never lowers it)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -407,7 +415,7 @@ def build_parser() -> argparse.ArgumentParser:
     svtsub.add_parser("revoke", help="remove the token: every request is refused until a new one is created")
     svtsub.add_parser("status", help="the id, the dates and the days left; no digest, no token (changes nothing)")
 
-    gl = sub.add_parser("goal", help="goal orchestration (W9): start, show, approve, run, status, answer, merged, stop, "
+    gl = sub.add_parser("goal", help="goal orchestration (W9): start, show, approve, run, status, answer, merged, retry, stop, "
                                      "report, docs, guard; exit 0, 2, 3 or 64, never 1")
     glsub = gl.add_subparsers(dest="goal_command", parser_class=_Parser)
     gld = glsub.add_parser("docs", help="build or check docs/status-log.md and docs/KNOWN-LIMITS.md from docs-parts/ "
@@ -843,7 +851,7 @@ def _cmd_goal_docs(args, out) -> int:
         return _crashed(e)
 
 
-GOAL_COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report", "map")
+GOAL_COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "retry", "stop", "report", "map")
 
 
 def _cmd_goal(args, out) -> int:

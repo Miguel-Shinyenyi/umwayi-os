@@ -29,16 +29,18 @@ umwayi goal run G-0007
 umwayi goal status [G-0007]
 umwayi goal answer G-0007 T-02 yes|no
 umwayi goal merged G-0007 T-02 [--commit SHA]
+umwayi goal retry G-0007 T-02 --budget-uu N [--goal-budget-uu N]
 umwayi goal stop G-0007
 umwayi goal report G-0007
 ```
 
 - **The commands start no process themselves.** `start` and `run` call the supervisor (`umwayi/goalrun.py`), the only code that starts one; every git question goes through it to `umwayi/goalgit.py`.
 - **The guard first.** `start`, `approve` and `run` call the guard of W19.1 (`guidance.guard`) before they do anything else, without a task record: a missing `guidance.yaml` or a changed source is Ask me first (3), a malformed one is 64.
-- **Owner commands.** `approve`, `answer` and `merged` need a terminal on standard input and output. Without one they are exit 2 and change nothing. `stop` is open to everyone; a running `run` sees it within a second and stops its child.
+- **Owner commands.** `approve`, `answer`, `merged` and `retry` need a terminal on standard input and output. Without one they are exit 2 and change nothing. `stop` is open to everyone; a running `run` sees it within a second and stops its child.
 - **`approve`** checks the roles (the tester and the guide are not the builder), that the three agents pass `agent check`, the model and effort words for the platform, that the root is a git work tree with a local `main`, that the builder's `timeout_minutes` is at least 1.5 times the largest task kept (the refusal names the number), and that the goal budget covers the task budgets and the planning budget. A same platform and model for the builder and the tester is a warning. It removes the plan's worktree and starts nothing.
 - **`status`** prints, in order: what waits for you with its age and the time left, each task and its state, the last real event and its age (`QUIET` after 5 minutes, `age unknown` for a time it cannot trust), the supervisor line after it, the child's line, the spend and the skipped log lines. It writes nothing and takes no lock. A failed task shows its fixed cause word, for example `failed (outcome: tree_not_clean)` (W55a); the goal's spend counts the planning run's measured spend, also for a refused plan. A builder blocked by the rules gate shows `needs owner (ask)` and a line such as `Blocked: rule kiro-ask-shell gave Ask me first for action type tool_execute_bash.`: add a Yes rule for that action type and answer yes, or answer no (W56). A blocked shell call also names the first word of its command (`, command word git`), never the rest of it (W55b). A plan refused for a context entry says where and why, for example `refused (context: task 1, entry 2, missing)`, never the path (W55b). Under an approved goal that is not stopped it says when the goal is idle while tasks remain (W60): `Idle: 2 tasks queued and nothing is running. Next: python -m umwayi goal run G-0007` when a task is queued and none is running, in review, failed or stopped, or `Waiting for you: T-02 needs an answer.` when a task needs you; when nothing remains it prints nothing new. `umwayi up` shows the same line. The line is printed only when someone runs the command: umwayi never runs the goal or tells anyone by itself. The exit codes do not change.
 - **`report`** writes `.umwayi/goals/G-0007/report.md` (mode 0600, a draft, never in `outbox/`) and prints it; `run` prints it at the end too. It names no helper output, diff or file content. Per failed task it has the cause word, and for the goal the planning run's measured spend and the refusal word of a refused plan (W55a). A task whose builder was blocked by the rules gate has a `- Blocked:` line with the rule id, the answer and the action type, never the command (W56).
+- **`retry`** (W9.14) is the owner's retry of one task that failed or was stopped: a new task with the next free id, from the same packet (goal, context, checks, size, files, model and effort), with the budget the owner gives (`--budget-uu`, 1 to `limits.per_day`). The goal budget must cover the planning budget, everything spent, what the other unfinished tasks may still spend and the new budget; `--goal-budget-uu` raises it (never lowers it), and nothing else does. The retry stands in the place of the task it replaces in the run order, so later tasks still wait for it; the replaced task keeps its file, state, spend and worktree, and `status` and `report` say `retried as T-03`. It writes one logbook entry and starts nothing: `run` runs the retry in its own new worktree and branch. Only a task of an approved goal that is not stopped, and only once per task. There is no automatic retry (W9.R6.5).
 - **`goal_start`** is on the never list of graded autonomy (`umwayi/rules.py`, [rules.md](rules.md)). [goal.rules.example.yaml](../goal.rules.example.yaml) has the example rule, commented out: nothing is Yes by default.
 - **Not built:** the example rules of the adapters that deny these commands to an AI helper (the pinned hashes of `tests/test_starter_rules.py` need the owner's word), the tester's and the guide's own words in the report (the supervisor keeps no helper text), and the count of denied tool permissions.
 
@@ -77,6 +79,7 @@ umwayi goal run G-0007
 umwayi goal status [G-0007]
 umwayi goal answer G-0007 T-02 yes|no
 umwayi goal merged G-0007 T-02 [--commit SHA]
+umwayi goal retry G-0007 T-02 --budget-uu N [--goal-budget-uu N]
 umwayi goal stop G-0007
 umwayi goal report G-0007
 umwayi goal docs build | check

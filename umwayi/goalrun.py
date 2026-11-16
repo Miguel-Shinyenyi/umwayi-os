@@ -556,11 +556,8 @@ def goal_status(root, goal):
         return "stopped"  # the goal-level stop of W9.R16 (the derived state alone would read the tasks)
     if not g["approved"]:
         return "plan" if not g["refused"] else "refused"
-    states = []
-    for task in gs.list_tasks(root, goal):
-        t = gs.read_task(root, goal, task)
-        if not t["dropped"]:
-            states.append(t["state"])
+    tasks = [gs.read_task(root, goal, task) for task in gs.list_tasks(root, goal)]
+    states = [t["state"] for t in gs.live_tasks(tasks)]  # W9.14: a task replaced by a retry no longer counts
     return gp.goal_state(states, stopped=bool(g["stopped"]))
 
 
@@ -742,11 +739,11 @@ class _Run:
         if gp.packet_from_dict(t["packet"]).sha256() != t["sha256"]:
             self.finish("packet_changed")
         if role == "builder":
-            for earlier in gs.list_tasks(self.root, self.goal):
-                if earlier >= self.task:
+            tasks = [gs.read_task(self.root, self.goal, x) for x in gs.list_tasks(self.root, self.goal)]
+            for e in gs.live_tasks(tasks):  # W9.14: in run order, a retry in the place of the task it replaces
+                if e["id"] == self.task:
                     break
-                e = gs.read_task(self.root, self.goal, earlier)
-                if not e["dropped"] and e["state"] != "merged":
+                if e["state"] != "merged":
                     raise _Done(Outcome(2, t["state"], "", "order"))
 
     def step_rules(self, role, agent, platform):  # 3
@@ -1623,9 +1620,10 @@ def supervise(env, goal):
         if not g["approved"] or g["stopped"]:
             return Outcome(2, "stopped" if g["stopped"] else "plan", g["stopped"] or "", "not_runnable")
         earlier_done = True
-        for task in gs.list_tasks(env.root, goal):
-            t = gs.read_task(env.root, goal, task)
-            if t["dropped"] or t["state"] == "merged":
+        tasks = [gs.read_task(env.root, goal, task) for task in gs.list_tasks(env.root, goal)]
+        for t in gs.live_tasks(tasks):  # W9.14: run order; a task replaced by a retry is skipped
+            task = t["id"]
+            if t["state"] == "merged":
                 continue
             if t["state"] == "queued" and earlier_done:
                 return run_task(env, goal, task)

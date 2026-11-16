@@ -1,4 +1,5 @@
-"""Goal orchestration (W9.8): the `umwayi goal` commands start, show, approve, run, status, answer, merged, stop, report.
+"""Goal orchestration (W9.8): the `umwayi goal` commands start, show, approve, run, status, answer, merged, retry, stop,
+report.
 
 The commands are thin. They read the arguments, check the terminal for the owner commands, call the guard of W19.1,
 and then call `umwayi/goalstate.py` (the records) and `umwayi/goalrun.py` (the supervisor, the only code that starts a
@@ -10,7 +11,7 @@ Exit codes (W9.R3.2), never 1:
                              3 Ask me first (the rules, the kill switch, the budget, the run lock, the goal lock)
   show, status, report       0 printed; 2 an unexpected error
   approve, answer, merged,   0 done; 2 refused (expired, not a terminal, not the right state, a failed check;
-  stop                       nothing changed) or an unexpected error
+  retry, stop                nothing changed) or an unexpected error
   run                        0 the loop ended and no task failed or was stopped; 2 a task failed or was stopped, or an
                              error; 3 a task needs the owner, the kill switch is on, the budget or a lock refused
   any                        64 usage or a config error
@@ -471,6 +472,34 @@ def merged(ctx, goal, task, commit=None):
     return OK
 
 
+def retry(ctx, goal, task, budget_uu, goal_budget_uu=None):
+    """`goal retry G T --budget-uu N [--goal-budget-uu M]` (W9.14): the owner makes a new task from the packet of a task
+    that failed or was stopped, with a new budget from the owner (W9.R6.5, W9.R15.7). It needs a terminal. It starts
+    nothing: the retry is queued in the place of the task it replaces, and `goal run` runs it in its own new worktree."""
+    _need_goal(goal)
+    _need_task(task)
+    _owner(ctx)
+    _guard(ctx)
+    _exists(ctx, goal)
+    lock = _locked(ctx)
+    try:
+        _tamper_check(ctx)
+        _housekeeping(ctx, holding=True)
+        try:
+            new, goal_budget = gs.retry_task(ctx.root, goal, task, budget_uu=budget_uu, goal_budget_uu=goal_budget_uu,
+                                             per_day=_per_day(ctx), when=ctx.when, now=ctx.now)
+        except gs.RecordFailed:
+            raise
+        except gs.GoalError as e:
+            raise Refused(f"{str(e).rstrip('.')}. Nothing changed.") from None
+    finally:
+        lock.__exit__(None, None, None)
+    ctx.say(f"Goal {goal} task {new} is a retry of {task}, from the same packet, with a budget of {budget_uu} UU "
+            f"(goal budget {goal_budget} UU). It is queued in the place of {task}. Nothing was started.",
+            f"Run it with: umwayi goal run {goal}   (it gets its own worktree and branch; {task}'s stay as they are)")
+    return OK
+
+
 def stop(ctx, goal):
     """`goal stop G` (W9.R16.3): open to everyone, because it only makes things safer. It does not wait for the goal
     lock: a running supervisor sees the stop within a second and stops its child. Idempotent."""
@@ -616,7 +645,7 @@ def status_lines(ctx, only=None):
     for goal in goals:
         g = gs.read_goal(ctx.root, goal)
         tasks = [gs.read_task(ctx.root, goal, t) for t in gs.list_tasks(ctx.root, goal)]
-        kept = [t for t in tasks if not t["dropped"]]
+        kept = gs.live_tasks(tasks)  # W9.14: a task replaced by a retry is not counted; its retry is
         n_merged = sum(1 for t in kept if t["state"] == "merged")
         n_review = sum(1 for t in kept if t["state"] == "in review")
         lines.append(f"Goal {goal}  {_goal_word(ctx, goal)}  ({n_merged} of {len(kept)} tasks merged, {n_review} in review)")
@@ -625,6 +654,9 @@ def status_lines(ctx, only=None):
         idle = gp.idle_line(goal, [(t["id"], t["state"]) for t in kept]) if g["approved"] and not g["stopped"] else None
         if idle:  # W60: idle while tasks remain, or a task that waits for the owner; read only
             lines.append("  " + idle)
+        for old, new in sorted(gs.retries(tasks).items()):
+            o = next(t for t in tasks if t["id"] == old)
+            lines.append(f"  Task {old}  {o['state']} ({o['reason']}), retried as {new}")
         for t in kept:
             if t["state"] in ("merged", "queued"):
                 continue
@@ -724,8 +756,10 @@ def report_lines(ctx, goal):
              f"State: {_goal_word(ctx, goal)}. Guide {g['guide']}, builder {g['builder'] or '(none)'}, "
              f"tester {g['tester'] or '(none)'}.", ""]
     needs, review, causes = [], [], _causes(ctx)
-    for task in gs.list_tasks(ctx.root, goal):
-        t = gs.read_task(ctx.root, goal, task)
+    all_tasks = [gs.read_task(ctx.root, goal, x) for x in gs.list_tasks(ctx.root, goal)]
+    retried = gs.retries(all_tasks)
+    for t in gs.run_order(all_tasks):
+        task = t["id"]
         p = gp.packet_from_dict(t["packet"])
         if t["dropped"]:
             lines += [f"## {task}: dropped at approval", ""]
@@ -741,6 +775,10 @@ def report_lines(ctx, goal):
                   f"- Goal: {p.goal}"]
         if t["state"] == "failed" and causes.get((goal, task)):
             lines.append(f"- Cause: {causes[(goal, task)]}")
+        if task in retried:
+            lines.append(f"- Retried as: {retried[task]}")
+        if t.get(gs.RETRY_KEY):
+            lines.append(f"- A retry of: {t[gs.RETRY_KEY]}")
         if t["state"] == "needs owner" and t.get(gs.BLOCKED_KEY):
             lines.append(f"- Blocked: {gs.block_sentence(t[gs.BLOCKED_KEY])}")
         lines += [f"- Check {i}: {c}" for i, c in enumerate(p.checks, 1)]
@@ -796,7 +834,7 @@ def report(ctx, goal):
 # ----------------------------------------------------------------------------------------------- the dispatcher
 
 
-COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "stop", "report")
+COMMANDS = ("start", "show", "approve", "run", "status", "answer", "merged", "retry", "stop", "report")
 
 
 # ----------------------------------------------------------------------------------------------- the goal map (W37)
@@ -1051,6 +1089,8 @@ def dispatch(ctx, args):
             return answer(ctx, args.goal, args.task, args.answer)
         if c == "merged":
             return merged(ctx, args.goal, args.task, args.commit)
+        if c == "retry":
+            return retry(ctx, args.goal, args.task, args.budget_uu, args.goal_budget_uu)
         if c == "stop":
             return stop(ctx, args.goal)
         if c == "report":

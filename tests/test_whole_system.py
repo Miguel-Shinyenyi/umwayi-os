@@ -1070,5 +1070,31 @@ class GoalWholeSystemTests(unittest.TestCase):
         self.assertFalse((Path(str(w.root) + "-worktrees") / f"{goal.lower()}-t-01").exists())
         self.end_checks()
 
+    def test_32_the_owner_retries_a_failed_task_with_a_new_budget_and_it_reaches_review(self):
+        """W9.14: a failed builder halts the goal; `goal retry` without a terminal is 2 and changes nothing; with one it
+        queues T-02 from the same packet and starts nothing; the next run takes T-02 to in review in its own worktree."""
+        w = self.w
+        goal = self.approved()
+        w.script(builder=[{"exit": 2}])
+        self.goal_cmd("run", goal, code=2)
+        self.assertEqual(w.state(goal), ("failed", "builder"))
+        before = w.snapshot()
+        r = self.goal_cmd("retry", goal, "T-01", "--budget-uu", "30", code=2)
+        self.assertIn("needs a terminal", r.stderr)
+        self.assertEqual(w.snapshot(), before)
+        rc, out = w.tty("goal", "retry", goal, "T-01", "--budget-uu", "30")  # three Kiro runs of 10 UU
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(w.state(goal, "T-02"), ("queued", "approved"))
+        self.assertEqual(w.task(goal, "T-02")["retry_of"], "T-01")
+        self.assertEqual(self.roles(), ["guide", "builder"])  # the retry started nothing
+        self.good(goal, "T-02", 1)
+        self.goal_cmd("run", goal, code=0)
+        self.assertEqual(w.state(goal, "T-02"), ("in review", "checked"))
+        self.assertEqual(w.state(goal), ("failed", "builder"))  # the replaced task keeps its own record
+        status = self.goal_cmd("status", goal, code=0).stdout
+        self.assertIn("Task T-01  failed (builder), retried as T-02", status)
+        self.assertIn("added as a retry of task T-01", w.logbook_text())
+        self.end_checks()
+
 
 from pathlib import Path  # noqa: E402

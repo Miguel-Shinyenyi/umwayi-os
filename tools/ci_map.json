@@ -98,6 +98,7 @@
   "tests/goal/test_packet.py": [],
   "tests/goal/test_planted_words.py": ["umwayi.json"],
   "tests/goal/test_report.py": ["umwayi.json"],
+  "tests/goal/test_retry.py": ["umwayi.json"],
   "tests/goal/test_roles.py": [],
   "tests/goal/test_status.py": ["umwayi.json"],
   "tests/goal/test_verdict.py": [],

@@ -131,7 +131,7 @@
           </details></li>
         </ul>
       </details></li>
-      <li data-path="goal"><details><summary class="row"><span class="name">goal</span><span class="what">goal orchestration (W9): start, show, approve, run, status, answer, merged, stop, report, docs, guard</span></summary>
+      <li data-path="goal"><details><summary class="row"><span class="name">goal</span><span class="what">goal orchestration (W9): start, show, approve, run, status, answer, merged, retry, stop, report, docs, guard</span></summary>
         <ul>
           <li data-path="goal docs"><details><summary class="row"><span class="name">docs</span><span class="what">build or check docs/status-log.md and docs/KNOWN-LIMITS.md from docs-parts/ (W9.R14)</span></summary>
             <ul>
@@ -149,6 +149,7 @@
           <li data-path="goal approve"><span class="row"><span class="name">approve</span><span class="what">your approval of a plan: roles, model, effort and budgets (needs a terminal)</span></span></li>
           <li data-path="goal answer"><span class="row"><span class="name">answer</span><span class="what">your answer to a task that needs you (needs a terminal)</span></span></li>
           <li data-path="goal merged"><span class="row"><span class="name">merged</span><span class="what">you say a task is merged (needs a terminal), for a squash merge the check cannot see</span></span></li>
+          <li data-path="goal retry"><span class="row"><span class="name">retry</span><span class="what">your retry of a task that failed or was stopped: a new task from the same packet with your new budget (needs a terminal)</span></span></li>
           <li data-path="goal guard"><span class="row"><span class="name">guard</span><span class="what">load guidance.yaml and, given a task record (a JSON file), refuse a task that breaks an enforce rule (W19.1)</span></span></li>
         </ul>
       </details></li>
@@ -184,7 +185,7 @@
     </ul>
   </nav>
   <footer>
-    <p>23 groups and 72 commands.</p>
+    <p>23 groups and 73 commands.</p>
     <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
   </footer>
 </main>

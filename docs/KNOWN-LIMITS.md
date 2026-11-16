@@ -1756,3 +1756,15 @@ The design of W41 (`docs/enforcement.md`) is written; none of its options is bui
 - Nothing in umwayi counts tool calls that ran with no `umwayi check` entry, so the absence of a recorded bypass in the real runs of Nov 15 is not evidence that none happened. The logbooks of those runs are not in the repo.
 - Claude Code `agent run`, its cli chat and every Kiro start get umwayi's whole environment less a few credential names, so any other secret in the owner's shell reaches the helper and the commands it runs.
 - The files that guard umwayi (`rules.yaml`, the logbook, `.umwayi/`, the hook files, the settings files) can be changed by a program a helper runs. The tamper check and the chain show an edit of the logbook; a change to another guard file is not detected after the run.
+
+## Goal orchestration (W9.14), found while building the retry
+
+### 299. A retry reuses the packet as approved and leaves the old worktree in place
+
+`umwayi goal retry` (W9.14) makes a new task from the packet of a task that failed or was stopped. What it does not do:
+
+- It keeps the packet as the owner approved it: the same goal sentence, checks, files, model and effort. A retry cannot change the packet; a different packet is a new goal.
+- The replaced task's worktree and branch stay, and count toward the cap of eight worktrees in the root. With several failed tasks kept, the retry's start can stop with `worktree_cap` until the owner removes old worktrees with `git worktree remove`.
+- A task of a stopped goal (the goal stop, the kill switch, a spent goal budget) cannot be retried; the owner starts a new goal.
+- The goal map (`goal map`, `GET /v1/goal-map`) still lists the replaced task with its own state next to its retry; `status` and `report` mark it as retried.
+- The task ids end at T-99, so a goal can hold at most 99 tasks with its retries.

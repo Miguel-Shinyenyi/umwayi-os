@@ -11,6 +11,7 @@ State lives under `.umwayi/goals/G-0007/` (mode 0700): `goal.json`, `plan.json`,
 
 from __future__ import annotations
 
+import dataclasses
 import errno
 import hashlib
 import json
@@ -237,11 +238,14 @@ def block_sentence(b):
 
 
 def _check_task(obj, task):
-    keys = set(obj) - {BLOCKED_KEY}
+    keys = set(obj) - {BLOCKED_KEY, RETRY_KEY}
     if keys != set(TASK_KEYS) or obj["id"] != task or obj["version"] != 1 or obj["state"] not in TASK_STATES:
         raise GoalError("the task file has the wrong shape")
     if BLOCKED_KEY in obj:
         _check_blocked(obj[BLOCKED_KEY])
+    if RETRY_KEY in obj and not (isinstance(obj[RETRY_KEY], str) and _TASK_ID.fullmatch(obj[RETRY_KEY])
+                                 and obj[RETRY_KEY] < task):
+        raise GoalError("the task file has the wrong shape")
     if not (isinstance(obj["seq"], int) and not isinstance(obj["seq"], bool) and obj["seq"] >= 0):
         raise GoalError("the task file has the wrong shape")
     try:
@@ -291,6 +295,40 @@ def list_goals(root):
 def list_tasks(root, goal):
     d = goal_dir(root, goal)
     return sorted(p.stem for p in d.glob("T-??.json") if _TASK_ID.fullmatch(p.stem))
+
+
+# W9.14: a retry is a new task (the next free id) made by the owner from the packet of a task that failed or was
+# stopped. The task file of the retry names the task it replaces (`retry_of`); the replaced task keeps its own file,
+# state and spend. A retry takes the place of the task it replaces in the run order, so the tasks after it still wait.
+RETRY_KEY = "retry_of"
+RETRY_FROM = ("failed", "stopped")
+MAX_TASK_NUMBER = 99
+
+
+def retries(tasks):
+    """{replaced task: its retry} from task objects (the files)."""
+    return {t[RETRY_KEY]: t["id"] for t in tasks if t.get(RETRY_KEY)}
+
+
+def run_order(tasks):
+    """The task objects in the order the supervisor runs them: by the place of the first task of each retry chain,
+    then by id. A retry stands where the task it replaces stood."""
+    by_id = {t["id"]: t for t in tasks}
+
+    def first(t):
+        seen = set()
+        while t.get(RETRY_KEY) in by_id and t["id"] not in seen:
+            seen.add(t["id"])
+            t = by_id[t[RETRY_KEY]]
+        return t["id"]
+
+    return sorted(tasks, key=lambda t: (first(t), t["id"]))
+
+
+def live_tasks(tasks):
+    """The tasks that count for the goal: not dropped at approval and not replaced by a retry, in run order."""
+    replaced = retries(tasks)
+    return [t for t in run_order(tasks) if not t["dropped"] and t["id"] not in replaced]
 
 
 def events_path(root, goal, task):
@@ -593,6 +631,15 @@ def worktree_entry(when, goal, task, action, base=None, how=None):
     raise ValueError("action")
 
 
+def retry_entry(when, goal, task, orig, h8, budget_uu, goal_budget_uu=None):
+    """W9.14: the owner's retry, one entry. Ids, a hash and numbers only."""
+    s = (f"Goal {_gid(goal)} task {_tid(task)} added as a retry of task {_tid(orig)}: packet {_need(_H8_RX, h8)}, "
+         f"budget {_need(_N, str(budget_uu))} UU")
+    if goal_budget_uu is not None:
+        s += f", goal budget {_need(_N, str(goal_budget_uu))} UU"
+    return _entry(when, s, [("none", {})], "nothing")
+
+
 def docs_entry(when, status_parts, limits_parts):
     return _entry(when, f"Docs built: {_need(_N, str(status_parts))} status parts, {_need(_N, str(limits_parts))} limits parts",
                   [("none", {})], "nothing")
@@ -631,6 +678,8 @@ _SHAPES = (
     ("worktree", re.compile(rf"Goal {_G} plan worktree made, base (?P<base>{_HEX_RX})")),
     ("worktree", re.compile(rf"Goal {_G} plan worktree removed")),
     ("docs_built", re.compile(rf"Docs built: (?P<status>{_N}) status parts, (?P<limits>{_N}) limits parts")),
+    ("retry", re.compile(rf"Goal {_G} task {_T} added as a retry of task (?P<orig>{_ID['t']}): packet (?P<h8>{_H8_RX}), "
+                         rf"budget (?P<budget>{_N}) UU(?:, goal budget (?P<goal_budget>{_N}) UU)?")),
 )
 _NOT_DONE_VALUES = set(NOT_DONE.values())
 
@@ -682,6 +731,8 @@ class GoalView:
         self.id, self.planned, self.refused, self.approved = gid, False, None, False
         self.kept, self.dropped, self.builder, self.tester, self.guide = (), (), None, None, None
         self.goal_budget, self.stopped, self.plan_deadline, self.tasks = None, None, None, {}
+        self.retries = {}  # W9.14: {retry: the task it replaces}, from the retry entries
+        self.retry_facts = {}  # W9.14: {retry: (packet hash, budget)}
 
 
 def parse_entries(entries):
@@ -728,6 +779,16 @@ def parse_entries(entries):
             v.builder, v.tester, v.guide, v.goal_budget = r.fields["builder"], r.fields["tester"], r.fields["guide"], int(
                 r.fields["budget"])
             v.tasks = {t: TaskView(t) for t in kept}
+        elif k == "retry":
+            orig, old = r.fields["orig"], v.tasks.get(r.fields["orig"])
+            if (not v.approved or v.stopped or old is None or old.state not in RETRY_FROM or r.task in v.tasks
+                    or orig in v.retries.values() or not orig < r.task):
+                raise bad
+            v.tasks[r.task] = TaskView(r.task)
+            v.retries[r.task] = orig
+            v.retry_facts[r.task] = (r.fields["h8"], int(r.fields["budget"]))
+            if r.fields.get("goal_budget") is not None:
+                v.goal_budget = int(r.fields["goal_budget"])
         elif k == "goal_stopped":
             v.stopped = r.reason
         elif k == "state":
@@ -1096,6 +1157,98 @@ def change_state(root, goal, task, new, reason, *, when, now, role=None, agent=N
     return obj
 
 
+def retry_packet(old, goal, task, budget_uu, per_day):
+    """The packet of a retry: the replaced task's packet (goal, context, checks, size, files, model and effort, as the
+    owner approved them) under the new id, with its own outcome files and the owner's new budget. ValueError if bad."""
+    p = gp.packet_from_dict(old)
+    base = dataclasses.replace(p, id=task, outcome={}, budget_uu=None)
+    return gp.fill_packet(base, goal, p.model, p.effort, budget_uu, per_day)
+
+
+def _retry_obj(packet, goal, orig):
+    return dict(_task_obj(packet, goal, "queued", "approved", 0), **{RETRY_KEY: orig})
+
+
+def _retry_file(root, goal, task, orig, h8, budget_uu):
+    """The task file of a retry, rebuilt from the replaced task's packet when its entry exists and its file does not
+    (a write that failed after the entry). None when the packet no longer gives the hash of the entry."""
+    try:
+        old = read_task(root, goal, orig)
+        packet = retry_packet(old["packet"], goal, task, budget_uu, budget_uu)
+    except (GoalError, ValueError):
+        return None
+    if packet.sha256()[:8] != h8:
+        return None
+    return _retry_obj(packet, goal, orig)
+
+
+def retry_need(g, tasks, orig, budget_uu):
+    """What the goal budget must cover after a retry of `orig` with `budget_uu` (W9.R15.7): the planning budget, what
+    every task has spent, what the other unfinished tasks may still spend, and the new budget."""
+    spent = sum(int(t.get("spent_uu") or 0) for t in tasks)
+    still = 0
+    for t in live_tasks(tasks):
+        if t["id"] != orig and t["state"] in ("queued", "running", "needs owner"):
+            still += max(0, int(t["packet"].get("budget_uu") or 0) - int(t.get("spent_uu") or 0))
+    return int(g["plan_budget_uu"]) + spent + still + budget_uu
+
+
+def retry_task(root, goal, orig, *, budget_uu, per_day, when, now, goal_budget_uu=None):
+    """W9.14, the owner's retry of one task that failed or was stopped: a new task from the same packet with a new
+    budget from the owner, queued, in the place of the task it replaces. One entry, then the files. Starts nothing.
+    Returns (new task id, the goal budget after it). A refusal is a GoalError and changes nothing."""
+    _task_id(orig)
+    g = read_goal(root, goal)
+    if not g["approved"] or g["stopped"]:
+        raise GoalError("only a task of an approved goal that is not stopped can be retried; start a new goal")
+    tasks = [read_task(root, goal, t) for t in list_tasks(root, goal)]
+    old = next((t for t in tasks if t["id"] == orig), None)
+    if old is None or old["dropped"]:
+        raise GoalError(f"the goal has no task {orig}")
+    if old["state"] not in RETRY_FROM:
+        raise GoalError(f"task {orig} is {old['state']}; only a task that failed or was stopped can be retried")
+    if orig in retries(tasks):
+        raise GoalError(f"task {orig} was already retried as {retries(tasks)[orig]}")
+    number = max(int(t["id"][2:]) for t in tasks) + 1
+    if number > MAX_TASK_NUMBER:
+        raise GoalError("the goal has no free task id left")
+    task = f"T-{number:02d}"
+    if not (isinstance(budget_uu, int) and not isinstance(budget_uu, bool) and 1 <= budget_uu <= per_day):
+        raise GoalError("the budget of a retry must be a whole number from 1 UU to limits.per_day")
+    try:
+        packet = retry_packet(old["packet"], goal, task, budget_uu, per_day)
+    except ValueError:
+        raise GoalError("the packet of that task cannot be retried") from None
+    need = retry_need(g, tasks, orig, budget_uu)
+    current = int(g["goal_budget_uu"])
+    if goal_budget_uu is not None:
+        if not (isinstance(goal_budget_uu, int) and not isinstance(goal_budget_uu, bool)) or goal_budget_uu < current:
+            raise GoalError(f"--goal-budget-uu can only raise the goal budget of {current} UU")
+        if goal_budget_uu < need:
+            raise GoalError(f"the goal budget must cover {need} UU with this retry")
+        new_budget = goal_budget_uu
+    else:
+        if current < need:
+            raise GoalError(f"the goal budget of {current} UU does not cover {need} UU with this retry; give a larger "
+                            "--goal-budget-uu")
+        new_budget = current
+    raised = new_budget if goal_budget_uu is not None and new_budget != current else None
+    try:
+        entry = retry_entry(when, goal, task, orig, packet.sha256()[:8], budget_uu, raised)
+    except ValueError:
+        raise GoalError("a value of the retry is outside its pattern") from None
+    base = goal_dir(root, goal)
+
+    def files(ctx):
+        out = [(base / f"{task}.json", _dump(_retry_obj(packet, goal, orig), MAX_TASK_FILE))]
+        if raised is not None:
+            out.append((base / "goal.json", _dump(dict(g, goal_budget_uu=raised), MAX_GOAL_FILE)))
+        return out
+
+    _commit(root, when, now, _goal_events(root, goal), [entry], files)
+    return task, new_budget
+
+
 def answer_approval(root, goal, task, answer, *, when, now):
     """The owner's answer to a task that needs them (or `no` to a plan). Refused once the deadline has passed; the denial
     is then logged, once, and the answer is not accepted."""
@@ -1221,6 +1374,12 @@ def repair(root, *, when, now):
             done.append(f"{goal} goal file")
         for task, tv in v.tasks.items():
             t = _file_state(root, goal, task)
+            if t is None and task in v.retries and not (goal_dir(root, goal) / f"{task}.json").exists():
+                made = _retry_file(root, goal, task, v.retries[task], *v.retry_facts[task])  # W9.14: the entry was written, the file was not
+                if made is not None:
+                    _run_step("file", _write_file, goal_dir(root, goal) / f"{task}.json", _dump(made, MAX_TASK_FILE))
+                    done.append(f"{goal} {task} retry file")
+                    t = made
             if t is None:
                 continue
             if t["seq"] > tv.seq:

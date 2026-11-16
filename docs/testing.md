@@ -178,6 +178,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/goal/test_owner_commands.py` | `umwayi.json` |
 | `tests/goal/test_planted_words.py` | `umwayi.json` |
 | `tests/goal/test_report.py` | `umwayi.json` |
+| `tests/goal/test_retry.py` | `umwayi.json` |
 | `tests/goal/test_status.py` | `umwayi.json` |
 | `tests/goal/test_worktree.py` | `adapters`, `umwayi.json` |
 | `tests/goal/test_worktree_golden.py` | `adapters` |

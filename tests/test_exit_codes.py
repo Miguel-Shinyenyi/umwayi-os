@@ -63,6 +63,7 @@ COMMANDS = [
     (["goal", "status"], "umwayi.goal.status"),
     (["goal", "answer", "G-0001", "T-01", "yes"], "umwayi.goal.answer"),
     (["goal", "merged", "G-0001", "T-01"], "umwayi.goal.merged"),
+    (["goal", "retry", "G-0001", "T-01", "--budget-uu", "5"], "umwayi.goal.retry"),
     (["goal", "stop", "G-0001"], "umwayi.goal.stop"),
     (["goal", "report", "G-0001"], "umwayi.goal.report"),
     (["concerns", "check", "concerns.md"], "umwayi.cli.concerns.check_file"),

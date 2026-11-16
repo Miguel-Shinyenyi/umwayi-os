@@ -665,8 +665,8 @@
       "path": [
         "goal"
       ],
-      "help": "goal orchestration (W9): start, show, approve, run, status, answer, merged, stop, report, docs, guard; exit 0, 2, 3 or 64, never 1",
-      "line": "goal orchestration (W9): start, show, approve, run, status, answer, merged, stop, report, docs, guard",
+      "help": "goal orchestration (W9): start, show, approve, run, status, answer, merged, retry, stop, report, docs, guard; exit 0, 2, 3 or 64, never 1",
+      "line": "goal orchestration (W9): start, show, approve, run, status, answer, merged, retry, stop, report, docs, guard",
       "children": [
         {
           "name": "docs",
@@ -799,6 +799,16 @@
           ],
           "help": "you say a task is merged (needs a terminal), for a squash merge the check cannot see",
           "line": "you say a task is merged (needs a terminal), for a squash merge the check cannot see",
+          "children": []
+        },
+        {
+          "name": "retry",
+          "path": [
+            "goal",
+            "retry"
+          ],
+          "help": "your retry of a task that failed or was stopped: a new task from the same packet with your new budget (needs a terminal); starts nothing",
+          "line": "your retry of a task that failed or was stopped: a new task from the same packet with your new budget (needs a terminal)",
           "children": []
         },
         {

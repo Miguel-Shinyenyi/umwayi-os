@@ -103,6 +103,8 @@ ARGS = {
     "report": lambda goal: ns(goal_command="report", goal=goal),
     "answer": lambda goal, task, answer: ns(goal_command="answer", goal=goal, task=task, answer=answer),
     "merged": lambda goal, task, commit=None: ns(goal_command="merged", goal=goal, task=task, commit=commit),
+    "retry": lambda goal, task, budget_uu, goal_budget_uu=None: ns(goal_command="retry", goal=goal, task=task,
+                                                                     budget_uu=budget_uu, goal_budget_uu=goal_budget_uu),
     "approve": lambda goal, builder, tester, model, effort, task_budget_uu, goal_budget_uu, budget=(), keep=None,
     tester_model="", tester_effort="", plan_hours=None, wait_hours=None: ns(
         goal_command="approve", goal=goal, builder=builder, tester=tester, model=model, effort=effort,
