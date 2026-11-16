@@ -1745,3 +1745,14 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - The line names the next command but never runs it: `goal run` still needs the owner.
 - A goal with a failed or stopped task before its queued tasks prints nothing new, because `goal run` would not start the next task; the failed or stopped task line above it is what the owner reads.
 - It reads the task files. While a task file is behind the logbook (the status says so), the line follows the file, not the logbook.
+
+## Agent environment (W64), the SSH agent
+
+### 298. removing SSH_AUTH_SOCK does not stop a helper from reaching an SSH agent or a key another way
+
+W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper environment umwayi builds. That is all it does.
+
+- A helper still runs as the owner's user. It can look for an agent socket by itself (for example under `/tmp/ssh-*` or a path the owner's shell config names), or open a socket of another program (gpg-agent, a keyring, a password manager) by its own path. The file permissions of the owner's user allow it.
+- It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
+- A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
+- The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
