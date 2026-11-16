@@ -557,6 +557,15 @@
       "children": []
     },
     {
+      "name": "up",
+      "path": [
+        "up"
+      ],
+      "help": "the front door (W44): the read-only checks of the root, logbook, kill switch, agents, guidance, git and goals, one line each, then what to do next; with --goal, --guide and --plan-budget-uu it runs goal start when every check is ok; 0, 2, 3 or 64",
+      "line": "the front door (W44): the read-only checks of the root, logbook, kill switch, agents, guidance, git and goals, one line each, then what to do next",
+      "children": []
+    },
+    {
       "name": "feedback",
       "path": [
         "feedback"
