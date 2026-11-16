@@ -1768,9 +1768,20 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
 
+## Agent environment (W64), the SSH agent
+
+### 300. removing SSH_AUTH_SOCK does not stop a helper from reaching an SSH agent or a key another way
+
+W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper environment umwayi builds. That is all it does.
+
+- A helper still runs as the owner's user. It can look for an agent socket by itself (for example under `/tmp/ssh-*` or a path the owner's shell config names), or open a socket of another program (gpg-agent, a keyring, a password manager) by its own path. The file permissions of the owner's user allow it.
+- It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
+- A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
+- The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
 ## Goal orchestration (W54), found while building the proposed budgets
 
-### 300. A proposal has history only from tasks run after W54, and its history is per task
+### 301. A proposal has history only from tasks run after W54, and its history is per task
 
 The proposed task budgets of W54 read the measured spend of each role from the task files (`measured_uu`). What follows:
 
