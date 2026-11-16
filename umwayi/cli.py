@@ -367,6 +367,15 @@ def build_parser() -> argparse.ArgumentParser:
     lg = sub.add_parser("login", help="the login wizard: one line per agent (ok, needs a sign-in, not offered), then on a "
                                       "terminal the agent's own sign-in for each yes; 0, 2, 3 or 64, never 1")
     lg.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
+    up = sub.add_parser("up", help="the front door (W44): the read-only checks of the root, logbook, kill switch, agents, "
+                                   "guidance, git and goals, one line each, then what to do next; with --goal, --guide "
+                                   "and --plan-budget-uu it runs goal start when every check is ok; 0, 2, 3 or 64")
+    up.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
+    up.add_argument("--goal", help="the goal text for goal start (10 to 1000 printable characters)")
+    up.add_argument("--guide", help="the guide for goal start: an agent name from agents.yaml")
+    up.add_argument("--plan-budget-uu", type=_whole, help="the planning run's budget for goal start, 1 to limits.per_run")
+    up.add_argument("--guide-model", help="the guide's model word for goal start (optional)")
+    up.add_argument("--guide-effort", help="the guide's effort for goal start (optional)")
     fb = sub.add_parser("feedback", help="feedback for the owner; exit 0, 2 or 64, never 1 or 3")
     fbsub = fb.add_subparsers(dest="feedback_command", parser_class=_Parser)
     fbsub.add_parser("export", help="print a summary of the logbook for a feedback issue: counts per kind and per verdict, "
@@ -653,6 +662,19 @@ def _cmd_archive(args, out) -> int:
         f"{counts[archive.MISSING]} missing, {counts[archive.NOT_IN_INDEX]} not in the index\n"
     )
     return 0 if counts[archive.OK] == len(results) else 1
+
+
+def _cmd_up(args, out) -> int:
+    """W44. `umwayi up`. Its own error handling: 0, 2, 3 or 64, never 1. A crash is 2 and prints no exception text."""
+    try:
+        from umwayi import up
+        return up.run(Path(args.root), args, say=lambda s: (out.write(s + "\n"), out.flush()),
+                      warn=lambda s: sys.stderr.write(s + "\n"))
+    except (UsageError, guidance.GuidanceError) as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except (Exception, KeyboardInterrupt) as e:
+        return _crashed(e)
 
 
 def _cmd_login(args, out) -> int:
@@ -1039,6 +1061,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_agent(args, out)
         if args.command == "login":
             return _cmd_login(args, out)
+        if args.command == "up":
+            return _cmd_up(args, out)
         if args.command == "schedule" and getattr(args, "schedule_command", None):
             return _cmd_schedule(args, out)
         if args.command == "budget" and getattr(args, "budget_command", None):

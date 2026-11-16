@@ -1701,14 +1701,15 @@ Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first
 - A plan refused for a context entry names only the first such entry. A context list that is too long, or files that are too big together, is still only `context`, with no entry named.
 - `missing` also covers a context entry that is a link or not a regular file.
 
-## The logo on the pages (W51), found while building
+## The front door (W44), found while building
 
-### 294. The logo on the pages is a drawing of the file, not the file
+### 294. umwayi up checks what exists and makes nothing, so a fresh clone still needs three files copied
 
-The owner's logo appears on the four local pages as an inline SVG made from the same shapes. These are its limits.
+`umwayi up` is a thin layer over the existing commands. These are its limits.
 
-- The SVG was drawn by measuring the PNG (two dark rounded squares, the amber square and the hook), not traced. At the size of the pages (about 22 pixels) it matches the file; a large copy would show small differences in the curve of the hook and the corners. If the owner changes the PNG, `ui/src/logo.svg` has to be drawn again by hand; `tests/test_logo.py` pins the PNG's SHA-256, so a changed file fails until then.
-- The pages do not use the PNG itself, because an image element is refused by the page tests and three of the four page policies allow no image at all. Using the file would mean changing those policies.
-- The pull request template is used only when a pull request is opened on GitHub's own page. A pull request opened through the API or by a session with its own body text does not get it, and the logo there is loaded by GitHub from the raw address of main.
-- No commit made for a goal carries a Made-with line: umwayi makes no commit, and asking the AI helper for one would be a request it may not follow.
-- The goal map at phone width is wider than the screen (the map drawing, 920 pixels), as it was before W51; the logo does not change that, and there is no phone test of the goal map.
+- It makes no root. There is no `init` command, so a fresh clone still needs `umwayi.json`, `rules.yaml` and an `agents.yaml` (with working folders outside the root) before `umwayi up` passes its config steps. A missing or bad file is exit 64 at that step, after the lines before it.
+- The ten minutes from a clone to a running goal were not measured on a clean machine. The agent sign-ins, the guide's first run and the owner's approval take most of that time, and none of them is done by `umwayi up`.
+- "A running goal" here means a goal whose plan waits for approval: `umwayi up` stops after `goal start`. The owner still runs `goal approve` and `goal run`.
+- The agent lines are the login check of `umwayi login`: they run each agent's version and login probes, which can take a few seconds each and may use the network of the agent's own tool. They do not run `agent check` in full (the rules check of a run is not asked).
+- The supervisor and goal lines are those of `umwayi goal status`. With more than one goal they are all printed.
+- Between the checks of `umwayi up` and the start of `goal start` the state can change (the kill switch turned on, a sign-in run out); `goal start` checks again and refuses on its own.

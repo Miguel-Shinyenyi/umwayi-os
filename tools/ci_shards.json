@@ -452,10 +452,6 @@
    "seconds": 0.9,
    "shard": 2
   },
-  "tests/test_logo.py": {
-   "seconds": 20.8,
-   "shard": 3
-  },
   "tests/test_memory.py": {
    "seconds": 0.1,
    "shard": 3
@@ -506,7 +502,7 @@
   },
   "tests/test_rules_validate.py": {
    "seconds": 20.8,
-   "shard": 1
+   "shard": 3
   },
   "tests/test_runlock.py": {
    "seconds": 14.3,
@@ -550,6 +546,10 @@
   },
   "tests/test_ui_package.py": {
    "seconds": 12.8,
+   "shard": 1
+  },
+  "tests/test_up.py": {
+   "seconds": 20.8,
    "shard": 1
   },
   "tests/test_view.py": {
