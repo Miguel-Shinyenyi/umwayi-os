@@ -1767,3 +1767,14 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
+## Untrusted content (W68), found while designing
+
+### 300. the gate cannot see what an agent read, and a Claude Code or Kiro run gets every credential variable the owner's shell holds except a fixed list
+
+These are facts of main `4f6ab21`, found while writing `docs/untrusted-content.md`. Nothing was changed.
+
+- The hooks check a tool call before it runs and see only its type and a few input fields. They never see a read's result, keep no memory of earlier calls in the session, and cannot tell whether a call was caused by something the agent read.
+- `claude_env` and `kiro_env` remove a fixed list of names (the Anthropic and Claude Code credential names, `KIRO_API_KEY`, and the telemetry names). Any other credential in the owner's environment, such as `GITHUB_TOKEN`, `GH_TOKEN`, `AWS_*` or `SENTRY_*`, reaches the run. The ACP chat and OpenCode use allow lists and do not pass them.
+- No starter rule refuses `gh pr merge`, signing commands, or an edit of `units.yaml`, `guidance.yaml`, `agents.yaml` or `.kiro/steering/`; they are Ask me first.
+- The fixed prompts of the guide, the builder and the tester do not tell the helper to treat files and tool results as data.
