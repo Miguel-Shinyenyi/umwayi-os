@@ -1767,3 +1767,11 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
+
+## Guidance (W66), the merge main wording
+
+### 300. the merge main entry says the supervisor records the paths and asks the owner, but no supervisor runs merge_main yet
+
+- The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
+- The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
+- `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
