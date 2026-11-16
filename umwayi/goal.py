@@ -622,6 +622,9 @@ def status_lines(ctx, only=None):
         lines.append(f"Goal {goal}  {_goal_word(ctx, goal)}  ({n_merged} of {len(kept)} tasks merged, {n_review} in review)")
         if g["refused"]:
             lines.append(f"  The plan was refused ({_refused_words(g)}).")
+        idle = gp.idle_line(goal, [(t["id"], t["state"]) for t in kept]) if g["approved"] and not g["stopped"] else None
+        if idle:  # W60: idle while tasks remain, or a task that waits for the owner; read only
+            lines.append("  " + idle)
         for t in kept:
             if t["state"] in ("merged", "queued"):
                 continue
