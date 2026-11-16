@@ -1725,3 +1725,14 @@ The owner's logo appears on the four local pages as an inline SVG made from the 
 - The pull request template is used only when a pull request is opened on GitHub's own page. A pull request opened through the API or by a session with its own body text does not get it, and the logo there is loaded by GitHub from the raw address of main.
 - No commit made for a goal carries a Made-with line: umwayi makes no commit, and asking the AI helper for one would be a request it may not follow.
 - The goal map at phone width is wider than the screen (the map drawing, 920 pixels), as it was before W51; the logo does not change that, and there is no phone test of the goal map.
+
+## Model routing (W48), found while designing
+
+### 296. the records cannot yet show which model failed, how often a task was reviewed, or how big a change was
+
+These are facts of the code today, found while writing the W48 design note. Nothing was changed.
+
+- The model behind a run is known only for Claude Code, from its telemetry (`models` in the budget settle entry). Kiro sends nothing, so for Kiro, and Kiro Auto above all, only the word the owner typed is known.
+- A task that fails is never run again (`failed` has no way out), so review rounds per task are always 1. A rejection is seen only as `Cause: guide_rejected`.
+- No record says how many small facts were wrong; only pass, fail and unclear exist.
+- The lines a task changed are not recorded (only the count of files), the context size is checked when the plan is read and not kept, and spend per role is kept only in memory. Budget settle entries carry no goal or task and are matched to a task by agent name and time window (the over-count of item 218), so a route record could name the wrong run's model.
