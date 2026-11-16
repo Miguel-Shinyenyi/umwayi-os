@@ -1676,9 +1676,22 @@ Since W56, a task whose builder was blocked by the rules gate needs the owner in
 - With Kiro, an Ask me first also gives the hook's own queue row (`Kiro asks first: may it do TYPE?`), so the owner sees two rows: that one and the task's.
 - The worktree of the blocked run is kept. After the owner adds a Yes rule and answers yes, the next `goal run` stops with `leftover` until the worktree is removed, as for any builder that asked the owner (exit 3) before W56.
 
+## Goal map live read (W38b), found while building
+
+### 292. The goal map page reads on open and on Refresh only, one page per server
+
+`umwayi serve --page ui/dist/goal-map.html` serves the goal map page, which reads `GET /v1/goal-map`. These are its limits.
+
+- The page shows the goal map as it was when it was last read. Nothing moves by itself: the owner presses Refresh. The line says when it was read (the `now` of the document).
+- The read on open sends nothing until a token has been pasted, so a freshly opened page asks for the token first. A reload forgets the token.
+- One server serves one page. To see the live view and the goal map at once, two servers are needed, each with its own root or port. The live view does not link the goal map (the owner decides that).
+- Each Refresh is one logged read: two logbook entries, as for every read of the page (W6.R7.7).
+- The page is served only if its SHA-256 equals `goalMapPage` in `build.json`, so a build of the ui that is not committed (or an edit by hand) makes the server answer 503 with the word `page`.
+- The screenshot of W38b was taken in a browser that could not reach the sandbox's 127.0.0.1, so the page bytes and the `/v1/goal-map` answer were first fetched from a real `umwayi serve` and then handed to the browser for the same address. The requests the page sent were recorded: one `GET /v1/goal-map` with the token and no body, and nothing more.
+
 ## Goal orchestration (W9), found while building W55b
 
-### 292. The first word of a blocked shell command is kept only when it looks like a program name
+### 293. The first word of a blocked shell command is kept only when it looks like a program name
 
 Since W55b, a `umwayi check` entry for a shell call that gets No or Ask me first ends with the first word of the command, and a refused plan names the place of its first bad context entry.
 

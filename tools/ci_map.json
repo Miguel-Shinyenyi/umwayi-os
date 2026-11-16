@@ -108,6 +108,7 @@
   "tests/serve/test_gaps.py": [],
   "tests/serve/test_gate_properties.py": ["docs"],
   "tests/serve/test_gen.py": [],
+  "tests/serve/test_goal_map_page.py": ["ui", "ui/dist"],
   "tests/serve/test_goal_map_route.py": [],
   "tests/serve/test_mutation.py": ["adapters", "docs", "ui"],
   "tests/serve/test_samecode.py": ["serve.rules.example.yaml"],

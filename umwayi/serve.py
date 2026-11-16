@@ -118,9 +118,15 @@ def _link_free(path: Path) -> bool:
     return True
 
 
+# W38b (the owner's decision of Nov 15, W6.R2.3): which entry of build.json a page is checked against, by its file name. The
+# goal map page is checked against goalMapPage; every other name against page, as before.
+PAGE_KEYS = {"goal-map.html": "goalMapPage"}
+
+
 def read_page(path) -> tuple:
-    """(the bytes, "") when `path` is a regular file of at most 2.5 MB whose SHA-256 equals the one in build.json beside
-    it and nothing on the way is a link; otherwise (None, a short reason word). Read again for every request."""
+    """(the bytes, "") when `path` is a regular file of at most 2.5 MB whose SHA-256 equals its entry in build.json beside
+    it (goalMapPage for goal-map.html, page for any other name) and nothing on the way is a link; otherwise (None, a short
+    reason word). Read again for every request."""
     if path is None:
         return None, "missing"
     path = Path(path)
@@ -136,7 +142,7 @@ def read_page(path) -> tuple:
         return None, "missing"
     try:
         build = fsutil.read_regular(path.parent / "build.json", MAX_BUILD_JSON).decode("utf-8")
-        want = json.loads(build).get("page")
+        want = json.loads(build).get(PAGE_KEYS.get(path.name, "page"))
     except (OSError, ValueError, AttributeError):
         return None, "no build.json"
     if type(want) is not str or want != hashlib.sha256(data).hexdigest():
