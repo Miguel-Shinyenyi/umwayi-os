@@ -1823,3 +1823,11 @@ These are facts read on Nov 16 and limits of the design in `docs/merge-ready-des
 - The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
 - A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
 - A limits part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `tools/merge_main.py` renumbers it. So the design checks that the number is the one the build gives, not that the part has none; the owner decides which reading is meant.
+
+## Guidance (W66), the merge main wording
+
+### 305. the merge main entry says the supervisor records the paths and asks the owner, but no supervisor runs merge_main yet
+
+- The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
+- The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
+- `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
