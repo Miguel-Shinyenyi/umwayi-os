@@ -120,6 +120,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/adapters/test_opencode_plugin.py` | `adapters` |
 | `tests/adapters/test_opencode_rules.py` | `adapters` |
 | `tests/adapters/test_stdio.py` | `adapters` |
+| `tests/agents/test_agent_socket_env.py` | `adapters` |
 | `tests/agents/test_agents_acp.py` | `adapters` |
 | `tests/agents/test_agents_chain.py` | `adapters` |
 | `tests/agents/test_agents_chat.py` | `adapters` |

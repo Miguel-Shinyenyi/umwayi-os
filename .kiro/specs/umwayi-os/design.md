@@ -1412,6 +1412,7 @@ def claude_env(environ) -> dict:      # umwayi's environment minus those names; 
 - `_start` passes `env=claude_env(os.environ)` for a Claude Code run or cli chat, and `env=child_env(os.environ)` for an ACP chat, as today. A Kiro start gets `env=kiro_env(os.environ)`, umwayi's environment minus `KIRO_API_KEY` (see "Kiro" below).
 - The deny list (not the ACP allow list) is proposed for the terminal chat, because an interactive `claude` needs the owner's terminal environment (`TERM`, `COLORTERM`, editor variables) that the allow list leaves out (open question 3).
 - A credential set in a **settings file** (`apiKeyHelper`, or `env` in settings) is not removed: umwayi does not edit settings. The login check sees it and refuses.
+- **W64:** `claude_env` and `kiro_env` also remove `AGENT_SOCKET_ENV = ("SSH_AUTH_SOCK", "SSH_AGENT_PID")`, the owner's SSH agent, so a helper cannot ask it to sign. `child_env`, `login_env` and `opencode_env` are allow lists that never held them. The goal supervisor starts only `umwayi agent run`, which builds the helper's environment with these functions. A test lists every `*_env` builder of `agents.py` and fails on a new one.
 
 #### The settings template
 
