@@ -1831,3 +1831,16 @@ These are facts read on Nov 16 and limits of the design in `docs/merge-ready-des
 - The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
 - The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
 - `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
+
+## Goal orchestration (W54), found while building the proposed budgets
+
+### 306. A proposal has history only from tasks run after W54, and its history is per task
+
+The proposed task budgets of W54 read the measured spend of each role from the task files (`measured_uu`). What follows:
+
+- Only tasks run after W54 have it. Until 5 tasks of the same platform, model and effort reach review, a Claude Code role comes from `umwayi budget calibrate` (20 measured runs over 7 days) or is `no history`, and the owner types the number.
+- The tester's and the check's history is their spend per task, not per run. A task whose tester ran twice (after the owner answered yes) counts both runs as one sample.
+- A role's history counts only when every one of its runs was settled with a measured reading. A run settled from token counts at the rates in units.yaml (`declared`) or at the worst case (`unknown`) is not history.
+- The design note said the `started` events give the model and the effort; they do not. The builder's model and effort come from the packet, the tester's and the guide's from `goal.json`.
+- A Kiro term is the declared run or the unknown worst case, capped at per_run. A declared Kiro run above per_run gives a term of per_run, and that run is still refused at its start, as before.
+- `calibrate` names Claude Code's own model id in its settle entries (for example `claude-sonnet-5`), while the owner gives a model word (for example `sonnet`). They match only when the words are the same; otherwise the number for all measured runs is used.
