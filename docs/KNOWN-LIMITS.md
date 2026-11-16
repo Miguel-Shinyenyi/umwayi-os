@@ -1736,3 +1736,15 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - A task that fails is never run again (`failed` has no way out), so review rounds per task are always 1. A rejection is seen only as `Cause: guide_rejected`.
 - No record says how many small facts were wrong; only pass, fail and unclear exist.
 - The lines a task changed are not recorded (only the count of files), the context size is checked when the plan is read and not kept, and spend per role is kept only in memory. Budget settle entries carry no goal or task and are matched to a task by agent name and time window (the over-count of item 218), so a route record could name the wrong run's model.
+
+## Agents as apps (W43), found while designing
+
+### 297. an approved app can still do harm inside its permissions, and a platform app cannot be held to its manifest yet
+
+These are limits of the design in `docs/agent-apps-design.md`, written before anything is built.
+
+- An approval says the owner read the manifest, not that the app is honest. An app with `write_draft` can write a misleading draft; the rules and the owner's reading of the draft are the only checks.
+- For an agent of `agents.yaml` (Claude Code, Kiro), the adapter hook sees each tool call but not which app started the run, so a platform app cannot be held to its manifest until the hook carries the app id. The design refuses to approve a platform app until then.
+- Enforcement stays cooperative: the manifest narrows what umwayi allows and is not a sandbox.
+- `umwayi steward` keeps running without an app approval; only `agent run steward` would need one.
+- What the hub records about Steward is not in this repo, so the Steward manifest uses only the repo's own record.
