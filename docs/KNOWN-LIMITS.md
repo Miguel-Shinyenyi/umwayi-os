@@ -1778,3 +1778,14 @@ W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper 
 - It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
 - A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
 - The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
+## Merge gate (W63), found while designing
+
+### 301. an agent can act as the owner on GitHub today, and a merge-ready pass says nothing about whether the work is right
+
+These are facts read on Nov 16 and limits of the design in `docs/merge-ready-design.md`.
+
+- Any token on the machine where helpers run can be used by a helper. In today's build sandbox, `gh api user` returns the owner's account, so any GitHub review, label or comment the owner can make, an agent there can make too, and none of them shows the owner's approval.
+- The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
+- A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
+- A limits part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `tools/merge_main.py` renumbers it. So the design checks that the number is the one the build gives, not that the part has none; the owner decides which reading is meant.
