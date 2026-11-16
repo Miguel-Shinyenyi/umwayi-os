@@ -1737,9 +1737,18 @@ These are facts of the code today, found while writing the W48 design note. Noth
 - No record says how many small facts were wrong; only pass, fail and unclear exist.
 - The lines a task changed are not recorded (only the count of files), the context size is checked when the plan is read and not kept, and spend per role is kept only in memory. Budget settle entries carry no goal or task and are matched to a task by agent name and time window (the over-count of item 218), so a route record could name the wrong run's model.
 
+## Goal orchestration (W60), the idle line
+
+### 297. the idle line is printed only when someone runs goal status or umwayi up
+
+- umwayi says a goal is idle only when the owner (or a script of the owner's) runs `umwayi goal status` or `umwayi up`. Nothing watches the goals, no timer or job prints the line, and nothing is sent anywhere. A goal can stay idle for days if nobody looks.
+- The line names the next command but never runs it: `goal run` still needs the owner.
+- A goal with a failed or stopped task before its queued tasks prints nothing new, because `goal run` would not start the next task; the failed or stopped task line above it is what the owner reads.
+- It reads the task files. While a task file is behind the logbook (the status says so), the line follows the file, not the logbook.
+
 ## Enforcement (W41), found while writing the design
 
-### 297. Enforcement is cooperative, and nothing counts the tool calls that never reached a hook
+### 298. Enforcement is cooperative, and nothing counts the tool calls that never reached a hook
 
 The design of W41 (`docs/enforcement.md`) is written; none of its options is built. Until the owner picks one:
 

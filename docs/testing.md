@@ -69,9 +69,7 @@ While building, run the affected tests. Before every push, run them on each Pyth
 
 ### Merging main
 
-Sessions run in parallel, and several files are written by commands, so a plain `git merge origin/main` stops on conflicts nobody can judge by eye. `python -m tools.merge_main` ([tools/merge_main.py](../tools/merge_main.py), standard library only) merges and repairs them. A session uses it instead of a raw merge, before every push and whenever main moves.
-
-What it does, in order:
+Sessions run in parallel, and several files are written by commands, so a plain `git merge origin/main` stops on conflicts nobody can judge by eye. `python -m tools.merge_main` ([tools/merge_main.py](../tools/merge_main.py), standard library only) merges and repairs them. A session uses it instead of a raw merge, before every push and whenever main moves. What it does, in order:
 
 1. Refuses a tree with any change, an unfinished merge or a detached head (exit 3, nothing changed).
 2. `git fetch origin`, then `git merge --no-commit --no-ff origin/main`. Nothing is committed until everything below has passed.
@@ -175,6 +173,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/goal/test_goalrun.py` | `umwayi.json` |
 | `tests/goal/test_guidance.py` | `.kiro`, `guidance.yaml` |
 | `tests/goal/test_guidance_coverage.py` | `.kiro`, `guidance.yaml` |
+| `tests/goal/test_idle.py` | `umwayi.json` |
 | `tests/goal/test_log.py` | `umwayi.json` |
 | `tests/goal/test_owner_commands.py` | `umwayi.json` |
 | `tests/goal/test_planted_words.py` | `umwayi.json` |
