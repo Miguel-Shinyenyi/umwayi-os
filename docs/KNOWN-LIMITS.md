@@ -1725,3 +1725,14 @@ The owner's logo appears on the four local pages as an inline SVG made from the 
 - The pull request template is used only when a pull request is opened on GitHub's own page. A pull request opened through the API or by a session with its own body text does not get it, and the logo there is loaded by GitHub from the raw address of main.
 - No commit made for a goal carries a Made-with line: umwayi makes no commit, and asking the AI helper for one would be a request it may not follow.
 - The goal map at phone width is wider than the screen (the map drawing, 920 pixels), as it was before W51; the logo does not change that, and there is no phone test of the goal map.
+
+## Provenance and verify (W49 and W50), found while designing
+
+### 296. No file has a provenance record yet, and AI helpers can use the owner's SSH agent
+
+The design is in [provenance-design.md](provenance-design.md). Nothing of it is built. These are the limits now and the ones the design keeps.
+
+- No file umwayi produced has a record, and `umwayi verify` does not exist. Nothing today can tell a file of a goal task from a file written by hand.
+- Every AI helper umwayi starts gets the owner's `SSH_AUTH_SOCK`: `claude_env` and `kiro_env` in `umwayi/agents.py` remove only credential names. A helper whose rules let it run a command can ask the owner's agent to sign with any key it holds, for example a git commit signing key. Removing it is open question 7 of the note and needs the owner's word.
+- When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
+- The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
