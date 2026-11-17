@@ -51,7 +51,7 @@ umwayi-os/
     concerns.md             W19: umwayi concerns check, the 111 concepts record (built)
     model-routing.md        W19 part 3b: the Kiro and OpenCode model options with sources and review dates, and umwayi routing check (built; it only proposes, the owner chooses)
     model-routing-design.md W48: model routing from umwayi's own records, the record, the table and the picker (design note, not built)
-    enforced-default-design.md  W78: enforcement enforced by default, cooperative by the owner's switch (design note)
+    enforced-default-design.md  W78: the enforcement mode, enforced or cooperative, and what is built of it so far (design note)
     network-credentials.md  W69: network reach and credentials for helpers, and the options (design note)
     untrusted-content.md    W68: an agent that acts on content it read, what the gate sees and the options (design note)
     threat-model.md         W67: the threat model, part by part, with the supervisor as an attackable AI (design note)

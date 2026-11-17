@@ -1928,3 +1928,25 @@ As for every layer: tests first, and the normal suite stays standard library onl
 5. **Tests** (`tests/test_up.py`): a planted fault for each rule above, a spy that `goal start` is called once with the typed arguments and never when a check is not ok, a source check of what the module may call, and a real child process.
 6. **Not in W44:** making a root (there is no `init`; the quickstart copies three files), a sign-in, `approve`, and checking the ten minutes on a clean machine (the owner's check).
 7. **The idle line (W60, Nov 16).** The goals step prints the lines of `goal.status_lines`, so `umwayi up` shows the same `Idle:` or `Waiting for you:` line as `umwayi goal status` (W9.R11.8), from the same function. The goals step stays `ok` and the exit codes of item 4 do not change; `umwayi up` still starts no run (it prints the command, the owner runs it).
+
+### W78.R1 The enforcement mode (W78, the owner's words of Nov 17; step 1A built, the rest not)
+
+The design is `docs/enforced-default-design.md`. Step 1A of its build order builds R1 to R5, the part of R13 that `umwayi enforce check` shows, R14 and R16. The other rules are specified here and built in the later steps of the note.
+
+1. **W78.R1 The default.** The setting `enforcement` is `enforced` or `cooperative`. A missing settings file (`.umwayi/enforcement.yaml`) is `enforced`.
+2. **W78.R2 Who switches.** Only the owner, at a terminal (the check of the goal owner commands, unchanged), with the typed word `cooperative`, switches to `cooperative`. Anywhere else it is exit 3 and nothing changes. Switching to `enforced` is allowed at any time. The supervisor and helpers never switch it.
+3. **W78.R3 Logged and shown.** A switch writes one logbook entry (source `umwayi enforce`, with the SHA-256 of the file). The mode is printed in the goal status line, in the goal prompts and `goal show`, and in the start entry of every agent run, as `enforcement: enforced` or `enforcement: cooperative (agent, until DATE)`.
+4. **W78.R4 Until.** A `cooperative` entry, global, per agent or per goal, has a real `until` date at most 30 days ahead (7 when none is given at the terminal). A `cooperative` entry without it is exit 64. A past `until` means `enforced` again with no action.
+5. **W78.R5 Watched.** The mode file is on the W41 C1 watched list.
+6. **W78.R6 Environment.** The launcher environment is an allow list plus `env_keep`, with the run marker (step 2).
+7. **W78.R7 Platform sandbox.** For Claude Code the platform sandbox is on, with `failIfUnavailable` and `allowUnsandboxedCommands: false` (step 4).
+8. **W78.R8 Confinement.** In `enforced` mode a helper is a confined process (B2) and only the broker writes the guard files (steps 5 to 7).
+9. **W78.R9 Broker.** The broker accepts only fixed requests from a run id in its table (step 5).
+10. **W78.R10 Detect after.** A detect after finding (C1, C2) stops the task (steps 3 and 8).
+11. **W78.R11 Network.** Network off or an allow list, and a credential only if the owner handed it over (W69).
+12. **W78.R12 Untrusted read.** An action after an untrusted read that touches a secret, the network or a rule file is Ask me first (W68).
+13. **W78.R13 Fail closed.** A start that cannot be enforced is refused (exit 2, a reason from the fixed list `unavailable`, `kernel`, `dependency`, `profile`, `platform`, `broker`, `network`) and never started as cooperative. In step 1A `umwayi enforce check` shows this; the start itself is not gated by the mode yet.
+14. **W78.R14 Check.** `umwayi enforce check` writes nothing, starts nothing, reads no credential, exits only 0, 2, 3 or 64, and says `ready` for a part only when it is ready (today none is).
+15. **W78.R15 Guidance.** Guidance items (a) to (g) of the note are fixed text and fixed rules, with counts only in the logbook (step 9).
+16. **W78.R16 No overclaim.** No page says enforced by default or sandboxed before the minimum profile and one real enforced run exist (`enforce.REAL_ENFORCED_RUN_DONE`, set with the README in step 10). A refusal is `refused: REASON. Allowed next: STEP.` with both from fixed lists.
+17. **Tests** (`tests/test_enforce.py`): a planted fault for each of R1 to R5, R13, R14 and R16, as a copy of the module with that one rule broken that the rule's oracle must fail. Not changed by step 1A: any guard list, deny rule or terminal check (step 1B).

@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from umwayi import agents, fsutil, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalrun as gr, goalstate as gs
+from umwayi import agents, enforce, fsutil, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalrun as gr, goalstate as gs
 from umwayi import goalpropose as gpr
 from umwayi import goalwatch as gw, guidance, kill, logbook, rules, taskqueue, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
@@ -246,6 +246,7 @@ def _proposal(ctx, goal, builder, tester, model, effort, tester_model="", tester
 
 def _print_show(ctx, goal, proposal=None):
     g = gs.read_goal(ctx.root, goal)
+    ctx.say(enforce.mode_text(ctx.root, goal=goal, today=ctx.when))
     ctx.say(f"Goal {goal}: {_goal_word(ctx, goal)}. Guide {g['guide']}. Plan budget {g['plan_budget_uu']} UU."
             + (f" Builder {g['builder']}, tester {g['tester']}, goal budget {g['goal_budget_uu']} UU." if g["approved"] else ""))
     per_task, tail = gpr.lines(proposal) if proposal is not None else ({}, "")
@@ -711,6 +712,7 @@ def status_lines(ctx, only=None):
         lines.append(d)
     if not goals:
         lines.append("No goals.")
+    lines.append(enforce.status_line(ctx.root, ctx.when))  # W78.R3: last, so what waits for the owner stays first
     return lines
 
 

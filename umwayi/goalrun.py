@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from umwayi import agents, budget, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalstate as gs, goalwatch as gw
-from umwayi import kill, logbook, rules, runlock, taskqueue, units
+from umwayi import enforce, kill, logbook, rules, runlock, taskqueue, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 POLL_S = 1.0  # the watch wakes this often
@@ -263,7 +263,7 @@ def planning_prompt(goal_text, nonce):
         "Nonce: " + nonce + "\n")
 
 
-def builder_prompt(packet, goal, task, branch, date, nonce):
+def builder_prompt(packet, goal, task, branch, date, nonce, mode=""):
     status, limits = gp.own_files(goal, task)
     lines = ["You are the builder for one task. Work only in the current folder. You are on the branch " + branch + ".",
              "Task: " + packet.goal, "Read these files first:"]
@@ -277,11 +277,11 @@ def builder_prompt(packet, goal, task, branch, date, nonce):
               "untracked file at all, such as a __pycache__ folder.",
               _STATUS_FORMAT.format(status=status, date=date).rstrip("\n"),
               _LIMITS_FORMAT.format(limits=limits).rstrip("\n"),
-              "Write no em dash. When you are done, stop.", "Nonce: " + nonce]
+              "Write no em dash. When you are done, stop.", *([mode] if mode else []), "Nonce: " + nonce]
     return "\n".join(lines) + "\n"
 
 
-def tester_prompt(packet, branch, tip, nonce):
+def tester_prompt(packet, branch, tip, nonce, mode=""):
     lines = ["You are the tester. You did not build this. Change no file. Work only in the current folder, which is on "
              "the branch " + branch + " at the commit " + tip[:12] + ".",
              "Task that was built: " + packet.goal, "Check each one with your own tools (run or read what you need):"]
@@ -289,7 +289,7 @@ def tester_prompt(packet, branch, tip, nonce):
     lines += ["If you cannot tell, say unclear.",
               'Print exactly one last line: UMWAYI-RESULT <nonce> {"checks":[{"n":1,"verdict":"pass","evidence":"..."}]} '
               "with one entry for each number above, the verdict pass, fail or unclear, and evidence of 5 to 300 "
-              "characters.", "Nonce: " + nonce]
+              "characters.", *([mode] if mode else []), "Nonce: " + nonce]
     return "\n".join(lines) + "\n"
 
 
@@ -1122,7 +1122,8 @@ class _Run:
         """queued to in review: the builder, the scope check, the tester, the guide's check (W9.R8). Returns an Outcome."""
         e = self.env
         nonce = e.nonce()
-        prompt = builder_prompt(self.packet, self.goal, self.task, self.branch, e.when(), nonce)
+        prompt = builder_prompt(self.packet, self.goal, self.task, self.branch, e.when(), nonce,
+                                mode=enforce.mode_text(e.root, goal=self.goal, today=e.when()))
         res = self.start_role("builder", prompt)
         self.after_stop("builder", res)
         self.after_block(res)
@@ -1193,7 +1194,8 @@ class _Run:
 
     def tester_run(self):
         nonce = self.env.nonce()
-        prompt = tester_prompt(self.packet, self.branch, self.tip, nonce)
+        prompt = tester_prompt(self.packet, self.branch, self.tip, nonce,
+                               mode=enforce.mode_text(self.env.root, goal=self.goal, today=self.env.when()))
         before = self.fp_all()()[0]
         res = self.start_role("tester", prompt)
         self.after_stop("tester", res)

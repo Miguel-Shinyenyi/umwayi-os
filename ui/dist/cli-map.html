@@ -89,6 +89,12 @@
           <li data-path="agent login"><span class="row"><span class="name">login</span><span class="what">sign in on your terminal (Claude Code ACP: claude.ai; Kiro: kiro-cli login), then the login check</span></span></li>
         </ul>
       </details></li>
+      <li data-path="enforce"><details><summary class="row"><span class="name">enforce</span><span class="what">the enforcement mode (W78): check what this machine can enforce, or switch the mode</span></summary>
+        <ul>
+          <li data-path="enforce check"><span class="row"><span class="name">check</span><span class="what">what this machine can enforce, per agent, and the mode in force (writes nothing)</span></span></li>
+          <li data-path="enforce set"><span class="row"><span class="name">set</span><span class="what">switch the mode</span></span></li>
+        </ul>
+      </details></li>
       <li data-path="schedule"><details><summary class="row"><span class="name">schedule</span><span class="what">scheduled runs through systemd user timers (layer 11)</span></summary>
         <ul>
           <li data-path="schedule validate"><span class="row"><span class="name">validate</span><span class="what">check schedule.yaml, every problem with a line number (writes nothing)</span></span></li>
@@ -184,7 +190,7 @@
     </ul>
   </nav>
   <footer>
-    <p>23 groups and 72 commands.</p>
+    <p>24 groups and 74 commands.</p>
     <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
   </footer>
 </main>

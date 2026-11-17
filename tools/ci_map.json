@@ -135,6 +135,7 @@
   "tests/test_concerns.py": [".github", "jobs.yaml", "schedule.example.yaml", "workflows"],
   "tests/test_docs.py": [".gitignore", "PROJECT.md", "README.md", "docs"],
   "tests/test_elections.py": [],
+  "tests/test_enforce.py": ["README.md", "docs"],
   "tests/test_exit_codes.py": [],
   "tests/test_feedback.py": [".github", "README.md", "docs"],
   "tests/test_feedback_export.py": [],

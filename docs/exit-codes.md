@@ -24,6 +24,7 @@ A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 | --- | --- |
 | `umwayi check` | 0 Yes, 2 No, 3 Ask me first, 64 usage |
 | `logbook verify`, `archive verify` | 0 ok, 1 a problem found |
+| `umwayi enforce check`, `umwayi enforce set` | 0 done or every configured agent can be enforced as its mode asks, 2 an agent cannot be enforced in enforced mode (a fixed reason) or an unexpected error, 3 Ask me first (a switch to cooperative away from the owner's terminal or without the typed word; a settings file that no logbook entry explains), 64 usage or a bad settings file or agents.yaml (W78); never 1 |
 | `umwayi agent`, `umwayi schedule`, `umwayi budget` | 0, 2, 3 or 64, never 1 |
 | `umwayi login` | 0 every agent it checks is signed in at the end, 2 one is not (or cannot be checked, or its sign-in failed), 3 every one that is not was held by the kill switch or Ask me first (2 wins), 64 usage or a bad agents file; never 1 (W28) |
 | `umwayi rules validate` | 0 the rules file loads and every rule is well formed, 64 it does not (with the line and the rule id of the first problem) or usage, 2 an unexpected error; never 1 or 3 (W58a) |

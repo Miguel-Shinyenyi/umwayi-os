@@ -418,6 +418,36 @@
       ]
     },
     {
+      "name": "enforce",
+      "path": [
+        "enforce"
+      ],
+      "help": "the enforcement mode (W78): check what this machine can enforce, or switch the mode; exit 0, 2, 3 or 64, never 1",
+      "line": "the enforcement mode (W78): check what this machine can enforce, or switch the mode",
+      "children": [
+        {
+          "name": "check",
+          "path": [
+            "enforce",
+            "check"
+          ],
+          "help": "what this machine can enforce, per agent, and the mode in force (writes nothing)",
+          "line": "what this machine can enforce, per agent, and the mode in force (writes nothing)",
+          "children": []
+        },
+        {
+          "name": "set",
+          "path": [
+            "enforce",
+            "set"
+          ],
+          "help": "switch the mode; cooperative is the owner's, at a terminal, with a typed word",
+          "line": "switch the mode",
+          "children": []
+        }
+      ]
+    },
+    {
       "name": "schedule",
       "path": [
         "schedule"
