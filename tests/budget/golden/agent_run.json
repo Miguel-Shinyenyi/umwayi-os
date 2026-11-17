@@ -94,7 +94,7 @@
    [
     "umwayi agent run",
     "Started agent reviewer (claude-code, cli): TMP/bin/claude",
-    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max)",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max); enforcement: enforced",
     "The prompt and the conversation are not written to the logbook."
    ],
    [
@@ -159,7 +159,7 @@
    [
     "umwayi agent run",
     "Started agent helper (kiro, cli): TMP/bin/kiro-cli",
-    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0)",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0); enforcement: enforced",
     "The prompt and the conversation are not written to the logbook."
    ],
    [
@@ -220,7 +220,7 @@
    [
     "umwayi agent run",
     "Started agent reviewer (claude-code, cli): TMP/bin/claude",
-    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max)",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max); enforcement: enforced",
     "The prompt and the conversation are not written to the logbook."
    ],
    [
@@ -279,7 +279,7 @@
    [
     "umwayi agent run",
     "Started agent helper (kiro, cli): TMP/bin/kiro-cli",
-    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0)",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0); enforcement: enforced",
     "The prompt and the conversation are not written to the logbook."
    ],
    [
@@ -432,7 +432,7 @@
    [
     "umwayi agent run",
     "Started agent reviewer (claude-code, cli): TMP/bin/claude",
-    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max)",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.1.300, plan: max); enforcement: enforced",
     "The prompt and the conversation are not written to the logbook."
    ],
    [
@@ -491,7 +491,7 @@
    [
     "umwayi agent run",
     "Started agent helper (kiro, cli): TMP/bin/kiro-cli",
-    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0)",
+    "rule agents-yes gave Yes for agent_run (run); the run lock is held; every gate check passed (version 2.40.0); enforcement: enforced",
     "The prompt and the conversation are not written to the logbook."
    ],
    [
