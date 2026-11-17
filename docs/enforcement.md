@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page is the design note of task W41: how umwayi could hold an AI helper to the rules when the helper, or a program it runs, does not ask. It compares three options: a launcher with a scrubbed environment (A), optional confinement by the operating system (B), and a check after each run (C, detect-after). **Nothing on this page is built.** The owner picks an option, several or none, before any code is written. Until then the system works as [what-it-is.md](what-it-is.md) says: enforcement is cooperative.
+This page is the design note of task W41: how umwayi could hold an AI helper to the rules when the helper, or a program it runs, does not ask. It compares three options: a launcher with a scrubbed environment (A), optional confinement by the operating system (B), and a check after each run (C, detect-after). **Nothing on this page is built.** The owner picks an option, several or none, before any code is written. Until then the system works as [what-it-is.md](what-it-is.md) says: enforcement is cooperative. The default that would follow from the options, and the owner's switch back to cooperative, are designed in [enforced by default](enforced-default-design.md) (W78, not built).
 
 ## Current state
 

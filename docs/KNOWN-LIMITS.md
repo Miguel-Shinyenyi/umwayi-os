@@ -1980,3 +1980,15 @@ After W47c, `tests/test_merge_main.py` still takes about 860 s on the machine it
 - A `python -m tools.merge_main` that has nothing to do takes about 49 s. About 40 s of that is `python -m unittest tests.test_ui_package` (about 20 s), which `merge_main` runs twice: once in its verify pass and once in the final pass that checks every file again. The file runs `merge_main` 26 times.
 - Making it faster would change what `merge_main` does (one verify pass instead of two, or skipping the ui verify when no ui file changed), what the test fixture checks (a verify list without the ui entry), or `tests/test_ui_package.py` itself (most of its time is its own regular expressions and the copies of the ui tree for each planted fault). Each is the owner's decision.
 - The seconds in `tools/ci_shards.json` are from CI reports. They were not changed: a local run is not a CI report, so the new time on CI is known only after a CI run.
+
+## Enforced by default (W78), found while designing
+
+### 319. enforcement is cooperative today; the enforced default, the mode switch and umwayi enforce check are not built
+
+These are facts of main `8b6e079`, found while writing `docs/enforced-default-design.md`. Nothing was changed.
+
+- There is no `enforcement` setting. Every helper start is gated by hooks the helper's platform runs, and umwayi confines no helper process. Until the build tasks of the note are done and one real enforced run has finished a goal, every page says enforcement is cooperative today.
+- A confined helper would need a broker to protect the logbook and the guard files. No broker exists, and a helper that can write them can edit them (the chain shows an edit; it does not prevent one).
+- The owner terminal check can be fooled by a pseudo-terminal, and a session opened outside umwayi has no run marker. Both stay limits until confinement is built.
+- On Linux, Landlock limits TCP by port, not by host name, and only from kernel 6.7 (ABI 4). Seatbelt on macOS is deprecated and no CI runs on macOS.
+- Kiro web sessions cannot be confined or inspected by umwayi-os.
