@@ -608,6 +608,7 @@ class _Run:
         self.nfiles = 0
         self.verdicts = ()
         self.blocked = None  # W56: the fixed words of the last call of the builder that the rules blocked
+        self.measured = {}  # W54: role -> (UU, every run settled measured), the runs of this process
 
     # ---- small helpers
 
@@ -661,10 +662,23 @@ class _Run:
 
     # ---- recording a change (W9.R13.1): the entry is the change, the files follow
 
+    def measured_record(self):
+        """W54: the task file's measured spend per role: what was kept before plus this process's runs, `None` for a role
+        once one of its runs was not settled measured. None when nothing is known (the key is left as it was)."""
+        prior = dict(self.t.get(gs.MEASURED_KEY) or {})
+        if not self.measured and not prior:
+            return None
+        for role, (uu, ok) in self.measured.items():
+            if role not in gs.MEASURED_ROLES:
+                continue
+            before = prior.get(role, 0)
+            prior[role] = before + uu if ok and before is not None else None
+        return prior
+
     def move(self, new, reason, **kw):
         try:
             return gs.change_state(self.root, self.goal, self.task, new, reason, when=self.env.when(), now=self.env.now(),
-                                   spent_uu=self.spent_total(), **kw)
+                                   spent_uu=self.spent_total(), measured_uu=self.measured_record(), **kw)
         except gs.RecordFailed:
             self.say(RECORD_FAILED)
             raise _Done(Outcome(2, "", "", "record")) from None
@@ -943,6 +957,10 @@ class _Run:
         after = budget.read_ledger(self.root)
         uu = goalbudget.spent_uu(before, after, agent)
         self.spent[role] = self.spent.get(role, 0) + uu
+        measured = getattr(self, "measured", None)  # W54: a task's runs only; the planning run keeps none
+        if measured is not None:
+            uu0, ok0 = measured.get(role, (0, True))
+            measured[role] = (uu0 + uu, ok0 and goalbudget.window_measured(before, after, agent))
         if role == "builder":
             self.blocked = block_since(self.root, mark)
         return RoleResult(code, why, reader, uu, cap, uu > cap)

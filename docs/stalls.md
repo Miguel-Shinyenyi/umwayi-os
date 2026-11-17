@@ -31,5 +31,6 @@ The command reads the system clock once. The functions in the module take the ti
 
 ## Open questions
 
+- How stalls are reported and acted on when umwayi-os runs by itself (W65) is designed in [work-ledger-design.md](work-ledger-design.md): the real event logs, one clock rule and a rules gate decision. Nothing of it is built.
 - Who writes the events file? Nothing produces it yet, because the W9 event log (`goallog`) is not built. Recommendation: when it is built, add a small exporter that writes this shape, and keep this checker reading only that.
 - Should a late answer of No be reported as a finding? It is now, because the owner approved exit 3 for any approval past its deadline. Recommendation: keep it.

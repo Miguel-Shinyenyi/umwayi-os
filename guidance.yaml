@@ -93,9 +93,9 @@ guidance:
   - id: merge-main-before-push
     source_repo: umwayi-os
     source: ".kiro/steering/builder-workflow.md#2"
-    text: "Merge main with python -m tools.merge_main, never a raw git merge, before every push and whenever main moves. Exit 3 means stop and ask the guide."
+    text: "Merge main with python -m tools.merge_main, never a raw git merge, before every push and whenever main moves. Exit 3: the helper stops, the supervisor logs the printed paths and asks the owner."
     kind: advise
-    prompt_line: "Merge main with python -m tools.merge_main, never raw git merge. Exit 3 means stop and ask the guide with the printed paths. Confirm GitHub shows no conflicts."
+    prompt_line: "Merge main with python -m tools.merge_main, never raw git merge. Exit 3 means you stop; the supervisor records the printed paths in the logbook and asks the owner. Confirm GitHub shows no conflicts."
     applies_to: pr
     tier: 4
     source_hash: "657488dd6c6e7d0e7f8902e1dd0fe6b826ef1c2af1956bf12342a8b3978960f3"

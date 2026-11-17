@@ -19,6 +19,8 @@ umwayi memory bundle [--format text|json]
 
 Prints one context bundle for an AI helper. Anything under a path listed in `private_paths` (a file, a folder or a glob) is left out, and its name is never printed. Only a count is shown. `umwayi.json` (or a link to one) is read only when it is a regular file of at most 64 KB; anything else is a config error (64).
 
+How shared memory and the notes between sessions could be kept from being poisoned (writers per store, a hash per note, quarantine): [memory and supply chain](memory-supply-chain.md) (W70, design note).
+
 ## Decisions log
 
 Newest first. Each row names where it was decided.

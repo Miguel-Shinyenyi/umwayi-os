@@ -33,6 +33,15 @@ def spent_micros(before, ledger, agent):
     return total
 
 
+def window_measured(before, ledger, agent):
+    """True when every run of `agent` in the window was settled with a `measured` reading (W54: only those count as
+    history). A run with no settle, or a declared or unknown settle, makes it False. No run at all is False too."""
+    runs = [run for run, r in ledger.reserves.items() if run not in before and r.agent == agent]
+    if not runs:
+        return False
+    return all(ledger.settles.get(run) is not None and ledger.settles[run].tag == units.MEASURED for run in runs)
+
+
 def spent_uu(before, ledger, agent):
     return units.uu(spent_micros(before, ledger, agent))
 
