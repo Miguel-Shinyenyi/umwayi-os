@@ -717,8 +717,8 @@
             "goal",
             "show"
           ],
-          "help": "print the packets of a goal (changes nothing)",
-          "line": "print the packets of a goal (changes nothing)",
+          "help": "print the packets of a goal; with --builder, --tester, --model and --effort also the proposed budget of each task and its proposal id (changes nothing)",
+          "line": "print the packets of a goal",
           "children": []
         },
         {
