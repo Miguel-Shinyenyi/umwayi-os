@@ -52,7 +52,12 @@ umwayi-os/
     model-routing.md        W19 part 3b: the Kiro and OpenCode model options with sources and review dates, and umwayi routing check (built; it only proposes, the owner chooses)
     model-routing-design.md W48: model routing from umwayi's own records, the record, the table and the picker (design note, not built)
     independent-verification.md W73: a checker picked by a rule, a hidden mutation pass, and what may be claimed (design note)
+    memory-supply-chain.md  W70: shared memory poisoning and the app supply chain (design note)
+    merge-ready-design.md   W63: tools.merge_ready, a pass or fail merge gate from fixed rules (design note, not built)
     connectors.md           W72: connectors to outside services, the rule for each and the build order (design note)
+    signing.md              E5: a dedicated umwayi signing key, what it signs, rotation, loss and fail closed (design note)
+    owner-status-design.md  W77: umwayi owner, one list of what waits for the owner (design note)
+    rules-library.md        W76: a base rules library, ready sets to copy, validated and hashed (design note)
     task-log.md             W19 part 3b: the task log format and the starter rows for PRs 66 to 79 (built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
