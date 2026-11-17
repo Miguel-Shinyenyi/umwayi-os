@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from umwayi import agents, fsutil, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalrun as gr, goalstate as gs
+from umwayi import goalpropose as gpr
 from umwayi import goalwatch as gw, guidance, kill, logbook, rules, taskqueue, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
@@ -225,10 +226,29 @@ def _packets(ctx, goal):
     return [(gp.packet_from_dict(p), None) for p in raw.get("tasks", [])]
 
 
-def _print_show(ctx, goal):
+PROPOSAL_HINT = "To see proposed budgets, add --builder NAME --tester NAME --model M --effort E."
+_PROPOSAL_ID = re.compile(r"[0-9a-f]{8}")
+
+
+def _proposal(ctx, goal, builder, tester, model, effort, tester_model="", tester_effort=""):
+    """W54: the system's proposal for the packets of a goal and these roles (read only, starts nothing)."""
+    g = gs.read_goal(ctx.root, goal)
+    if not gp.roles_ok(g["guide"], builder, tester):
+        raise Refused("The tester and the guide must not be the builder. Nothing changed.")
+    b, t = _agent(ctx, builder, "builder"), _agent(ctx, tester, "tester")
+    _model_ok(b.platform, model, effort, "builder")
+    if not model or not effort:
+        raise Refused("The builder needs --model and --effort. Nothing changed.")
+    _model_ok(t.platform, tester_model, tester_effort, "tester")
+    packets = [p for p, _t in _packets(ctx, goal)]
+    return gpr.for_goal(ctx.root, ctx.when, goal, packets, builder, tester, model, effort, tester_model, tester_effort)
+
+
+def _print_show(ctx, goal, proposal=None):
     g = gs.read_goal(ctx.root, goal)
     ctx.say(f"Goal {goal}: {_goal_word(ctx, goal)}. Guide {g['guide']}. Plan budget {g['plan_budget_uu']} UU."
             + (f" Builder {g['builder']}, tester {g['tester']}, goal budget {g['goal_budget_uu']} UU." if g["approved"] else ""))
+    per_task, tail = gpr.lines(proposal) if proposal is not None else ({}, "")
     for p, t in _packets(ctx, goal):
         state = ("dropped" if t["dropped"] else t["state"]) if t else "proposed"
         own = gp.own_files(goal, p.id)
@@ -239,12 +259,28 @@ def _print_show(ctx, goal):
             ctx.say(f"    Check {i}: {c}")
         ctx.say("    Files: " + ", ".join(list(p.files) + list(own)) + " (the last two by right)",
                 "    Context: " + (", ".join(p.context) if p.context else "(none)"))
+        if proposal is not None:
+            ctx.say(per_task[p.id])
+    if proposal is not None:
+        ctx.say(tail)
+        if g["approved"]:
+            ctx.say("  The plan is approved: this proposal is information only. Nothing applies it, and no approved "
+                    "budget changes.")
+    elif g["plan"] is not None:
+        ctx.say(PROPOSAL_HINT)
 
 
-def show(ctx, goal):
+def show(ctx, goal, builder=None, tester=None, model=None, effort=None, tester_model="", tester_effort=""):
+    """`goal show G [--builder NAME --tester NAME --model M --effort E]`: the packets, and with the roles the
+    proposed budgets and the proposal id (W54). Reads only: no lock, no write, no process."""
     _need_goal(goal)
     _exists(ctx, goal)
-    _print_show(ctx, goal)
+    proposal = None
+    if any(x is not None for x in (builder, tester, model, effort)):
+        if None in (builder, tester, model, effort):
+            raise UsageError("goal show: a proposal needs --builder, --tester, --model and --effort together")
+        proposal = _proposal(ctx, goal, builder, tester, model, effort, tester_model or "", tester_effort or "")
+    _print_show(ctx, goal, proposal)
     return OK
 
 
@@ -278,9 +314,15 @@ def _parse_budgets(items):
 
 
 def approve(ctx, goal, builder, tester, model, effort, task_budget_uu, goal_budget_uu, budgets=(), keep=None,
-            tester_model="", tester_effort="", plan_hours=None, wait_hours=None):
-    """The owner's approval of a plan (W9.R5.5, W9.R5.6). Refused (2, nothing changed) unless every check passes."""
+            tester_model="", tester_effort="", plan_hours=None, wait_hours=None, accept_proposed=None):
+    """The owner's approval of a plan (W9.R5.5, W9.R5.6). Refused (2, nothing changed) unless every check passes.
+    With `accept_proposed` (W54) the proposal is made again and must have that id; its numbers fill what the owner did
+    not give."""
     _need_goal(goal)
+    if accept_proposed is not None and not _PROPOSAL_ID.fullmatch(accept_proposed):
+        raise UsageError("goal approve: --accept-proposed is the proposal id that goal show printed (8 hex digits)")
+    if accept_proposed is None and (task_budget_uu is None or goal_budget_uu is None):
+        raise UsageError("goal approve: --task-budget-uu and --goal-budget-uu are needed, or --accept-proposed ID")
     per_task_override = _parse_budgets(budgets)
     for k in keep or ():
         _need_task(k)
@@ -326,7 +368,35 @@ def approve(ctx, goal, builder, tester, model, effort, task_budget_uu, goal_budg
                           f"needs at least {need} (1.5 times its size). Nothing changed.")
         if any(k not in [p.id for p in kept] for k in per_task_override):
             raise Refused("--budget names a task that is not kept. Nothing changed.")
-        per_task = {p.id: per_task_override.get(p.id, task_budget_uu) for p in kept}
+        accepted, accepted_goal, proposal = [], None, None
+        if accept_proposed is not None:
+            proposal = _proposal(ctx, goal, builder, tester, model, effort, tester_model, tester_effort)
+            if proposal.id != accept_proposed:
+                raise Refused("The proposal changed since you read it (its id is not the one you gave). Run goal show "
+                              "again. Nothing changed.")
+            props = proposal.by_task()
+            missing = [p.id for p in kept if p.id not in per_task_override and task_budget_uu is None
+                       and props[p.id].no_history]
+            if missing:
+                raise Refused("No history for " + ", ".join(missing) + ": give a number with --budget T-NN=N or "
+                              "--task-budget-uu. Nothing changed.")
+        per_task = {}
+        for p in kept:
+            if p.id in per_task_override:
+                per_task[p.id] = per_task_override[p.id]
+            elif task_budget_uu is not None:
+                per_task[p.id] = task_budget_uu
+            else:
+                per_task[p.id] = proposal.by_task()[p.id].total
+                accepted.append((p.id, per_task[p.id]))
+        if goal_budget_uu is None:
+            goal_budget_uu = accepted_goal = sum(per_task.values()) + g["plan_budget_uu"]
+        if proposal is not None:  # W54, open question 3 of the design: a warning, never a refusal
+            for p in kept:
+                floor = gpr.kiro_floor(proposal.by_task()[p.id])
+                if per_task[p.id] < floor:
+                    ctx.warn(f"Warning: task {p.id} has {per_task[p.id]} UU, less than the {floor} UU its runs on a "
+                             "platform read by runs need; such a run is refused at its start.")
         if goalbudget.approval_problem(per_task, goal_budget_uu, _per_day(ctx), g["plan_budget_uu"]):
             raise Refused("Every task needs a budget from 1 UU to limits.per_day, and the goal budget must cover the "
                           "task budgets and the planning budget. Nothing changed.")
@@ -342,9 +412,10 @@ def approve(ctx, goal, builder, tester, model, effort, task_budget_uu, goal_budg
             gs.write_goal(ctx.root, goal, g2)
         try:
             gs.approve_plan(ctx.root, goal, builder=builder, tester=tester, guide=guide, model=model, effort=effort,
-                            task_budget_uu=task_budget_uu, goal_budget_uu=goal_budget_uu, budgets=per_task_override,
+                            task_budget_uu=next(iter(per_task.values())), goal_budget_uu=goal_budget_uu, budgets=per_task,
                             keep=None if keep is None else [p.id for p in kept], tester_model=tester_model,
-                            tester_effort=tester_effort, per_day=_per_day(ctx), when=ctx.when, now=ctx.now)
+                            tester_effort=tester_effort, per_day=_per_day(ctx), when=ctx.when, now=ctx.now,
+                            accepted=gs.accepted_items(accepted, accepted_goal))
         except gs.RecordFailed:
             raise
         except gs.GoalError as e:
@@ -355,6 +426,9 @@ def approve(ctx, goal, builder, tester, model, effort, task_budget_uu, goal_budg
     if b.platform == t.platform and (tester_model or "") == (model or "") and tester_model:
         ctx.warn(f"Warning: the builder and the tester share the platform {b.platform} and the model {model}, so their "
                  "independence is weak.")
+    if accepted or accepted_goal is not None:
+        ctx.say("Taken from the proposal: " + gs.accepted_items(accepted, accepted_goal) + " UU. These are now your "
+                "numbers and the hard caps; nothing raises them.")
     ctx.say(f"Approved goal {goal}: {len(kept)} tasks queued, {len(packets) - len(kept)} dropped. Nothing was started.",
             f"Run the first task with: umwayi goal run {goal}")
     return OK
@@ -1038,11 +1112,14 @@ def dispatch(ctx, args):
         if c == "start":
             return start(ctx, args.text, args.guide, args.plan_budget_uu, args.guide_model or "", args.guide_effort or "")
         if c == "show":
-            return show(ctx, args.goal)
+            return show(ctx, args.goal, getattr(args, "builder", None), getattr(args, "tester", None),
+                        getattr(args, "model", None), getattr(args, "effort", None),
+                        getattr(args, "tester_model", None) or "", getattr(args, "tester_effort", None) or "")
         if c == "approve":
             return approve(ctx, args.goal, args.builder, args.tester, args.model, args.effort, args.task_budget_uu,
                            args.goal_budget_uu, args.budget, args.keep, args.tester_model or "",
-                           args.tester_effort or "", args.plan_hours, args.wait_hours)
+                           args.tester_effort or "", args.plan_hours, args.wait_hours,
+                           getattr(args, "accept_proposed", None))
         if c == "run":
             return run(ctx, args.goal)
         if c == "status":

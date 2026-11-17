@@ -40,7 +40,7 @@ Run every test: `python -m unittest discover -s tests -t .`. Each layer has its 
 - `tests/test_elections.py` (layer 13, slice 1) runs `check`, `run`, `steward` and `rules due` as child processes with the system date set by a `sitecustomize.py` (`UMWAYI_TEST_TODAY`): the day after `review_by`, the last day, the three clocks, bad dates, a golden file of the bytes of a rules file with no `review_by`, the exact output of `rules due`, a snapshot of the root before and after (nothing written), and a code guard on the imports.
 - `tests/test_docs.py` checks the docs: every relative link resolves, the README is at most 120 lines, no em dash, every component doc has its four parts and is under 300 lines. Problems found while building, and what to do next time: [kiro-issues-log.md](kiro-issues-log.md).
 - `tests/test_frontier_practices.py` (W10) reads the table of [frontier-practices.md](frontier-practices.md) and fails on a missing or repeated row, a state outside the four, an evidence file that is not there or a guidance id that is not in `guidance.yaml`. It checks form and that evidence exists, never that a state is true; planted faults prove each failure.
-- Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. The results are listed in each layer's pull request.
+- Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. The results are listed in each layer's pull request. A checker picked by a rule and a mutation pass the builder cannot see are designed in [independent verification](independent-verification.md) (W73).
 
 ### CI since W20
 
@@ -53,7 +53,7 @@ CI.1 (PR 59) made one run per push and cancelled older runs. W20 makes the wait 
 - **A skipped job is never a pass.** When the plan leaves something out, the `result` summary lists it under NOT RUN, with the reason. What was left out runs on main after the merge, not on the pull request.
 - **Check names.** Before: `tests / test (3.10) (pull_request)`, `tests / test (3.11) (pull_request)`, `tests / test (3.12) (pull_request)`, `tests / test (3.13) (pull_request)`. After, on a pull request: `tests / plan (pull_request)`, `tests / test (V, shard K/3) (pull_request)` for V in 3.10 and 3.13 (since W24; on main V is 3.10 to 3.13) and K in 1 to 3 (fewer when the plan selects fewer; none is created for a skipped part), `tests / node (pull_request)` (only when planned) and `tests / result (pull_request)`. The same names with `(push)` appear on main. Require only `tests / result (pull_request)`: it is always created and it fails for every reason above. The four old names no longer exist, so a branch rule that requires them waits forever until the owner changes it by hand.
 - **Node.** The Node tests are their own job now (no longer a step of the 3.12 job), with the same npm download cache and the same `npm ci --ignore-scripts` then `node --test` in `ui/` and `site/`. The node job sets `UMWAYI_REQUIRE_BROWSER=1` (CI.2), so a runner without Chrome fails the phone tests instead of skipping them.
-- **Not verified locally.** A workflow cannot run here. `tests/test_ci_workflow.py` pins its text; the real run on GitHub is the record.
+- **Not verified locally.** A workflow cannot run here. `tests/test_ci_workflow.py` pins its text; the real run on GitHub is the record. A deterministic merge-ready check, meant to become a required check after `result`, is designed in [merge-ready-design.md](merge-ready-design.md) (W63, not built).
 
 ### Run only the affected tests (sessions and laptops)
 
@@ -96,8 +96,7 @@ Exit codes: 0 done (including nothing to do), 2 a regenerate or verify failed or
 What it cannot do:
 
 - It never pushes, never forces and never resets. The only network use is `git fetch`; `npm ci` reads the npm registry or its cache by itself.
-- It cannot judge a conflict in a file that is not generated, or in prose around a generated block. That is exit 3.
-- `assign-missing` puts a new test file on the lightest shard and does not rebalance, so after a merge the shard file can be less balanced than `balance` would make it. `balance` stays the full rebalance and `merge_main` never runs it. A matching verify shows the file is current, not that its content is right.
+- It cannot judge a conflict in a file that is not generated, or in prose around a generated block. That is exit 3. Also, `assign-missing` puts a new test file on the lightest shard and does not rebalance, so after a merge the shard file can be less balanced than `balance` would make it. `balance` stays the full rebalance and `merge_main` never runs it. A matching verify shows the file is current, not that its content is right.
 - The numbers of two limits parts that were both built on separate branches collide. Since W47a it removes the number from this branch's part when main's part has the same number (main's part is never changed), and the build gives it the next free one; it prints a `renumbered` line.
 
 ### The progress page as a workflow artifact
@@ -178,6 +177,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/goal/test_log.py` | `umwayi.json` |
 | `tests/goal/test_owner_commands.py` | `umwayi.json` |
 | `tests/goal/test_planted_words.py` | `umwayi.json` |
+| `tests/goal/test_propose.py` | `umwayi.json` |
 | `tests/goal/test_report.py` | `umwayi.json` |
 | `tests/goal/test_status.py` | `umwayi.json` |
 | `tests/goal/test_worktree.py` | `adapters`, `umwayi.json` |
