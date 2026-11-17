@@ -1944,12 +1944,14 @@ class _Run:
 
         # 7. the start entry first, then the start
         how = f"{a.platform}, {a.transport}" + (", chat" if self.mode == CHAT else "")
+        from umwayi import enforce  # W78: late, because umwayi.enforce reads agents.yaml through this module
         why = self.log(f"Started agent {a.name} ({how}): {gate.command_path}",
                        f"rule {decision.rule_id or '(none)'} gave Yes for agent_run ({self.mode}); the run lock is held; "
                        f"every gate check passed (version {_show(gate.version)}"
                        + (f", plan: {gate.plan})" if gate.plan else ")")
                        + (f"; options: {self.options.text()}" if self.options.used else "")
-                       + (f"; working folder: worktree {self.worktree}" if self.worktree else ""), NOT_LOGGED)
+                       + (f"; working folder: worktree {self.worktree}" if self.worktree else "")
+                       + f"; {enforce.mode_text(root, a.name, today=self.clock())}", NOT_LOGGED)
         if why is not None:
             return self.result(2, [f"{not_started} The logbook could not record the start, so nothing is started "
                                    "(exit 2)."], why)

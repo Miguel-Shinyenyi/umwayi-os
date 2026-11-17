@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from umwayi import agents, fsutil, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalrun as gr, goalstate as gs
+from umwayi import agents, enforce, fsutil, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalrun as gr, goalstate as gs
 from umwayi import goalpropose as gpr
 from umwayi import goalwatch as gw, guidance, kill, logbook, rules, taskqueue, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
@@ -246,6 +246,7 @@ def _proposal(ctx, goal, builder, tester, model, effort, tester_model="", tester
 
 def _print_show(ctx, goal, proposal=None):
     g = gs.read_goal(ctx.root, goal)
+    ctx.say(enforce.mode_text(ctx.root, goal=goal, today=ctx.when))
     ctx.say(f"Goal {goal}: {_goal_word(ctx, goal)}. Guide {g['guide']}. Plan budget {g['plan_budget_uu']} UU."
             + (f" Builder {g['builder']}, tester {g['tester']}, goal budget {g['goal_budget_uu']} UU." if g["approved"] else ""))
     per_task, tail = gpr.lines(proposal) if proposal is not None else ({}, "")
@@ -664,7 +665,7 @@ def status_lines(ctx, only=None):
     """The status text of W9.R11.1, in its order: what waits for the owner, the task and its state, the last real event
     and its age, the supervisor line after it, the child's line, the spend, the skipped lines. Reads, never writes."""
     goals = [only] if only else gs.list_goals(ctx.root)
-    lines, waiting = [], []
+    lines, waiting = [enforce.status_line(ctx.root, ctx.when)], []
     behind = set()
     try:
         behind = set(gs.behind(ctx.root))

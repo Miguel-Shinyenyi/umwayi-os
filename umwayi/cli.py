@@ -33,7 +33,7 @@ from pathlib import Path
 from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
                     loginwizard, petition, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
-from umwayi.errors import UmwayiError, UsageError
+from umwayi.errors import ConfigError, UmwayiError, UsageError
 from umwayi.helpers import social, steward
 from umwayi.memory import load_bundle
 
@@ -336,6 +336,16 @@ def build_parser() -> argparse.ArgumentParser:
     for sp in (agv, agl, agc, agr, agch, aglog):
         sp.add_argument("--agents", help="the agents file (default: agents.yaml in the root)")
 
+    en = sub.add_parser("enforce", help="the enforcement mode (W78): check what this machine can enforce, or switch the mode; "
+                                        "exit 0, 2, 3 or 64, never 1")
+    ensub = en.add_subparsers(dest="enforce_command", parser_class=_Parser)
+    ensub.add_parser("check", help="what this machine can enforce, per agent, and the mode in force (writes nothing)")
+    ens = ensub.add_parser("set", help="switch the mode; cooperative is the owner's, at a terminal, with a typed word")
+    ens.add_argument("mode", choices=["enforced", "cooperative"])
+    eng = ens.add_mutually_exclusive_group()
+    eng.add_argument("--agent", help="only this agent of agents.yaml")
+    eng.add_argument("--goal", help="only this goal, for example G-0007")
+    ens.add_argument("--until", help="the last day of cooperative, YYYY-MM-DD, at most 30 days ahead (default 7 days)")
     sc = sub.add_parser("schedule", help="scheduled runs through systemd user timers (layer 11); 0, 2, 3 or 64, never 1")
     scsub = sc.add_subparsers(dest="schedule_command", parser_class=_Parser)
     scv = scsub.add_parser("validate", help="check schedule.yaml, every problem with a line number (writes nothing)")
@@ -558,6 +568,26 @@ def _cmd_publish(args, out) -> int:
     r = publish.publish(Path(args.root), args.draft, args.date or _today(), args.approved_by)
     out.write("\n".join(r.lines) + "\n")
     return r.code
+
+
+def _cmd_enforce(args, out) -> int:
+    """W78 (umwayi/enforce.py). Its own error handling: 64 for usage and config, 2 for anything else, never 1."""
+    try:
+        from umwayi import enforce
+        root = Path(args.root)
+        if args.enforce_command == "check":
+            return _cmd_helper(enforce.check(root), out)
+        return _cmd_helper(enforce.set_mode(root, args.mode, agent=args.agent, goal=args.goal, until=args.until), out)
+    except (UsageError, ConfigError) as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except (Exception, KeyboardInterrupt) as e:
+        try:
+            sys.stderr.write(f"umwayi: enforce: stopped by an unexpected error ({type(e).__name__}). "
+                             f"Exit {EXIT_CRASH}. Nothing was changed.\n")
+        except Exception:
+            pass
+        return EXIT_CRASH
 
 
 def _cmd_helper(result, out) -> int:
@@ -1072,6 +1102,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_rules(args, out)
         if args.command == "agent" and getattr(args, "agent_command", None):
             return _cmd_agent(args, out)
+        if args.command == "enforce" and getattr(args, "enforce_command", None):
+            return _cmd_enforce(args, out)
         if args.command == "login":
             return _cmd_login(args, out)
         if args.command == "up":
