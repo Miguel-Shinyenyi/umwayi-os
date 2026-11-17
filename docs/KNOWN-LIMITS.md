@@ -1877,3 +1877,14 @@ These are facts of main `6525606`, found while writing `docs/memory-supply-chain
 - The starter guard lists do not name `memory/` or `.kiro/steering/`, so a helper's write to them is Ask me first, not No.
 - Claude Code, Kiro CLI and OpenCode are checked for a minimum version, not pinned by a hash; OpenCode also downloads `ripgrep` by itself (item 191).
 - umwayi-os itself is built by AI builders in branches and merged by the owner; that process is not an app and is not covered by an app's permissions.
+
+## Verification (W73), found while designing
+
+### 310. umwayi-os is not yet built under its own gate, and its mutation passes were chosen by the writer of each change
+
+These are facts of main `6525606`, found while writing `docs/independent-verification.md`. Nothing was changed.
+
+- The builder sessions that build umwayi-os do not run through umwayi's gate; they follow the written builder rules, CI checks each pull request and the owner merges. The repo does not show that their tool calls were checked by umwayi, so "built under its own rules" cannot be claimed for them.
+- The mutation passes the repo records were planned, run and reported by the builder of that change, on its own tests.
+- In a goal run the tester runs in the builder's worktree, so it can read the builder's status and limits parts, and the guide's check is given the tester's evidence text.
+- A tester on the same platform and model as the builder is a warning only (W9-Q2), and the model is not in the in-review entry.
