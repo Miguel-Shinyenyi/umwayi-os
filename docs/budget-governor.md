@@ -11,7 +11,7 @@ Every agent start reserves a budget first, and every run is settled in the logbo
 ```
 umwayi budget validate                    check units.yaml, every problem with a line number (writes nothing)
 umwayi budget status [--date D]           used, reserved and left per limit, and how much was measured (writes nothing)
-umwayi budget calibrate                   propose per_run and per_day from your measured runs (changes nothing)
+umwayi budget calibrate                   propose per_run and per_day from your measured runs (changes nothing; its per_run also feeds the proposed goal task budgets of W54)
 umwayi budget settle-lost --by YOU        settle the reservations a killed umwayi left behind
 ```
 

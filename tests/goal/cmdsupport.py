@@ -96,7 +96,9 @@ class CmdCase(rs.RunCase):
 ARGS = {
     "start": lambda text, guide, n, model="", effort="": ns(goal_command="start", text=text, guide=guide,
                                                             plan_budget_uu=n, guide_model=model, guide_effort=effort),
-    "show": lambda goal: ns(goal_command="show", goal=goal),
+    "show": lambda goal, builder=None, tester=None, model=None, effort=None, tester_model=None, tester_effort=None: ns(
+        goal_command="show", goal=goal, builder=builder, tester=tester, model=model, effort=effort,
+        tester_model=tester_model, tester_effort=tester_effort),
     "run": lambda goal: ns(goal_command="run", goal=goal),
     "status": lambda goal=None: ns(goal_command="status", goal=goal),
     "stop": lambda goal: ns(goal_command="stop", goal=goal),
@@ -104,8 +106,9 @@ ARGS = {
     "answer": lambda goal, task, answer: ns(goal_command="answer", goal=goal, task=task, answer=answer),
     "merged": lambda goal, task, commit=None: ns(goal_command="merged", goal=goal, task=task, commit=commit),
     "approve": lambda goal, builder, tester, model, effort, task_budget_uu, goal_budget_uu, budget=(), keep=None,
-    tester_model="", tester_effort="", plan_hours=None, wait_hours=None: ns(
+    tester_model="", tester_effort="", plan_hours=None, wait_hours=None, accept_proposed=None: ns(
         goal_command="approve", goal=goal, builder=builder, tester=tester, model=model, effort=effort,
         task_budget_uu=task_budget_uu, goal_budget_uu=goal_budget_uu, budget=list(budget), keep=keep,
-        tester_model=tester_model, tester_effort=tester_effort, plan_hours=plan_hours, wait_hours=wait_hours),
+        tester_model=tester_model, tester_effort=tester_effort, plan_hours=plan_hours, wait_hours=wait_hours,
+        accept_proposed=accept_proposed),
 }

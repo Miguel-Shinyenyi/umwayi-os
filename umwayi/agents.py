@@ -195,6 +195,9 @@ LOGIN_ASK_RECOMMENDATION = ("Keep it stopped unless you want this agent signed i
 # subscription's credits, but a key is a long-lived credential that may belong to another account: only the
 # owner's own browser login is used. The value is never read.
 KIRO_CREDENTIAL_ENV = ("KIRO_API_KEY",)
+# W64 (10.R12.6, 10.R12.13): the owner's SSH agent. With these a helper could ask the owner's agent to sign or to log in
+# somewhere as the owner. Removed from every helper environment umwayi builds; the allow lists never pass them.
+AGENT_SOCKET_ENV = ("SSH_AUTH_SOCK", "SSH_AGENT_PID")
 KIRO_SIGNIN_TEXT = "Sign in to Kiro first (kiro-cli login), then try again."
 
 # The built-in Kiro tool IDs the Kiro hook docs name (adapters/NOTES.md). Nothing else may be trusted.
@@ -663,8 +666,9 @@ def login_env(environ) -> dict:
 
 
 def kiro_env(environ) -> dict:
-    """umwayi's environment minus KIRO_API_KEY (10.R12.13), for every Kiro start, `whoami` and `login`."""
-    return {k: v for k, v in environ.items() if k not in KIRO_CREDENTIAL_ENV}
+    """umwayi's environment minus KIRO_API_KEY (10.R12.13) and the SSH agent names (W64), for every Kiro start,
+    `whoami` and `login`."""
+    return {k: v for k, v in environ.items() if k not in KIRO_CREDENTIAL_ENV and k not in AGENT_SOCKET_ENV}
 
 
 def can_login(agent: Agent) -> bool:
@@ -673,13 +677,15 @@ def can_login(agent: Agent) -> bool:
 
 
 def claude_env(environ) -> dict:
-    """umwayi's environment minus the credential names of 10.R12.6, for `agent run` and the cli chat of Claude Code.
+    """umwayi's environment minus the credential names of 10.R12.6 and the SSH agent names (W64), for `agent run`
+    and the cli chat of Claude Code.
 
     Every OTEL_* name, BETA_TRACING_ENDPOINT, CLAUDE_CODE_ENHANCED_TELEMETRY_BETA and CLAUDE_CODE_ENABLE_TELEMETRY
     are removed too (B.R2.2), so no export goes elsewhere; a start then adds telemetry.telemetry_env() for its own
     receiver.
     """
-    return {k: v for k, v in environ.items() if k not in CLAUDE_CREDENTIAL_ENV and not telemetry.removed(k)}
+    return {k: v for k, v in environ.items()
+            if k not in CLAUDE_CREDENTIAL_ENV and k not in AGENT_SOCKET_ENV and not telemetry.removed(k)}
 
 
 class OpenCodeRefused(RuntimeError):

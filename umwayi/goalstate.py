@@ -236,14 +236,29 @@ def block_sentence(b):
     return f"{who} gave {b['answer']} for action type {b['type']}{_command_part(b)}"
 
 
+# W54: the measured spend of each role of a task, in UU, kept when every run of that role was settled with a measured
+# reading; `null` once one was not. Optional, so older task files read. It is the goal history a proposal reads.
+MEASURED_KEY = "measured_uu"
+MEASURED_ROLES = ("builder", "tester", "check")
+
+
+def _check_measured(m):
+    if not (isinstance(m, dict) and set(m) <= set(MEASURED_ROLES)
+            and all(v is None or (isinstance(v, int) and not isinstance(v, bool) and v >= 0) for v in m.values())):
+        raise GoalError("the task file has the wrong shape")
+    return m
+
+
 def _check_task(obj, task):
-    keys = set(obj) - {BLOCKED_KEY}
+    keys = set(obj) - {BLOCKED_KEY, MEASURED_KEY}
     if keys != set(TASK_KEYS) or obj["id"] != task or obj["version"] != 1 or obj["state"] not in TASK_STATES:
         raise GoalError("the task file has the wrong shape")
     if BLOCKED_KEY in obj:
         _check_blocked(obj[BLOCKED_KEY])
     if not (isinstance(obj["seq"], int) and not isinstance(obj["seq"], bool) and obj["seq"] >= 0):
         raise GoalError("the task file has the wrong shape")
+    if MEASURED_KEY in obj:
+        _check_measured(obj[MEASURED_KEY])
     try:
         gp.packet_from_dict(obj["packet"])
     except ValueError:
@@ -387,6 +402,9 @@ FACTS = {
     "roles": ("The tester and the guide are not the builder.", {}),
     "plan_ok": ("The plan passed every check.", {}),
     "plan_bad": ("First problem: {word}.", {"word": _WORD_RX}),
+    # W54: the budgets the owner took from the system's proposal at approval (task ids and UU, and the goal budget)
+    "proposed": ("Proposed and accepted: {items}.",
+                 {"items": r"(?:T-\d{2} \d{1,9}(?:, T-\d{2} \d{1,9})*(?:; goal budget \d{1,9})?|goal budget \d{1,9})"}),
     # W55b: the place of the first refused context entry of a plan and why, never the path
     "plan_context": ("Context entry {entry} of task {task}: {why}.",
                      {"entry": r"\d{1,3}", "task": r"\d{1,3}", "why": "|".join(gp.CONTEXT_WHYS)}),
@@ -537,10 +555,20 @@ def plan_refused_entry(when, goal, agent, word, context=None):
                   facts, "nothing")
 
 
-def plan_approved_entry(when, goal, kept, dropped, builder, tester, guide, goal_budget):
+def accepted_items(accepted, goal_budget=None):
+    """`T-01 182, T-03 95; goal budget 402`: what was taken from the proposal (W54), or None when nothing was."""
+    parts = ", ".join(f"{_tid(t)} {_need(_N, str(n))}" for t, n in accepted)
+    if goal_budget is not None:
+        g = f"goal budget {_need(_N, str(goal_budget))}"
+        parts = f"{parts}; {g}" if parts else g
+    return parts or None
+
+
+def plan_approved_entry(when, goal, kept, dropped, builder, tester, guide, goal_budget, accepted=None):
+    facts = [("roles", {})] + ([("proposed", {"items": accepted})] if accepted else [])
     return _entry(when, f"Goal {_gid(goal)} plan approved: kept {_list(kept)}, dropped {_list(dropped)}, builder "
                         f"{_need(_NAME_RX, builder)}, tester {_need(_NAME_RX, tester)}, guide {_need(_NAME_RX, guide)}, "
-                        f"goal budget {_need(_N, str(goal_budget))} UU", [("roles", {})], "text")
+                        f"goal budget {_need(_N, str(goal_budget))} UU", facts, "text")
 
 
 def approval_requested_entry(when, goal, task, reason, deadline):
@@ -982,7 +1010,7 @@ def _deny_plan(root, goal, g, when, now):
 
 
 def approve_plan(root, goal, *, builder, tester, guide, model, effort, task_budget_uu, goal_budget_uu, budgets=None,
-                 keep=None, tester_model="", tester_effort="", per_day=500, when, now):
+                 keep=None, tester_model="", tester_effort="", per_day=500, when, now, accepted=None):
     """The owner's approval of the plan (the caller checked the terminal). Fills the packets, queues the kept tasks."""
     g = read_goal(root, goal)
     plan = g["plan"]
@@ -1027,7 +1055,7 @@ def approve_plan(root, goal, *, builder, tester, guide, model, effort, task_budg
 
     _run_step("file", prefile)
     entries = [approval_answered_entry(when, goal, "", "yes"),
-               plan_approved_entry(when, goal, kept_ids, dropped_ids, builder, tester, guide, goal_budget_uu)]
+               plan_approved_entry(when, goal, kept_ids, dropped_ids, builder, tester, guide, goal_budget_uu, accepted)]
 
     def files(ctx):
         out = [(base / f"{i}.json", _dump(_task_obj(filled[i], goal, "queued", "approved", 0), MAX_TASK_FILE)) for i in kept_ids]
@@ -1041,7 +1069,7 @@ def approve_plan(root, goal, *, builder, tester, guide, model, effort, task_budg
 
 def change_state(root, goal, task, new, reason, *, when, now, role=None, agent=None, cap_uu=None, branch=None, tip=None,
                  base=None, commit=None, facts=None, not_done="text", spent_uu=None, pre=(), close_row=None, blocked=None,
-                 recommendation=None):
+                 recommendation=None, measured_uu=None):
     """Move one task to a new state in the fixed write order (W9.R13.1). Raises GoalError for a move the table does not
     allow (nothing changed) and RecordFailed when a record write fails. Returns the new task object.
 
@@ -1083,6 +1111,11 @@ def change_state(root, goal, task, new, reason, *, when, now, role=None, agent=N
             obj[key] = val
     if spent_uu is not None:
         obj["spent_uu"] = spent_uu
+    if measured_uu is not None:  # W54: a file fact like spent_uu, not in the entry
+        try:
+            obj[MEASURED_KEY] = dict(_check_measured(measured_uu))
+        except GoalError:
+            raise GoalError("a value of the change is outside its pattern") from None
 
     def files(ctx):
         if approval is not None:
