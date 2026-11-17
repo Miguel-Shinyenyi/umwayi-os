@@ -1997,3 +1997,13 @@ These are facts of main `8b6e079`, found while writing `docs/enforced-default-de
 - The owner terminal check can be fooled by a pseudo-terminal, and a session opened outside umwayi has no run marker. Both stay limits until confinement is built.
 - On Linux, Landlock limits TCP by port, not by host name, and only from kernel 6.7 (ABI 4). Seatbelt on macOS is deprecated and no CI runs on macOS.
 - Kiro web sessions cannot be confined or inspected by umwayi-os.
+
+## OpenCode as a goal helper (W9.13), found while designing
+
+### 320. OpenCode cannot take a goal role, and its spend can only be declared, never measured
+
+These are facts of main `7616643`, found while writing [the W9.13 design note](opencode-goal-helper-design.md). Nothing was changed.
+
+- `umwayi agent run` refuses an OpenCode agent (exit 64), so no goal role can use OpenCode. Only the chat start of 10.48 exists.
+- umwayi reads no usage report from OpenCode. When W9.13 is built, an OpenCode run is declared by a `units.yaml` rate or unknown, never measured, and `budget calibrate` cannot propose a rate for it.
+- No effort flag for OpenCode is confirmed on a real install, and the owner's real check of 10.51 (version, a non-interactive run, its exit code, its output shape, whether it needs a terminal) is not done.
