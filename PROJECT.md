@@ -51,6 +51,7 @@ umwayi-os/
     concerns.md             W19: umwayi concerns check, the 111 concepts record (built)
     model-routing.md        W19 part 3b: the Kiro and OpenCode model options with sources and review dates, and umwayi routing check (built; it only proposes, the owner chooses)
     model-routing-design.md W48: model routing from umwayi's own records, the record, the table and the picker (design note, not built)
+    enforce-audit-design.md W62: guidance.yaml advise to enforce, the audit of the 26 advise entries (design note, not built)
     independent-verification.md W73: a checker picked by a rule, a hidden mutation pass, and what may be claimed (design note)
     memory-supply-chain.md  W70: shared memory poisoning and the app supply chain (design note)
     merge-ready-design.md   W63: tools.merge_ready, a pass or fail merge gate from fixed rules (design note, not built)

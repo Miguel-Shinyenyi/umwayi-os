@@ -1914,3 +1914,25 @@ The design is in [work-ledger-design.md](work-ledger-design.md), "The producer f
 - The `umwayi check` entries of tool calls carry no goal or task id, so they show life only by time.
 - OpenCode cannot report to a goal at all until W9.13 is decided by the owner: `agent run` refuses it.
 - Kiro gives no spend per run; units.yaml counts its runs.
+
+## Guidance audit (E3 and E4), found while designing
+
+### 313. seven advise rules have no built machine check yet, and the idle line can run at most daily on today's schedule
+
+These are facts of the W62 branch, found while writing E3 and E4. Nothing was changed.
+
+- For seven advise entries whose only check is Claude or the guide, nothing built replaces it yet: explain-ai-output, rewrite-broken-base, check-output-against-goal (only an agent's verdict exists), questions-carry-recommendation, do-it-yourself-first, pr-description-sections and safety-no-secrets-in-repo.
+- The schedule allows `daily`, `weekly` and `monthly` only, so a timer for the idle line can run at most once a day without a change to the schedule spec.
+- Jobs may run only `report`, `check` and `queue-list` today, so the idle check needs a new job word.
+
+## Guidance audit (W62), found while designing
+
+### 314. most advise entries are checked by tests the loader cannot name, and five rules cannot be checked by a machine
+
+These are facts of the code at main `7bca468` and limits of the design in `docs/enforce-audit-design.md`.
+
+- An `enforce` entry must name a registered task-record check, so a rule that a CI test already proves can only be labelled advise today. 11 of the 26 advise entries are such rules.
+- Five advise rules leave no record a machine could read: explaining AI output, rewriting a broken base, writing tests first, doing it yourself first, and a question in a chat carrying a recommendation.
+- A `proof` would show that a named test exists, not that it still tests what the entry says, and a passing test shows the behaviour only on the inputs it tries.
+- Whether a person pushed to main is held only by GitHub branch protection, which the repo cannot show.
+- The pull request headings of builder rule 8 (Built, Not built, Could not verify) differ from the headings recent pull requests use.
