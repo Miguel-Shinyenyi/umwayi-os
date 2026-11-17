@@ -1948,3 +1948,14 @@ These are facts of main `4f6ab21`, found while writing `docs/threat-model.md`. N
 - The guard lists of the starter rules do not name `guidance.yaml`, `units.yaml`, `agents.yaml`, `tools/`, `.kiro/steering/` or `umwayi/`, so an edit of them is Ask me first, not No. A change of `units.yaml` is logged, not refused.
 - On main every helper still inherits `SSH_AUTH_SOCK`; W64 removes it on its branch.
 - An AI session that the owner opens outside umwayi is gated only if its own settings name the umwayi hook; the repo cannot show whether it does.
+
+## Untrusted content (W68), found while designing
+
+### 316. the gate cannot see what an agent read, and a Claude Code or Kiro run gets every credential variable the owner's shell holds except a fixed list
+
+These are facts of main `4f6ab21`, found while writing `docs/untrusted-content.md`. Nothing was changed.
+
+- The hooks check a tool call before it runs and see only its type and a few input fields. They never see a read's result, keep no memory of earlier calls in the session, and cannot tell whether a call was caused by something the agent read.
+- `claude_env` and `kiro_env` remove a fixed list of names (the Anthropic and Claude Code credential names, `KIRO_API_KEY`, and the telemetry names). Any other credential in the owner's environment, such as `GITHUB_TOKEN`, `GH_TOKEN`, `AWS_*` or `SENTRY_*`, reaches the run. The ACP chat and OpenCode use allow lists and do not pass them.
+- No starter rule refuses `gh pr merge`, signing commands, or an edit of `units.yaml`, `guidance.yaml`, `agents.yaml` or `.kiro/steering/`; they are Ask me first.
+- The fixed prompts of the guide, the builder and the tester do not tell the helper to treat files and tool results as data.
