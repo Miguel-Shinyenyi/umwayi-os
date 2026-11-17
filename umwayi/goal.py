@@ -665,7 +665,7 @@ def status_lines(ctx, only=None):
     """The status text of W9.R11.1, in its order: what waits for the owner, the task and its state, the last real event
     and its age, the supervisor line after it, the child's line, the spend, the skipped lines. Reads, never writes."""
     goals = [only] if only else gs.list_goals(ctx.root)
-    lines, waiting = [enforce.status_line(ctx.root, ctx.when)], []
+    lines, waiting = [], []
     behind = set()
     try:
         behind = set(gs.behind(ctx.root))
@@ -712,6 +712,7 @@ def status_lines(ctx, only=None):
         lines.append(d)
     if not goals:
         lines.append("No goals.")
+    lines.append(enforce.status_line(ctx.root, ctx.when))  # W78.R3: last, so what waits for the owner stays first
     return lines
 
 

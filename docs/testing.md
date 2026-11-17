@@ -94,7 +94,6 @@ The progress page `ui/dist/progress.html` is not on the list: since W22 it is bu
 Exit codes: 0 done (including nothing to do), 2 a regenerate or verify failed or a file outside the list was written (the tree is put back as it was, and the command and the last 20 lines of its output are printed), 3 ask first (a conflict outside the list, a dirty tree, a detached head, or node or npm missing when a ui file needs it; never skipped), 64 usage or a wrong list. Never 1.
 
 What it cannot do:
-
 - It never pushes, never forces and never resets. The only network use is `git fetch`; `npm ci` reads the npm registry or its cache by itself.
 - It cannot judge a conflict in a file that is not generated, or in prose around a generated block. That is exit 3. Also, `assign-missing` puts a new test file on the lightest shard and does not rebalance, so after a merge the shard file can be less balanced than `balance` would make it. `balance` stays the full rebalance and `merge_main` never runs it. A matching verify shows the file is current, not that its content is right.
 - The numbers of two limits parts that were both built on separate branches collide. Since W47a it removes the number from this branch's part when main's part has the same number (main's part is never changed), and the build gives it the next free one; it prints a `renumbered` line.

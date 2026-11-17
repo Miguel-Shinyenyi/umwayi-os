@@ -32,3 +32,4 @@ Goal G-0005  active  (0 of 1 tasks merged, 0 in review)
   Spent: 0 of 30 UU on this task.
   Skipped log lines: 0
   Spent: 5 of 100 UU on the goal.
+enforcement: enforced. Enforcement is cooperative today and enforced where built.

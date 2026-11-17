@@ -362,7 +362,7 @@ class CommandTests(unittest.TestCase):
     def test_the_mode_is_in_the_goal_status_the_prompts_and_the_start_entry_source(self):
         from umwayi import goal, goalrun
         ctx = goal.make_ctx(self.root, out=lambda s: None)
-        self.assertTrue(goal.status_lines(ctx)[0].startswith("enforcement: enforced. Enforcement is cooperative today and enforced where built."))
+        self.assertTrue(goal.status_lines(ctx)[-1].startswith("enforcement: enforced. Enforcement is cooperative today and enforced where built."))
         text = goalrun.tester_prompt(types.SimpleNamespace(goal="g", checks=("c",)), "b", "0" * 40, "N", mode="enforcement: enforced")
         self.assertIn("enforcement: enforced\nNonce: N", text)
         source = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
