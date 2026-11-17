@@ -396,7 +396,40 @@ def election_clock(root: Path | None, *dates: str | None) -> str:
     return max(d for d in days if d and logbook.real_date(d))
 
 
+# W78 step 1B, the always owner stop. A helper's shell command that names an owner command is never Yes, whatever
+# rules.yaml says: a Yes is lowered to Ask me first, and a No stays No. The starter rules make these commands No; this
+# floor holds when an owner removes or weakens those rules by mistake. Fixed here, never read from a file. Matched as
+# plain text after casefold, like a `__contains` matcher, so it has the same limits (a command written to avoid the
+# words gets past it; Ask me first for every shell command is the real guard).
+OWNER_STOP_ID = "always-owner-stop"
+OWNER_COMMANDS = ("umwayi enforce set", "enforce set", "umwayi queue answer", "queue answer", "umwayi goal approve",
+                  "goal approve", "umwayi goal answer", "goal answer", "umwayi goal merged", "goal merged",
+                  "umwayi goal stop", "goal stop", "umwayi budget settle-lost", "settle-lost", "umwayi kill off",
+                  "umwayi decision", "umwayi autonomy record", "gh pr merge")
+OWNER_STOP_REASON = ("refused: an owner command is the owner's, at the owner's terminal. "
+                     "Allowed next: ask the owner to run it at the owner's terminal.")
+
+
+def names_owner_command(action: dict) -> bool:
+    """True when the action is an AI helper's shell call whose command names one of OWNER_COMMANDS."""
+    if not isinstance(action.get("platform"), str) or action.get("type") not in SHELL_TYPES:
+        return False
+    for key in SHELL_FIELDS:
+        n = _norm(action.get(key))
+        if n is not None and any(c in " ".join(n.split()) for c in OWNER_COMMANDS):
+            return True
+    return False
+
+
 def decide(rules: list[Rule], action: dict, today: str | Callable[[], str] | None = None) -> Decision:
+    """The strongest matching rule wins, then the always owner stop of W78 step 1B lowers a Yes to Ask me first."""
+    d = _decide(rules, action, today)
+    if d.answer == YES and names_owner_command(action):
+        return Decision(ASK, OWNER_STOP_ID, OWNER_STOP_REASON, d.matched, lapsed=d.lapsed)
+    return d
+
+
+def _decide(rules: list[Rule], action: dict, today: str | Callable[[], str] | None = None) -> Decision:
     """The strongest matching rule wins. A Yes rule past its review_by counts as an Ask me first rule (13.R2.3).
     `today` is a date, or a function that gives it (called only when a matching rule has a review_by), or None for
     the system date."""

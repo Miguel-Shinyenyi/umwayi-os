@@ -484,6 +484,10 @@
    "seconds": 0.0,
    "shard": 1
   },
+  "tests/test_owner_stop.py": {
+   "seconds": 20.5,
+   "shard": 1
+  },
   "tests/test_petition.py": {
    "seconds": 63.5,
    "shard": 2
