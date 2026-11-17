@@ -416,6 +416,10 @@
    "seconds": 13.4,
    "shard": 2
   },
+  "tests/test_enforce.py": {
+   "seconds": 20.5,
+   "shard": 2
+  },
   "tests/test_exit_codes.py": {
    "seconds": 2.9,
    "shard": 1

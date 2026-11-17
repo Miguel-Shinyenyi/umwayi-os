@@ -8,7 +8,7 @@ Sources: [enforcement.md](enforcement.md) (W41), [network-credentials.md](networ
 
 ## Current state
 
-Enforcement is cooperative today. umwayi checks an action only when something asks it: the hooks of Claude Code, Kiro and OpenCode, and umwayi's own commands. It refuses to start an agent it cannot gate (10.R6), passes an allow listed environment to the ACP and OpenCode programs, removes the SSH agent and credential names from every helper environment (W64), and checks the worktree after a goal run. It confines no helper process, has no `enforcement` setting and no `umwayi enforce check`. The full list of gaps is in [enforcement.md](enforcement.md) and [KNOWN-LIMITS.md](KNOWN-LIMITS.md).
+Enforcement is cooperative today. umwayi checks an action only when something asks it: the hooks of Claude Code, Kiro and OpenCode, and umwayi's own commands. It refuses to start an agent it cannot gate (10.R6), passes an allow listed environment to the ACP and OpenCode programs, removes the SSH agent and credential names from every helper environment (W64), and checks the worktree after a goal run. It confines no helper process. Step 1A of the build order is built (Nov 17): the `enforcement` setting in `.umwayi/enforcement.yaml`, `umwayi enforce check` and `umwayi enforce set`, with the mode shown in the goal status line, the goal prompts and the start entry. Nothing is enforced yet: every part of enforced reads `refused` with its reason, and the pages still say enforcement is cooperative today and enforced where built. The guard lists, the deny rules and the terminal checks of step 1B are not changed. The full list of gaps is in [enforcement.md](enforcement.md) and [KNOWN-LIMITS.md](KNOWN-LIMITS.md).
 
 ## Product
 
@@ -175,7 +175,7 @@ A whole system scenario in `GoalWholeSystemTests` runs one task in `enforced` mo
 
 | Date | Decision | Reason |
 | --- | --- | --- |
-| 2026-11-16 | Design note only; Q1 to Q6 and the proxy, token and restart choices recorded as decided. | The owner's words of Nov 16 for W78. |
+| 2026-11-17 | Design note only; Q1 to Q6 and the proxy, token and restart choices recorded as decided. | The owner's words of Nov 17 for W78. |
 
 ## Open questions
 

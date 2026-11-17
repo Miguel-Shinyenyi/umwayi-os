@@ -1997,3 +1997,15 @@ These are facts of main `8b6e079`, found while writing `docs/enforced-default-de
 - The owner terminal check can be fooled by a pseudo-terminal, and a session opened outside umwayi has no run marker. Both stay limits until confinement is built.
 - On Linux, Landlock limits TCP by port, not by host name, and only from kernel 6.7 (ABI 4). Seatbelt on macOS is deprecated and no CI runs on macOS.
 - Kiro web sessions cannot be confined or inspected by umwayi-os.
+
+## Enforced by default (W78a), found while building step 1A
+
+### 320. the enforcement mode is only recorded and shown; nothing is enforced yet, and the switch is not protected from a helper
+
+These are facts of main `7616643` plus step 1A. The setting, `umwayi enforce check` and `umwayi enforce set` exist. Nothing else of `docs/enforced-default-design.md` is built.
+
+- No part of enforced is built (launcher, platform sandbox, confined process, broker, detect-after), so `umwayi enforce check` reads `refused` for every part, and no start is gated by the mode. Every page still says enforcement is cooperative today and enforced where built.
+- `.umwayi/enforcement.yaml` is not on a guard list, not denied to helpers by a rule, and not on the C1 watched list (that list is not built). A helper that can write it can write `cooperative`. Two things limit this: a file that no logbook entry explains is Ask me first (exit 3) at `umwayi enforce check`, and an `until` more than 30 days ahead is exit 64. Closing it is step 1B (the owner's decision) and the later steps.
+- The terminal check of `umwayi enforce set cooperative` is the one of the goal owner commands (stdin and stdout are terminals), unchanged, plus a typed word. A helper that fakes a pseudo-terminal passes both (open question 1 of the design note).
+- The mode in the start entry names the agent's mode only. A mode set for one goal shows in the goal prompts, `goal show` and the status line, not in the start entry.
+- A settings file that cannot be read shows as `enforced` in the status line, the prompts and the start entry, with its reason, and is exit 64 at `umwayi enforce check` and `umwayi enforce set`.
