@@ -1768,9 +1768,178 @@ The design is in [provenance-design.md](provenance-design.md). Nothing of it is 
 - When built, a record proves only that bytes came out of a checked umwayi task and that the owner's key signed its record. It does not prove the code is correct, safe or original, it is only on this machine, and the logbook that seals it can be rewritten in whole by someone who can write the root, unless an anchor kept elsewhere is checked.
 - The Python structure fingerprint ignores comments, and some comments change what tools do (`# type: ignore`, `# noqa`). It differs between Python minor versions (3.10 and 3.11 agree, 3.12 differs, 3.13 and 3.14 agree), so a record made under one is compared by bytes only under another.
 
+## Agent environment (W64), the SSH agent
+
+### 300. removing SSH_AUTH_SOCK does not stop a helper from reaching an SSH agent or a key another way
+
+W64 removes the two names `SSH_AUTH_SOCK` and `SSH_AGENT_PID` from every helper environment umwayi builds. That is all it does.
+
+- A helper still runs as the owner's user. It can look for an agent socket by itself (for example under `/tmp/ssh-*` or a path the owner's shell config names), or open a socket of another program (gpg-agent, a keyring, a password manager) by its own path. The file permissions of the owner's user allow it.
+- It can read a private key file the owner's user can read, such as `~/.ssh/id_ed25519`. The starter rule for secret paths makes the tool call a No only when the call goes through the hook and names the path in plain text.
+- A name that points to an agent under another name (for example a variable the owner's tools define) is passed on as before; only these two names are removed.
+- The removal is cooperative: it holds for helpers umwayi starts. A helper started another way gets whatever environment its starter gives it.
+
+## Connectors (W72), found while designing
+
+### 301. umwayi has no connector, and the gh login in the builder's sandbox is the owner's full account
+
+These are facts of main `6525606`, found while writing `docs/connectors.md`. Nothing was changed.
+
+- umwayi sends no message, mirrors no status and runs no scan on a timer: there is no email, push, Notion, error monitor or scan connector, and jobs allow only `report`, `check` and `queue-list`.
+- The only GitHub reader in the repo is `tools/board_status.py`, which uses the public API with no token and so cannot read a private repository.
+- In the builder's sandbox the `gh` CLI acts as the owner's full account, so a "read only" GitHub connector built on it would be read only by its argument list, not by the token's scope.
+- An error monitor would end the line "no telemetry sent anywhere" of `docs/what-it-is.md`.
+
+## Operations (W71), found while designing
+
+### 302. a helper may outlive a killed supervisor, and the pid check needs /proc
+
+The design is in [operations.md](operations.md). Nothing of it is built. These facts were read from the code at main 6525606 and were not run.
+
+- The helper child is started in its own session (`start_new_session=True`, `umwayi/goalrun.py`). When the supervisor is killed, the next goal command marks the task `stopped` with reason `supervisor` (`goalstate.mark_lost`), but nothing stops the child. It may keep running until it ends by itself.
+- `goal status` decides whether a child is alive by reading `/proc/PID/stat` (`umwayi/goal.py` `_pid_alive`). Without `/proc`, as on macOS, a live child is shown as `not running`.
+- Nothing checks free disk space before a start, and `LOGBOOK.md` has no size cap.
+- There is no backup of `.umwayi/goals/`: it is ignored by git, and no command copies it.
+- `LOGBOOK.md`, `queue.md`, `rules.yaml` and `agents.yaml` carry no format version, and there is no migration code, while `docs/what-it-is.md` says formats can change.
+
+## Signing (E5), found while designing
+
+### 303. an SSH signature holds no trusted time, and nothing refuses a private key in the repo today
+
+These are facts measured or read on Nov 16 while writing `docs/signing.md`. Nothing was changed.
+
+- `ssh-keygen -Y verify` (OpenSSH 9.9p1) compares a key's `valid-before` and `valid-after` with the time of the verify, not the time of the signing. After a key is retired, every old signature fails a bare verify unless the verifier passes `-O verify-time` with a trusted date, which for umwayi is the date of the logbook entry.
+- In an allowed signers file the options must be joined by commas with no space; a space makes the line an invalid key.
+- No check refuses a private key header in a tracked file today; the W62 secret scan is designed, not built.
+- The starter secret path rules name `id_rsa` and `id_ed25519`, not a key file under another name.
+
+## Merge gate (W63), found while designing
+
+### 304. an agent can act as the owner on GitHub today, and a merge-ready pass says nothing about whether the work is right
+
+These are facts read on Nov 16 and limits of the design in `docs/merge-ready-design.md`.
+
+- Any token on the machine where helpers run can be used by a helper. In today's build sandbox, `gh api user` returns the owner's account, so any GitHub review, label or comment the owner can make, an agent there can make too, and none of them shows the owner's approval.
+- The ruleset requires only `result`, and does not require a branch to be up to date with main (`strict_required_status_checks_policy` is false). The branch on GitHub at merge time may not contain main.
+- A merge-ready pass would check form, not truth: an invented claim in a design note, a test that proves less than its name, or an unwise design all pass.
+- A limits part cannot stay unnumbered: `goal docs check` fails until the build numbers it, and `tools/merge_main.py` renumbers it. So the design checks that the number is the one the build gives, not that the part has none; the owner decides which reading is meant.
+
+## Guidance (W66), the merge main wording
+
+### 305. the merge main entry says the supervisor records the paths and asks the owner, but no supervisor runs merge_main yet
+
+- The new wording of `merge-main-before-push` says that on exit 3 the supervisor records the printed paths in the logbook and asks the owner. Today `tools/merge_main.py` is run by a builder session by hand; the goal supervisor (`umwayi/goalrun.py`) does not run it, so no code records those paths or adds the question. Until it does, the owner sees the paths only in the session's report.
+- The steering line the entry comes from, rule 2 of `.kiro/steering/builder-workflow.md`, still says "ask the guide with those paths". A builder that reads the steering file gets the old words. The entry's `source_hash` pins that line, so changing it needs the hash updated in the same commit.
+- `text` is limited to 200 characters, so it says "logs the printed paths"; the prompt line has the full words "records the printed paths in the logbook".
+
+## Goal orchestration (W54), found while building the proposed budgets
+
+### 306. A proposal has history only from tasks run after W54, and its history is per task
+
+The proposed task budgets of W54 read the measured spend of each role from the task files (`measured_uu`). What follows:
+
+- Only tasks run after W54 have it. Until 5 tasks of the same platform, model and effort reach review, a Claude Code role comes from `umwayi budget calibrate` (20 measured runs over 7 days) or is `no history`, and the owner types the number.
+- The tester's and the check's history is their spend per task, not per run. A task whose tester ran twice (after the owner answered yes) counts both runs as one sample.
+- A role's history counts only when every one of its runs was settled with a measured reading. A run settled from token counts at the rates in units.yaml (`declared`) or at the worst case (`unknown`) is not history.
+- The design note said the `started` events give the model and the effort; they do not. The builder's model and effort come from the packet, the tester's and the guide's from `goal.json`.
+- A Kiro term is the declared run or the unknown worst case, capped at per_run. A declared Kiro run above per_run gives a term of per_run, and that run is still refused at its start, as before.
+- `calibrate` names Claude Code's own model id in its settle entries (for example `claude-sonnet-5`), while the owner gives a model word (for example `sonnet`). They match only when the words are the same; otherwise the number for all measured runs is used.
+
+## Rules library (W76), found while designing
+
+### 307. a rules set applies to the whole root, not to one agent, and rules cannot express a budget size
+
+These are facts of main `25b3a47`, checked while writing `docs/rules-library.md`. Nothing was changed.
+
+- The action an adapter hook sends names the platform and the tool, not the agent of `agents.yaml`, so a rule cannot single out one Claude Code helper of a root. A read only set makes every Claude Code helper of that root read only.
+- Rules match words: there is no less-than matcher, so a budget size cannot be a rule; it is set in `units.yaml`.
+- A matcher with an unknown operator is read as an equals matcher on a field no action has, so a copied rule that uses one never matches and nothing says so.
+- Text matching cannot see network use by code that names no listed word: `python3 -c "import urllib.request"` matched no rule of the no network set.
+
+## Owner status (W77), found while designing
+
+### 308. no single place lists what waits for the owner, and queue rows have an age but no deadline
+
+These are facts of main `25b3a47`, found while writing `docs/owner-status-design.md`. Nothing was changed.
+
+- What waits for the owner is spread over `goal status` (plan approvals and tasks in needs owner), `queue.md` (decisions and tasks, many added by an Ask me first), `umwayi rules due`, `umwayi kill status` and `umwayi logbook verify`; no command lists all of them.
+- A queue row has no deadline, only the date of its `umwayi queue add` entry, so a waiting decision can stay open for ever without anything saying it is late.
+- `umwayi stalls check` reads a JSON file of events that nothing produces, so no command lists stalled sessions across goals.
+- Exit 2 already means a No, a refusal or an unexpected error in every command (product rule 8), so a new command that also uses 2 for "items wait" must say which in its output.
+
+## Shared memory (W70), found while designing
+
+### 309. no note between sessions is hashed when written or checked when read, and helpers may write memory and steering with an Ask
+
+These are facts of main `6525606`, found while writing `docs/memory-supply-chain.md`. Nothing was changed.
+
+- `memory/`, `docs-parts/`, `.kiro/steering/` and `tasks.md` hold the notes a helper or a later session reads, and none of them is hashed in the logbook when written or compared when read. A note changed in between is used as it is. The packet of a goal task is the exception: its approval holds its SHA-256.
+- The starter guard lists do not name `memory/` or `.kiro/steering/`, so a helper's write to them is Ask me first, not No.
+- Claude Code, Kiro CLI and OpenCode are checked for a minimum version, not pinned by a hash; OpenCode also downloads `ripgrep` by itself (item 191).
+- umwayi-os itself is built by AI builders in branches and merged by the owner; that process is not an app and is not covered by an app's permissions.
+
+## Verification (W73), found while designing
+
+### 310. umwayi-os is not yet built under its own gate, and its mutation passes were chosen by the writer of each change
+
+These are facts of main `6525606`, found while writing `docs/independent-verification.md`. Nothing was changed.
+
+- The builder sessions that build umwayi-os do not run through umwayi's gate; they follow the written builder rules, CI checks each pull request and the owner merges. The repo does not show that their tool calls were checked by umwayi, so "built under its own rules" cannot be claimed for them.
+- The mutation passes the repo records were planned, run and reported by the builder of that change, on its own tests.
+- In a goal run the tester runs in the builder's worktree, so it can read the builder's status and limits parts, and the guide's check is given the tester's evidence text.
+- A tester on the same platform and model as the builder is a warning only (W9-Q2), and the model is not in the in-review entry.
+
+## The work ledger and stall handling (W65), found while designing
+
+### 311. umwayi has no record of pull requests, and a stalled task cannot be restarted
+
+The design is in [work-ledger-design.md](work-ledger-design.md). Nothing of it is built.
+
+- No umwayi file holds a PR number, a branch head on origin or a CI result, so umwayi cannot say which branch is next to merge. `goalgit` has no read of whether a branch contains main, and none of `refs/remotes/origin/`.
+- A stalled helper ends its task `failed`, which is terminal, and the goal halts. W9.14 retry is not built, so nothing can start the task again except a new goal.
+- The stall time is the constant `STALL_SECONDS` (1800) in `umwayi/goalwatch.py`; the owner cannot set it. The supervisor stops a stalled helper without asking the rules gate.
+- `umwayi stalls check` still reads a JSON file that nothing writes.
+- The core may not import a network module, so a probe of PR checks cannot be a command of `umwayi/` without the owner's word.
+- Every `kiro-cli` session fact in the design is from the Kiro docs and was not tried: the fields of `--list-sessions`, whether `--resume-id` works with `--no-interactive`, the fields of `diagnostic --format json`, and what SIGTERM does to an unsaved turn. Whether `--resume-id` reaches a Kiro web session is an owner test.
+- No measured quiet gap per role exists; the proposed default of 30 minutes is today's constant, not a measurement.
+
+## The stalls producer (W65, E6), found while designing
+
+### 312. no helper says whether it is thinking or hung, and no session list is confirmed
+
+The design is in [work-ledger-design.md](work-ledger-design.md), "The producer for the stalls check (E6)". Nothing of it is built.
+
+- None of Claude Code, Kiro or OpenCode reports whether a quiet run is thinking or hung. The producer sees only output bytes, the worktree head, tool call entries and check results, so a long silent thought looks like a stall.
+- No helper's session list is confirmed: Kiro's `--list-sessions` fields are unknown, Claude Code's transcript format is not documented in the repo, and whether OpenCode offers a session list over ACP was not checked.
+- The `umwayi check` entries of tool calls carry no goal or task id, so they show life only by time.
+- OpenCode cannot report to a goal at all until W9.13 is decided by the owner: `agent run` refuses it.
+- Kiro gives no spend per run; units.yaml counts its runs.
+
+## Guidance audit (E3 and E4), found while designing
+
+### 313. seven advise rules have no built machine check yet, and the idle line can run at most daily on today's schedule
+
+These are facts of the W62 branch, found while writing E3 and E4. Nothing was changed.
+
+- For seven advise entries whose only check is Claude or the guide, nothing built replaces it yet: explain-ai-output, rewrite-broken-base, check-output-against-goal (only an agent's verdict exists), questions-carry-recommendation, do-it-yourself-first, pr-description-sections and safety-no-secrets-in-repo.
+- The schedule allows `daily`, `weekly` and `monthly` only, so a timer for the idle line can run at most once a day without a change to the schedule spec.
+- Jobs may run only `report`, `check` and `queue-list` today, so the idle check needs a new job word.
+
+## Guidance audit (W62), found while designing
+
+### 314. most advise entries are checked by tests the loader cannot name, and five rules cannot be checked by a machine
+
+These are facts of the code at main `7bca468` and limits of the design in `docs/enforce-audit-design.md`.
+
+- An `enforce` entry must name a registered task-record check, so a rule that a CI test already proves can only be labelled advise today. 11 of the 26 advise entries are such rules.
+- Five advise rules leave no record a machine could read: explaining AI output, rewriting a broken base, writing tests first, doing it yourself first, and a question in a chat carrying a recommendation.
+- A `proof` would show that a named test exists, not that it still tests what the entry says, and a passing test shows the behaviour only on the inputs it tries.
+- Whether a person pushed to main is held only by GitHub branch protection, which the repo cannot show.
+- The pull request headings of builder rule 8 (Built, Not built, Could not verify) differ from the headings recent pull requests use.
+
 ## Threat model (W67), found while writing it
 
-### 300. a helper can pass the owner's terminal check, answer the queue, edit units.yaml and guidance.yaml with an Ask, and reach the owner's SSH agent on main
+### 315. a helper can pass the owner's terminal check, answer the queue, edit units.yaml and guidance.yaml with an Ask, and reach the owner's SSH agent on main
 
 These are facts of main `4f6ab21`, found while writing `docs/threat-model.md`. Nothing was changed.
 
