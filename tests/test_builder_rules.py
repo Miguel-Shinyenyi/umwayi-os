@@ -18,8 +18,9 @@ REPO = Path(__file__).resolve().parent.parent
 EXAMPLE = REPO / "goal.rules.example.yaml"
 PLACEHOLDER = "/path/to/umwayi-root-worktrees"
 TODAY = "2026-11-15"
-# The bytes of the repo rules.yaml, pinned: W57 adds operators but leaves every starter rule as it was.
-RULES_SHA256 = "4039df9039e0308b7993fb89451acbe0460cd4935cb9556f5ebc394f778b31c0"
+# The bytes of the repo rules.yaml, pinned: W57 adds operators but leaves every starter rule as it was. Changed once on
+# purpose by W78 step 1B (the owner's rules change of Nov 17), which appends twelve No rules after every old rule.
+RULES_SHA256 = "af91f13171ba4d0bd7f19596e3f54c0e5674e47f561e3b223ed1be853f681ced"
 
 
 def rule(matchers: str, verdict: str = "yes", rid: str = "r1") -> str:

@@ -1950,3 +1950,14 @@ The design is `docs/enforced-default-design.md`. Step 1A of its build order buil
 15. **W78.R15 Guidance.** Guidance items (a) to (g) of the note are fixed text and fixed rules, with counts only in the logbook (step 9).
 16. **W78.R16 No overclaim.** No page says enforced by default or sandboxed before the minimum profile and one real enforced run exist (`enforce.REAL_ENFORCED_RUN_DONE`, set with the README in step 10). A refusal is `refused: REASON. Allowed next: STEP.` with both from fixed lists.
 17. **Tests** (`tests/test_enforce.py`): a planted fault for each of R1 to R5, R13, R14 and R16, as a copy of the module with that one rule broken that the rule's oracle must fail. Not changed by step 1A: any guard list, deny rule or terminal check (step 1B).
+
+### W78.R17 Step 1B: the owner's commands and the guard files (W78, the owner's rules change of Nov 17)
+
+1. **Owner commands denied.** For each helper platform (Claude Code, Kiro, OpenCode, stdio) a No rule `PREFIX-no-owner-commands-w78` refuses a shell command that names `enforce set`, `queue answer`, `goal approve`, `goal answer`, `goal merged`, `goal stop`, `budget settle-lost`, `kill off`, `umwayi decision`, `umwayi autonomy record`, `gh pr merge`, or a pseudo-terminal (`script -q`, `script -c`, `unbuffer`).
+2. **Guard files.** `PREFIX-no-guard-files-shell-w78` and `PREFIX-no-guard-file-edits-w78` refuse a shell command that names, and an edit of, `guidance.yaml`, `units.yaml`, `agents.yaml`, `enforcement.yaml` and `.kiro/steering/umwayi`; the edit rule also covers the tools folder. `.umwayi/enforcement.yaml` was already under the `.umwayi` guard of the older rules; it is now named too.
+3. **The always owner stop.** In `umwayi/rules.py`, a helper's shell call that names an owner command is never Yes: a Yes from any rule becomes Ask me first (rule id `always-owner-stop`), a No stays No. The list is fixed in code.
+4. **The refusal shape.** Every new rule text and the always owner stop reason read `refused: REASON. Allowed next: STEP.` (design note 5(d)).
+5. **Order and pins.** The twelve rules come after every rule that was there; the pinned rules and their hashes do not change.
+6. **Exit codes.** `umwayi check` gives 2 for these No answers and 3 for the always owner stop; never 1.
+7. **Tests** (`tests/test_owner_stop.py`): a planted fault per rule (a rule removed, a word dropped from a list, the floor removed, the next step cut from a text) that the rule's oracle must catch, and the real `umwayi check` child process.
+8. **Not in 1B:** the terminal check on `umwayi queue answer` (an owner stop, see the W78b limits part); the example files under `adapters/` do not have the twelve rules yet.

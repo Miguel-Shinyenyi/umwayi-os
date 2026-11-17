@@ -2019,3 +2019,16 @@ These are facts of main `7616643` plus step 1A. The setting, `umwayi enforce che
 - The terminal check of `umwayi enforce set cooperative` is the one of the goal owner commands (stdin and stdout are terminals), unchanged, plus a typed word. A helper that fakes a pseudo-terminal passes both (open question 1 of the design note).
 - The mode in the start entry names the agent's mode only. A mode set for one goal shows in the goal prompts, `goal show` and the status line, not in the start entry.
 - A settings file that cannot be read shows as `enforced` in the status line, the prompts and the start entry, with its reason, and is exit 64 at `umwayi enforce check` and `umwayi enforce set`.
+
+## Enforced by default (W78b), found while building step 1B
+
+### 322. the owner's commands are denied by text match only, and umwayi queue answer still has no terminal check
+
+These are facts of the W78 step 1B branch.
+
+- The twelve new No rules and the always owner stop match plain text, like every `__contains` rule. A command written to avoid the words (a variable, another spelling, a script written first and run later) gets past them. Ask me first for every shell command stays the real guard, and only confinement (W78 step 6 on) closes it.
+- `umwayi queue answer` has no owner terminal check. A helper's shell call that names it is No by rule and never Yes by the always owner stop, but a process that does not go through a hook can still run it. Adding the check changes the command for the scripts and the fourteen test files that run it without a terminal, so it is the owner's decision (see the W78b status part).
+- The terminal check of `umwayi enforce set cooperative` and of the goal owner commands is stdin and stdout being terminals. A helper that opens a pseudo-terminal passes it; the new rules deny `script` and `unbuffer` by name only.
+- The edit rule for the tools folder matches any path with `tools/` in it (for example `ui/tools/`), so it refuses more than the root's `tools/` folder.
+- The twelve rules are in the repo `rules.yaml` only, not yet in the example files under `adapters/` that an owner copies.
+- `.umwayi/enforcement.yaml` was already denied to helpers by the `.umwayi` entries of the older guard rules; limits part W78a said it was not on a guard list, which was wrong for edits and named shell commands.
