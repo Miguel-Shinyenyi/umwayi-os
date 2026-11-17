@@ -1998,9 +1998,19 @@ These are facts of main `8b6e079`, found while writing `docs/enforced-default-de
 - On Linux, Landlock limits TCP by port, not by host name, and only from kernel 6.7 (ABI 4). Seatbelt on macOS is deprecated and no CI runs on macOS.
 - Kiro web sessions cannot be confined or inspected by umwayi-os.
 
+## OpenCode as a goal helper (W9.13), found while designing
+
+### 320. OpenCode cannot take a goal role, and its spend can only be declared, never measured
+
+These are facts of main `7616643`, found while writing [the W9.13 design note](opencode-goal-helper-design.md). Nothing was changed.
+
+- `umwayi agent run` refuses an OpenCode agent (exit 64), so no goal role can use OpenCode. Only the chat start of 10.48 exists.
+- umwayi reads no usage report from OpenCode. When W9.13 is built, an OpenCode run is declared by a `units.yaml` rate or unknown, never measured, and `budget calibrate` cannot propose a rate for it.
+- No effort flag for OpenCode is confirmed on a real install, and the owner's real check of 10.51 (version, a non-interactive run, its exit code, its output shape, whether it needs a terminal) is not done.
+
 ## Enforced by default (W78a), found while building step 1A
 
-### 320. the enforcement mode is only recorded and shown; nothing is enforced yet, and the switch is not protected from a helper
+### 321. the enforcement mode is only recorded and shown; nothing is enforced yet, and the switch is not protected from a helper
 
 These are facts of main `7616643` plus step 1A. The setting, `umwayi enforce check` and `umwayi enforce set` exist. Nothing else of `docs/enforced-default-design.md` is built.
 
