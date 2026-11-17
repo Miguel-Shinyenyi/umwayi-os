@@ -19,6 +19,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO = Path(__file__).resolve().parents[1]
 ENV = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
@@ -490,6 +491,157 @@ class FailureTests(MergeMainBase):
         r = self.run_planted(mutate, 2)
         self.assertIn("docs/other.txt", r.stderr)
         self.assertFalse((self.b / "docs" / "other.txt").exists())
+
+
+SITE = (
+    "import os, sys\n"
+    "if sys.orig_argv[1:4] == ['-m', 'unittest', 'tests.test_ui_package']:\n"
+    "    count = os.environ['UMWAYI_MM_COUNT']\n"
+    "    first = not os.path.exists(count)\n"
+    "    open(count, 'a').write('x\\n')\n"
+    "    if first and os.environ.get('UMWAYI_MM_TOUCH'):\n"
+    "        open('ui/dist/progress.html', 'a').write('<!-- touched while it ran -->')\n"
+    "    os._exit(0)\n"
+)
+RULE = "    return before is not None and now is not None and before == now"
+
+
+class SkipUiVerifyTests(MergeMainBase):
+    """W47d. The final pass skips the ui verify when no file of its path list changed since it passed, and runs it
+    otherwise. A stand-in for `python -m unittest tests.test_ui_package` (a sitecustomize in PYTHONPATH) counts the runs
+    and passes at once, so no scenario runs the real ui tests. The planted faults are copies of merge_main.py with the
+    one rule of `same_state` changed: each must make a scenario fail."""
+
+    def setUp(self):
+        super().setUp()
+        site = Path(self.tmp.name) / "site"
+        site.mkdir()
+        (site / "sitecustomize.py").write_text(SITE, encoding="utf-8")
+        self.count = Path(self.tmp.name) / "count.txt"
+        path = os.pathsep.join(filter(None, [str(site), ENV.get("PYTHONPATH", "")]))
+        patch = mock.patch.dict(ENV, {"PYTHONPATH": path, "UMWAYI_MM_COUNT": str(self.count)})
+        patch.start()
+        self.addCleanup(patch.stop)
+        self.addCleanup(lambda: ENV.pop("UMWAYI_MM_TOUCH", None))
+
+    def runs(self):
+        return len(self.count.read_text().split()) if self.count.exists() else 0
+
+    def merge_counting(self, repo=None, plant=None):
+        repo = repo or self.b
+        if plant is not None:
+            path = repo / "tools" / "merge_main.py"
+            source = path.read_text(encoding="utf-8")
+            self.assertIn(RULE, source)
+            path.write_text(source.replace(RULE, plant), encoding="utf-8")
+            git(repo, "commit", "-qam", "planted fault")
+        if self.count.exists():
+            self.count.unlink()
+        r = self.merge_main(repo)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return r
+
+    def touch_while_it_runs(self):
+        ENV["UMWAYI_MM_TOUCH"] = "1"
+
+    def unreadable(self):
+        os.mkfifo(self.b / "ui" / "dist" / "pipe")  # a file of a kind the state cannot be read from
+
+    # rule 1: a ui file changed, so the verify runs again
+    def test_a_ui_file_changed_since_the_verify_passed_runs_it_again(self):
+        self.touch_while_it_runs()
+        r = self.merge_counting()
+        self.assertEqual(self.runs(), 2)
+        self.assertNotIn("skipped the last verify", r.stdout)
+
+    def test_planted_fault_always_skip_is_caught_by_the_changed_file_scenario(self):
+        self.touch_while_it_runs()
+        self.merge_counting(plant="    return True")
+        self.assertEqual(self.runs(), 1)  # the scenario above expects 2, so it would fail
+
+    # rule 2: no ui file changed, so the second verify is skipped
+    def test_no_ui_file_changed_skips_the_second_verify_and_says_so(self):
+        r = self.merge_counting()
+        self.assertEqual(self.runs(), 1)
+        self.assertRegex(r.stdout, r"(?m)^skipped the last verify of python -m unittest tests\.test_ui_package: ")
+        self.assertRegex(r.stdout, r"(?m)^kept ui/dist/build\.json: ")
+
+    def test_planted_fault_never_skip_is_caught_by_the_unchanged_scenario(self):
+        self.merge_counting(plant="    return False")
+        self.assertEqual(self.runs(), 2)  # the scenario above expects 1, so it would fail
+
+    # rule 3: the tool cannot tell, so the verify runs
+    def test_a_state_that_cannot_be_read_does_not_skip(self):
+        self.unreadable()
+        r = self.merge_counting()
+        self.assertEqual(self.runs(), 2)
+        self.assertNotIn("skipped the last verify", r.stdout)
+
+    def test_planted_fault_unknown_read_as_unchanged_is_caught_by_the_cannot_tell_scenario(self):
+        self.unreadable()
+        self.merge_counting(plant="    return before == now")
+        self.assertEqual(self.runs(), 1)  # the scenario above expects 2, so it would fail
+
+
+class StateOfTests(unittest.TestCase):
+    """W47d: the path list, the state and the one rule, without a merge."""
+
+    def setUp(self):
+        sys.path.insert(0, str(REPO))
+        self.addCleanup(sys.path.remove, str(REPO))
+        from tools import merge_main
+        self.mm = merge_main
+        self.tmp = tempfile.TemporaryDirectory(prefix="umwayi-mm-state-")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / "tools").mkdir()
+        self.cmd = {"argv": ["python", "-m", "unittest", "tests.test_x"], "cwd": ""}
+
+    def list_in_ci_map(self, text):
+        (self.root / "tools" / "ci_map.json").write_text(text, encoding="utf-8")
+
+    def test_the_path_list_is_the_one_ci_map_holds_for_that_test(self):
+        self.list_in_ci_map(json.dumps({"python": {"tests/test_x.py": ["a", "ui"]}}))
+        self.assertEqual(self.mm.verify_paths(self.root, self.cmd), ["a", "ui"])
+        real = json.loads((REPO / "tools" / "ci_map.json").read_text(encoding="utf-8"))["python"]["tests/test_ui_package.py"]
+        self.assertEqual(self.mm.verify_paths(REPO, {"argv": ["python", "-m", "unittest", "tests.test_ui_package"], "cwd": ""}), real)
+
+    def test_no_list_means_cannot_tell(self):
+        self.assertIsNone(self.mm.verify_paths(self.root, self.cmd))  # no ci_map.json
+        self.list_in_ci_map("{not json")
+        self.assertIsNone(self.mm.verify_paths(self.root, self.cmd))
+        self.list_in_ci_map(json.dumps({"python": {"tests/test_y.py": ["a"]}}))
+        self.assertIsNone(self.mm.verify_paths(self.root, self.cmd))  # no entry for this test
+        self.list_in_ci_map(json.dumps({"python": {"tests/test_x.py": []}}))
+        self.assertIsNone(self.mm.verify_paths(self.root, self.cmd))
+        self.list_in_ci_map(json.dumps({"python": {"tests/test_x.py": ["a"]}}))
+        for argv, cwd in ((["python", "-m", "tools.ci_map", "check"], ""), (["node", "build.mjs"], ""),
+                          (["python", "-m", "unittest", "tests.test_x"], "ui")):
+            self.assertIsNone(self.mm.verify_paths(self.root, {"argv": argv, "cwd": cwd}))
+
+    def test_the_state_changes_with_content_and_not_with_a_rewrite_of_the_same_bytes(self):
+        (self.root / "ui").mkdir()
+        f = self.root / "ui" / "a.js"
+        f.write_text("one", encoding="utf-8")
+        before = self.mm.state_of(self.root, ["ui", "missing.txt"])
+        f.write_text("one", encoding="utf-8")
+        self.assertEqual(self.mm.state_of(self.root, ["ui", "missing.txt"]), before)
+        f.write_text("two", encoding="utf-8")
+        self.assertNotEqual(self.mm.state_of(self.root, ["ui", "missing.txt"]), before)
+        (self.root / "missing.txt").write_text("x", encoding="utf-8")
+        self.assertNotEqual(self.mm.state_of(self.root, ["ui", "missing.txt"]), before)
+
+    def test_a_file_of_another_kind_cannot_be_read(self):
+        (self.root / "ui").mkdir()
+        os.mkfifo(self.root / "ui" / "pipe")
+        self.assertIsNone(self.mm.state_of(self.root, ["ui"]))
+
+    def test_only_two_known_equal_states_are_the_same(self):
+        self.assertTrue(self.mm.same_state("a", "a"))
+        self.assertFalse(self.mm.same_state("a", "b"))
+        self.assertFalse(self.mm.same_state(None, None))
+        self.assertFalse(self.mm.same_state("a", None))
+        self.assertFalse(self.mm.same_state(None, "a"))
 
 
 class SourceGuardTests(unittest.TestCase):
