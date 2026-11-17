@@ -1959,3 +1959,14 @@ These are facts of main `4f6ab21`, found while writing `docs/untrusted-content.m
 - `claude_env` and `kiro_env` remove a fixed list of names (the Anthropic and Claude Code credential names, `KIRO_API_KEY`, and the telemetry names). Any other credential in the owner's environment, such as `GITHUB_TOKEN`, `GH_TOKEN`, `AWS_*` or `SENTRY_*`, reaches the run. The ACP chat and OpenCode use allow lists and do not pass them.
 - No starter rule refuses `gh pr merge`, signing commands, or an edit of `units.yaml`, `guidance.yaml`, `agents.yaml` or `.kiro/steering/`; they are Ask me first.
 - The fixed prompts of the guide, the builder and the tester do not tell the helper to treat files and tool results as data.
+
+## Network and credentials (W69), found while designing
+
+### 317. a helper can reach any host and cloud metadata address, and holds every credential variable but a fixed list
+
+These are facts of main `4f6ab21`, found while writing `docs/network-credentials.md`. Nothing was changed.
+
+- umwayi sets no network limit on a helper. Shell commands, web tools and MCP tools are Ask me first by the starter rules, but the owner's Yes rules and the programs a checked command starts reach any host the owner's user can reach.
+- No rule or check names a cloud metadata address such as `169.254.169.254`. On a cloud machine a helper can ask it for the machine's credentials.
+- Claude Code `agent run`, its cli chat and every Kiro start get the owner's environment minus a fixed list of names, so other tokens and cloud keys in the owner's shell reach them (item 88 for Kiro).
+- There is no way to give a run a credential for that run only: a credential reaches a helper only if it is already in the owner's environment or on disk.
