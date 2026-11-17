@@ -1866,3 +1866,14 @@ These are facts of main `25b3a47`, found while writing `docs/owner-status-design
 - A queue row has no deadline, only the date of its `umwayi queue add` entry, so a waiting decision can stay open for ever without anything saying it is late.
 - `umwayi stalls check` reads a JSON file of events that nothing produces, so no command lists stalled sessions across goals.
 - Exit 2 already means a No, a refusal or an unexpected error in every command (product rule 8), so a new command that also uses 2 for "items wait" must say which in its output.
+
+## Shared memory (W70), found while designing
+
+### 309. no note between sessions is hashed when written or checked when read, and helpers may write memory and steering with an Ask
+
+These are facts of main `6525606`, found while writing `docs/memory-supply-chain.md`. Nothing was changed.
+
+- `memory/`, `docs-parts/`, `.kiro/steering/` and `tasks.md` hold the notes a helper or a later session reads, and none of them is hashed in the logbook when written or compared when read. A note changed in between is used as it is. The packet of a goal task is the exception: its approval holds its SHA-256.
+- The starter guard lists do not name `memory/` or `.kiro/steering/`, so a helper's write to them is Ask me first, not No.
+- Claude Code, Kiro CLI and OpenCode are checked for a minimum version, not pinned by a hash; OpenCode also downloads `ripgrep` by itself (item 191).
+- umwayi-os itself is built by AI builders in branches and merged by the owner; that process is not an app and is not covered by an app's permissions.
