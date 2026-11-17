@@ -1970,3 +1970,13 @@ These are facts of main `4f6ab21`, found while writing `docs/network-credentials
 - No rule or check names a cloud metadata address such as `169.254.169.254`. On a cloud machine a helper can ask it for the machine's credentials.
 - Claude Code `agent run`, its cli chat and every Kiro start get the owner's environment minus a fixed list of names, so other tokens and cloud keys in the owner's shell reach them (item 88 for Kiro).
 - There is no way to give a run a credential for that run only: a credential reaches a helper only if it is already in the owner's environment or on disk.
+
+## CI (W47c), found while measuring tests/test_merge_main.py
+
+### 318. Most of the merge_main tests' time is the ui verify, run twice in every merge_main
+
+After W47c, `tests/test_merge_main.py` still takes about 860 s on the machine it was measured on (1299 s before).
+
+- A `python -m tools.merge_main` that has nothing to do takes about 49 s. About 40 s of that is `python -m unittest tests.test_ui_package` (about 20 s), which `merge_main` runs twice: once in its verify pass and once in the final pass that checks every file again. The file runs `merge_main` 26 times.
+- Making it faster would change what `merge_main` does (one verify pass instead of two, or skipping the ui verify when no ui file changed), what the test fixture checks (a verify list without the ui entry), or `tests/test_ui_package.py` itself (most of its time is its own regular expressions and the copies of the ui tree for each planted fault). Each is the owner's decision.
+- The seconds in `tools/ci_shards.json` are from CI reports. They were not changed: a local run is not a CI report, so the new time on CI is known only after a CI run.

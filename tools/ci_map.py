@@ -154,7 +154,7 @@ def _consts(nodes):
 
 
 def _names(node):
-    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+    return {n.id for n in _walk(node) if isinstance(n, ast.Name)}
 
 
 def _where(expr, env, here):
@@ -188,6 +188,21 @@ def _where(expr, env, here):
     return None
 
 
+# W47c: the scan walks the same unchanged trees many times (the fixed-point loops below). `_walk` gives the same nodes
+# in the same order as `ast.walk`, computed once per node during one scan. The cache holds each node it keys, so an id
+# is never reused while it is in the cache, and `scan_python` empties it when it ends.
+_WALKS = {}
+
+
+def _walk(node):
+    hit = _WALKS.get(id(node))
+    if hit is not None and hit[0] is node:
+        return hit[1]
+    nodes = list(ast.walk(node))
+    _WALKS[id(node)] = (node, nodes)
+    return nodes
+
+
 def _module_file(root, dotted):
     base = root.joinpath(*dotted.split("."))
     for cand in (base.with_suffix(".py"), base / "__init__.py"):
@@ -200,7 +215,7 @@ def _file_imports(tree, path, root):
     """The files under tests/ this module imports: [(file, [names imported from it])]."""
     out = []
     pkg_parts = list(path.relative_to(root).parent.parts)
-    for n in ast.walk(tree):
+    for n in _walk(tree):
         if isinstance(n, ast.Import):
             for a in n.names:
                 if a.name.split(".")[0] == "tests":
@@ -237,7 +252,7 @@ def _direct(tree, env, here):
         w = where(node)
         return _tokens_of(list(w) + parts) if w is not None else set()
 
-    for n in ast.walk(tree):
+    for n in _walk(tree):
         if isinstance(n, (ast.Import, ast.ImportFrom)):
             mods = [a.name for a in n.names] if isinstance(n, ast.Import) else [n.module or ""]
             if getattr(n, "level", 0) == 0 and any(m.split(".")[0] == "adapters" for m in mods):
@@ -280,7 +295,7 @@ def _own_env(tree, here, imported):
     changed = True
     while changed:
         changed = False
-        for n in ast.walk(tree):
+        for n in _walk(tree):
             if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name):
                 w = _where(n.value, env, here)
                 if w is not None and env.get(n.targets[0].id) != w:
@@ -295,7 +310,7 @@ def _params(fd):
 
 
 def _functions(tree):
-    return [fd for fd in ast.walk(tree) if isinstance(fd, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    return [fd for fd in _walk(tree) if isinstance(fd, (ast.FunctionDef, ast.AsyncFunctionDef))]
 
 
 def _scope_env(fd, base, leaks, here):
@@ -319,7 +334,7 @@ def _leaks(trees, envs, here):
             scopes = [(tree, envs[p])] + [(fd, _scope_env(fd, envs[p], leaks, here[p])) for fd in _functions(tree)
                                           if fd.name in leaks]
             for node, env in scopes:
-                for n in ast.walk(node):
+                for n in _walk(node):
                     if not isinstance(n, ast.Call):
                         continue
                     f = n.func
@@ -336,6 +351,13 @@ def _leaks(trees, envs, here):
 
 def scan_python(root=REPO):
     """{test file: set of tokens it reads outside its own area}, helper modules included."""
+    try:
+        return _scan_python(root)
+    finally:
+        _WALKS.clear()
+
+
+def _scan_python(root):
     root = Path(root)
     trees, imports, envs, here = {}, {}, {}, {}
     for p in sorted((root / "tests").rglob("*.py")):
