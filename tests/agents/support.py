@@ -18,7 +18,7 @@ import unittest
 from pathlib import Path
 
 from tests.adapters.support import SITECUSTOMIZE
-from umwayi.agents import CLAUDE_CREDENTIAL_ENV
+from umwayi.agents import AGENT_SOCKET_ENV, CLAUDE_CREDENTIAL_ENV
 
 REPO = Path(__file__).resolve().parents[2]
 SECRET = "sk-live-AGENTS-TEST-SECRET"
@@ -266,6 +266,7 @@ class AgentCase(unittest.TestCase):
         # needs one plants it through `extra`.
         env = {k: v for k, v in os.environ.items()
                if k not in ("PYTHONPATH", "UMWAYI_FAULT") and k not in CLAUDE_CREDENTIAL_ENV
+               and k not in AGENT_SOCKET_ENV  # W64: the machine's SSH agent is never inherited either
                and not k.startswith("FAKE_")}
         env["PATH"] = os.pathsep.join([str(self.bin), env.get("PATH", "")])
         env["HOME"] = str(self.home)
