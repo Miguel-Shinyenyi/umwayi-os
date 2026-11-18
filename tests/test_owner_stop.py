@@ -145,10 +145,17 @@ class CheckCommandTests(unittest.TestCase):
 
     def test_an_owner_command_from_each_helper_is_exit_2(self):
         import json
+        import shutil
+        import tempfile
+        tmp = tempfile.TemporaryDirectory(prefix="umwayi-owner-stop-")
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        shutil.copy2(REPO / "rules.yaml", root / "rules.yaml")  # a temporary root: the check writes its logbook there
         for platform in PREFIXES:
-            r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(REPO), "check", "--json",
+            r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(root), "check", "--json",
                                 json.dumps(shell(platform, "umwayi enforce set cooperative"))],
-                               capture_output=True, text=True, timeout=60, cwd=REPO)
+                               capture_output=True, text=True, timeout=60, cwd=root,
+                               env={**__import__("os").environ, "PYTHONPATH": str(REPO)})
             self.assertEqual(r.returncode, 2, (platform, r.stdout, r.stderr))
             self.assertIn("Allowed next:", json.loads(r.stdout)["reason"])
 
