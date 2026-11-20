@@ -1142,3 +1142,35 @@ Not run by the build. The capture file holds field names and types only, never a
 5. Take the file away: `rm /tmp/umwayi-capture.jsonl`.
 
 - Capture: not done yet. Date: (none). Field names: (none recorded).
+
+## OpenCode real check, 2026-11-18
+
+Owner half of task 10.51, run on the owner's Mac on 2026-11-20 by the tester acting as the owner in scratch folders. OpenCode 2.3.0, route opencode/big-pickle (signed out free tier), no credentials. umwayi-os 027dff2. Task 10.51 is not ticked; the owner ticks it. Recordings and logs are kept by the owner, not in this repository.
+
+| step | result | evidence |
+| --- | --- | --- |
+| agent check | passed | "Gated: the checks for an OpenCode chat of agent oc-free passed." |
+| chat: one question, read a file, write a file | passed | rule oc-read gave Yes for the read; the write gave Ask me first (oc-ask-write, then oc-perm-ask), answered y; `[stop reason: end_turn]`, exit 0 |
+| one hook entry per tool call | passed | one rule entry per read, shell and write call, and the line "the agent ran with every tool call checked by the layer 9 hook" |
+| planted opencode.json | passed | "no: other config: ... opencode.json exists in the workdir or a folder above it"; "Refused: agent oc-free cannot be gated" (exit 2) |
+| canary seen | not verified | the word canary did not appear in the logbook or on the screen |
+| private HOME | as documented | OpenCode wrote to the real `~/.local/share/opencode` (opencode.db, log, a shell output file) and downloaded a 2.6 MB helper, opencode-pty, to the real `~/.cache/opencode`. `~/.config/opencode` did not change. Matches KNOWN-LIMITS 251 |
+
+The eight points of the W9.13 note:
+
+| point | result | evidence |
+| --- | --- | --- |
+| a. version | passed | `opencode v2.3.0` |
+| b. one non-interactive run through `opencode acp` | passed, without the umwayi plugin | initialize, session/new, session/prompt: one stopReason `end_turn`, then the process stopped |
+| c. exit code of `opencode acp` | passed | stopped with SIGTERM after the stopReason: 143 (the signal). Standard input closed after the stopReason: it ended by itself, exit 0 |
+| d. output shape | passed, tool output not tried | order: available_commands_update, several agent_thought_chunk, agent_message_chunk with the reply, usage_update, then the prompt result with stopReason and usage. A tool's output inside the reply was not tried |
+| e. needs a terminal | passed | pipes on all three streams: stderr empty, nothing asked. `opencode run` with stdin from /dev/null: exit 0, stdout `hello`, stderr only the banner |
+| f. plugin and canary, one hook entry per tool call | partly | hook entries seen through the chat; canary not seen |
+| g. private HOME and the real config | passed | see the table above |
+| h. effort or reasoning option | not confirmed | `opencode run --help` lists `--model provider/model#variant`, `--thinking` (shows thinking blocks) and `--format`. No documented effort flag. The `#variant` suffix was not tried |
+
+Comparison: `opencode run -m opencode/big-pickle "Reply with the single word hello."` with stdin from /dev/null: exit 0 after 4 s, stdout `hello`, stderr 27 bytes (the banner). No terminal needed.
+
+Deviations from the docs: none found. One detail to note: a stop by SIGTERM gives exit 143, not 0.
+
+One scripting problem in the chat: it reads permission answers from the same input as messages, so a fixed list of lines breaks when the model makes an extra tool call.
