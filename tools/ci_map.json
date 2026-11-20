@@ -152,6 +152,7 @@
   "tests/test_memory.py": [],
   "tests/test_merge_main.py": [".kiro", "docs", "docs-parts", "tools", "ui"],
   "tests/test_miniyaml.py": [],
+  "tests/test_owner_stop.py": ["adapters", "rules.yaml"],
   "tests/test_petition.py": ["rules.yaml"],
   "tests/test_progress_page.py": [".gitignore", ".kiro", "docs", "ui", "ui/dist"],
   "tests/test_progress_workflow.py": [".github", "ui"],

@@ -498,3 +498,121 @@ rules:
       platform: opencode
       type: acp_permission
       kind: [edit, delete, move, execute, think, fetch, switch_mode, other]
+
+  # --- W78 step 1B (the owner's rules change of Nov 17): the owner's commands and the guard files of W67 and W78.
+  # Every text is the refusal shape of W78 5(d): refused: REASON. Allowed next: STEP. umwayi/rules.py also keeps an
+  # always owner stop in code, so a Yes rule never lets a helper run an owner command.
+
+  - id: cc-no-owner-commands-w78
+    title: Claude Code never runs the owner's commands
+    text: "refused: enforce set, queue answer, goal approve, answer, merged and stop, budget settle-lost, kill off, decision, autonomy record, gh pr merge and a pseudo-terminal (script, unbuffer) are the owner's. Allowed next: ask the owner to run it at the owner's terminal."
+    cause: An AI helper must not answer, approve, merge or switch the mode for the owner.
+    verdict: no
+    matchers:
+      platform: claude-code
+      type: [tool_bash, tool_powershell]
+      command__contains: ["umwayi enforce set", "enforce set", "umwayi queue answer", "queue answer", "umwayi goal approve", "goal approve", "umwayi goal answer", "goal answer", "umwayi goal merged", "goal merged", "umwayi goal stop", "goal stop", "umwayi budget settle-lost", "settle-lost", "umwayi kill off", "umwayi decision", "umwayi autonomy record", "gh pr merge", "script -q", "script -c", "unbuffer"]
+
+  - id: cc-no-guard-files-shell-w78
+    title: Claude Code shell commands never touch the W78 guard files
+    text: "refused: a shell command that names guidance.yaml, units.yaml, agents.yaml, enforcement.yaml or .kiro/steering/umwayi. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents and the enforcement mode.
+    verdict: no
+    matchers:
+      platform: claude-code
+      type: [tool_bash, tool_powershell]
+      command__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi"]
+
+  - id: cc-no-guard-file-edits-w78
+    title: Claude Code never edits the W78 guard files
+    text: "refused: an edit of guidance.yaml, units.yaml, agents.yaml, enforcement.yaml, .kiro/steering/umwayi or the tools folder. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents, the enforcement mode and the repo tools.
+    verdict: no
+    matchers:
+      platform: claude-code
+      type: [tool_write, tool_edit, tool_multiedit, tool_notebookedit]
+      path__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi", "/tools/"]
+
+  - id: kiro-no-owner-commands-w78
+    title: Kiro never runs the owner's commands
+    text: "refused: enforce set, queue answer, goal approve, answer, merged and stop, budget settle-lost, kill off, decision, autonomy record, gh pr merge and a pseudo-terminal (script, unbuffer) are the owner's. Allowed next: ask the owner to run it at the owner's terminal."
+    cause: An AI helper must not answer, approve, merge or switch the mode for the owner.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_command__contains: ["umwayi enforce set", "enforce set", "umwayi queue answer", "queue answer", "umwayi goal approve", "goal approve", "umwayi goal answer", "goal answer", "umwayi goal merged", "goal merged", "umwayi goal stop", "goal stop", "umwayi budget settle-lost", "settle-lost", "umwayi kill off", "umwayi decision", "umwayi autonomy record", "gh pr merge", "script -q", "script -c", "unbuffer"]
+
+  - id: kiro-no-guard-files-shell-w78
+    title: Kiro shell commands never touch the W78 guard files
+    text: "refused: a shell command that names guidance.yaml, units.yaml, agents.yaml, enforcement.yaml or .kiro/steering/umwayi. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents and the enforcement mode.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_command__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi"]
+
+  - id: kiro-no-guard-file-edits-w78
+    title: Kiro never edits the W78 guard files
+    text: "refused: an edit of guidance.yaml, units.yaml, agents.yaml, enforcement.yaml, .kiro/steering/umwayi or the tools folder. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents, the enforcement mode and the repo tools.
+    verdict: no
+    matchers:
+      platform: kiro
+      input_path__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi", "tools/"]
+
+  - id: oc-no-owner-commands-w78
+    title: OpenCode never runs the owner's commands
+    text: "refused: enforce set, queue answer, goal approve, answer, merged and stop, budget settle-lost, kill off, decision, autonomy record, gh pr merge and a pseudo-terminal (script, unbuffer) are the owner's. Allowed next: ask the owner to run it at the owner's terminal."
+    cause: An AI helper must not answer, approve, merge or switch the mode for the owner.
+    verdict: no
+    matchers:
+      platform: opencode
+      type: tool_shell
+      input_command__contains: ["umwayi enforce set", "enforce set", "umwayi queue answer", "queue answer", "umwayi goal approve", "goal approve", "umwayi goal answer", "goal answer", "umwayi goal merged", "goal merged", "umwayi goal stop", "goal stop", "umwayi budget settle-lost", "settle-lost", "umwayi kill off", "umwayi decision", "umwayi autonomy record", "gh pr merge", "script -q", "script -c", "unbuffer"]
+
+  - id: oc-no-guard-files-shell-w78
+    title: OpenCode shell commands never touch the W78 guard files
+    text: "refused: a shell command that names guidance.yaml, units.yaml, agents.yaml, enforcement.yaml or .kiro/steering/umwayi. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents and the enforcement mode.
+    verdict: no
+    matchers:
+      platform: opencode
+      type: tool_shell
+      input_command__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi"]
+
+  - id: oc-no-guard-file-edits-w78
+    title: OpenCode never edits the W78 guard files
+    text: "refused: an edit of guidance.yaml, units.yaml, agents.yaml, enforcement.yaml, .kiro/steering/umwayi or the tools folder. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents, the enforcement mode and the repo tools.
+    verdict: no
+    matchers:
+      platform: opencode
+      type: [tool_write, tool_edit]
+      input_path__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi", "tools/"]
+
+  - id: stdio-no-owner-commands-w78
+    title: A helper never runs the owner's commands
+    text: "refused: enforce set, queue answer, goal approve, answer, merged and stop, budget settle-lost, kill off, decision, autonomy record, gh pr merge and a pseudo-terminal (script, unbuffer) are the owner's. Allowed next: ask the owner to run it at the owner's terminal."
+    cause: An AI helper must not answer, approve, merge or switch the mode for the owner.
+    verdict: no
+    matchers:
+      platform: stdio
+      input_command__contains: ["umwayi enforce set", "enforce set", "umwayi queue answer", "queue answer", "umwayi goal approve", "goal approve", "umwayi goal answer", "goal answer", "umwayi goal merged", "goal merged", "umwayi goal stop", "goal stop", "umwayi budget settle-lost", "settle-lost", "umwayi kill off", "umwayi decision", "umwayi autonomy record", "gh pr merge", "script -q", "script -c", "unbuffer"]
+
+  - id: stdio-no-guard-files-shell-w78
+    title: A helper shell commands never touch the W78 guard files
+    text: "refused: a shell command that names guidance.yaml, units.yaml, agents.yaml, enforcement.yaml or .kiro/steering/umwayi. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents and the enforcement mode.
+    verdict: no
+    matchers:
+      platform: stdio
+      input_command__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi"]
+
+  - id: stdio-no-guard-file-edits-w78
+    title: A helper never edits the W78 guard files
+    text: "refused: an edit of guidance.yaml, units.yaml, agents.yaml, enforcement.yaml, .kiro/steering/umwayi or the tools folder. Allowed next: ask the owner to change it at the owner's terminal."
+    cause: These files set the guidance, the budget, the agents, the enforcement mode and the repo tools.
+    verdict: no
+    matchers:
+      platform: stdio
+      input_path__contains: ["guidance.yaml", "units.yaml", "agents.yaml", "enforcement.yaml", ".kiro/steering/umwayi", "tools/"]

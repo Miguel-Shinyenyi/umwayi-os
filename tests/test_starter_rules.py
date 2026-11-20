@@ -273,6 +273,11 @@ OC_IDS = [
     "oc-read", "oc-ask-write", "oc-ask-shell", "oc-ask-web", "oc-ask-agent", "oc-perm-read", "oc-perm-ask",
 ]
 
+# W78 step 1B (the owner's rules change of Nov 17): three No rules per platform, after every rule that was there. Their
+# meaning is tested in tests/test_owner_stop.py; here only that they come last and the old rules stay as they were.
+W78_IDS = [f"{p}-{name}-w78" for p in ("cc", "kiro", "oc", "stdio")
+           for name in ("no-owner-commands", "no-guard-files-shell", "no-guard-file-edits")]
+
 
 def canon(rule) -> str:
     """What a rule says, as a string: the same for the same rule whatever its spacing and comments."""
@@ -372,7 +377,8 @@ class OpenCodeStarterRulesTest(unittest.TestCase):
     def test_they_come_after_the_rules_that_were_there_and_in_the_order_of_the_example(self):
         ids = [r.id for r in self.rules]
         self.assertEqual(ids[:len(PINNED)], list(PINNED))
-        self.assertEqual(ids[len(PINNED):], OC_IDS)
+        self.assertEqual(ids[len(PINNED):len(PINNED) + len(OC_IDS)], OC_IDS)
+        self.assertEqual(ids[len(PINNED) + len(OC_IDS):], W78_IDS)
 
     def test_each_has_a_title_a_text_a_cause_and_no_review_by(self):
         for rid in OC_IDS:
@@ -515,7 +521,7 @@ class OpenCodeStarterRulesTest(unittest.TestCase):
                 self.assertEqual(self.real_check(action, extra=("--no-log",))[:3], (codes[answer], answer, rule_id))
 
     def test_a_logged_run_on_a_real_root_writes_the_rules_entry_and_the_logbook_verifies(self):
-        """The 50 rules also go through the rules change log (layer 13): a logged check writes the baseline entry."""
+        """The rules (50, and 62 with W78 step 1B) also go through the rules change log (layer 13): a logged check writes the baseline entry."""
         root = Path(self._tmp.name) / "logged"
         root.mkdir()
         (root / "rules.yaml").write_bytes(RULES_FILE.read_bytes())
@@ -530,7 +536,7 @@ class OpenCodeStarterRulesTest(unittest.TestCase):
         log = (root / "LOGBOOK.md").read_text(encoding="utf-8")
         self.assertEqual(log.count("- Source: umwayi rules\n"), 1)
         self.assertEqual(log.count("- Source: umwayi check\n"), 3)
-        self.assertIn("rules 50", log)
+        self.assertIn(f"rules {len(PINNED) + len(OC_IDS) + len(W78_IDS)}", log)
         self.assertIn("oc-perm-ask ask", log)
 
     # ------------------------------------------------------------------------------------------ Code Mode

@@ -43,7 +43,6 @@ Run every test: `python -m unittest discover -s tests -t .`. Each layer has its 
 - Mutation checks: for each layer, faults are put into the code on purpose and the tests must fail. The results are listed in each layer's pull request. A checker picked by a rule and a mutation pass the builder cannot see are designed in [independent verification](independent-verification.md) (W73).
 
 ### CI since W20
-
 CI.1 (PR 59) made one run per push and cancelled older runs. W20 makes the wait shorter without dropping a test: it runs only the jobs a change can affect, and it splits the Python suite into three shards per version.
 
 - **Four jobs.** `plan` (always runs) reads the diff and decides. `test` is the Python suite, one job per Python version and shard. `node` is the Node tests of `ui/` and `site/`. `result` (always runs, after the others) is the one check to require.
@@ -209,6 +208,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_logbook_chain.py` | `rules.yaml` |
 | `tests/test_logo.py` | `.github`, `ui`, `ui/dist` |
 | `tests/test_merge_main.py` | `.kiro`, `docs`, `docs-parts`, `tools`, `ui` |
+| `tests/test_owner_stop.py` | `adapters`, `rules.yaml` |
 | `tests/test_petition.py` | `rules.yaml` |
 | `tests/test_progress_page.py` | `.gitignore`, `.kiro`, `docs`, `ui`, `ui/dist` |
 | `tests/test_progress_workflow.py` | `.github`, `ui` |
