@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 from unittest import mock
 
 from tests.helpers import after_rules, entry_text, without_run_lock, write_sealed_logbook
@@ -130,7 +131,8 @@ class Base(unittest.TestCase):
         sys.stderr = err
         try:
             with mock.patch("umwayi.cli._today", return_value=clock):
-                code = main(["--root", str(self.root), *argv], out=out)
+                with ptysupport.maybe_terminal(argv):
+                    code = main(["--root", str(self.root), *argv], out=out)
         finally:
             sys.stderr = old
         return code, out.getvalue(), err.getvalue()

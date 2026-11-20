@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 from unittest import mock
 
 from umwayi import taskqueue
@@ -79,7 +80,8 @@ class QueueBase(unittest.TestCase):
         sys.stderr = err
         try:
             with mock.patch("umwayi.cli._today", return_value=clock):
-                code = main(["--root", str(self.root), "queue", *argv], out=out)
+                with ptysupport.maybe_terminal(["queue", *argv]):
+                    code = main(["--root", str(self.root), "queue", *argv], out=out)
         finally:
             sys.stderr = old
         return code, out.getvalue(), err.getvalue()
@@ -791,7 +793,7 @@ class SubprocessTests(QueueBase):
         env = dict(os.environ, PYTHONPATH=str(REPO))
 
         def run(*argv):
-            return subprocess.run(
+            return ptysupport.run(
                 [sys.executable, "-m", "umwayi", "--root", str(self.root), "queue", *argv],
                 capture_output=True, text=True, env=env, cwd=self.root,
             )

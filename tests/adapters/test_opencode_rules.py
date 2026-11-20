@@ -137,7 +137,7 @@ class ExampleRulesTests(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         self.assertEqual(len(parse_rules(self.text)), len(ids))
         for rule_id in ids:
-            self.assertRegex(rule_id, r"^oc-[a-z-]+$")
+            self.assertRegex(rule_id, r"^oc-[a-z0-9-]+$")
 
     def test_every_rule_has_a_title_a_text_a_cause_and_matchers_and_names_the_platform(self):
         for r in self.rules:

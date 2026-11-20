@@ -15,6 +15,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 
 REPO = Path(__file__).resolve().parent.parent
 EM_DASH = "\u2014"
@@ -137,7 +138,7 @@ class CourtsCase(unittest.TestCase):
         return env
 
     def u(self, *args, fault=None, extra=None, today=TODAY, stdin=None):
-        return subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args], capture_output=True,
+        return ptysupport.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args], capture_output=True,
                               text=True, timeout=120, env=self.env(fault, extra, today), cwd=str(self.tmp), input=stdin)
 
     def popen(self, *args, fault=None, extra=None, today=TODAY):

@@ -16,6 +16,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 
 REPO = Path(__file__).resolve().parent.parent
 PKG = REPO / "umwayi"
@@ -70,7 +71,7 @@ class SystemBase(unittest.TestCase):
             env["UMWAYI_FAULT"] = fault
             env["UMWAYI_FAULT_TEXT"] = SECRET
         env.update(extra_env or {})
-        return subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args],
+        return ptysupport.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args],
                               capture_output=True, text=True, env=env, cwd=self.root, timeout=timeout)
 
     def expect(self, args, code, contains=(), lacks=(), **kw):

@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 from unittest import mock
 
 from umwayi.cli import EXIT_CRASH, main
@@ -83,7 +84,8 @@ class Base(unittest.TestCase):
         sys.stderr = err
         try:
             with mock.patch("umwayi.cli._today", return_value="2026-11-07"):
-                code = main(["--root", str(self.root), *argv], out=out)
+                with ptysupport.maybe_terminal(argv):
+                    code = main(["--root", str(self.root), *argv], out=out)
         finally:
             sys.stderr = old
         return code, out.getvalue(), err.getvalue()

@@ -645,6 +645,19 @@ def _cmd_memory_bundle(args, out) -> int:
     return 0
 
 
+# W78c (W78.R18): `umwayi queue answer` is the owner's, at the owner's terminal. The check is the one of the goal owner
+# commands and `umwayi enforce set cooperative` (umwayi.goal._is_terminal: standard input and output are both terminals),
+# unchanged. It runs before anything is read, so a refused answer changes nothing and tells nothing about the queue.
+QUEUE_ANSWER_ASK = "Ask me first: answering a queue row is the owner's, at the owner's terminal."
+QUEUE_ANSWER_REFUSED = ("refused: not the owner's terminal (standard input and output are not both a terminal). "
+                        "Allowed next: run umwayi queue answer again at your terminal.")
+
+
+def _owner_terminal() -> bool:
+    from umwayi import goal  # late: the queue commands load nothing of the goal code unless they need it
+    return goal._is_terminal()
+
+
 def _cmd_queue(args, out) -> int:
     root = Path(args.root)
     cmd = args.queue_command
@@ -666,6 +679,9 @@ def _cmd_queue(args, out) -> int:
         row, added = taskqueue.add_row(root, args.kind, args.title, args.recommendation, when, args.if_not_open)
         out.write(f"{'Added' if added else 'Already open, nothing added:'} {row.id} ({row.kind}): {row.title}\n")
     elif cmd == "answer":
+        if not _owner_terminal():
+            out.write(f"{QUEUE_ANSWER_ASK}\n{QUEUE_ANSWER_REFUSED}\nNothing was changed.\n")
+            return 3
         row = taskqueue.answer(root, args.id, args.answer, when, revisit_if=args.revisit_if)
         out.write(f"Answered {row.id} on {row.answered}\n")
     elif cmd == "close":

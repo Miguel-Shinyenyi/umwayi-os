@@ -23,6 +23,7 @@ import tempfile
 import time
 from datetime import date
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 
 from tests.adapters.support import SITECUSTOMIZE
 from tests.agents.support import FAKE_SOURCE, SITE_EXTRA, alive, copy_src
@@ -266,7 +267,7 @@ class World:
           umask: int = -1):
         """`python -m umwayi --root ROOT ARGS` as a real child process; its exit code is checked and recorded, and
         its output kept in self.outputs (the security scan sweeps every byte umwayi printed)."""
-        r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args], input=input,
+        r = ptysupport.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args], input=input,
                            capture_output=True, text=True, env=self.env(extra, fault, path), cwd=str(self.base),
                            timeout=timeout, umask=umask)
         self.record(args, r.returncode)

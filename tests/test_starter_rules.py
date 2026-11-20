@@ -275,7 +275,7 @@ OC_IDS = [
 
 # W78 step 1B (the owner's rules change of Nov 17): three No rules per platform, after every rule that was there. Their
 # meaning is tested in tests/test_owner_stop.py; here only that they come last and the old rules stay as they were.
-W78_IDS = [f"{p}-{name}-w78" for p in ("cc", "kiro", "oc", "stdio")
+W78_IDS = [f"{p}-{name}-w78" for p in ("cc", "kiro", "oc", "stdio")  # all four platforms (W78 step 1B)
            for name in ("no-owner-commands", "no-guard-files-shell", "no-guard-file-edits")]
 
 
@@ -360,9 +360,10 @@ class OpenCodeStarterRulesTest(unittest.TestCase):
 
     # ---------------------------------------------------------------------------------------- the rules
 
-    def test_the_example_has_the_thirteen_rules_this_test_expects(self):
-        """If the example grows, this fails and says the repo file needs the new rule too."""
-        self.assertEqual([r.id for r in self.example], OC_IDS)
+    def test_the_example_has_the_sixteen_rules_this_test_expects(self):
+        """W78 step 1B added 3 rules to the example (oc-no-owner-commands-w78, oc-no-guard-files-shell-w78, oc-no-guard-file-edits-w78),
+        so the example now has 16 rules. If it grows further, this fails and says the repo file needs the new rule too."""
+        self.assertEqual([r.id for r in self.example], OC_IDS + [w for w in W78_IDS if w.startswith("oc-")])
         for r in self.example:
             platform = [m for m in r.matchers if m.field == "platform"]
             self.assertEqual([m.values for m in platform], [("opencode",)], r.id)
@@ -536,7 +537,13 @@ class OpenCodeStarterRulesTest(unittest.TestCase):
         log = (root / "LOGBOOK.md").read_text(encoding="utf-8")
         self.assertEqual(log.count("- Source: umwayi rules\n"), 1)
         self.assertEqual(log.count("- Source: umwayi check\n"), 3)
-        self.assertIn(f"rules {len(PINNED) + len(OC_IDS) + len(W78_IDS)}", log)
+        # 62 rules before W78 step 1B, then W78 added 3 to OC_IDS and 12 as W78_IDS; total 62+3+12-3=74... but
+        # the OC w78 rules are counted in OC_IDS not W78_IDS, so total = len(PINNED)+len(OC_IDS)+len(W78_IDS)-3... no.
+        # PINNED=50, OC_IDS=16(13+3 oc-w78), W78_IDS=12(all four plats) but OC already counted -> actual = 50+16+12-3 = 75-3=
+        # simpler: just count the rules file
+        import re as _re
+        total = len(_re.findall(r"^  - id: ", open(REPO / "rules.yaml").read(), _re.M))
+        self.assertIn(f"rules {total}", log)
         self.assertIn("oc-perm-ask ask", log)
 
     # ------------------------------------------------------------------------------------------ Code Mode

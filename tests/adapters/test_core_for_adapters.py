@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 
 REPO = Path(__file__).resolve().parents[2]
 RULES = "rules:\n  - id: ok-read\n    title: t\n    text: Reading is fine.\n    verdict: yes\n    matchers:\n      type: tool_read\n"
@@ -22,7 +23,7 @@ class Base(unittest.TestCase):
 
     def u(self, *args):
         env = dict(os.environ, PYTHONPATH=str(REPO))
-        return subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args],
+        return ptysupport.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args],
                               capture_output=True, text=True, env=env)
 
     def log(self):

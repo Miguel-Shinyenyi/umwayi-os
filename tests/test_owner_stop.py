@@ -6,6 +6,8 @@ repo rules.yaml and umwayi.rules must pass it, and a planted fault (one word dro
 Standard library only, no network.
 """
 import dataclasses
+import shutil
+import tempfile
 import re
 import subprocess
 import sys
@@ -20,6 +22,7 @@ from umwayi import rules  # noqa: E402
 from umwayi.rules import ASK, NO, YES, parse_rules  # noqa: E402
 
 RULES = parse_rules((REPO / "rules.yaml").read_text(encoding="utf-8"))
+ENV = {**__import__("os").environ, "PYTHONPATH": str(REPO), "PYTHONDONTWRITEBYTECODE": "1"}
 PREFIXES = {"claude-code": "cc", "kiro": "kiro", "opencode": "oc", "stdio": "stdio"}
 SHAPE = re.compile(r"^refused: .+\. Allowed next: .+\.$")
 OWNER_WORDS = ["umwayi enforce set cooperative --agent a", "umwayi queue answer Q-0001 --answer yes",
@@ -138,6 +141,75 @@ def _add(name, oracle, planted):
 
 for _n, (_o, _p) in ORACLES.items():
     _add(_n, _o, _p)
+
+
+class QueueAnswerTerminalTests(unittest.TestCase):
+    """W78.R18: `umwayi queue answer` exits 3 from a pipe and exits 0 at a real terminal.
+    Planted faults: the check removed (exits 0 from a pipe), the wording cut (no Allowed next line)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="umwayi-qa-")
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        shutil.copy2(REPO / "rules.yaml", self.root / "rules.yaml")
+        import sys as _sys
+        _sys.path.insert(0, str(REPO / "tests"))
+        from ptysupport import run_at_terminal
+        self._run = run_at_terminal
+
+    def _add_q(self):
+        subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "queue", "add",
+                        "--kind", "task", "x"], capture_output=True, env=ENV, cwd=self.root)
+
+    def _answer(self, cli_argv, **kw):
+        return subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root)] + cli_argv,
+                              capture_output=True, text=True, env=ENV, cwd=self.root, **kw)
+
+    def test_from_a_pipe_is_exit_3_with_refusal_wording(self):
+        self._add_q()
+        r = self._answer(["queue", "answer", "Q-0001", "--answer", "y"])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("Ask me first:", r.stdout)
+        self.assertIn("Allowed next:", r.stdout)
+        self.assertNotIn("Answered", r.stdout)
+
+    def test_at_a_real_terminal_exits_0_and_answers(self):
+        self._add_q()
+        r = self._run([sys.executable, "-m", "umwayi", "--root", str(self.root),
+                       "queue", "answer", "Q-0001", "--answer", "y"],
+                      env=ENV, cwd=str(self.root))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Answered", r.stdout)
+
+    def test_planted_fault_check_removed_accepts_a_pipe(self):
+        self._add_q()
+        src = (REPO / "umwayi" / "cli.py").read_text(encoding="utf-8")
+        mutated = src.replace("        if not _owner_terminal():\n",
+                              "        if False:\n", 1)
+        self.assertNotEqual(mutated, src)
+        umwayi_pkg = Path(self._tmp.name) / "umwayi"
+        shutil.copytree(REPO / "umwayi", umwayi_pkg)
+        (umwayi_pkg / "cli.py").write_text(mutated, encoding="utf-8")
+        r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root),
+                            "queue", "answer", "Q-0001", "--answer", "y"],
+                           capture_output=True, text=True, cwd=self.root,
+                           env={**ENV, "PYTHONPATH": str(self._tmp.name)})
+        self.assertNotEqual(r.returncode, 3, "the planted fault was not caught: a pipe was accepted as a terminal")
+
+    def test_planted_fault_wording_cut_has_no_allowed_next(self):
+        self._add_q()
+        src = (REPO / "umwayi" / "cli.py").read_text(encoding="utf-8")
+        mutated = src.replace('        out.write(f"{QUEUE_ANSWER_ASK}\\n{QUEUE_ANSWER_REFUSED}\\nNothing was changed.\\n")',
+                              '        out.write(f"{QUEUE_ANSWER_ASK}\\nNothing was changed.\\n")', 1)
+        self.assertNotEqual(mutated, src)
+        umwayi_pkg = Path(self._tmp.name) / "umwayi"
+        shutil.copytree(REPO / "umwayi", umwayi_pkg)
+        (umwayi_pkg / "cli.py").write_text(mutated, encoding="utf-8")
+        r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root),
+                            "queue", "answer", "Q-0001", "--answer", "y"],
+                           capture_output=True, text=True, cwd=self.root,
+                           env={**ENV, "PYTHONPATH": str(self._tmp.name)})
+        self.assertNotIn("Allowed next:", r.stdout, "the planted fault was not caught: the wording was cut")
 
 
 class CheckCommandTests(unittest.TestCase):

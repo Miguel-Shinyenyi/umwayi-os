@@ -6,6 +6,7 @@ import json
 import re
 import shutil
 import unittest
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 from contextlib import redirect_stderr
 from unittest import mock
 
@@ -20,7 +21,8 @@ SERVE_EXTRA_SOURCES = {"umwayi serve", "umwayi check", "umwayi rules"}
 def run_cli(root, *argv):
     out, err = io.StringIO(), io.StringIO()
     with mock.patch("umwayi.cli._today", return_value=DATE), redirect_stderr(err):
-        code = main(["--root", str(root), *argv], out=out)
+        with ptysupport.maybe_terminal(argv):
+            code = main(["--root", str(root), *argv], out=out)
     return code, out.getvalue()
 
 

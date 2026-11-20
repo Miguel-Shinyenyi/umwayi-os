@@ -1961,3 +1961,12 @@ The design is `docs/enforced-default-design.md`. Step 1A of its build order buil
 6. **Exit codes.** `umwayi check` gives 2 for these No answers and 3 for the always owner stop; never 1.
 7. **Tests** (`tests/test_owner_stop.py`): a planted fault per rule (a rule removed, a word dropped from a list, the floor removed, the next step cut from a text) that the rule's oracle must catch, and the real `umwayi check` child process.
 8. **Not in 1B:** the terminal check on `umwayi queue answer` (an owner stop, see the W78b limits part); the example files under `adapters/` do not have the twelve rules yet.
+
+### W78.R18 Step 1C: `umwayi queue answer` at the owner's terminal (W78c)
+
+1. `umwayi queue answer` exits 3 from any context that is not the owner's terminal, with the message "Ask me first: answering a queue row is the owner's, at the owner's terminal." and the refusal line `refused: not the owner's terminal (standard input and output are not both a terminal). Allowed next: run umwayi queue answer again at your terminal.` Nothing is changed and the answer text is never read.
+2. The check is the owner terminal check already in `umwayi.goal._is_terminal` (standard input and standard output both `.isatty()`), unchanged. It runs before any file is read or written.
+3. Exit codes remain 0 (answered), 1 (a data problem), 2 (unexpected error), 3 (not the terminal), 64 (usage or config error). The terminal check adds no new code.
+4. **Tests** (`tests/test_owner_stop.py` `QueueAnswerTerminalTests`): a test from a pipe (exit 3, the wording), a test at a real pseudo-terminal from `tests/ptysupport.run_at_terminal` (exit 0), and two planted faults (the check removed, the wording cut).
+5. The existing tests that run `queue answer` without a terminal are on `tests/ptysupport.maybe_terminal` (an in-process context manager) or `tests/ptysupport.run` (a subprocess wrapper), so they still pass.
+6. **Adapter example files** (`adapters/*/rules.example.yaml`): all four adapter example files now carry the same 12 W78 No rules as `rules.yaml`. The OpenCode example has 16 rules (13 original plus the 3 oc-w78 rules).
