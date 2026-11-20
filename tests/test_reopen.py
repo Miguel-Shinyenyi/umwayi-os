@@ -25,6 +25,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from tests import ptysupport  # W78c: queue answer needs the owner's terminal
 from unittest import mock
 
 from tests.adapters.support import SITECUSTOMIZE
@@ -122,7 +123,7 @@ class ReopenCase(unittest.TestCase):
         env = cls._env_for(home, base / "site")
 
         def u(*args):
-            r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(cls.template), *args],
+            r = ptysupport.run([sys.executable, "-m", "umwayi", "--root", str(cls.template), *args],
                                capture_output=True, text=True, timeout=120, env=env, cwd=str(base))
             if r.returncode != 0:
                 raise AssertionError(f"fixture step {args} failed: {r.returncode} {r.stdout} {r.stderr}")
@@ -177,7 +178,7 @@ class ReopenCase(unittest.TestCase):
         return self._env_for(self.home, self.site, fault, extra)
 
     def u(self, *args, fault=None, extra=None):
-        return subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args], capture_output=True,
+        return ptysupport.run([sys.executable, "-m", "umwayi", "--root", str(self.root), *args], capture_output=True,
                               text=True, timeout=120, env=self.env(fault, extra), cwd=str(self.tmp))
 
     def reopen(self, target, reason="New facts came in", by="Owner", date=D5, fault=None, extra=None):
@@ -286,7 +287,7 @@ class MissingEntryTests(ReopenCase):
         root.mkdir()
         for args in (["queue", "add", "--kind", "decision", "One", "--date", D1],
                      ["queue", "answer", "Q-0001", "--answer", "Yes", "--revisit-if", "none", "--date", D1]):
-            r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(root), *args], capture_output=True,
+            r = ptysupport.run([sys.executable, "-m", "umwayi", "--root", str(root), *args], capture_output=True,
                                text=True, env=self.env(), cwd=str(self.tmp))
             self.assertEqual(r.returncode, 0, r.stderr)
         before = snapshot(root)

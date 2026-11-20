@@ -2032,3 +2032,13 @@ These are facts of the W78 step 1B branch.
 - The edit rule for the tools folder matches any path with `tools/` in it (for example `ui/tools/`), so it refuses more than the root's `tools/` folder.
 - The twelve rules are in the repo `rules.yaml` only, not yet in the example files under `adapters/` that an owner copies.
 - `.umwayi/enforcement.yaml` was already denied to helpers by the `.umwayi` entries of the older guard rules; limits part W78a said it was not on a guard list, which was wrong for edits and named shell commands.
+
+## Enforced by default (W78c), found while building the queue answer terminal check
+
+### 323. umwayi queue answer requires the owner's terminal; the adapters example files have the W78 guard rules but are not tested against a real install
+
+These are facts of W78c.
+
+- `umwayi queue answer` now exits 3 from a pipe or any non-terminal context. Scripts, CI jobs and tests that ran it without a terminal must use `tests/ptysupport` or give the command a real terminal.
+- The owner terminal check is stdin and stdout both `.isatty()`. A helper that opens a pseudo-terminal passes it; the new rules deny `script` and `unbuffer` by name only (limits part W78b).
+- The 12 W78 No rules in the four `adapters/*/rules.example.yaml` files are copies of `rules.yaml`. They are tested in `tests/test_starter_rules.py` for the OpenCode example. The other three examples are only compared by verdict and matchers, not by an instruction-level test on a real install.
