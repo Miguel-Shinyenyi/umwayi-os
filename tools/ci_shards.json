@@ -236,6 +236,10 @@
    "seconds": 1.2,
    "shard": 2
   },
+  "tests/goal/test_goal_words.py": {
+   "seconds": 20.5,
+   "shard": 3
+  },
   "tests/goal/test_goalrun.py": {
    "seconds": 95.8,
    "shard": 2
