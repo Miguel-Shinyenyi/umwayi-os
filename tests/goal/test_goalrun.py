@@ -2083,10 +2083,11 @@ class OrderTests(StartCase):
         for argv, _ in self.children.calls:
             self.assertNotIn("Nonce", " ".join(argv))
 
-    def test_the_child_environment_is_the_supervisors_and_the_builder_and_tester_write_no_bytecode(self):
-        """W55a changed this test: before, every child got the supervisor's environment unchanged. Now the builder and
-        the tester also get PYTHONDONTWRITEBYTECODE=1, so a Python they run leaves no __pycache__ in the worktree; the
-        guide's check is unchanged, and nothing else is added or removed."""
+    def test_the_child_environment_is_the_supervisors_and_every_role_writes_no_bytecode(self):
+        """W55a changed this test: before, every child got the supervisor's environment unchanged. Then the builder and the
+        tester also got PYTHONDONTWRITEBYTECODE=1. The first real goal run (2026-11-22) failed with readonly_role_changed_tree
+        because the guide's check, a read-only role, ran Python and wrote a __pycache__: now every role gets it. Nothing else
+        is added or removed."""
         goal = self.approved(1)
         seen = []
 
@@ -2096,9 +2097,8 @@ class OrderTests(StartCase):
         self.make_env(self.good_scripts(), spawn=spawn, environ={"PATH": "/usr/bin", "KEEP": "1"})
         gr.run_task(self.env, goal, "T-01")
         builder, tester, check = seen
-        for env in (builder, tester):
+        for env in (builder, tester, check):
             self.assertEqual(env, {"PATH": "/usr/bin", "KEEP": "1", "PYTHONDONTWRITEBYTECODE": "1"})
-        self.assertEqual(check, {"PATH": "/usr/bin", "KEEP": "1"})
         for env in seen:
             self.assertIsNot(env, self.env.environ)
         self.assertEqual(self.env.environ, {"PATH": "/usr/bin", "KEEP": "1"})  # the supervisor's own is untouched
