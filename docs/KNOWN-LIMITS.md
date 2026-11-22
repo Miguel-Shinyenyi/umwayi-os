@@ -1290,7 +1290,7 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 
 ### 261. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
 
-W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. Only builder rule 1 is enforced. The other 22 are advise entries.
+W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. In part 3a only builder rule 1 had an `enforce` entry (a check that runs at the start of a goal; this is the guidance kind, not the enforcement mode of W78), and the other 22 were `advise` entries. Later parts added more entries; `guidance.yaml` holds the current count. An `advise` entry is text for the helper and is not checked.
 
 - What protects you today: each entry is tied to its rule by a hash of the rule line, so an edited, moved or removed rule stops the loader (Ask me first, exit 3). A test lists the numbered rules of both files and fails when one has no entry and is not on a reasoned exclusion list, so a new rule cannot be added unseen.
 - What it does not protect against: an entry whose one sentence says something different from its rule (the wording is ours and nobody checks it by machine), an advise line that an AI helper ignores, a rule added in a form the test does not read (a numbered line outside the builder file, the section "Safety rules" and the indented rules of the Layer 13 section of the product file), and a hash that is updated by hand without reading the change. Tiers are as the owner decided: builder 4, safety 1, rules 5 and 10 tier 2. Nothing checks that a tier is the right one.
