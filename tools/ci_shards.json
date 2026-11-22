@@ -18,7 +18,7 @@
   },
   "tests/adapters/test_opencode_rules.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/adapters/test_stdio.py": {
    "seconds": 7.6,
@@ -142,7 +142,7 @@
   },
   "tests/autonomy/test_score.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/autonomy/test_status.py": {
    "seconds": 7.0,
@@ -254,7 +254,7 @@
   },
   "tests/goal/test_guidance_coverage.py": {
    "seconds": 0.1,
-   "shard": 1
+   "shard": 3
   },
   "tests/goal/test_idle.py": {
    "seconds": 4.0,
@@ -286,7 +286,7 @@
   },
   "tests/goal/test_roles.py": {
    "seconds": 0.1,
-   "shard": 3
+   "shard": 2
   },
   "tests/goal/test_status.py": {
    "seconds": 2.8,
@@ -374,7 +374,7 @@
   },
   "tests/test_board_status.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_builder_rules.py": {
    "seconds": 20.8,
@@ -382,7 +382,7 @@
   },
   "tests/test_builder_workflow.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_check_log.py": {
    "seconds": 1.9,
@@ -434,7 +434,7 @@
   },
   "tests/test_feedback.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_feedback_export.py": {
    "seconds": 2.9,
@@ -446,11 +446,11 @@
   },
   "tests/test_frontier_practices.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_generated_files.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_helpers.py": {
    "seconds": 1.8,
@@ -482,7 +482,7 @@
   },
   "tests/test_memory.py": {
    "seconds": 0.1,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_merge_main.py": {
    "seconds": 735.8,
@@ -490,7 +490,7 @@
   },
   "tests/test_miniyaml.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_owner_stop.py": {
    "seconds": 20.5,
@@ -506,6 +506,10 @@
   },
   "tests/test_progress_workflow.py": {
    "seconds": 0.0,
+   "shard": 2
+  },
+  "tests/test_ptysupport.py": {
+   "seconds": 0.2,
    "shard": 1
   },
   "tests/test_queue.py": {
@@ -594,7 +598,7 @@
   },
   "tests/test_what_it_is.py": {
    "seconds": 0.0,
-   "shard": 1
+   "shard": 2
   },
   "tests/test_whole_system.py": {
    "seconds": 125.5,

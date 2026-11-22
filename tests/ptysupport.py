@@ -9,7 +9,8 @@ real pseudo-terminal, never a mock of the check:
     `sys.stdout` is read and dropped by a thread, so a write never blocks.
   * `run_at_terminal(argv, ...)`: for a test that starts `python -m umwayi` as a child process. The child's standard
     input and output are the slave side; its output is read from the master side and returned as `stdout`, with
-    `stderr` on a pipe as before. The result is a `subprocess.CompletedProcess`, like `subprocess.run`.
+    `stderr` on a pipe as before. The result is a `subprocess.CompletedProcess`, like `subprocess.run`. Its `umask`
+    is passed to the child as `subprocess.Popen` does (-1 leaves the umask of the test process).
   * `needs_terminal(argv)`: True when the arguments run `queue answer`, the one command the tests move onto it.
 
 Linux and macOS only (pty), like the rest of umwayi.
@@ -64,12 +65,12 @@ def owner_terminal():
         os.close(master)
 
 
-def run_at_terminal(argv, *, cwd=None, env=None, timeout=120, input_text=None):
+def run_at_terminal(argv, *, cwd=None, env=None, timeout=120, input_text=None, umask=-1):
     master, slave = pty.openpty()
     tty.setraw(slave)
     sink = []
     try:
-        proc = subprocess.Popen(argv, stdin=slave, stdout=slave, stderr=subprocess.PIPE, cwd=cwd, env=env)
+        proc = subprocess.Popen(argv, stdin=slave, stdout=slave, stderr=subprocess.PIPE, cwd=cwd, env=env, umask=umask)
     finally:
         os.close(slave)
     reader = threading.Thread(target=_drain, args=(master, sink), daemon=True)
@@ -100,4 +101,4 @@ def run(argv, *, capture_output=True, text=True, env=None, cwd=None, timeout=120
     if not needs_terminal(argv):
         return subprocess.run(argv, capture_output=capture_output, text=text, env=env, cwd=cwd, timeout=timeout,
                               input=input, umask=umask, **kw)
-    return run_at_terminal(argv, cwd=cwd, env=env, timeout=timeout, input_text=input)
+    return run_at_terminal(argv, cwd=cwd, env=env, timeout=timeout, input_text=input, umask=umask)
