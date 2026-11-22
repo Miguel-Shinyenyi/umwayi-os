@@ -141,10 +141,12 @@ class UsageErrorTests(OptionCase):
     def test_an_opencode_agent_with_effort_is_64(self):
         self.write_agents("agents:\n  - name: oc\n    platform: opencode\n    command: opencode\n    transport: acp\n"
                           "    workdir: {work}\n    provider: anthropic\n    model: anthropic/claude-x\n")
-        for opts in (["--effort", "high"], ["--model", "m"], ["--cap-uu", "5"]):
+        for opts in (["--effort", "high"], ["--model", "m"]):  # an effort, and a model that is not the agent's (W9.13)
             with self.subTest(opts=opts):
                 r = self.umwayi("run", "oc", "--prompt", "Hi", *opts)
                 self.assertEqual(r.returncode, 64, r.stdout + r.stderr)
+        r = self.umwayi("run", "oc", "--prompt", "Hi", "--cap-uu", "5")  # a cap is fine: no rule here, so Ask me first
+        self.assertNotEqual(r.returncode, 64, r.stdout + r.stderr)
         with self.assertRaises(UsageError):
             agents.check_options(Agent(name="oc", platform="opencode", command="opencode", transport="acp",
                                        workdir="/w"), None, None, "high")
