@@ -123,6 +123,18 @@ class ApproveTests(cs.CmdCase):
         self.refused(goal)
         self.assertIn("needs at least 120", "\n".join(self.err))
 
+    def test_a_builder_with_no_timeout_of_its_own_gets_60_minutes(self):
+        """A real goal run (2026-11-22): the default of 30 minutes was below the 45 a 30 minute task needs, so an agent with no
+        timeout_minutes was always refused. The default is 60: a task of 40 minutes (needs 60) is approved, one of 41 is refused."""
+        path = self.root / "agents.yaml"
+        path.write_text(path.read_text(encoding="utf-8").replace("    timeout_minutes: 90\n", ""), encoding="utf-8")
+        self.assertNotIn("timeout_minutes", path.read_text(encoding="utf-8"))
+        self.assertEqual(self.g_approve(self.g_start(size=40)), 0, self.err)
+        self.err.clear()
+        goal = self.g_start(size=41)
+        self.refused(goal)
+        self.assertIn("is 60; the largest task needs at least 62", "\n".join(self.err))
+
     def test_an_agent_that_cannot_be_gated_is_refused(self):
         goal = self.g_start()
         self.gate_code = 2
