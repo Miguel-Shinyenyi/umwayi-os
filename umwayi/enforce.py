@@ -189,6 +189,16 @@ def mode_line(mode: str, scope: str | None, until: str | None) -> str:
     return "enforcement: enforced" if mode == ENFORCED else f"enforcement: cooperative ({scope}, until {until})"
 
 
+def mode_of(root, agent: str | None = None, goal: str | None = None, today=None) -> str:
+    """ENFORCED or COOPERATIVE for one agent (or goal), and never raises: a settings file that cannot be read is
+    ENFORCED, so an error never relaxes anything (W78 step 2)."""
+    try:
+        t = today if isinstance(today, date) else date.fromisoformat(today) if today else date.today()
+        return mode_for(read(root, t), agent, goal, t)[0]
+    except Exception:
+        return ENFORCED
+
+
 def mode_text(root, agent: str | None = None, goal: str | None = None, today=None) -> str:
     """The text for the start entry, every goal packet prompt and `goal show`. Never raises: a settings file that
     cannot be read shows as enforced with its reason (no part is enforced yet, so nothing depends on it)."""

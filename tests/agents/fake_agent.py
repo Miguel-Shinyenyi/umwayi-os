@@ -125,7 +125,7 @@ else:
     cmdline = [sys.executable] + sys.argv  # macOS: no /proc; the interpreter, the script, then its arguments
 TELEMETRY_EXACT = ("CLAUDE_CODE_ENABLE_TELEMETRY", "BETA_TRACING_ENDPOINT", "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA")
 rec(argv=ARGS, cwd=os.getcwd(), started=True, pid=os.getpid(), pgid=os.getpgid(0), sid=os.getsid(0),
-    stdin=stdin_text, env_keys=sorted(os.environ), cmdline=cmdline, chat=CHAT,
+    stdin=stdin_text, env_keys=sorted(os.environ), run_marker=os.environ.get("UMWAYI_RUN"), cmdline=cmdline, chat=CHAT,
     otel={k: v for k, v in os.environ.items() if k.startswith("OTEL_") or k in TELEMETRY_EXACT}, **tty)
 
 

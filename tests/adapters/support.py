@@ -14,6 +14,24 @@ REPO = Path(__file__).resolve().parents[2]
 SECRET = "sk-live-ADAPTER-TEST-SECRET"
 
 # Loaded at start up in every child process when UMWAYI_FAULT is set: "module:function:effect".
+PASS_FAKE_ENV = r'''
+import os
+# Test only (W78 step 2): the fake agents are steered by FAKE_* and UMWAYI_TEST_* names, and an enforced start passes an allow
+# list. So in these children an enforced start also passes those two kinds of name. A planted secret of any other kind is still
+# dropped. A test of the real allow list sets UMWAYI_TEST_REAL_ALLOW_LIST=1 and gets the allow list as it is.
+if not os.environ.get("UMWAYI_TEST_REAL_ALLOW_LIST"):
+    try:
+        import umwayi.agents as _agents7
+        _real_enforced_env = _agents7.enforced_env
+        def _enforced_env_for_fakes(environ, agent):
+            env = _real_enforced_env(environ, agent)
+            env.update({k: v for k, v in environ.items() if k.startswith(("FAKE_", "UMWAYI_TEST_")) and isinstance(v, str)})
+            return env
+        _agents7.enforced_env = _enforced_env_for_fakes
+    except ImportError:
+        pass
+'''
+
 SITECUSTOMIZE = r'''
 import os
 fault = os.environ.get("UMWAYI_FAULT")
