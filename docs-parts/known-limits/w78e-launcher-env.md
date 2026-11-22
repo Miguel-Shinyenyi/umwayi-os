@@ -1,0 +1,12 @@
+section: Enforced by default (W78), found while building step 2
+title: the allow list applies only under a mode file that says enforced, and it is a guess for Claude Code and Kiro
+number: 329
+
+- The scrub applies to a start only when a mode file (`.umwayi/enforcement.yaml`) exists and says `enforced` for the agent, or cannot be read. With no mode file, which is today's default and which reads as enforced everywhere else, and for a `cooperative` agent, a start keeps the old deny lists and gets no `UMWAYI_RUN`. The default is not applied here because no part of enforced is built yet. Build step 10 flips it with the README and the other pages. Until then a root with no mode file is as it was.
+- The allow list is the one of the ACP chat plus `TERM` and `COLORTERM`. One tiny real Claude Code goal (a file and a unittest, a Claude subscription, no `env_keep`) passed under it on 2026-11-22, after two bytecode fixes (`adapters/NOTES-layer10.md`). Kiro, a larger goal, a toolchain or a proxy were not checked. A helper or a tool it runs that needs another variable (a toolchain, a proxy name, `GH_HOST`) fails until the owner lists it in `env_keep`. Each case found in a real run belongs in `adapters/NOTES-layer10.md`.
+- A goal set to `cooperative` does not relax an agent's start: `agent run` does not know the goal, so only the agent's own mode counts. That is the stricter way.
+- `env_keep` passes the value the owner's shell holds when the start happens. It does not read any file and never logs a value. A name that is listed and not set passes nothing.
+- The allow list stops secrets in the owner's environment. It does not stop secrets on disk (`~/.aws`, `~/.ssh`), network use, a hook that does not run, or an agent the owner starts by hand.
+- `UMWAYI_RUN` is made by umwayi from the run id of the budget entry. A hook that reads it is not built; nothing yet uses it, so it only lets a later step tie a call to a start. A helper can read and copy it, so it is not a secret and not a proof.
+- The goal supervisor sets `PYTHONDONTWRITEBYTECODE=1` for its helpers, so the allow list passes it (`agents.SUPERVISOR_ENV`). The first real goal run found this: without it the tester's Python wrote a `__pycache__` into the worktree and the task failed with `readonly_role_changed_tree`. The tests with fake agents could not show it. A new name the supervisor starts to set must be added to that list, and nothing checks it by machine.
+- `umwayi enforce check` still reports every part of enforced as refused; it does not yet say that the environment part is built.

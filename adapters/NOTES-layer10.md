@@ -1187,3 +1187,23 @@ So a non-interactive run needs no terminal. `opencode run` is one command with a
 - The first gate was confirmed by the `Connected.` line. The canary file was not read.
 - Linux and Windows were not run.
 
+
+## A real Claude Code goal under the scrubbed environment, 2026-11-22
+
+Run on 2026-11-22 on the owner's Mac by Claude Code, in a scratch root and scratch worktrees (nothing of the repo was touched), for the W78 step 2 change (PR 168). Claude Code 2.1.330, signed in with the owner's Claude subscription (plan: pro; umwayi removes `ANTHROPIC_API_KEY`, so the stored login pays). Three agents on `claude-code` (guide, builder, tester), no `env_keep`, a mode file that says `enforcement: enforced`, the owner approving each goal at the terminal. Only counts, words and names are recorded here.
+
+| step | result | evidence |
+| --- | --- | --- |
+| `agent check` for the three agents under the allow list | passed | `ok: login: Claude subscription (plan: pro)`, hook script and self-test ok, `Gated: ... can be started` |
+| goal G-0002 (a tiny goal: `hello.py` and a unittest) | failed: `readonly_role_changed_tree` | the builder committed 3 files; the tester then left an untracked `__pycache__/` in the worktree. The allow list had dropped `PYTHONDONTWRITEBYTECODE`, which the supervisor sets. Fixed in PR 168 (`agents.SUPERVISOR_ENV`) |
+| goal G-0003, the same goal | failed: `readonly_role_changed_tree` | the tester passed 6 of 6 checks (the "only these files" check included: option (b) works with a real tester). The guide's check step then left a `__pycache__/`: the supervisor set the variable only for the builder and the tester. On main already, not caused by the scrub. Fixed in PR 169 |
+| goal G-0010, the same goal, with both fixes | passed | `in review (checked)`: tester 6 of 6 pass, guide `accept`, exit 0, 22 UU for the task, 27 UU for the goal; the tree of the worktree was clean; `hello.py` and `test_hello.py` were correct and the test passed; `logbook verify` ok; 20 `tool_` entries |
+
+What this shows: a tiny goal runs to the end on Claude Code under the allow list with no `env_keep`, once the two bytecode fixes are in. It does not show that a larger goal, a goal that installs or runs a toolchain, a proxy, or a Kiro agent needs no further name.
+
+Other things the real guide did (all with the same goal text):
+
+- The guide's plan was refused in 7 of 9 tries with the plain goal text, with and without the scrub: three times as `checks` (a check must be one sentence of 10 to 200 characters, and the planning prompt did not say so; PR 170 adds it) and four times as `context: ... private`. The second was a fault of the scratch root, not of the guide: it had no `umwayi.json`, `is_private` fails closed, and so every path counted as private. A goal text that stated both rules got a plan at once.
+- The two plain plans that passed (G-0002 and G-0003) came back with a check like "only hello.py and test_hello.py": the guide knew the part files after option (a), and the tester judged it with option (b).
+- The default `timeout_minutes` of 30 is below what a 30 minute task needs (1.5 times its size, so 45): `goal approve` refused until the builder had 60.
+- Not tried: Kiro, OpenCode as a goal helper (W9.13), a goal with `env_keep`, a cooperative agent, a goal of more than one task.

@@ -44,6 +44,7 @@ See design.md (layer 10) and adapters/NOTES-layer10.md.
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import os
 import re
@@ -200,6 +201,16 @@ KIRO_CREDENTIAL_ENV = ("KIRO_API_KEY",)
 AGENT_SOCKET_ENV = ("SSH_AUTH_SOCK", "SSH_AGENT_PID")
 KIRO_SIGNIN_TEXT = "Sign in to Kiro first (kiro-cli login), then try again."
 
+# W78 step 2 (W41 A, W68 option 3): in `enforced` mode a start gets an allow list, not the owner's whole environment minus a
+# deny list. The names below, each only if set, plus the names the owner lists in `env_keep` for that agent (names, never
+# values), plus the run marker. A `cooperative` agent keeps the deny lists above and gets the marker only.
+RUN_MARKER = "UMWAYI_RUN"
+# Names the goal supervisor sets for its builder and tester (goalrun.py: no __pycache__ left in the worktree by a Python the
+# helper runs). They are not secrets, and without them a read-only role changes the tree. Found by the first real run.
+SUPERVISOR_ENV = ("PYTHONDONTWRITEBYTECODE",)
+ENV_KEEP_MAX = 32
+_ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
 # The built-in Kiro tool IDs the Kiro hook docs name (adapters/NOTES.md). Nothing else may be trusted.
 KIRO_TOOL_IDS = ("read_file", "grep_search", "execute_bash", "execute_pwsh",
                  "fs_write", "fs_append", "str_replace", "delete_file")
@@ -261,7 +272,7 @@ _OPENCODE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 _OPENCODE_SUBSTITUTION = re.compile(r"\{(?:env|file):", re.IGNORECASE)
 
 KEYS = ("name", "platform", "command", "transport", "workdir", "kiro_agent", "trust_tools",
-        "max_turns", "timeout_minutes", "provider", "model")
+        "max_turns", "timeout_minutes", "provider", "model", "env_keep")
 REQUIRED = ("name", "platform", "command", "workdir")
 RUN, CHAT, LOGIN = "run", "chat", "login"  # LOGIN: `umwayi agent login NAME` (10.R12.9, part 7c-2)
 CLI, ACP = "cli", "acp"
@@ -287,6 +298,7 @@ class Agent:
     line: int = 0
     provider: str | None = None  # platform opencode only (10.R13.2)
     model: str | None = None  # platform opencode only: provider/model-id
+    env_keep: tuple = ()  # W78 step 2: names (never values) an enforced start passes on besides the allow list
 
 
 @dataclass(frozen=True)
@@ -527,6 +539,21 @@ def check_text(text: str, root: Path) -> tuple:
         timeout = item.get("timeout_minutes", DEFAULT_TIMEOUT_MINUTES)
         if "timeout_minutes" in item and not _whole(timeout, 1, 720):
             problem(f"{label}: timeout_minutes must be a whole number from 1 to 720", "agents", i, "timeout_minutes")
+        env_keep = item.get("env_keep", [])
+        if "env_keep" in item:
+            if not isinstance(env_keep, list):
+                problem(f"{label}: env_keep must be a list of environment variable names", "agents", i, "env_keep")
+            elif len(env_keep) > ENV_KEEP_MAX:
+                problem(f"{label}: env_keep has at most {ENV_KEEP_MAX} names", "agents", i, "env_keep")
+            elif len(set(map(str, env_keep))) != len(env_keep):
+                problem(f"{label}: env_keep names a variable twice", "agents", i, "env_keep")
+            else:
+                for n in env_keep:
+                    why = keep_problem(n)
+                    if why:
+                        problem(f"{label}: env_keep entry {n if isinstance(n, str) and _ENV_NAME.match(n) else '(not a name)'} {why}",
+                                "agents", i, "env_keep")
+                        break
         provider, model = item.get("provider"), item.get("model")
         for key in ("provider", "model"):
             if pname == "opencode" and key not in item:
@@ -549,7 +576,8 @@ def check_text(text: str, root: Path) -> tuple:
         if len(problems) == before:
             parsed.append(Agent(name, pname, cmd, transport, item["workdir"], kiro_agent,
                                 tuple(tools) if isinstance(tools, list) else (), max_turns, timeout, line("agents", i),
-                                provider if pname == "opencode" else None, model if pname == "opencode" else None))
+                                provider if pname == "opencode" else None, model if pname == "opencode" else None,
+                                tuple(env_keep) if isinstance(env_keep, list) else ()))
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
     return parsed, []
@@ -674,6 +702,48 @@ def kiro_env(environ) -> dict:
 def can_login(agent: Agent) -> bool:
     """`umwayi agent login` is for a Claude Code agent with transport acp, or any Kiro agent."""
     return (agent.platform == "claude-code" and agent.transport == ACP) or agent.platform == "kiro"
+
+
+def enforced_names(platform: str) -> tuple:
+    """The names an `enforced` Claude Code or Kiro start passes (W78 step 2). The list of the ACP chat (10.R11.9) and the
+    terminal names a chat needs. CLAUDE_CONFIG_DIR is Claude Code's own."""
+    base = tuple(n for n in CHILD_ENV_NAMES if n != "CLAUDE_CONFIG_DIR")
+    return base + ("TERM", "COLORTERM") + SUPERVISOR_ENV + (("CLAUDE_CONFIG_DIR",) if platform == "claude-code" else ())
+
+
+def keep_problem(name) -> str | None:
+    """None, or why a name may not be in `env_keep`: it is not a plain name, or it is one umwayi never passes (a credential
+    the billing check relies on, the SSH agent, the telemetry names, its own marker and inline config)."""
+    if not (isinstance(name, str) and _ENV_NAME.match(name)):
+        return "is not a plain name of letters, digits and '_' (up to 64)"
+    if (name in CLAUDE_CREDENTIAL_ENV or name in KIRO_CREDENTIAL_ENV or name in AGENT_SOCKET_ENV or name == RUN_MARKER
+            or name == OPENCODE_CONFIG_VAR or name.startswith("UMWAYI_") or telemetry.removed(name)):
+        return "is a name umwayi never passes to a helper"
+    return None
+
+
+def enforced_env(environ, agent) -> dict:
+    """The `enforced` environment of a Claude Code or Kiro start: the allow list plus the agent's `env_keep`, each only if
+    set. `environ` is not changed. A name that `keep_problem` refuses is never passed, even if the agent lists it."""
+    names = enforced_names(agent.platform) + tuple(agent.env_keep)
+    return {k: environ[k] for k in names if isinstance(environ.get(k), str) and (k in CHILD_ENV_NAMES or keep_problem(k) is None)}
+
+
+def scrub_applies(root, agent_name, today) -> bool:
+    """Whether a start takes the scrubbed environment (the allow list, `env_keep`, the run marker): only under a mode file that
+    says `enforced` for the agent. No mode file (today's default) and a cooperative agent keep the old environment (W78 step 2).
+    The default reads as enforced, but no part of enforced is built yet, so it is not applied to a start."""
+    from umwayi import enforce  # late, because umwayi.enforce reads agents.yaml through this module
+    return enforce.explicit_mode_of(root, agent_name, today=today) == enforce.ENFORCED
+
+
+def with_run_marker(env: dict, run) -> dict:
+    """Add UMWAYI_RUN=<run id> when the start has a run id (every `agent run` and chat has one). The run id is made by
+    umwayi, never taken from the environment, so a planted UMWAYI_RUN is replaced."""
+    env.pop(RUN_MARKER, None)
+    if isinstance(run, str) and run:
+        env[RUN_MARKER] = run
+    return env
 
 
 def claude_env(environ) -> dict:
@@ -1484,8 +1554,12 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     order = ["command", "version", "login"] + ([] if mode == LOGIN else
                                                ["hook script", "hook self-test"] + (["kiro hook file"] if kiro else []))
     done = _recorder(gate, order)
-    # the environment the agent itself will get: without the credential names (10.R12.6, 10.R12.13)
-    env = claude_env(os.environ) if claude else kiro_env(os.environ)
+    # the environment the agent itself will get: the allow list when it is enforced (W78 step 2), else without the
+    # credential names (10.R12.6, 10.R12.13)
+    if scrub_applies(root, agent.name, _dt.date.today().isoformat()):
+        env = enforced_env(os.environ, agent)
+    else:
+        env = claude_env(os.environ) if claude else kiro_env(os.environ)
 
     found = shutil.which(agent.command)
     if not found or not os.path.isabs(found):
@@ -2262,16 +2336,25 @@ class _Run:
             stdin, stdout = subprocess.PIPE, subprocess.PIPE
         else:
             stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
+        # W78 step 2: the scrub and the run marker apply only to a start under a mode file that says `enforced`. A start with no
+        # mode file (today's default), or a cooperative one, keeps the old environment and gets no marker.
+        enforced = scrub_applies(self.root, self.agent.name, self.clock())
         if self.mode == LOGIN and self.agent.platform == "claude-code":
             env = login_env(os.environ)  # the allow list plus only what a browser sign-in needs (10.R12.9)
         elif self._opencode():
             env = opencode_env(os.environ, self.opencode_config)  # the allow list of 10.R13.4 and the inline config
         elif self._claude_acp():
             env = child_env(os.environ)  # the allow list of 10.R11.9
+        elif enforced:
+            env = enforced_env(os.environ, self.agent)  # W78 step 2: the allow list and env_keep, no deny list
         elif self.agent.platform == "claude-code":
             env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
         else:
             env = kiro_env(os.environ)  # umwayi's environment minus KIRO_API_KEY (10.R12.13)
+        if enforced and self.mode != LOGIN:  # the names the owner listed for this agent, on top of an allow list
+            env.update({k: os.environ[k] for k in self.agent.env_keep
+                        if k not in env and isinstance(os.environ.get(k), str) and keep_problem(k) is None})
+            with_run_marker(env, self.budget["run"] if self.budget else None)
         receiver = self.budget["receiver"] if self.budget else None
         if receiver is not None:  # B.R2.2: this run's own receiver; claude_env and child_env carry no other OTEL_*
             env.update(telemetry.telemetry_env(receiver.server.server_address[1], receiver.secret))

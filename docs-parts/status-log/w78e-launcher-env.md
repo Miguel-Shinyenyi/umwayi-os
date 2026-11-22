@@ -1,0 +1,4 @@
+date: 2026-11-22
+pr: none
+what: W78 build step 2 (W41 A). A start under a mode file that says `enforced` for the agent gets an allow list instead of the owner's whole environment minus a deny list: the list of the ACP chat plus `TERM` and `COLORTERM`, plus the names in the agent's new `env_keep` (plain names, never values, at most 32; credentials, the SSH agent, telemetry names and `UMWAYI_` names are refused), plus `UMWAYI_RUN=<run id>`. A start with no mode file (today's default) and a `cooperative` agent keep the W64 deny lists and get no marker, because the default reads as enforced but no part of enforced is built yet. `enforce.explicit_mode_of` and `agents.scrub_applies` decide; an unreadable mode file counts as enforced. `agent check` uses the same list as the start. Safety change: stops for the owner. One tiny real Claude Code goal passed under it (adapters/NOTES-layer10.md); Kiro and larger goals are not checked.
+tests: see the pull request
