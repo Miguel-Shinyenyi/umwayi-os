@@ -2071,3 +2071,11 @@ These are facts of the change that made the goal commands say what they know (R2
 - `Worktree:` shows `(exists)` or `(removed)` by looking at the path once, when the report is made. It does not show that the worktree is clean or that it is the one the builder used.
 - Option (b) is text in two prompts. A tester can still read "only" literally and fail a check, and it can say pass for a task that changed another file. The guide's wording of the check is not changed (option (a) is not built). Only a real run with an unhelped guide shows whether the problem is gone; none was made.
 - A stopped task whose builder was killed in the middle can record a head that holds half of the work.
+
+## Enforced by default (W78d), found while fixing the umask of the terminal test helper
+
+### 327. the terminal test helper passes the umask only where Popen does, and only to the child it starts
+
+- `tests/ptysupport.py` now gives `umask` to the child on both paths. The umask is the one `subprocess.Popen` sets in the child after the fork. It does not change the umask of the test process, and a grandchild that sets its own umask is not affected.
+- `subprocess.Popen(umask=...)` needs Python 3.9 or later. The CI runs 3.10 and 3.13.
+- The test shows the mode of a file made by a `python3 -c` child. It does not run `umwayi` on a terminal with a umask, so a mode of a file written by umwayi itself on that path is not checked here.
