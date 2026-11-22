@@ -200,7 +200,7 @@ def start(ctx, text, guide, plan_budget_uu, guide_model="", guide_effort=""):
     try:
         g = gs.read_goal(ctx.root, goal)
         if g["refused"] and g["refused"] == word:
-            word = _refused_words(g)  # W55b: a refused context entry says where and why
+            word = _refused_words(g, ctx)  # W55b: a refused context entry says where and why
     except UmwayiError:
         pass
     if o.exit == ASK:
@@ -262,7 +262,7 @@ def _print_show(ctx, goal, proposal=None, builder=None, tester=None):
     ctx.say(*_mode_lines(ctx, goal, [("guide", g["guide"]), ("builder", builder), ("tester", tester)]))
     word = _goal_word(ctx, goal)
     if g["refused"] and word == "refused":
-        word = f"refused ({_refused_words(g)})"  # the reason, as goal status gives it
+        word = f"refused ({_refused_words(g, ctx)})"  # the reason, as goal status gives it
     ctx.say(f"Goal {goal}: {word}. Guide {g['guide']}. Plan budget {g['plan_budget_uu']} UU."
             + (f" Builder {g['builder']}, tester {g['tester']}, goal budget {g['goal_budget_uu']} UU." if g["approved"] else ""))
     per_task, tail = gpr.lines(proposal) if proposal is not None else ({}, "")
@@ -648,12 +648,29 @@ def _goal_word(ctx, goal):
         return "unknown"
 
 
-def _refused_words(g):
+CONFIG_UNREADABLE_NOTE = "umwayi.json cannot be read, so every path counts as private"
+
+
+def _private_note(ctx, c):
+    """For a context entry refused as `private`: why, when the cause is the root and not the guide. A root whose config cannot
+    be read has every path private (it fails closed), so any context file the guide names is refused."""
+    if ctx is None or c.get("why") != "private":
+        return ""
+    from umwayi import config
+    try:
+        config.load_config(ctx.root)
+    except UmwayiError:
+        return "; " + CONFIG_UNREADABLE_NOTE
+    return ""
+
+
+def _refused_words(g, ctx=None):
     """`unclear`, or for a refused context entry `context: task 1, entry 2, private` (W55b), or for a protected path
-    `protected: task 1, docs-parts/` (the protected list's own entry): never the plan's own path."""
+    `protected: task 1, docs-parts/` (the protected list's own entry): never the plan's own path. With `ctx`, a `private`
+    refusal in a root whose `umwayi.json` cannot be read says so."""
     c = g.get(gs.REFUSED_CONTEXT_KEY)
     if c:
-        return f"{g['refused']}: {gs.refused_context_words(c)}"
+        return f"{g['refused']}: {gs.refused_context_words(c)}{_private_note(ctx, c)}"
     p = g.get(gs.REFUSED_PROTECTED_KEY)
     return f"{g['refused']}: {gs.refused_protected_words(p)}" if p else g["refused"]
 
@@ -721,7 +738,7 @@ def status_lines(ctx, only=None):
         n_review = sum(1 for t in kept if t["state"] == "in review")
         lines.append(f"Goal {goal}  {_goal_word(ctx, goal)}  ({n_merged} of {len(kept)} tasks merged, {n_review} in review)")
         if g["refused"]:
-            lines.append(f"  The plan was refused ({_refused_words(g)}).")
+            lines.append(f"  The plan was refused ({_refused_words(g, ctx)}).")
         idle = gp.idle_line(goal, [(t["id"], t["state"]) for t in kept]) if g["approved"] and not g["stopped"] else None
         if idle:  # W60: idle while tasks remain, or a task that waits for the owner; read only
             lines.append("  " + idle)
@@ -860,7 +877,7 @@ def report_lines(ctx, goal):
     left = (g["goal_budget_uu"] - _spent(ctx, goal)) if g["goal_budget_uu"] else 0
     lines += ["## The goal", "", f"- Spent: {_spent(ctx, goal)} UU, left {max(0, left)} UU of {g['goal_budget_uu']} UU",
               f"- Planning run: {gs.plan_used_uu(g)} UU of its budget of {g['plan_budget_uu']} UU"
-              + (f", the plan was refused ({_refused_words(g)})" if g["refused"] else ""),
+              + (f", the plan was refused ({_refused_words(g, ctx)})" if g["refused"] else ""),
               "- Needs you: " + (", ".join(needs) or "nothing"),
               "- Waiting for your merge: " + (", ".join(review) or "nothing")]
     d = _docs_line(ctx)

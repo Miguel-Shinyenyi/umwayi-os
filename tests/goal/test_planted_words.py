@@ -164,6 +164,27 @@ class RefusedContextTests(cs.CmdCase):
                 self.assertIn(f"the plan was refused ({words})", report)
                 self.assertNotIn(SECRET, self.everything(goal, status, report))
 
+    def test_a_root_whose_config_cannot_be_read_says_why_every_context_file_is_private(self):
+        """Round 4: a scratch root with no umwayi.json refused every context file as `private`, and the refusal gave no hint:
+        is_private fails closed, so every path counts as private. The words now say so, in start, status, show and report."""
+        (self.root / "umwayi.json").unlink()
+        goal = self.start_with_context(["README.md"])
+        note = "umwayi.json cannot be read, so every path counts as private"
+        self.assertIn(f"context: task 1, entry 1, private; {note}", "\n".join(self.err))
+        status, report = self.views(goal)
+        self.assertIn(note, status)
+        self.assertIn(note, report)
+        self.out.clear()
+        self.call("show", goal)
+        self.assertIn(note, "\n".join(self.out))
+        self.assertNotIn("README.md", self.everything(goal, status, report))  # the path is still never printed
+
+    def test_a_private_path_in_a_root_with_a_good_config_has_no_such_note(self):
+        goal = self.start_with_context(["memory/private/note.md"])
+        status, report = self.views(goal)
+        self.assertIn("context: task 1, entry 1, private", "\n".join(self.err))
+        self.assertNotIn("umwayi.json cannot be read", "\n".join(self.err) + status + report)
+
     def test_a_plan_refused_for_another_reason_names_no_context_entry(self):
         code = self.call("start", cs.GOAL_TEXT, "claude-guide", 20, scripts=[{"steps": [{"print": "no plan"}], "spend": 4}])
         self.assertEqual(code, 2)
