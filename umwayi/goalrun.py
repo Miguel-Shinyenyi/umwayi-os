@@ -283,7 +283,7 @@ def builder_prompt(packet, goal, task, branch, date, nonce, mode=""):
 
 def own_files_line(own):
     """Option (b) of F1: the two files every task may change by right, named for the tester and the check. The names are
-    fixed text from `gp.own_files`, never the guide's words. Empty when `own` is empty."""
+    fixed text from `gp.own_files`, never the guide's words. Gives no lines when `own` has no names."""
     if not own:
         return []
     return ["These files are allowed for every task by right, so a change to them is not a fault: " + " and ".join(own)
