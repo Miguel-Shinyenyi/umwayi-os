@@ -63,6 +63,7 @@ umwayi-os/
     signing.md              E5: a dedicated umwayi signing key, what it signs, rotation, loss and fail closed (design note)
     owner-status-design.md  W77: umwayi owner, one list of what waits for the owner (design note)
     rules-library.md        W76: a base rules library, ready sets to copy, validated and hashed (design note)
+    failed-task-report-design.md  F1: the report of a failed task, and the "only these files" check (design note, not built)
     task-log.md             W19 part 3b: the task log format and the starter rows for PRs 66 to 79 (built)
     status-log.md           the status and every pull request with its test count
     schedule.md             the schedule to Dec 3
