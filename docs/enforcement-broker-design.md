@@ -93,7 +93,7 @@ A whole system scenario in `GoalWholeSystemTests` runs one task in `enforced` mo
 - `docs/enforced-default-design.md`: the sentence "holds the only write access to ... the guard files" narrowed as in this note, and the channel paragraph pointed here.
 - W9.R6.2: the cause word `broker_lost`.
 - The fixed reason list of "not confined": `broker` is already there.
-- `tests/test_system.py`: the file list that may import `socket` gains `umwayi/broker.py`, if the owner approves open question 2.
+- `tests/test_system.py`: the file list that may import `socket` gains `umwayi/broker.py`, (approved by the owner on 2026-11-22, open question 2).
 - `docs/exit-codes.md`, `docs/security.md`, `docs/enforcement.md`: the broker and a link here. A limits part and a status part when it is built.
 
 ## What it does not prove
@@ -111,13 +111,14 @@ A whole system scenario in `GoalWholeSystemTests` runs one task in `enforced` mo
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-22 | Design note only. The broker never writes a guard file; the owner's commands do. The channel is two ways, with way 2 recommended. | Round 4, task 4 of the owner's message. The W78 note's "only write access to the guard files" and "one inherited socket pair" were written before the hooks were read for this. |
+| 2026-11-22 | The owner approved open question 2: a third exception to product rule 5, `socket` in `umwayi/broker.py` only, named by file in `tests/test_system.py`. The other open questions are not yet decided. | The owner accepted the recommendation in the chat of the same day. |
 
 ## Open questions
 
 Each has a recommendation. The owner decides.
 
 1. **The channel.** Inherited descriptor (way 1) or a listening Unix socket in a private run folder (way 2)? **Recommendation:** way 2 first, because it needs no unchecked platform behaviour. Check way 1 in the real check of step 6 and switch only if it works on all three platforms.
-2. **A third exception to product rule 5.** The broker imports `socket`. **Recommendation:** approve it by file name in `tests/test_system.py`, inside `umwayi/broker.py` only, with the same guard test as the telemetry receiver. The alternative, pipes of its own for each hook, has no way to separate parallel hooks.
+2. **A third exception to product rule 5.** Decided 2026-11-22: approved. The broker may import `socket`, by file name in `tests/test_system.py`, inside `umwayi/broker.py` only, with the same guard test as the telemetry receiver. Nothing is built yet: the exception is used when the broker is built. (The note had asked: the broker imports `socket`; the alternative, pipes of its own for each hook, has no way to separate parallel hooks.)
 3. **Does `log` exist at all?** The W78 note lists it. **Recommendation:** keep `check` and `answer_status` for the first build and add `log` when a fact is found that only the hook knows. Fewer requests means less to attack.
 4. **Who stops a broker whose supervisor died?** **Recommendation:** the broker exits (code 2) when its parent ends, and the next `goal run` starts a new one. The repair of a lost supervisor at the start of `supervise` (`umwayi/goalrun.py`) already marks the task.
 5. **Should the broker run for a plain `agent run` and a chat, not only a goal run?** **Recommendation:** yes in `enforced` mode, since any confined helper needs a hook answer; one broker per run, started by `umwayi agent run` and `agent chat` as the supervisor does for a goal.
