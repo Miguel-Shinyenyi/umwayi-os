@@ -1,6 +1,6 @@
 section: Goal orchestration (W9), found while building the F1 follow-ups
 title: option (a) is advice to the guide, and the worktree line states the rule of the code at the time of the report
-number: 327
+number: 328
 
 - The sentence in the planning prompt is advice. A guide can still list a part file in `files` (the plan is then refused as `protected`) or write a "no other file" check (the plan is accepted, and the tester is told in option (b) to judge it without the part files). Nothing refuses such a check at the plan stage, by decision: word matching misses and hits wrongly.
 - Only a real run with a guide that gets no help shows whether (a) and (b) together remove the failure. None was made.
