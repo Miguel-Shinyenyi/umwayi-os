@@ -847,7 +847,8 @@ def report_lines(ctx, goal):
         lines += [f"- Check {i}: {c}" for i, c in enumerate(p.checks, 1)]
         lines += [f"- Runs: " + (", ".join(f"{r['role']} {r['agent']} (cap {r['cap_uu']} UU)" for r in runs) or "none"),
                   f"- Minutes: {minutes}", f"- Spent: {int(t.get('spent_uu') or 0)} of {p.budget_uu} UU",
-                  f"- Branch: {t['branch'] or '(none)'}, tip {t['tip'][:12] if t['tip'] else '(none)'}",
+                  _branch_line(t, runs),
+                  *_worktree_line(ctx, goal, t, runs),
                   f"- Files changed: {_files_changed(ctx, goal, t)}",
                   "- The tester's verdicts: " + (", ".join(f"{n} {v}" for n, v in verdicts) or "none"),
                   f"- The guide's word: {guide_word or 'none'}",
@@ -866,6 +867,27 @@ def report_lines(ctx, goal):
     lines.append("- " + (d or "Docs: current"))
     lines += ["", "This is a draft for you. It holds no diff, no file content and no output of a helper."]
     return lines
+
+
+def _branch_line(t, runs):
+    """The branch and tip of a task (R1 of F1): kept after a failure, not only after a review. `(none)` says why when a
+    builder ran."""
+    if t["branch"] and t["tip"]:
+        kept = " (kept, not merged)" if t["state"] in ("failed", "stopped", "needs owner") else ""
+        return f"- Branch: {t['branch']}, tip {t['tip'][:12]}{kept}"
+    ran = any(r.get("role") == "builder" for r in runs)
+    return "- Branch: (none), tip (none)" + (" (no commit was recorded)" if ran else "")
+
+
+def _worktree_line(ctx, goal, t, runs):
+    """Where the builder worked, computed from the ids and never from helper text. Only for a task whose builder ran."""
+    if not any(r.get("role") == "builder" for r in runs):
+        return []
+    try:
+        path = gr.GIT.worktree_path(ctx.root, goal, t["id"])
+    except (UmwayiError, ValueError):
+        return []
+    return [f"- Worktree: {path} ({'exists' if os.path.isdir(path) else 'removed'})"]
 
 
 def _files_changed(ctx, goal, t):

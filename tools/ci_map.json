@@ -86,6 +86,7 @@
   "tests/goal/test_cli.py": ["umwayi.json"],
   "tests/goal/test_docs_parts.py": [".gitignore", "PROJECT.md", "README.md", "docs", "docs-parts"],
   "tests/goal/test_entries.py": ["umwayi.json"],
+  "tests/goal/test_failed_report.py": ["umwayi.json"],
   "tests/goal/test_failwrite.py": ["umwayi.json"],
   "tests/goal/test_files.py": [".gitignore", "umwayi.json"],
   "tests/goal/test_gen.py": ["umwayi.json"],

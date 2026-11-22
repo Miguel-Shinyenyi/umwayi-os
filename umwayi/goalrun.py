@@ -281,25 +281,35 @@ def builder_prompt(packet, goal, task, branch, date, nonce, mode=""):
     return "\n".join(lines) + "\n"
 
 
-def tester_prompt(packet, branch, tip, nonce, mode=""):
+def own_files_line(own):
+    """Option (b) of F1: the two files every task may change by right, named for the tester and the check. The names are
+    fixed text from `gp.own_files`, never the guide's words. Gives no lines when `own` has no names."""
+    if not own:
+        return []
+    return ["These files are allowed for every task by right, so a change to them is not a fault: " + " and ".join(own)
+            + ". Judge each check without them. A check that says only some files changed is true when the only other "
+            "changes are these."]
+
+
+def tester_prompt(packet, branch, tip, nonce, mode="", own=()):
     lines = ["You are the tester. You did not build this. Change no file. Work only in the current folder, which is on "
              "the branch " + branch + " at the commit " + tip[:12] + ".",
              "Task that was built: " + packet.goal, "Check each one with your own tools (run or read what you need):"]
     lines += [f"{i}. {c}" for i, c in enumerate(packet.checks, 1)]
-    lines += ["If you cannot tell, say unclear.",
+    lines += [*own_files_line(own), "If you cannot tell, say unclear.",
               'Print exactly one last line: UMWAYI-RESULT <nonce> {"checks":[{"n":1,"verdict":"pass","evidence":"..."}]} '
               "with one entry for each number above, the verdict pass, fail or unclear, and evidence of 5 to 300 "
               "characters.", *([mode] if mode else []), "Nonce: " + nonce]
     return "\n".join(lines) + "\n"
 
 
-def check_prompt(packet, branch, tip, nfiles, verdicts, nonce):
+def check_prompt(packet, branch, tip, nfiles, verdicts, nonce, own=()):
     lines = ["You are the guide, checking a result against its packet. Change no file. The branch is " + branch +
              " at the commit " + tip[:12] + ". " + f"{nfiles} files changed, all inside the packet.",
              "Task: " + packet.goal, "Acceptance checks and the tester's verdicts:"]
     for (n, verdict, evidence), check in zip(verdicts, packet.checks):
         lines.append(f"{n}. {check} -> {verdict}: {evidence}")
-    lines += ["Answer accept, reject or unclear.",
+    lines += [*own_files_line(own), "Answer accept, reject or unclear.",
               'Print exactly one last line: UMWAYI-CHECK <nonce> {"verdict":"accept","reason":"..."}',
               "Nonce: " + nonce]
     return "\n".join(lines) + "\n"
@@ -685,12 +695,32 @@ class _Run:
         except gs.GoalError:
             raise _Done(Outcome(2, "", "", "state")) from None
 
+    def work_found(self):
+        """R1 of F1: (branch, tip) of the builder's work when the task ends, else None. The branch is computed from the ids
+        and the tip is the head of the kept worktree. None when no builder started, the worktree is gone, git cannot
+        answer, or the head is still the base (no commit): nothing is guessed."""
+        if self.worktree is None or not getattr(self, "builder_started", False) or not self.base:
+            return None
+        try:
+            tip = GIT.head(self.root, self.worktree)
+        except (UmwayiError, ValueError, OSError):
+            return None
+        if not isinstance(tip, str) or not re.fullmatch(r"[0-9a-f]{8,64}", tip) or tip == self.base:
+            return None
+        return self.branch, tip
+
+    def keep_work(self, kw):
+        found = self.work_found()
+        if found and kw.get("branch") is None and kw.get("tip") is None:
+            kw["branch"], kw["tip"] = found
+
     def finish(self, cause, **kw):
         """Record the end named by `cause` and stop. `reason_for` chooses state and reason."""
         new, reason = gp.reason_for(cause)
         if new == "failed":  # W55a: the fixed cause word goes into the failed entry (a word, never content)
             kw.setdefault("facts", [("cause", {"word": cause})])
         self.discard_unused_worktree()
+        self.keep_work(kw)
         self.move(new, reason, **kw)
         raise _Done(Outcome(EXIT_OF_STATE[new], new, reason, cause))
 
@@ -707,6 +737,7 @@ class _Run:
         """End the running task as `stopped` (kill, signal, log). The kill switch also marks every other goal (W9.R16.2)."""
         new, reason = gp.reason_for(cause)
         self.discard_unused_worktree()
+        self.keep_work(kw)
         self.move(new, reason, **kw)
         self.t = gs.read_task(self.root, self.goal, self.task)
         if cause == "kill_switch":
@@ -1195,7 +1226,7 @@ class _Run:
     def tester_run(self):
         nonce = self.env.nonce()
         prompt = tester_prompt(self.packet, self.branch, self.tip, nonce,
-                               mode=enforce.mode_text(self.env.root, goal=self.goal, today=self.env.when()))
+                               mode=enforce.mode_text(self.env.root, goal=self.goal, today=self.env.when()), own=self.own)
         before = self.fp_all()()[0]
         res = self.start_role("tester", prompt)
         self.after_stop("tester", res)
@@ -1217,7 +1248,7 @@ class _Run:
 
     def check_run(self):
         nonce = self.env.nonce()
-        prompt = check_prompt(self.packet, self.branch, self.tip, self.nfiles, self.verdicts, nonce)
+        prompt = check_prompt(self.packet, self.branch, self.tip, self.nfiles, self.verdicts, nonce, own=self.own)
         before = self.fp_all()()[0]
         res = self.start_role("check", prompt)
         self.after_stop("check", res)
