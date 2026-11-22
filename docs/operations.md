@@ -27,7 +27,7 @@ Nothing of W71 is built. The facts below were read at main `6525606`. Where a fa
 ### 2. Quotas beyond the budget: time, disk, processes
 
 **Today.**
-- *Time.* Each agent has `timeout_minutes` (default 30, `umwayi/agents.py` `DEFAULT_TIMEOUT_MINUTES`). `goal approve` refuses a builder whose timeout is under 1.5 times the largest task (`umwayi/goal.py`). The stall rule stops a run after 1800 s without progress (`umwayi/goalwatch.py` `STALL_SECONDS`). Approval waits are capped at 168 hours (`MAX_HOURS`).
+- *Time.* Each agent has `timeout_minutes` (default 60, `umwayi/agents.py` `DEFAULT_TIMEOUT_MINUTES`; it was 30 until 2026-11-22). `goal approve` refuses a builder whose timeout is under 1.5 times the largest task (`umwayi/goal.py`). The stall rule stops a run after 1800 s without progress (`umwayi/goalwatch.py` `STALL_SECONDS`). Approval waits are capped at 168 hours (`MAX_HOURS`).
 - *Disk.* At most eight worktrees (`umwayi/goalgit.py` `MAX_WORKTREES`). An event log is capped at 8 MiB (`umwayi/goallog.py` `MAX_LOG`); a write past it fails, and a failed write stops the task (W9.R13). Goal and task files are capped at 8 KiB and 64 KiB (`goalstate.py`), and a git output at 1,000,000 bytes (`goalgit.OUTPUT_CAP`). `LOGBOOK.md` has no size cap. Nothing checks free disk space: `shutil.disk_usage` is not used in `umwayi/`.
 - *Processes.* One supervisor at a time (the goal lock `.umwayi/goal.lock`), one helper child per task, one server per root (`.umwayi/serve.lock`). `resource` and `RLIMIT` are not used.
 
