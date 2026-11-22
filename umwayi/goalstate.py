@@ -126,6 +126,9 @@ PLAN_SPENT_KEY = "plan_spent_uu"
 # W55b: where the first refused context entry of a refused plan was ({"task": N, "entry": N, "why": WORD}), never its
 # path. Optional: only a plan refused for one context entry has it.
 REFUSED_CONTEXT_KEY = "refused_context"
+# The first protected path of a plan refused as `protected` ({"task": N, "entry": ENTRY}). ENTRY is the text of the
+# protected list (goalpacket.PROTECTED) that matched, never the plan's own path. Optional.
+REFUSED_PROTECTED_KEY = "refused_protected"
 
 
 def _check_refused_context(c):
@@ -135,17 +138,31 @@ def _check_refused_context(c):
     return c
 
 
+def _check_refused_protected(c):
+    if not (isinstance(c, dict) and set(c) == {"task", "entry"} and c["entry"] in gp.PROTECTED
+            and isinstance(c["task"], int) and not isinstance(c["task"], bool) and 1 <= c["task"] <= 999):
+        raise GoalError("the goal file has the wrong shape")
+    return c
+
+
+def refused_protected_words(c):
+    """`task 1, docs-parts/`: the task and the protected list entry that matched, never the plan's own path."""
+    return f"task {c['task']}, {c['entry']}"
+
+
 def refused_context_words(c):
     """`task 1, entry 2, private`: the place of the refused context entry and why, never its path."""
     return f"task {c['task']}, entry {c['entry']}, {c['why']}"
 
 
 def _check_goal(obj, goal):
-    keys = set(obj) - {PLAN_SPENT_KEY, REFUSED_CONTEXT_KEY}
+    keys = set(obj) - {PLAN_SPENT_KEY, REFUSED_CONTEXT_KEY, REFUSED_PROTECTED_KEY}
     if keys != set(GOAL_KEYS) or obj["goal"] != goal or obj["version"] != 1:
         raise GoalError("the goal file has the wrong shape")
     if REFUSED_CONTEXT_KEY in obj:
         _check_refused_context(obj[REFUSED_CONTEXT_KEY])
+    if REFUSED_PROTECTED_KEY in obj:
+        _check_refused_protected(obj[REFUSED_PROTECTED_KEY])
     if PLAN_SPENT_KEY in obj:
         v = obj[PLAN_SPENT_KEY]
         if not (isinstance(v, int) and not isinstance(v, bool) and v >= 0):
@@ -408,6 +425,9 @@ FACTS = {
     # W55b: the place of the first refused context entry of a plan and why, never the path
     "plan_context": ("Context entry {entry} of task {task}: {why}.",
                      {"entry": r"\d{1,3}", "task": r"\d{1,3}", "why": "|".join(gp.CONTEXT_WHYS)}),
+    # the task of a plan refused as protected and the protected list entry that matched, never the plan's own path
+    "plan_protected": ("Protected path of task {task}: {entry}.",
+                       {"task": r"\d{1,3}", "entry": "|".join(re.escape(x) for x in gp.PROTECTED)}),
     "main_ok": ("The local main is not behind origin/main.", {}),
     "no_leftover": ("No leftover.", {}),
     "clean_base": ("Clean at base.", {}),
@@ -547,8 +567,10 @@ def planned_entry(when, goal, agent, packets, minutes, length, h8):
                         f"{_need(_H8_RX, h8)}", [("plan_ok", {})], "text")
 
 
-def plan_refused_entry(when, goal, agent, word, context=None):
+def plan_refused_entry(when, goal, agent, word, context=None, protected=None):
     facts = [("plan_bad", {"word": word})]
+    if protected is not None:
+        facts.append(("plan_protected", {"task": str(protected["task"]), "entry": protected["entry"]}))
     if context is not None:
         facts.append(("plan_context", {"entry": str(context["entry"]), "task": str(context["task"]), "why": context["why"]}))
     return _entry(when, f"Goal {_gid(goal)} plan refused (reason {_need(_WORD_RX, word)}), guide {_need(_NAME_RX, agent)}",
@@ -978,7 +1000,7 @@ def record_plan(root, goal, packets, agent, *, when, now, plan_spent_uu=None):
     _commit(root, when, now, _goal_events(root, goal), entries, files, queue=(_row_title(goal, "", None), _row_recommendation("")))
 
 
-def refuse_plan(root, goal, agent, word, *, when, now, plan_spent_uu=None, context=None):
+def refuse_plan(root, goal, agent, word, *, when, now, plan_spent_uu=None, context=None, protected=None):
     """A plan that failed a check: the goal stays in `plan` with no packets and the word is recorded (W9.R5.2). For a
     refused context entry, `context` ({"task", "entry", "why"}, W55b) says where and why, never the path."""
     g = read_goal(root, goal)
@@ -989,8 +1011,12 @@ def refuse_plan(root, goal, agent, word, *, when, now, plan_spent_uu=None, conte
         if word != "context":
             raise GoalError("only a plan refused for a context entry names one")
         new[REFUSED_CONTEXT_KEY] = dict(_check_refused_context(context))
+    if protected is not None:
+        if word != "protected":
+            raise GoalError("only a plan refused as protected names one")
+        new[REFUSED_PROTECTED_KEY] = dict(_check_refused_protected(protected))
     try:
-        entry = plan_refused_entry(when, goal, agent, word, context)
+        entry = plan_refused_entry(when, goal, agent, word, context, protected)
     except ValueError:
         raise GoalError("a value of the change is outside its pattern") from None
     _commit(root, when, now, _goal_events(root, goal), [entry],

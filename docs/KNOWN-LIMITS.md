@@ -2050,3 +2050,14 @@ These are facts of W78c.
 - Three test helpers used to read `/proc` and now fall back to `ps` where `/proc` is missing: `alive` in `tests/agents/support.py`, `wait_quiet` in `tests/whole_system_support.py`, and the fake agent in `tests/agents/fake_agent.py`. Where `/proc` exists (Linux) they read it exactly as before.
 - Product code still reads `/proc` and is Linux only: `umwayi/agents.py` (descendant scan), `umwayi/logbook.py` (the writer's start time, `unknown` without it) and `umwayi/goal.py` (`_pid_alive` and the lock holder). What these do on macOS is not verified. Items 48 and 302 describe the effect.
 - Other tests also read `/proc` and are not changed: `tests/test_scan_receiver.py`, `tests/serve/*`, `tests/adapters/test_opencode_plugin.py`, `tests/goal/wholesupport.py`.
+
+## Goal orchestration (W9), found while building the goal command words
+
+### 325. a refused protected path is named by the protected list entry, not by the path the plan gave
+
+These are facts of the change that made the goal commands say what they know (R2.2 and R2.3 of the 2026-11-18 recordings).
+
+- A plan refused as `protected` names the task and the protected list entry that matched (`protected: task 2, docs-parts/`). It does not name the path the guide wrote, because that text comes from the guide (W55b). When the guide listed `docs-parts/known-limits/X.md`, the owner sees `docs-parts/`.
+- Only the first protected path of a plan is named, as with a context entry. A plan with a bad `files` entry that is not protected is still only `files`.
+- `goal approve` prints its summary after every check has passed and before it writes. It asks no question: the owner's approval is still the typed command at a terminal. The summary is for the owner to read in the record of the terminal; it cannot be answered.
+- The enforcement lines show the mode as umwayi reads it for each agent. Nothing is enforced yet, so the lines say what is recorded, not what is stopped (item 321).

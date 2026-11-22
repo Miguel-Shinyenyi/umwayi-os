@@ -231,12 +231,13 @@ class PlanError(ValueError):
     context entry that was refused (W55b), `entry` is its place in the packet's context list (1 based) and `why` one
     of CONTEXT_WHYS; otherwise 0 and None. Never the path text."""
 
-    def __init__(self, word, index=0, entry=0, why=None):
+    def __init__(self, word, index=0, entry=0, why=None, protected=None):
         super().__init__(f"plan refused: {word}" + (f" (packet {index})" if index else ""))
         self.word = word
         self.index = index
         self.entry = entry
         self.why = why
+        self.protected = protected  # for `protected`: the PROTECTED list entry that matched, never the plan's own text
 
 
 @dataclass(frozen=True)
@@ -314,6 +315,20 @@ def is_protected(path):
         if form[:len(prot)] == prot:
             return True
     return False
+
+
+def protected_entry(path):
+    """The PROTECTED list entry that `path` is, or sits under, else None. It returns the list's own text and never `path`."""
+    if not isinstance(path, str):
+        return None
+    norm = posixpath.normpath(path.replace("\\", "/").lstrip("/") or ".")
+    if norm == "." or norm.startswith(".."):
+        return None
+    form = tuple(_compare_form([p for p in norm.split("/") if p]))
+    for name, (prot, _folder) in zip(PROTECTED, _PROTECTED_FORMS):
+        if form[:len(prot)] == prot:
+            return name
+    return None
 
 
 def files_problem(entry):
@@ -438,7 +453,7 @@ def _guide_task(t, i, file_size, is_private):
     for f in files:
         word = files_problem(f)
         if word:
-            raise PlanError(word, i)
+            raise PlanError(word, i, protected=protected_entry(f) if word == "protected" else None)
     return Packet(f"T-{i:02d}", goal, tuple(context), tuple(checks), {}, size, "", "", tuple(files), None)
 
 
