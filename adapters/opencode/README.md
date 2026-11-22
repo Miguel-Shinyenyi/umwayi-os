@@ -1,6 +1,6 @@
 # OpenCode adapter (layer 10, part 8)
 
-For `umwayi agent chat NAME` with an agent of `platform: opencode`. OpenCode 2.2.3 or newer (the V2 line) is started over ACP (`opencode acp`) with the layer 9 gate in front of every tool call. There is no `agent run` and no `agent login` for OpenCode: both give exit 64. Built in tasks 10.43 to 10.50 and tested with a fake `opencode` that speaks ACP and runs the real hook. A real OpenCode has not been run by the build; that is the owner's check (task 10.51, `adapters/NOTES-layer10.md`, "The owner's real check of the OpenCode chat (10.51)").
+For `umwayi agent chat NAME` with an agent of `platform: opencode`. OpenCode 2.2.3 or newer (the V2 line) is started over ACP (`opencode acp`) with the layer 9 gate in front of every tool call. `umwayi agent run NAME` (W9.13) is one non-interactive turn over the same ACP start, for a goal helper: the prompt is given, the agent's message text goes to standard output, an Ask me first is rejected, `--effort` is refused and `--model` must be the agent's own (see [the W9.13 note](../../docs/opencode-goal-helper-design.md)). There is no `agent login` for OpenCode: it give exit 64. Built in tasks 10.43 to 10.50 and tested with a fake `opencode` that speaks ACP and runs the real hook. A real OpenCode has not been run by the build; that is the owner's check (task 10.51, `adapters/NOTES-layer10.md`, "The owner's real check of the OpenCode chat (10.51)").
 
 ## What you install
 

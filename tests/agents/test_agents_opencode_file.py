@@ -268,7 +268,7 @@ class RejectedTests(OpenCodeCase):
 
 
 class RefusedCommandTests(OpenCodeCase):
-    """agent run and agent login are refused for OpenCode before anything else happens (10.R13.1)."""
+    """agent login is refused for OpenCode before anything else happens (10.R13.1). agent run was refused too until W9.13."""
 
     def setUp(self):
         super().setUp()
@@ -281,8 +281,10 @@ class RefusedCommandTests(OpenCodeCase):
         self.assertIn("Nothing was started.", text)
         self.assert_nothing_ran()
 
-    def test_agent_run_gives_64(self):
-        self.assert_refused(self.umwayi("run", "o", "--prompt", "hello"), "agent run")
+    def test_agent_run_is_not_refused_as_chat_only_since_w913(self):
+        r = self.umwayi("run", "o", "--prompt", "hello")
+        self.assertNotEqual(r.returncode, 64, r.stdout + r.stderr)
+        self.assertNotIn("only 'umwayi agent chat' is offered", r.stdout + r.stderr)
 
     def test_agent_login_gives_64(self):
         self.assert_refused(self.umwayi("login", "o"), "agent login")
@@ -290,11 +292,9 @@ class RefusedCommandTests(OpenCodeCase):
     def test_a_rule_that_says_yes_does_not_change_it(self):
         self.write_rules("rules:\n  - id: all\n    title: t\n    text: t\n    verdict: yes\n    matchers:\n"
                          "      type: [agent_run, agent_login, agent_chat]\n      platform: opencode\n")
-        self.assert_refused(self.umwayi("run", "o", "--prompt", "hello"), "agent run")
         self.assert_refused(self.umwayi("login", "o"), "agent login")
 
     def test_nothing_is_written(self):
-        self.umwayi("run", "o", "--prompt", "hello")
         self.umwayi("login", "o")
         for name in ("LOGBOOK.md", "queue.md", ".umwayi"):
             self.assertFalse((self.root / name).exists(), name)

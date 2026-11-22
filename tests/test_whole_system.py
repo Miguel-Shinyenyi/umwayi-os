@@ -1078,6 +1078,37 @@ class GoalWholeSystemTests(unittest.TestCase):
         self.assertEqual(w.state(w2), ("stopped", "owner"))
         self.end_checks()
 
+    def test_30b_an_opencode_tester_judges_a_task_and_its_tag_is_read_from_its_message_text(self):
+        """W9.13: the supervisor starts `umwayi agent run` for an OpenCode agent, which starts the fake `opencode acp`. The
+        agent's message text carries the tagged last line (with the nonce of its prompt), the supervisor reads it, and the
+        task goes to review. One OpenCode prompt only, and the builder and the check ran as Kiro agents as before."""
+        w = self.w
+        w.add_opencode_agent("oc-test", [[{"chunk": "Checked it myself. "}, {"tag": "UMWAYI-RESULT", "body": {
+            "checks": [{"n": 1, "verdict": "pass", "evidence": "Looked at check 1 closely."}]}}]])
+        goal = self.start()
+        self.approve(goal, tester="oc-test")
+        w.script(builder=gw.builder_steps(goal, "T-01", 1), check=gw.check_steps())
+        self.goal_cmd("run", goal, code=0)
+        self.assertEqual(w.state(goal), ("in review", "checked"))
+        prompts = [e for e in w.opencode_events() if e.get("event") == "acp_in" and e["msg"].get("method") == "session/prompt"]
+        self.assertEqual(len(prompts), 1)
+        self.assertIn("You are the tester", prompts[0]["msg"]["params"]["prompt"][0]["text"])
+        self.assertEqual(self.roles(), ["guide", "builder", "check"])  # the Kiro agents; the tester was the OpenCode agent
+        self.assertIn("The tester's verdicts: 1 pass", self.goal_cmd("report", goal, code=0).stdout)
+        self.end_checks()
+
+    def test_30c_an_opencode_tester_that_prints_no_tag_fails_the_task_like_any_other(self):
+        w = self.w
+        w.add_opencode_agent("oc-test", [[{"chunk": "I looked and it is fine, with no tag at all."}]])
+        goal = self.start()
+        self.approve(goal, tester="oc-test")
+        w.script(builder=gw.builder_steps(goal, "T-01", 1), check=gw.check_steps())
+        self.goal_cmd("run", goal, code=3)  # no tag: the result is not read, so the task waits for the owner
+        self.assertEqual(w.state(goal), ("needs owner", "unclear"))
+        self.assertEqual(len([e for e in w.opencode_events() if e.get("event") == "acp_in"
+                              and e["msg"].get("method") == "session/prompt"]), 1)  # and no second prompt, no retry
+        self.end_checks()
+
     def test_31_a_squash_merge_is_declared_with_its_commit_and_the_worktree_goes(self):
         w = self.w
         goal = self.approved()

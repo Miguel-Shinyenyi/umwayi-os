@@ -687,11 +687,14 @@ class OrderTests(GateCase):
         self.assertEqual(r.returncode, 2, r.stdout)
         self.assertEqual(self.calls(), [])
 
-    def test_agent_run_and_login_are_still_refused_before_any_check(self):
-        for args in (("run", "o", "--prompt", "hi"), ("login", "o")):
-            r = self.umwayi(*args)
-            self.assertEqual(r.returncode, 64)
+    def test_login_is_still_refused_before_any_check_and_run_is_not_refused_as_chat_only(self):
+        """W9.13: `agent run` of an OpenCode agent is offered (it gets the rules and the gate checks like a chat); login is not."""
+        r = self.umwayi("login", "o")
+        self.assertEqual(r.returncode, 64)
         self.assertEqual(self.calls(), [])
+        r = self.umwayi("run", "o", "--prompt", "hi")
+        self.assertNotEqual(r.returncode, 64, r.stdout + r.stderr)  # no rule here, so Ask me first (3), nothing started
+        self.assertNotIn("only 'umwayi agent chat' is offered", r.stdout + r.stderr)
 
     def test_the_other_platforms_are_checked_as_before(self):
         self.fake("claude")

@@ -528,3 +528,59 @@ class Chat:
         except _Failed as f:
             self._cleanup()
             return ("failed", f.why, f.lines)
+
+
+class Run(Chat):
+    """W9.13: one non-interactive turn of an OpenCode agent, for a goal helper.
+
+    The same client as `Chat` (initialize, session/new with the model compared, the canary waited for, permission requests
+    asked of the rules), with the owner taken out: the prompt is given, nobody answers, so an Ask me first is rejected.
+    Only the agent's message text goes to `out` (the last line of it carries the tag the supervisor reads); a tool line,
+    "Connected" and the stop reason are never printed. One `session/prompt`, no second one, ended at its first answer.
+    run() returns ("done", stopReason) | ("failed", why, lines) | ("stopped", token)."""
+
+    def __init__(self, proc, out, workdir: str, permission, tick, client_version: str, prompt: str,
+                 tick_interval: float = 1.0, gate_ready=None, expect_model=None, sign_in=None):
+        def no_ask(tool_call):  # R6: nobody is at the terminal, so Ask me first is a reject, never an allow
+            verdict = permission(tool_call)
+            return REJECT if verdict == ASK else verdict
+
+        super().__init__(proc, out, None, workdir, no_ask, tick, lambda: [], client_version, tick_interval=tick_interval,
+                         gate_ready=gate_ready, expect_model=expect_model, sign_in=sign_in)
+        self.prompt = prompt
+
+    def say(self, text: str) -> None:
+        """Nothing but the agent's message text reaches `out`: no tool line, no stop reason, no permission text."""
+
+    def _finish(self):
+        msg = self.responses.pop(self.turn)
+        self.turn = None
+        if "error" in msg:
+            if self.sign_in is not None and self._is_auth_error(msg):
+                raise _Failed("the agent needs a sign in", [self.sign_in])
+            raise _Failed("the agent answered the prompt with an error",
+                          ["The agent answered the prompt with an error. The run ended (exit 2)."])
+        result = msg.get("result") if isinstance(msg.get("result"), dict) else {}
+        reason = result.get("stopReason") if isinstance(result.get("stopReason"), str) else "(none)"
+        return ("done", safe_text(reason)[:40])
+
+    def run(self):
+        threading.Thread(target=self._read_agent, name="umwayi-acp-agent", daemon=True).start()
+        try:
+            self._start_session()
+            self.turn = self._request("session/prompt", {
+                "sessionId": self.sid, "prompt": [{"type": "text", "text": self.prompt}]})
+            while True:
+                if self.perms:
+                    self._serve_permission(self.perms.popleft())
+                    continue
+                if self.turn in self.responses:
+                    return self._finish()
+                self._pump()
+        except _Stop as s:
+            self._cleanup()
+            return ("stopped", s.token)
+        except _Failed as f:
+            self._cleanup()
+            return ("failed", f.why, [line.replace("The chat ended", "The run ended") for line in f.lines])
+

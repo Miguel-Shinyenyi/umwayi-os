@@ -1032,9 +1032,7 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
         if agent.platform == "kiro":
             return _assert_allowed([command_path, "login"]), None
         raise UsageError(LOGIN_ONLY)
-    if agent.platform == "opencode":  # only the chat: `agent run` and `agent login` refuse it before this point
-        if mode != CHAT:
-            raise UsageError("agent: an OpenCode agent has a chat only")
+    if agent.platform == "opencode":  # the chat and (W9.13) a run: always `opencode acp`, never `opencode run`, never a shell
         return _assert_allowed([command_path, "acp"]), None
     if is_claude_acp(agent, mode):
         # command_path is node here; the adapter is the fixed path, never looked up through PATH or npx
@@ -2207,8 +2205,8 @@ class _Run:
         return self.mode == CHAT and is_claude_acp(self.agent, self.mode)
 
     def _opencode(self) -> bool:
-        """An OpenCode chat (the plugin's canary, the inline config, the ACP client). Run and login never get here."""
-        return self.mode == CHAT and self.agent.platform == "opencode"
+        """An OpenCode chat or run (the plugin's canary, the inline config, the ACP client). Login never gets here."""
+        return self.mode in (CHAT, RUN) and self.agent.platform == "opencode"
 
     def _prepare_canary(self, stack: ExitStack) -> str | None:
         """The canary of this start (10.R11.4, 10.R13.10). None, or why it cannot be prepared (then nothing starts).
@@ -2332,7 +2330,7 @@ class _Run:
         new_session = not shares_terminal
         if shares_terminal:
             stdin, stdout = None, None
-        elif self.mode == CHAT:  # ACP
+        elif self.mode == CHAT or self._opencode():  # ACP (an OpenCode run too: the prompt goes over the pipe)
             stdin, stdout = subprocess.PIPE, subprocess.PIPE
         else:
             stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
@@ -2563,6 +2561,8 @@ class _Run:
     def _watch(self) -> Result:
         if self.mode == CHAT and self.agent.transport == ACP:
             return self._acp_chat()
+        if self._opencode():  # W9.13: one prompt over ACP, the message text on standard output
+            return self._acp_run()
         while True:
             try:
                 code = self.proc.wait(timeout=WATCH_INTERVAL)
@@ -2699,6 +2699,41 @@ class _Run:
                                why)
         return self._end(code)
 
+    def _acp_run(self) -> Result:
+        """W9.13: one non-interactive turn of an OpenCode agent. The same start as the chat (the allow-listed environment,
+        the inline config, the plugin's canary, the model compared), then one `session/prompt` with the role's prompt, the
+        agent's message text on standard output, and the end at the first answer. The process is then stopped as after a
+        chat. No second prompt, no retry; an Ask me first is rejected."""
+        a = self.agent
+        run = acp.Run(self.proc, out=self.out or sys.stdout, workdir=a.workdir, permission=self._permission, tick=self._tick,
+                      client_version=__version__, prompt=self.prompt, tick_interval=WATCH_INTERVAL,
+                      gate_ready=self._opencode_ready, expect_model=a.model, sign_in=OPENCODE_SIGN_IN)
+        outcome = run.run()
+        if outcome[0] == "stopped":
+            return self._tick_stop(outcome[1])
+        if outcome[0] == "failed":
+            self.stop_agent()
+            if outcome[1] == acp.GATE_NOT_CONFIRMED:
+                why = self.log(f"Refused agent {a.name}: {outcome[1]}", "the canary did not run in the session "
+                               f"within {acp.GATE_WAIT:.0f} s of session/new; the agent was stopped",
+                               "No prompt was sent.")
+            else:
+                why = self.log(f"ACP run of agent {a.name} ended: {outcome[1]}", "the agent was stopped", NOT_LOGGED)
+            return self.result(2, list(outcome[2]), why)
+        self._track()  # what it started, before its exit orphans it
+        try:
+            self.proc.stdin.close()
+        except (OSError, ValueError):
+            pass
+        try:
+            code = self.proc.wait(timeout=STOP_GRACE)
+        except subprocess.TimeoutExpired:
+            self.stop_agent()
+            why = self.log(f"Agent {a.name} did not exit within {STOP_GRACE:.0f} s after its prompt was answered",
+                           "the agent was stopped (SIGTERM, then SIGKILL after 10 s)", NOT_LOGGED)
+            return self.result(2, [f"Agent {a.name} did not exit after the run ended, so it was stopped (exit 2)."], why)
+        return self._end(code)
+
     def _end(self, code: int) -> Result:
         if self.mode == LOGIN:
             return self._login_end(code)
@@ -2760,8 +2795,20 @@ def _owner_input():
     return sys.stdin.fileno()
 
 
+def _opencode_run_options(agent: Agent, model, effort) -> None:
+    """W9.13 (R9): an OpenCode run takes no effort, and a model only if it is the agent's own. A usage error (64), before
+    the kill switch, the rules or the logbook, so nothing is written and nothing is started."""
+    if agent.platform != "opencode":
+        return
+    if effort is not None:
+        raise UsageError("agent run: --effort is not offered for an OpenCode agent. Nothing was started.")
+    if model is not None and model != agent.model:
+        raise UsageError("agent run: an OpenCode agent runs the model of agents.yaml; --model must be that model or left out. "
+                         "Nothing was started.")
+
+
 def _opencode_chat_only(agent: Agent, command: str) -> None:
-    """`agent run` and `agent login` are never offered for OpenCode (10.R13.1): a usage error (64), before the
+    """`agent login` is never offered for OpenCode (10.R13.1; `agent run` is, since W9.13): a usage error (64), before the
     kill switch, the rules or the logbook, so nothing is written and nothing is started."""
     if agent.platform == "opencode":
         raise UsageError(f"{command}: only 'umwayi agent chat' is offered for OpenCode agents. Nothing was started.")
@@ -2799,7 +2846,9 @@ def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap
     workdir (W9.6b) is a worktree umwayi made; the helper then works in it in place of the workdir of agents.yaml."""
     root = _root(root)
     agent = find(load(root, given), name)
-    _opencode_chat_only(agent, "agent run")
+    _opencode_run_options(agent, model, effort)
+    if agent.platform == "opencode":
+        model = None  # the agent's own model is the one in the inline config; nothing is passed on the command line
     if agent.platform not in PLATFORMS:
         raise UsageError("agent: unknown platform. Nothing was started.")
     prompt = check_prompt(prompt, agent.platform)

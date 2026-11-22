@@ -462,7 +462,7 @@ def fill_packet(packet, goal, model, effort, budget_uu, per_day):
     status, limits = own_files(goal, packet.id)
     if not (isinstance(model, str) and _MODEL.fullmatch(model)):
         raise ValueError("model")
-    if effort not in EFFORTS:
+    if effort != "" and effort not in EFFORTS:  # blank only for a platform that takes none (an OpenCode builder, W9.13)
         raise ValueError("effort")
     if not _int(budget_uu) or not _int(per_day) or not 1 <= budget_uu <= per_day:
         raise ValueError("budget")

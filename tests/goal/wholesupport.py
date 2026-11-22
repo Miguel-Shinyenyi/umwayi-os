@@ -216,6 +216,39 @@ class GoalWorld:
             raise RuntimeError(f"git {' '.join(args)}: {p.stderr.strip()}")
         return p.stdout.strip()
 
+    def add_opencode_agent(self, name, turns, provider="ollama", model="ollama/m", timeout_minutes=90):
+        """W9.13: an OpenCode agent for a goal role, with the fake `opencode acp` of tests/agents/fake_opencode.py first on
+        PATH. `turns` are what it answers to its prompts (see that file). The agent has a declared rate in units.yaml, as an
+        OpenCode run is never measured. The root is committed again, so it stays clean at its base."""
+        fake = REPO / "tests" / "agents" / "fake_opencode.py"
+        shim = self.bin / "opencode"
+        shim.write_text(f"#!{sys.executable}\n" + fake.read_text(encoding="utf-8"), encoding="utf-8")
+        shim.chmod(0o755)
+        (self.bin / "opencode-fake.json").write_text(json.dumps({
+            "fake_log": str(self.fake_log), "acp": {"turns": turns}}), encoding="utf-8")
+        agents = self.root / "agents.yaml"
+        agents.write_text(agents.read_text(encoding="utf-8").rstrip("\n") + (
+            f"\n  - name: {name}\n    platform: opencode\n    command: opencode\n    workdir: {self.work}\n"
+            f"    provider: {provider}\n    model: {model}\n    timeout_minutes: {timeout_minutes}\n"), encoding="utf-8")
+        units = self.root / "units.yaml"
+        units.write_text(units.read_text(encoding="utf-8").replace(
+            "limits:", "  opencode:\n    reading: runs\n    run_micros:\n      value: 100000\n      date: 2026-11-13\n"
+            "      source: owner\nlimits:", 1), encoding="utf-8")
+        self.git("add", "agents.yaml", "units.yaml")
+        self.git("commit", "-q", "-m", f"add the OpenCode agent {name}")
+
+    def opencode_events(self):
+        """What the fake `opencode acp` recorded: the ACP messages it got and its starts."""
+        if not self.fake_log.exists():
+            return []
+        out = []
+        for line in self.fake_log.read_text(encoding="utf-8").splitlines():
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                pass
+        return [d for d in out if d.get("mode") == "acp" or d.get("event") == "acp_in"]
+
     def script(self, **roles):
         """What each role does the next time it is started: builder, tester, check, guide (lists of fake agent steps)."""
         self.scripts.write_text(json.dumps(roles), encoding="utf-8")

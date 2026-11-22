@@ -236,9 +236,12 @@ def _proposal(ctx, goal, builder, tester, model, effort, tester_model="", tester
     if not gp.roles_ok(g["guide"], builder, tester):
         raise Refused("The tester and the guide must not be the builder. Nothing changed.")
     b, t = _agent(ctx, builder, "builder"), _agent(ctx, tester, "tester")
-    _model_ok(b.platform, model, effort, "builder")
-    if not model or not effort:
-        raise Refused("The builder needs --model and --effort. Nothing changed.")
+    if b.platform == "opencode":  # W9.13: the model is the agent's, and there is no effort
+        model, effort = _opencode_words(b, model, effort, "builder")
+    else:
+        _model_ok(b.platform, model, effort, "builder")
+        if not model or not effort:
+            raise Refused("The builder needs --model and --effort. Nothing changed.")
     _model_ok(t.platform, tester_model, tester_effort, "tester")
     packets = [p for p, _t in _packets(ctx, goal)]
     return gpr.for_goal(ctx.root, ctx.when, goal, packets, builder, tester, model, effort, tester_model, tester_effort)
@@ -294,6 +297,10 @@ def show(ctx, goal, builder=None, tester=None, model=None, effort=None, tester_m
     _exists(ctx, goal)
     proposal = None
     if any(x is not None for x in (builder, tester, model, effort)):
+        if builder is not None and tester is not None:
+            b = _agent(ctx, builder, "builder")
+            if b.platform == "opencode":  # W9.13: the model is the agent's, and there is no effort
+                model, effort = _opencode_words(b, model or "", effort or "", "builder")
         if None in (builder, tester, model, effort):
             raise UsageError("goal show: a proposal needs --builder, --tester, --model and --effort together")
         proposal = _proposal(ctx, goal, builder, tester, model, effort, tester_model or "", tester_effort or "")
@@ -309,6 +316,17 @@ def _agent(ctx, name, what):
         return agents.find(agents.load(ctx.root), name)
     except UsageError:
         raise Refused(f"The {what} {name} is not an agent of agents.yaml. Nothing changed.") from None
+
+
+def _opencode_words(agent, model, effort, who):
+    """W9.13 (R9): a role on OpenCode takes no effort from umwayi and no model of its own: the model is the agent's, from
+    agents.yaml. A --model that differs, or any effort, is refused. Returns (model, effort) as they are recorded."""
+    if effort:
+        raise Refused(f"The {who} runs on OpenCode, which takes no effort from umwayi. Nothing changed.")
+    if model and model != agent.model:
+        raise Refused(f"The {who} runs the model of agents.yaml ({agent.model}); --model must be that model or left out. "
+                      "Nothing changed.")
+    return agent.model, ""
 
 
 def _model_ok(platform, model, effort, who):
@@ -363,9 +381,14 @@ def approve(ctx, goal, builder, tester, model, effort, task_budget_uu, goal_budg
         if not gp.roles_ok(guide, builder, tester):
             raise Refused("The tester and the guide must not be the builder. Nothing changed.")
         b, t, gd = _agent(ctx, builder, "builder"), _agent(ctx, tester, "tester"), _agent(ctx, guide, "guide")
-        _model_ok(b.platform, model, effort, "builder")
-        if not model or not effort:
-            raise Refused("The builder needs --model and --effort. Nothing changed.")
+        if b.platform == "opencode":  # W9.13: the model is the agent's, and there is no effort
+            model, effort = _opencode_words(b, model, effort, "builder")
+        else:
+            if model is None or effort is None:
+                raise UsageError("goal approve: --model and --effort are needed for this builder")
+            _model_ok(b.platform, model, effort, "builder")
+            if not model or not effort:
+                raise Refused("The builder needs --model and --effort. Nothing changed.")
         _model_ok(t.platform, tester_model, tester_effort, "tester")
         for name in (builder, tester, guide):
             r = (ctx.gate or gr._gate)(ctx.root, name, None)

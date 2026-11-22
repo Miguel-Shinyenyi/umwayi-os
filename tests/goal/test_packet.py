@@ -187,12 +187,15 @@ class PacketTests(unittest.TestCase):
                                      "branch": "umwayi/g-0007-t-01"})
         base = gp.parse_plan(plan())[0]
         for kw in (dict(model="", effort="high", budget=30), dict(model="a b", effort="high", budget=30),
-                   dict(model="x" * 65, effort="high", budget=30), dict(model="sonnet", effort="", budget=30),
+                   dict(model="x" * 65, effort="high", budget=30),
                    dict(model="sonnet", effort="huge", budget=30), dict(model="sonnet", effort="high", budget=0),
                    dict(model="sonnet", effort="high", budget=501), dict(model="sonnet", effort="high", budget=None),
                    dict(model="sonnet", effort="high", budget=True)):
             with self.assertRaises(ValueError, msg=str(kw)):
                 gp.fill_packet(base, "G-0007", kw["model"], kw["effort"], kw["budget"], 500)
+        # W9.13: a blank effort is valid for a platform that takes none (an OpenCode builder); goal approve still refuses it
+        # for Claude Code and Kiro (tests/goal/test_opencode_roles.py)
+        self.assertEqual(gp.fill_packet(base, "G-0007", "ollama/m", "", 30, 500).effort, "")
         for e in ("low", "medium", "high", "xhigh", "max"):
             gp.fill_packet(base, "G-0007", "m", e, 1, 500)
 

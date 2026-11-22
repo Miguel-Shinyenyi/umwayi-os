@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is the design note of task W9.13: OpenCode as a builder, tester or guide of a goal, through a non-interactive ACP run. Today a goal uses Claude Code and Kiro only (W9-Q8, W9.R23), because `umwayi agent run` refuses an OpenCode agent and only the chat start of task 10.48 exists. **Nothing on this page is built.** It is docs only: no code, rule, guard list, steering file, workflow or safety check changes with it. The owner decides the stops at the end before any code is written.
+This is the design note of task W9.13: OpenCode as a builder, tester or guide of a goal, through a non-interactive ACP run. Today a goal uses Claude Code and Kiro only (W9-Q8, W9.R23), because `umwayi agent run` refuses an OpenCode agent and only the chat start of task 10.48 exists. **Built 2026-11-22** (the pull request of W9.13), on the owner's accepted recommendations below; the owner's stops 6 and 7 stay open. When this note was written it was docs only. The owner decides the stops at the end before any code is written.
 
 umwayi-os runs by itself with its own supervisor. Nothing in this design needs an outside guide, a person watching the run or a network service of umwayi. The only person is the owner at a real terminal, and only for the stops listed at the end.
 
@@ -10,11 +10,11 @@ umwayi-os runs by itself with its own supervisor. Nothing in this design needs a
 
 What exists, with the code that shows it:
 
-- **The refusal.** `_opencode_chat_only` in `umwayi/agents.py` gives exit 64 for `agent run` and `agent login` of an OpenCode agent ("only 'umwayi agent chat' is offered for OpenCode agents"), before the kill switch, the rules or the logbook. Nothing is written.
+- **The refusal (until W9.13).** `_opencode_chat_only` in `umwayi/agents.py` gave exit 64 for `agent run` and `agent login` of an OpenCode agent. Since W9.13 it refuses `agent login` only; `agent run` takes an OpenCode agent through `_opencode_run_options` (an effort is 64, a model must be the agent's own).
 - **The chat start (10.48, built).** `umwayi agent chat NAME` for `platform: opencode` starts `opencode acp` with the allow-listed environment (`opencode_env`) and the inline config (`opencode_inline_config`, the umwayi plugin from `adapters/opencode/plugin/` as the first gate), waits for the plugin's canary through `gate_ready`, compares the model of the `session/new` answer with the agent's `model` as text, and answers `auth_required`. The six gate checks of 10.R13.8 (`_opencode_checks`) run before every chat and in `agent check`. umwayi offers no `fs` and no `terminal` capability, so OpenCode cannot ask umwayi to read, write or run anything (`adapters/NOTES-layer10.md`).
 - **The goal runs.** `umwayi/goalrun.py` starts every role through `agent run` with a prompt (`builder_prompt`, `tester_prompt`, `planning_prompt`, `check_prompt`) and reads one tagged last line (`UMWAYI-PLAN`, `UMWAYI-RESULT`, `UMWAYI-CHECK`) within `TAG_LIMITS`. `PLATFORM_OPTIONS = ("claude-code", "kiro")` lists the platforms that take a model and an effort.
 - **The budget.** `docs/budget-governor.md`: a reading is `measured` (Claude Code's own report), `declared` (rates in `units.yaml`) or `unknown` (counts at `unknown_worst_case`, never zero). Kiro sends umwayi nothing, so a Kiro run is what `units.yaml` declares.
-- **The real install.** 10.42 confirmed the ACP facts on OpenCode 2.2.7. The owner's real check of 10.51 on the owner's machine is not done (`adapters/NOTES-layer10.md`).
+- **The real install.** 10.42 confirmed the ACP facts on OpenCode 2.2.7. The real check of 10.51 was run and recorded on 2026-11-22 on OpenCode 2.3.0 (`adapters/NOTES-layer10.md`, PR 164); the owner ticks 10.51.
 - **Enforcement.** `docs/enforced-default-design.md` (W78): OpenCode has no platform sandbox like B1, so in `enforced` mode it needs B2 or the owner's per agent `cooperative` switch. Step 1A of W78 records the mode but gates no start yet.
 
 ## The six W9.13 questions
@@ -130,6 +130,7 @@ This would be the first code that lets OpenCode start as a goal helper, so each 
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-17 | Design note only; the six questions, the budget band and the stops wait for the owner. | W9.13 in tasks.md, after 10.48 (W9-Q8). |
+| 2026-11-22 | The owner accepted the recommendations of the six questions, the open questions below, the budget band, an effort refused for OpenCode, and tester and guide first, then a builder after five clean tester runs. W9.13 is built: `agent run` of an OpenCode agent (`acp.Run`, `agents.py` `_acp_run`), `goal approve` and `goal show` for an OpenCode role, a blank effort in a packet, the planted-fault tests, one whole-system scenario with a fake `opencode acp`. Not built: a rule that enforces "five clean runs"; that is advice. The owner still adds the Yes rules by hand (stop 6) and reviews the first real goal run (stop 7). | The owner's message of the same day, after the real check of 10.51 (PR 164). |
 
 ## Open questions
 

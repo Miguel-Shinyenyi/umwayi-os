@@ -131,8 +131,10 @@ def _goal_commands(glsub) -> None:
     ga.add_argument("goal", help="the goal id")
     ga.add_argument("--builder", required=True, help="the builder: an agent name")
     ga.add_argument("--tester", required=True, help="the tester: an agent name that is not the builder")
-    ga.add_argument("--model", required=True, help="the builder's model word")
-    ga.add_argument("--effort", required=True, help="the builder's effort: low, medium, high, xhigh or max")
+    ga.add_argument("--model", help="the builder's model word (needed for Claude Code and Kiro; an OpenCode builder runs "
+                                    "the model of agents.yaml)")
+    ga.add_argument("--effort", help="the builder's effort: low, medium, high, xhigh or max (needed for Claude Code "
+                                     "and Kiro; an OpenCode builder takes none)")
     ga.add_argument("--task-budget-uu", type=_whole,
                     help="the budget of every task, in UU (needed unless --accept-proposed)")
     ga.add_argument("--goal-budget-uu", type=_whole,

@@ -28,7 +28,8 @@ session/request_permission (the V2 toolCall shape of 10.42) when an ask rule or 
   ignore_config     OpenCode ignores the inline config: no plugin, no canary, no ask rule, the free default model
   auth_required     "session_new" | "prompt": that call answers with the ACP auth_required error
   init              "garbage" | {"protocolVersion": N} | {"error": {...}}
-  turns             one list of actions per session/prompt; actions: {"chunk": TEXT}, {"tool": NAME, "input": {...},
+  turns             one list of actions per session/prompt; actions: {"chunk": TEXT}, {"tag": "UMWAYI-RESULT", "body": {...}}
+                    (the tagged last line of a goal role, with the Nonce line of the prompt), {"tool": NAME, "input": {...},
                     "child": true, "no_name": true, "call_id": TEXT}, {"sleep": S}, {"wait_cancel": true},
                     {"exit": N}, {"spawn": true}, {"spawn_setsid": true}
   ignore_eof        keep running when stdin is closed
@@ -37,6 +38,7 @@ session/request_permission (the V2 toolCall shape of 10.42) when an ask rule or 
 import json
 import os
 import queue
+import re
 import signal
 import subprocess
 import sys
@@ -345,6 +347,10 @@ while True:
     for act in actions:
         if "chunk" in act:
             update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": act["chunk"]}})
+        if "tag" in act:  # W9.13: the tagged last line of a goal role, with the nonce of the prompt it was given
+            nonces = re.findall(r"^Nonce: (\S+)$", text, re.M)
+            update({"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "\n" + act["tag"] + " "
+                    + (nonces[-1] if nonces else "no-nonce") + " " + json.dumps(act["body"], separators=(",", ":")) + "\n"}})
         if "tool" in act:
             run_tool(act)
         if "sleep" in act:
