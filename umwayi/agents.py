@@ -729,6 +729,14 @@ def enforced_env(environ, agent) -> dict:
     return {k: environ[k] for k in names if isinstance(environ.get(k), str) and (k in CHILD_ENV_NAMES or keep_problem(k) is None)}
 
 
+def scrub_applies(root, agent_name, today) -> bool:
+    """Whether a start takes the scrubbed environment (the allow list, `env_keep`, the run marker): only under a mode file that
+    says `enforced` for the agent. No mode file (today's default) and a cooperative agent keep the old environment (W78 step 2).
+    The default reads as enforced, but no part of enforced is built yet, so it is not applied to a start."""
+    from umwayi import enforce  # late, because umwayi.enforce reads agents.yaml through this module
+    return enforce.explicit_mode_of(root, agent_name, today=today) == enforce.ENFORCED
+
+
 def with_run_marker(env: dict, run) -> dict:
     """Add UMWAYI_RUN=<run id> when the start has a run id (every `agent run` and chat has one). The run id is made by
     umwayi, never taken from the environment, so a planted UMWAYI_RUN is replaced."""
@@ -1548,8 +1556,7 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     done = _recorder(gate, order)
     # the environment the agent itself will get: the allow list when it is enforced (W78 step 2), else without the
     # credential names (10.R12.6, 10.R12.13)
-    from umwayi import enforce  # W78: late, because umwayi.enforce reads agents.yaml through this module
-    if enforce.mode_of(root, agent.name, today=_dt.date.today().isoformat()) == enforce.ENFORCED:
+    if scrub_applies(root, agent.name, _dt.date.today().isoformat()):
         env = enforced_env(os.environ, agent)
     else:
         env = claude_env(os.environ) if claude else kiro_env(os.environ)
@@ -2329,8 +2336,9 @@ class _Run:
             stdin, stdout = subprocess.PIPE, subprocess.PIPE
         else:
             stdin, stdout = (subprocess.DEVNULL if stdin_text is None else subprocess.PIPE), None
-        from umwayi import enforce  # W78: late, because umwayi.enforce reads agents.yaml through this module
-        enforced = enforce.mode_of(self.root, self.agent.name, today=self.clock()) == enforce.ENFORCED
+        # W78 step 2: the scrub and the run marker apply only to a start under a mode file that says `enforced`. A start with no
+        # mode file (today's default), or a cooperative one, keeps the old environment and gets no marker.
+        enforced = scrub_applies(self.root, self.agent.name, self.clock())
         if self.mode == LOGIN and self.agent.platform == "claude-code":
             env = login_env(os.environ)  # the allow list plus only what a browser sign-in needs (10.R12.9)
         elif self._opencode():
@@ -2346,7 +2354,6 @@ class _Run:
         if enforced and self.mode != LOGIN:  # the names the owner listed for this agent, on top of an allow list
             env.update({k: os.environ[k] for k in self.agent.env_keep
                         if k not in env and isinstance(os.environ.get(k), str) and keep_problem(k) is None})
-        if self.mode != LOGIN:
             with_run_marker(env, self.budget["run"] if self.budget else None)
         receiver = self.budget["receiver"] if self.budget else None
         if receiver is not None:  # B.R2.2: this run's own receiver; claude_env and child_env carry no other OTEL_*

@@ -1,14 +1,19 @@
-"""W78 step 2 (W41 A, W68 option 3): an `enforced` start passes an allow list, the owner's `env_keep` names and a run marker.
+"""W78 step 2 (W41 A, W68 option 3): a start under a mode file that says `enforced` passes an allow list, the owner's
+`env_keep` names and a run marker. A start with no mode file (today's default) and a cooperative one keep the old environment
+and get no marker: the default reads as enforced, but no part of enforced is built yet, so it is not applied to a start.
 
   * `enforced_env`: the allow list of names, each only if set, plus the names of `env_keep`. A planted secret of any kind
     (a cloud key, a token, NODE_OPTIONS, PYTHONPATH, a billing credential) is not passed. A name that umwayi never passes
     is not passed even if `env_keep` lists it, and `agents.yaml` refuses it (exit 64).
   * `with_run_marker`: UMWAYI_RUN=<run id>, made by umwayi. A planted UMWAYI_RUN is replaced or removed.
   * `enforce.mode_of`: a missing mode file, an expired date and a file that cannot be read are all `enforced`.
-  * Real runs (`agent run` as a child process with the fake agent): the started program has the allow list, the kept name
-    and the marker (the run id of the budget entry), and a `cooperative` agent keeps today's deny list and gets the marker.
+    `enforce.explicit_mode_of` and `agents.scrub_applies`: no mode file is None and no scrub; a file that says enforced, or
+    cannot be read, is the scrub.
+  * Real runs (`agent run` as a child process with the fake agent): with a mode file that says `enforced` the started program
+    has the allow list, the kept name and the marker (the run id of the budget entry). With no mode file and with a
+    `cooperative` agent it keeps KEEP_ME and every other name of today's environment and gets no UMWAYI_RUN.
 
-Each rule has a planted fault. The real runs set UMWAYI_TEST_REAL_ALLOW_LIST=1 so the test harness does not widen the list.
+Each rule has a planted fault.
 """
 import datetime
 import re
@@ -169,20 +174,33 @@ class ModeOfTests(unittest.TestCase):
     def mode(self, agent="reviewer"):
         return enforce.mode_of(self.root, agent, today=self.TODAY)
 
-    def test_a_missing_file_is_enforced(self):
+    def test_a_missing_file_is_enforced_for_the_mode_but_not_for_the_scrub(self):
         self.assertEqual(self.mode(), enforce.ENFORCED)
+        self.assertIsNone(enforce.explicit_mode_of(self.root, "reviewer", today=self.TODAY))
+        self.assertFalse(agents.scrub_applies(self.root, "reviewer", self.TODAY))
+
+    def test_planted_fault_the_default_read_as_a_scrub(self):
+        with mock.patch.object(enforce, "explicit_mode_of", lambda root, agent=None, goal=None, today=None: enforce.mode_of(root, agent, goal, today)):
+            self.assertTrue(agents.scrub_applies(self.root, "reviewer", self.TODAY))  # what the old tests must never see
+
+    def test_a_file_that_says_enforced_is_the_scrub(self):
+        self.write("enforcement: enforced\n")
+        self.assertEqual(enforce.explicit_mode_of(self.root, "reviewer", today=self.TODAY), enforce.ENFORCED)
+        self.assertTrue(agents.scrub_applies(self.root, "reviewer", self.TODAY))
 
     def test_a_cooperative_agent_is_cooperative_until_its_date_and_enforced_after(self):
         self.write("enforcement: enforced\nagents:\n  reviewer:\n    enforcement: cooperative\n    until: 2026-11-25\n")
         self.assertEqual(self.mode(), enforce.COOPERATIVE)
-        self.assertEqual(self.mode("helper"), enforce.ENFORCED)  # another agent is not relaxed
-        self.assertEqual(enforce.mode_of(self.root, "reviewer", today="2026-11-26"), enforce.ENFORCED)
+        self.assertFalse(agents.scrub_applies(self.root, "reviewer", self.TODAY))
+        self.assertTrue(agents.scrub_applies(self.root, "helper", self.TODAY))  # another agent is not relaxed
+        self.assertTrue(agents.scrub_applies(self.root, "reviewer", "2026-11-26"))  # after the date it is enforced again
 
     def test_a_file_that_cannot_be_read_is_enforced_never_cooperative(self):
         for text in ("a: [\n", "enforcement: sometimes\n", "enforcement: cooperative\n", "- a list\n"):
             self.write(text)
             with self.subTest(text=text):
                 self.assertEqual(self.mode(), enforce.ENFORCED)
+                self.assertTrue(agents.scrub_applies(self.root, "reviewer", self.TODAY))
 
     def test_planted_fault_an_error_read_as_cooperative(self):
         self.write("a: [\n")
@@ -193,6 +211,8 @@ class ModeOfTests(unittest.TestCase):
 class RealRunTests(AgentCase):
     """`umwayi agent run` as a real child process, with the fake agent recording what it was started with."""
 
+    FAKES = "FAKE_LOG, FAKE_SCRIPT, FAKE_PLANT, FAKE_KIRO_STATE, FAKE_CLAUDE_AUTH, FAKE_CLAUDE_AUTH_EXIT"
+
     def setUp(self):
         super().setUp()
         self.fake("claude")
@@ -200,21 +220,26 @@ class RealRunTests(AgentCase):
         self.write_rules(RULES.replace("agent: [reviewer, slow, stubborn, quick]", "agent: [reviewer, helper]"))
         self.write_agents("agents:\n"
                           "  - name: reviewer\n    platform: claude-code\n    command: claude\n    workdir: {work}\n"
-                          "    env_keep: [S78_KEEP, FAKE_LOG, FAKE_SCRIPT, FAKE_PLANT, FAKE_KIRO_STATE, FAKE_CLAUDE_AUTH, FAKE_CLAUDE_AUTH_EXIT]\n"
+                          f"    env_keep: [S78_KEEP, {self.FAKES}]\n"
                           "  - name: helper\n    platform: kiro\n    command: kiro-cli\n    workdir: {work}\n"
-                          "    trust_tools: [read_file]\n    env_keep: [FAKE_LOG, FAKE_SCRIPT, FAKE_PLANT, FAKE_KIRO_STATE, FAKE_CLAUDE_AUTH, FAKE_CLAUDE_AUTH_EXIT]\n")
+                          f"    trust_tools: [read_file]\n    env_keep: [{self.FAKES}]\n")
         self.kiro_hook_file(command=self.kiro_command(python=sys.executable))
         self.roomy_budget()
 
+    def mode_file(self, text):
+        (self.root / ".umwayi").mkdir(exist_ok=True)
+        (self.root / ".umwayi" / "enforcement.yaml").write_text(text, encoding="utf-8")
+
+    def enforced(self):
+        self.mode_file("enforcement: enforced\n")
+
     def cooperative(self, name):
         until = (datetime.date.today() + datetime.timedelta(days=7)).isoformat()
-        (self.root / ".umwayi").mkdir(exist_ok=True)
-        (self.root / ".umwayi" / "enforcement.yaml").write_text(
-            f"enforcement: enforced\nagents:\n  {name}:\n    enforcement: cooperative\n    until: {until}\n", encoding="utf-8")
+        self.mode_file(f"enforcement: enforced\nagents:\n  {name}:\n    enforcement: cooperative\n    until: {until}\n")
 
-    def run_one(self, name):
+    def run_one(self, name, extra_env=None):
         planted = {k: v for k, v in OWNER.items() if k in PLANTED and k not in ("PYTHONPATH", "UMWAYI_RUN")}
-        extra = dict(self.script({"do": "exit", "code": 0}), UMWAYI_TEST_REAL_ALLOW_LIST="1", **planted)
+        extra = dict(self.script({"do": "exit", "code": 0}), KEEP_ME="old-environment", **planted, **(extra_env or {}))
         r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", "run", name,
                             "--prompt", "hello"], capture_output=True, text=True, timeout=120, env=self.env(extra),
                            cwd=str(self.tmp))
@@ -227,57 +252,79 @@ class RealRunTests(AgentCase):
         self.assertTrue(found)
         return found[0]
 
+    SECRETS = {"GH_TOKEN", "AWS_SECRET_ACCESS_KEY", "SENTRY_AUTH_TOKEN", "S78_SECRET_TOKEN", "NODE_OPTIONS"}
+
     def test_an_enforced_claude_code_run_has_the_allow_list_the_kept_name_and_the_marker(self):
+        self.enforced()
         r, started = self.run_one("reviewer")
         keys = set(started["env_keys"])
-        self.assertEqual(sorted(keys & {"GH_TOKEN", "AWS_SECRET_ACCESS_KEY", "SENTRY_AUTH_TOKEN", "S78_SECRET_TOKEN",
-                                        "NODE_OPTIONS", "SSH_AUTH_SOCK", "ANTHROPIC_API_KEY", "KIRO_API_KEY"}), [], r.stdout)
+        self.assertEqual(sorted(keys & (self.SECRETS | {"SSH_AUTH_SOCK", "ANTHROPIC_API_KEY", "KIRO_API_KEY", "KEEP_ME"})), [], r.stdout)
         self.assertIn("S78_KEEP", keys)
         self.assertIn("PATH", keys)
         self.assertEqual(started["run_marker"], self.run_id())
 
     def test_an_enforced_kiro_run_has_the_allow_list_and_the_marker(self):
+        self.enforced()
         r, started = self.run_one("helper")
         keys = set(started["env_keys"])
-        self.assertEqual(sorted(keys & {"GH_TOKEN", "AWS_SECRET_ACCESS_KEY", "S78_SECRET_TOKEN", "S78_KEEP", "KIRO_API_KEY"}), [], r.stdout)
+        self.assertEqual(sorted(keys & (self.SECRETS | {"S78_KEEP", "KIRO_API_KEY", "KEEP_ME"})), [], r.stdout)
         self.assertEqual(started["run_marker"], self.run_id())
 
-    def test_the_gate_checks_see_the_same_allow_list(self):
-        r, _started = self.run_one("reviewer")
+    def test_the_gate_checks_see_the_same_allow_list_when_enforced(self):
+        self.enforced()
+        self.run_one("reviewer")
         probes = [c for c in self.calls() if c.get("probe")]
         self.assertTrue(probes)
         for c in probes:
             with self.subTest(probe=c["probe"]):
                 self.assertNotIn("GH_TOKEN", c["env_keys"])
 
-    def test_a_cooperative_agent_keeps_the_deny_list_and_gets_the_marker(self):
+    def test_with_no_mode_file_the_old_environment_is_kept_and_there_is_no_marker(self):
+        """Today's default. KEEP_ME and the planted names reach the helper as before; the W64 names are still removed."""
+        for name in ("reviewer", "helper"):
+            with self.subTest(agent=name):
+                r, started = self.run_one(name)
+                keys = set(started["env_keys"])
+                self.assertIn("KEEP_ME", keys)
+                self.assertIn("GH_TOKEN", keys)
+                self.assertNotIn("SSH_AUTH_SOCK", keys)
+                self.assertIsNone(started["run_marker"])
+                self.assertNotIn("UMWAYI_RUN", keys)
+
+    def test_a_cooperative_agent_keeps_the_old_environment_and_gets_no_marker(self):
         self.cooperative("reviewer")
         r, started = self.run_one("reviewer")
         keys = set(started["env_keys"])
-        self.assertIn("GH_TOKEN", keys)  # today's behaviour for a cooperative agent
+        self.assertIn("KEEP_ME", keys)  # today's behaviour for a cooperative agent
+        self.assertIn("GH_TOKEN", keys)
         self.assertNotIn("SSH_AUTH_SOCK", keys)  # the W64 deny list still holds
         self.assertNotIn("ANTHROPIC_API_KEY", keys)
+        self.assertIsNone(started["run_marker"])
+        self.assertNotIn("UMWAYI_RUN", keys)
+
+    def test_an_enforced_agent_next_to_a_cooperative_one_is_still_scrubbed(self):
+        self.cooperative("reviewer")
+        r, started = self.run_one("helper")  # the file exists and helper is not cooperative: enforced
+        self.assertNotIn("KEEP_ME", started["env_keys"])
         self.assertEqual(started["run_marker"], self.run_id())
 
     def test_a_mode_file_that_cannot_be_read_is_enforced(self):
-        (self.root / ".umwayi").mkdir(exist_ok=True)
-        (self.root / ".umwayi" / "enforcement.yaml").write_text("a: [\n", encoding="utf-8")
+        self.mode_file("a: [\n")
         r, started = self.run_one("reviewer")
         self.assertNotIn("GH_TOKEN", started["env_keys"])
+        self.assertNotIn("KEEP_ME", started["env_keys"])
 
-    def test_a_real_start_passes_the_name_the_supervisor_sets(self):
-        extra = dict(self.script({"do": "exit", "code": 0}), UMWAYI_TEST_REAL_ALLOW_LIST="1", PYTHONDONTWRITEBYTECODE="1")
-        subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", "run", "reviewer",
-                        "--prompt", "hello"], capture_output=True, text=True, timeout=120, env=self.env(extra), cwd=str(self.tmp))
-        started = [c for c in self.calls() if c.get("started")][-1]
-        self.assertIn("PYTHONDONTWRITEBYTECODE", started["env_keys"])
-
-    def test_a_planted_marker_in_the_owners_environment_is_replaced_by_the_run_id(self):
-        extra = dict(self.script({"do": "exit", "code": 0}), UMWAYI_TEST_REAL_ALLOW_LIST="1", UMWAYI_RUN="planted-run")
-        subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", "run", "reviewer",
-                        "--prompt", "hello"], capture_output=True, text=True, timeout=120, env=self.env(extra), cwd=str(self.tmp))
-        started = [c for c in self.calls() if c.get("started")][-1]
+    def test_a_planted_marker_in_the_owners_environment_is_replaced_by_the_run_id_when_enforced(self):
+        self.enforced()
+        r, started = self.run_one("reviewer", {"UMWAYI_RUN": "planted-run"})
         self.assertEqual(started["run_marker"], self.run_id())
+
+    def test_a_real_start_passes_the_name_the_supervisor_sets_in_both_modes(self):
+        for setup in (lambda: None, self.enforced):
+            setup()
+            r, started = self.run_one("reviewer", {"PYTHONDONTWRITEBYTECODE": "1"})
+            with self.subTest(enforced=(setup == self.enforced)):
+                self.assertIn("PYTHONDONTWRITEBYTECODE", started["env_keys"])
 
 
 if __name__ == "__main__":

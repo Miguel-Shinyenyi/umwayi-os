@@ -17,7 +17,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.adapters.support import PASS_FAKE_ENV, SITECUSTOMIZE
+from tests.adapters.support import SITECUSTOMIZE
 from umwayi.agents import AGENT_SOCKET_ENV, CLAUDE_CREDENTIAL_ENV
 
 REPO = Path(__file__).resolve().parents[2]
@@ -29,7 +29,7 @@ FAKE_OPENCODE_SOURCE = Path(__file__).with_name("fake_opencode.py")
 
 # Test only: loaded by the sitecustomize in every child. Makes a "minute" of timeout_minutes
 # last UMWAYI_TEST_MINUTE seconds, so a timeout test does not take a real minute.
-SITE_EXTRA = PASS_FAKE_ENV + r'''
+SITE_EXTRA = r'''
 if os.environ.get("UMWAYI_TEST_MINUTE"):
     try:
         import umwayi.agents as _agents

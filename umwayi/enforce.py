@@ -199,6 +199,20 @@ def mode_of(root, agent: str | None = None, goal: str | None = None, today=None)
         return ENFORCED
 
 
+def explicit_mode_of(root, agent: str | None = None, goal: str | None = None, today=None) -> str | None:
+    """The mode of an agent when the owner wrote a mode file, else None. A missing file reads as enforced (W78.R1), but nothing
+    that enforced means is built yet, so a start with no mode file keeps today's environment: only a start under a mode
+    file that says `enforced` takes the scrubbed environment (W78 step 2). A file that cannot be read counts as written and
+    as enforced, so an error never relaxes anything. Never raises."""
+    try:
+        os.lstat(Path(root) / FILE_REL)
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return ENFORCED
+    return mode_of(root, agent, goal, today)
+
+
 def mode_text(root, agent: str | None = None, goal: str | None = None, today=None) -> str:
     """The text for the start entry, every goal packet prompt and `goal show`. Never raises: a settings file that
     cannot be read shows as enforced with its reason (no part is enforced yet, so nothing depends on it)."""

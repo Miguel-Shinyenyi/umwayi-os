@@ -28,7 +28,6 @@ import tempfile
 import time
 from pathlib import Path
 
-from tests.adapters.support import PASS_FAKE_ENV
 from tests.goal.fakeroot import GIT_ENV
 
 REPO = Path(__file__).resolve().parents[2]
@@ -38,7 +37,7 @@ GOAL_CODES = {0, 2, 3, 64}  # the only codes a goal command may give
 SECRET = "S9-SECRET-never-in-a-record"
 GOAL_TEXT = "Build the thing the owner asked for, in small safe steps."
 
-SITE = PASS_FAKE_ENV + r'''
+SITE = r'''
 import os
 _off = os.environ.get("UMWAYI_TEST_TIME_OFFSET")
 if _off:
