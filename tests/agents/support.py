@@ -465,9 +465,12 @@ class AgentCase(unittest.TestCase):
 
 
 def alive(pid: int) -> bool:
-    """True if the process exists and is not a zombie."""
-    try:
-        with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
-            return f.read().rsplit(")", 1)[1].split()[0] != "Z"
-    except (FileNotFoundError, ProcessLookupError, IndexError):
-        return False
+    """True if the process exists and is not a zombie. /proc where it exists (Linux), else ps (macOS)."""
+    if os.path.isdir("/proc"):
+        try:
+            with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+                return f.read().rsplit(")", 1)[1].split()[0] != "Z"
+        except (FileNotFoundError, ProcessLookupError, IndexError):
+            return False
+    out = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+    return bool(out) and not out.startswith("Z")

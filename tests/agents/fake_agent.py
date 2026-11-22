@@ -118,8 +118,11 @@ if CHAT:
            "ttyname": os.ttyname(0) if os.isatty(0) else None,
            "foreground": os.tcgetpgrp(0) if os.isatty(0) else None,
            "sigint_ignored": INHERITED_SIGINT_IGNORED}
-with open("/proc/self/cmdline", "rb") as f:
-    cmdline = f.read().decode("utf-8", "replace").split("\x00")
+if os.path.exists("/proc/self/cmdline"):
+    with open("/proc/self/cmdline", "rb") as f:
+        cmdline = f.read().decode("utf-8", "replace").split("\x00")
+else:
+    cmdline = [sys.executable] + sys.argv  # macOS: no /proc; the interpreter, the script, then its arguments
 TELEMETRY_EXACT = ("CLAUDE_CODE_ENABLE_TELEMETRY", "BETA_TRACING_ENDPOINT", "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA")
 rec(argv=ARGS, cwd=os.getcwd(), started=True, pid=os.getpid(), pgid=os.getpgid(0), sid=os.getsid(0),
     stdin=stdin_text, env_keys=sorted(os.environ), cmdline=cmdline, chat=CHAT,

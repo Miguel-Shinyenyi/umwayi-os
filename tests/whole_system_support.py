@@ -149,6 +149,24 @@ def permission(kind="read", title=None):
                            "options": OPTIONS}}
 
 
+
+def _command_lines():
+    """(pid, command line as bytes) of every process: /proc on Linux, ps on macOS."""
+    if os.path.isdir("/proc"):
+        for name in os.listdir("/proc"):
+            if name.isdigit():
+                try:
+                    with open(f"/proc/{name}/cmdline", "rb") as f:
+                        yield int(name), f.read()
+                except OSError:
+                    continue
+        return
+    out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True).stdout
+    for line in out.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2 and parts[0].isdigit():
+            yield int(parts[0]), parts[1]
+
 class World:
     """The folder a day runs in, and every way the test touches it."""
 
@@ -379,15 +397,8 @@ class World:
         end = time.monotonic() + timeout
         while time.monotonic() < end:
             busy = False
-            for name in os.listdir("/proc"):
-                if not name.isdigit() or int(name) == os.getpid():
-                    continue
-                try:
-                    with open(f"/proc/{name}/cmdline", "rb") as f:
-                        cmd = f.read()
-                except OSError:
-                    continue
-                if needle in cmd and alive(int(name)):
+            for pid, cmd in _command_lines():
+                if pid != os.getpid() and needle in cmd and alive(pid):
                     busy = True
                     break
             if not busy and not logbook_lock_held(self.root):
