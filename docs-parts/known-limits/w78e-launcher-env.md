@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while building step 2
 title: the allow list is a guess for Claude Code and Kiro, and an allow list cannot cover what a helper needs that nobody listed
-number: 328
+number: 329
 
 - The allow list is the one of the ACP chat plus `TERM` and `COLORTERM`. It was not checked against a real Claude Code or Kiro run (Kiro was out of this round; a real Claude Code run needs a sign-in). A helper or a tool it runs that needs another variable (a toolchain, a proxy name, `GH_HOST`) fails until the owner lists it in `env_keep`. Each case found in a real run belongs in `adapters/NOTES-layer10.md`.
 - The default mode is `enforced`, so this changes every start of a Claude Code or Kiro agent that has no `cooperative` setting. A `cooperative` agent keeps today's deny lists. A goal set to `cooperative` does not relax an agent's start: `agent run` does not know the goal, so only the agent's own mode counts. That is the stricter way.

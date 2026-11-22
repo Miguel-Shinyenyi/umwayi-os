@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This note covers finding F1 of the 2026-11-18 recordings (`recordings/2026-11-18/FEEDBACK.md`). R1 and option (b) are built (2026-11-22); (a), (c) and R2 are not. It has two parts. A correct task fails because a plan's check says "only these files", and the report of a failed task says `Branch: (none), tip (none)` while the work exists. Nothing in this note is built. The owner picks, and then one task builds the pick.
+This note covers finding F1 of the 2026-11-18 recordings (`recordings/2026-11-18/FEEDBACK.md`). R1, option (b) and option (a) are built (2026-11-22); (c) and R2 are not. It has two parts. A correct task fails because a plan's check says "only these files", and the report of a failed task says `Branch: (none), tip (none)` while the work exists. Nothing in this note is built. The owner picks, and then one task builds the pick.
 
 ## Current state
 
@@ -63,10 +63,11 @@ This is a recommendation. The owner decides.
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-22 | Design note only. Nothing is built until the owner picks. | Round 3, task 3 of the owner's message: the proposals (a) to (c) of F1 are the owner's to decide. |
-| 2026-11-22 | The owner picked R1 and option (b). Built: `branch` and `tip` recorded with a failed or stopped move once the builder ran; `Worktree:` line in the report; the tester and check prompts name the two files by right. (a), (c) and R2 are not built. | The owner's message of the same day. |
+| 2026-11-22 | R1 and option (b) were built on the guide's recommendation, not on a pick by the owner: `branch` and `tip` recorded with a failed or stopped move once the builder ran; `Worktree:` line in the report; the tester and check prompts name the two files by right. The owner's reading of them is pending. | The guide's recommendation of the same day; the owner had not picked when the first version of this row said so. |
+| 2026-11-22 | Option (a) built on the guide's recommendation: one sentence in `planning_prompt`. A plan with an "only" check is not refused at the plan stage. The report says the worktree of a failed, stopped or needs-owner task is kept until the owner removes it. (c) and R2 are not built. | Word matching at the plan stage misses and hits wrongly. The worktree rule was read from the code (`remove_unused`, `cleanup_merged`), not assumed. |
 
 ## Open questions
 
-1. Answered: R1.
-2. Is (b) alone enough, or should (a) be added, or a plan with an "only" check be refused at the plan stage as well?
-3. Should the report of a failed task also say that the worktree is kept and for how long?
+1. R1 was built on the guide's recommendation. The owner's reading is pending.
+2. Is (b) with (a) enough, or should a plan with an "only" check be refused at the plan stage as well? Open until (a) is merged and a real run with a guide that gets no help has been made. Recommendation: do not refuse at the plan stage.
+3. Answered: yes. umwayi removes a task's worktree only when no builder started and the tree is clean at its base, or after the task is merged and the tree is clean (`goalgit.remove_unused`, `goalrun.cleanup_merged`). A failed, stopped or needs-owner task keeps it until the owner removes it, and the report line says so.

@@ -1290,7 +1290,7 @@ The scenarios of `tests/serve/test_scenarios.py` start a real `umwayi serve` and
 
 ### 261. The steering entries are advice, the coverage test checks that a rule has an entry and not that the entry is right
 
-W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. Only builder rule 1 is enforced. The other 22 are advise entries.
+W19 part 3a gave every numbered rule of the builder workflow and steering rules 1 to 13 a guidance entry. In part 3a only builder rule 1 had an `enforce` entry (a check that runs at the start of a goal; this is the guidance kind, not the enforcement mode of W78), and the other 22 were `advise` entries. Later parts added more entries; `guidance.yaml` holds the current count. An `advise` entry is text for the helper and is not checked.
 
 - What protects you today: each entry is tied to its rule by a hash of the rule line, so an edited, moved or removed rule stops the loader (Ask me first, exit 3). A test lists the numbered rules of both files and fails when one has no entry and is not on a reasoned exclusion list, so a new rule cannot be added unseen.
 - What it does not protect against: an entry whose one sentence says something different from its rule (the wording is ours and nobody checks it by machine), an advise line that an AI helper ignores, a rule added in a form the test does not read (a numbered line outside the builder file, the section "Safety rules" and the indented rules of the Layer 13 section of the product file), and a hash that is updated by hand without reading the change. Tiers are as the owner decided: builder 4, safety 1, rules 5 and 10 tier 2. Nothing checks that a tier is the right one.
@@ -2080,9 +2080,18 @@ These are facts of the change that made the goal commands say what they know (R2
 - `subprocess.Popen(umask=...)` needs Python 3.9 or later. The CI runs 3.10 and 3.13.
 - The test shows the mode of a file made by a `python3 -c` child. It does not run `umwayi` on a terminal with a umask, so a mode of a file written by umwayi itself on that path is not checked here.
 
+## Goal orchestration (W9), found while building the F1 follow-ups
+
+### 328. option (a) is advice to the guide, and the worktree line states the rule of the code at the time of the report
+
+- The sentence in the planning prompt is advice. A guide can still list a part file in `files` (the plan is then refused as `protected`) or write a "no other file" check (the plan is accepted, and the tester is told in option (b) to judge it without the part files). Nothing refuses such a check at the plan stage, by decision: word matching misses and hits wrongly.
+- Only a real run with a guide that gets no help shows whether (a) and (b) together remove the failure. None was made.
+- The `Worktree:` line says what the code does at the moment the report is made: a failed, stopped or needs-owner task keeps its worktree, and a task in review loses it after the merge when the tree is clean. A later change to the cleanup would make the line wrong until it is changed too; the test `test_a_failed_tasks_worktree_is_still_there_after_another_run_and_the_report_says_so` fails then.
+- A merged task whose worktree could not be removed (not clean, or git refused) shows `exists` with no rule.
+
 ## Enforced by default (W78), found while building step 2
 
-### 328. the allow list is a guess for Claude Code and Kiro, and an allow list cannot cover what a helper needs that nobody listed
+### 329. the allow list is a guess for Claude Code and Kiro, and an allow list cannot cover what a helper needs that nobody listed
 
 - The allow list is the one of the ACP chat plus `TERM` and `COLORTERM`. It was not checked against a real Claude Code or Kiro run (Kiro was out of this round; a real Claude Code run needs a sign-in). A helper or a tool it runs that needs another variable (a toolchain, a proxy name, `GH_HOST`) fails until the owner lists it in `env_keep`. Each case found in a real run belongs in `adapters/NOTES-layer10.md`.
 - The default mode is `enforced`, so this changes every start of a Claude Code or Kiro agent that has no `cooperative` setting. A `cooperative` agent keeps today's deny lists. A goal set to `cooperative` does not relax an agent's start: `agent run` does not know the goal, so only the agent's own mode counts. That is the stricter way.

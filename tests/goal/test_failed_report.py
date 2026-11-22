@@ -7,7 +7,9 @@ the kept worktree, the path is computed from the ids. No helper text reaches the
 "only these files" is not failed by them.
 """
 
+import os
 import re
+import shutil
 import unittest
 from unittest import mock
 
@@ -52,7 +54,7 @@ class RecordedTipTests(FailedReportCase):
         text = self.report(goal)
         self.assertIn(f"- Branch: umwayi/g-0001-t-01, tip {t['tip'][:12]} (kept, not merged)", text)
         path = gr.GIT.worktree_path(str(self.root), goal, "T-01")
-        self.assertIn(f"- Worktree: {path} (exists)", text)
+        self.assertIn(f"- Worktree: {path} (exists, kept until you remove it with git worktree remove)", text)
         self.assertRegex(text, r"- Files changed: \d")
         self.assertNotIn("not counted", text.split("## T-01")[1].split("##")[0])
         self.assertNotIn("(none)", text.split("- Branch:")[1].split("\n")[0])
@@ -99,6 +101,78 @@ class RecordedTipTests(FailedReportCase):
         self.assertIsNone(r.work_found())  # no builder_started
         r.builder_started = True
         self.assertIsNone(r.work_found())  # git cannot answer for a path that is not there
+
+
+class KeptWorktreeTests(FailedReportCase):
+    """F1 open question 3: the report says a failed task's worktree is kept until the owner removes it, and the code
+    does keep it. umwayi removes a worktree only when no builder started, or after the task is merged."""
+
+    def test_a_failed_tasks_worktree_is_still_there_after_another_run_and_the_report_says_so(self):
+        goal, code = RecordedTipTests.failed_by_the_tester(self)
+        self.assertEqual(code, 2, self.err)
+        path = gr.GIT.worktree_path(str(self.root), goal, "T-01")
+        self.assertTrue(os.path.isdir(path))
+        self.call("run", goal, scripts=[])  # the supervisor runs its sweep of unused worktrees again
+        self.assertTrue(os.path.isdir(path), "a failed task's worktree must not be removed by umwayi")
+        self.assertIn("exists, kept until you remove it with git worktree remove", self.report(goal))
+
+    def test_the_rule_by_state(self):
+        from umwayi import goal as gl
+        for state in ("failed", "stopped", "needs owner"):
+            self.assertIn("kept until you remove it", gl._worktree_rule(state))
+        self.assertIn("removes it after the merge", gl._worktree_rule("in review"))
+        self.assertEqual(gl._worktree_rule("merged"), "exists")
+
+    def test_a_task_in_review_says_it_goes_after_the_merge(self):
+        goal, code = self.run_goal([{"steps": rs.builder_steps("G-0001", "T-01"), "spend": 3},
+                                    {"steps": rs.tester_steps(), "spend": 2}, {"steps": rs.check_steps(), "spend": 1}])
+        self.assertEqual(code, 0, self.err)
+        self.assertIn("umwayi removes it after the merge if the tree is clean", self.report(goal))
+
+    def test_a_removed_worktree_says_removed(self):
+        goal, _ = RecordedTipTests.failed_by_the_tester(self)
+        shutil.rmtree(gr.GIT.worktree_path(str(self.root), goal, "T-01"))
+        self.assertIn("(removed)", self.report(goal))
+
+
+class PlanningPromptTests(FailedReportCase):
+    """Option (a) of F1: the guide is told that the two part files are always allowed."""
+
+    def test_the_planning_prompt_names_the_two_files_and_says_not_to_list_or_check_them(self):
+        p = gr.planning_prompt("Build the thing in small steps.", "0123456789abcdef")
+        self.assertIn("docs-parts/status-log/G-NNNN-T-NN.md", p)
+        self.assertIn("docs-parts/known-limits/G-NNNN-T-NN.md", p)
+        self.assertIn("Do not list them in the files.", p)
+        self.assertIn("Never name them in a check that says no other file changed or that only some files changed.", p)
+        self.assertTrue(p.endswith("Nonce: 0123456789abcdef\n"))
+
+    def test_the_real_start_gives_the_guide_that_prompt(self):
+        seen = []
+        real = gr.planning_prompt
+
+        def spy(*a, **kw):
+            seen.append(real(*a, **kw))
+            return seen[-1]
+        with mock.patch.object(gr, "planning_prompt", spy):
+            self.g_start()
+        self.assertEqual(len(seen), 1)
+        self.assertIn("Never name them in a check", seen[0])
+
+    def test_a_guide_that_writes_the_only_check_anyway_still_gets_a_plan(self):
+        """The recommendation: advise, do not refuse at the plan stage (word matching misses and hits wrongly)."""
+        line = cs.plan_line()
+        line["body"]["tasks"][0]["checks"] = ["git status shows only umwayi/piece1.py as a new or changed file."]
+        code = self.call("start", cs.GOAL_TEXT, "claude-guide", 20, scripts=[{"steps": [line], "spend": 5}])
+        self.assertEqual(code, 0, self.err)
+        goal = gs.list_goals(self.root)[-1]
+        self.assertIsNone(gs.read_goal(self.root, goal)["refused"])
+
+    def test_a_guide_that_lists_a_part_file_in_files_is_still_refused_as_protected(self):
+        line = cs.plan_line()
+        line["body"]["tasks"][0]["files"] = ["umwayi/piece1.py", "docs-parts/status-log/G-0001-T-01.md"]
+        code = self.call("start", cs.GOAL_TEXT, "claude-guide", 20, scripts=[{"steps": [line], "spend": 5}])
+        self.assertEqual(code, 2)
+        self.assertEqual(gs.read_goal(self.root, gs.list_goals(self.root)[-1])["refused"], "protected")
 
 
 class OwnFilesPromptTests(FailedReportCase):

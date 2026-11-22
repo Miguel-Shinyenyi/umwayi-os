@@ -887,7 +887,20 @@ def _worktree_line(ctx, goal, t, runs):
         path = gr.GIT.worktree_path(ctx.root, goal, t["id"])
     except (UmwayiError, ValueError):
         return []
-    return [f"- Worktree: {path} ({'exists' if os.path.isdir(path) else 'removed'})"]
+    if not os.path.isdir(path):
+        return [f"- Worktree: {path} (removed)"]
+    return [f"- Worktree: {path} ({_worktree_rule(t['state'])})"]
+
+
+def _worktree_rule(state):
+    """What happens to a kept worktree, true to the code (F1 open question 3): umwayi removes a task's worktree only when
+    no builder started and it is clean at its base, or after the task is merged and the tree is clean. A failed, stopped
+    or needs-owner task keeps it until the owner removes it."""
+    if state in ("failed", "stopped", "needs owner"):
+        return "exists, kept until you remove it with git worktree remove"
+    if state == "in review":
+        return "exists, umwayi removes it after the merge if the tree is clean"
+    return "exists"
 
 
 def _files_changed(ctx, goal, t):
