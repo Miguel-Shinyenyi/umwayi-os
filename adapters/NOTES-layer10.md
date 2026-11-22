@@ -1203,7 +1203,7 @@ What this shows: a tiny goal runs to the end on Claude Code under the allow list
 
 Other things the real guide did (all with the same goal text):
 
-- The guide's plan was refused in 7 of 9 tries with the plain goal text, with and without the scrub: three times as `checks` (a check must be one sentence of 10 to 200 characters, and the planning prompt does not say so) and four times as `context: ... private` (the guide listed a private file). A goal text that stated both rules got a plan at once. Recommendation: put both rules in `planning_prompt`.
+- The guide's plan was refused in 7 of 9 tries with the plain goal text, with and without the scrub: three times as `checks` (a check must be one sentence of 10 to 200 characters, and the planning prompt did not say so; PR 170 adds it) and four times as `context: ... private`. The second was a fault of the scratch root, not of the guide: it had no `umwayi.json`, `is_private` fails closed, and so every path counted as private. A goal text that stated both rules got a plan at once.
 - The two plain plans that passed (G-0002 and G-0003) came back with a check like "only hello.py and test_hello.py": the guide knew the part files after option (a), and the tester judged it with option (b).
 - The default `timeout_minutes` of 30 is below what a 30 minute task needs (1.5 times its size, so 45): `goal approve` refused until the builder had 60.
 - Not tried: Kiro, OpenCode as a goal helper (W9.13), a goal with `env_keep`, a cooperative agent, a goal of more than one task.
