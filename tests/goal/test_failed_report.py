@@ -8,6 +8,7 @@ the kept worktree, the path is computed from the ids. No helper text reaches the
 """
 
 import os
+import json
 import re
 import shutil
 import unittest
@@ -145,6 +146,28 @@ class PlanningPromptTests(FailedReportCase):
         self.assertIn("Do not list them in the files.", p)
         self.assertIn("Never name them in a check that says no other file changed or that only some files changed.", p)
         self.assertTrue(p.endswith("Nonce: 0123456789abcdef\n"))
+
+    def test_the_planning_prompt_states_the_limits_of_a_check_from_the_parser_constants(self):
+        """Found by a real goal run: the guide's plan was refused as `checks` in 3 of 9 tries because the prompt did not say a
+        check is one sentence of 10 to 200 characters. The numbers come from the parser's own constants, so the two cannot drift."""
+        p = gr.planning_prompt("Build the thing in small steps.", "0123456789abcdef")
+        self.assertIn(f"one sentence of {gp.TEXT_MIN} to {gp.TEXT_MAX} characters", p)
+        self.assertIn("no second sentence", p)
+        with mock.patch.object(gp, "TEXT_MAX", 300):
+            self.assertIn("10 to 300 characters", gr.planning_prompt("x", "n"))  # planted: a changed limit shows in the prompt
+
+    def test_the_limits_the_prompt_names_are_the_ones_the_parser_enforces(self):
+        def plan(check):
+            task = {"goal": "Do the numbered piece of work number 1 now.", "context": [], "checks": [check], "size": 40,
+                    "files": ["x.py"]}
+            return json.dumps({"tasks": [task]}).encode()
+        ok = "c" * gp.TEXT_MAX
+        self.assertEqual(len(gp.parse_plan(plan(ok), file_size=lambda p: 1)), 1)
+        for bad in ("c" * (gp.TEXT_MAX + 1), "c" * (gp.TEXT_MIN - 1), "It prints hello. It exits with code 0.", "one\ntwo is not one line"):
+            with self.subTest(check=bad[:30]):
+                with self.assertRaises(gp.PlanError) as cm:
+                    gp.parse_plan(plan(bad), file_size=lambda p: 1)
+                self.assertEqual(cm.exception.word, "checks")
 
     def test_the_real_start_gives_the_guide_that_prompt(self):
         seen = []

@@ -254,6 +254,8 @@ def planning_prompt(goal_text, nonce):
         "read, 1 to 8 acceptance checks that someone who did not write the code can answer pass or fail, a size of 15 "
         "to 90 minutes (aim for 60), and the files it may touch. Do not write any file. Do not choose a model, an "
         "effort or a budget.\n"
+        f"Write each acceptance check as one sentence of {gp.TEXT_MIN} to {gp.TEXT_MAX} characters, with no second sentence "
+        "after a full stop and no line break. A plan with a longer check, or one with two sentences, is refused.\n"
         "umwayi adds two files to every task by right: docs-parts/status-log/G-NNNN-T-NN.md and "
         "docs-parts/known-limits/G-NNNN-T-NN.md, with the goal and task numbers filled in. Do not list them in the "
         "files. Never name them in a check that says no other file changed or that only some files changed.\n"
