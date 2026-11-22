@@ -89,7 +89,7 @@ Each item is its own task. None starts before Dec 3: the Kiroween freeze is Nov 
 2. **W41 A**: scrubbed environment, run marker, `env_keep`, with the W68 allow listed environment built once here.
 3. **W41 C1**: the watched list, which includes the mode file.
 4. **W41 B1**: the Claude Code platform sandbox.
-5. **The broker**: its own design note first, then the build.
+5. **The broker**: its own design note first ([enforcement-broker-design.md](enforcement-broker-design.md), 2026-11-22), then the build.
 6. **B2 on Linux**, tested in CI.
 7. **B2 on macOS**, after the owner checks on his Mac.
 8. **W41 C2**: tool calls no hook checked.
