@@ -78,7 +78,7 @@ MAX_HOOK_FILE_BYTES = 256 * 1024
 VERSION_TIMEOUT = 10.0  # seconds for `claude -v` or `kiro-cli --version`
 SELFTEST_TIMEOUT = 5.0  # seconds for the hook self-test
 MAX_VERSION_OUTPUT = 4096  # bytes of version output that are looked at
-DEFAULT_TIMEOUT_MINUTES = 30
+DEFAULT_TIMEOUT_MINUTES = 60  # 30 until 2026-11-22: `goal approve` wants 1.5 times the task size, so a 30 minute task needed 45
 CLAUDE_HOOK_TIMEOUT = 30  # seconds, in the --settings JSON (longer than the hook's own 10 s wait)
 
 # The self-test event. Both layer 9 hooks block every event other than PreToolUse with
