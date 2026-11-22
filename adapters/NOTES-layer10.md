@@ -1094,6 +1094,8 @@ options every time: ["once", "always", "reject"]
 
 ## The owner's real check of the OpenCode chat (10.51): steps and results (NOT DONE YET)
 
+A first real run of these steps is recorded in "OpenCode real check, 2026-11-22" at the end of this file. Task 10.51 is not ticked: the owner ticks it after the guide's review.
+
 Written Nov 13 2026 with the docs half of task 10.51. The code of tasks 10.43 to 10.50 is tested only against a fake `opencode` (10.47) and the plugin under `node`. This is the first time a real OpenCode meets umwayi's chat. It is the owner's, on the owner's machine; nothing here was run by the build, and 10.51 is ticked in tasks.md only after the results table below is filled in.
 
 Rules for this check:
@@ -1142,3 +1144,46 @@ Not run by the build. The capture file holds field names and types only, never a
 5. Take the file away: `rm /tmp/umwayi-capture.jsonl`.
 
 - Capture: not done yet. Date: (none). Field names: (none recorded).
+
+## OpenCode real check, 2026-11-22
+
+Run on 2026-11-22 on the owner's Mac by Claude Code, from umwayi-os main at `ae009a2` (PR 162). It follows the six steps of "The owner's real check of the OpenCode chat (10.51)" above and adds the non-interactive runs that the W9.13 build needs. The step file `claude/claude-code-opencode-real-check-2026-11-17.txt` named in the task is not in this repository, so the steps here are the ones in this file. Route: `opencode/big-pickle`, the signed-out free tier. No sign-in was asked, no account was made, nothing was bought. Scratch folders only: a new root, a work folder outside it and a new empty home with the `XDG_*` variables unset, as the setup of the steps says. Task 10.51 is not ticked.
+
+Recorded: versions, exit codes, file names and counts. No token, key, account name, email, URL or conversation text.
+
+| step | result | evidence |
+| --- | --- | --- |
+| 1 `agent check` | passed | `opencode --version`: `opencode v2.3.0`. Six `ok:` lines (`command`, `version`, `files`, `managed config`, `other config`, `route`), then `Gated: the checks for an OpenCode chat of agent oc-free passed. Nothing was started.`, exit 0 |
+| 2 canary seen | passed | `Connected. Type a message, :queue to see the queue, or :quit to end the chat.` came 2.1 s after the start. No `The first gate could not be confirmed` line. The canary itself is a private file and is not shown, by design |
+| 3 one hook entry per tool call | passed | the chat showed 2 tool lines (`read`, `shell`). The logbook has 2 `action type: tool_` entries (`tool_read`, `tool_shell`) and 2 `acp_permission` entries (`oc-perm-read` gave Yes, `oc-perm-ask` gave Ask me first, answered `y`). `[stop reason: end_turn]`, exit 0 after 14 s. `logbook verify`: exit 0. `grep -c PURPLEHERON LOGBOOK.md`: 0. No tool call without an entry and no entry without a call |
+| 4 real `--version` | passed | the whole output is `opencode v2.3.0`; the check of step 1 read it as `2.3.0 (at least 2.2.3)`. This confirms KNOWN-LIMITS 187 for 2.3.0 |
+| 5 planted `opencode.json` | passed | `agent check`: `no: other config: ... opencode.json exists in the workdir or a folder above it`, `Not gated: agent oc-free would be refused (exit 2). Nothing was started.`, exit 2. `agent chat`: `Refused: agent oc-free cannot be gated, so it was not started (exit 2).`, exit 2. No OpenCode process left. After the file was removed the check gave exit 0 again |
+| 6 what OpenCode wrote in HOME | as documented | 6 files: `.local/share/opencode/opencode.db`, `opencode.db-shm`, `opencode.db-wal`, `.local/share/opencode/log/opencode.log`, one shell output file under `.local/share/opencode/shell/`, and `.cache/opencode/bin/opencode-pty/local-.../opencode-pty` (2 672 528 bytes). No `.config/opencode`. No `bin/rg` was fetched in this chat; the helper that was fetched is `opencode-pty`, as in 2.3.0 on the earlier run. Matches KNOWN-LIMITS 251 |
+
+### Non-interactive runs (input for W9.13)
+
+All in the private home, from the work folder, with standard input from `/dev/null` or a pipe and no terminal on any stream.
+
+| run | exit | output shape | time |
+| --- | --- | --- | --- |
+| `opencode run -m opencode/big-pickle "Reply with the single word hello."` | 0 | stdout is the reply (`hello`); stderr is 26 bytes (the banner); nothing is asked | 4.5 s |
+| the same with `--format json` | 0 | 3 JSON lines, types `step_start`, `text`, `step_finish`; stderr empty | 2.8 s |
+| `opencode acp` over pipes: `initialize`, `session/new`, `session/prompt` | 0 | `initialize` answers with 1 auth method; `session/new` gives a session id; the prompt result has `stopReason` `end_turn`. Updates in order: `available_commands_update`, 2 `agent_thought_chunk`, 1 `agent_message_chunk`, `usage_update`, then the result. stderr empty | 1.6 s for the prompt |
+| `opencode acp`, standard input closed after the result | 0 | the process ended by itself | under 10 s |
+| `opencode acp`, SIGTERM after `initialize` | 143 | the signal, not 0 | immediate |
+
+So a non-interactive run needs no terminal. `opencode run` is one command with a plain reply, and `opencode acp` ends when standard input closes. A stop by a signal gives 143. The run through umwayi's chat adds the plugin; the runs above did not load it.
+
+### Deviations from the docs
+
+- The steps and `adapters/opencode/README.md` do not say that a new root needs two Yes rules before the chat starts: `agent_run` and `budget_check` for the agent. Without them `agent chat` printed `Ask me first`, exit 3, `Agent oc-free was not started.`, and added a queue item (Q-0001 for the start, Q-0002 for the budget). Both rules were added to the scratch `rules.yaml`. This is the same fact as `docs/quickstart.md` for `agent run`; for the chat it is not in this file. Nothing else deviated.
+- The chat reads a permission answer from the same input as a message. The driver answered `y` when the line `Allow once? [y/N]` appeared and sent `:quit` after `[stop reason`. It worked for one tool call that asked.
+- No `enforce set cooperative` was needed for the chat on this build.
+
+### What this run did not show
+
+- One chat, one route (`opencode/big-pickle`), one Mac, OpenCode 2.3.0. A local model (`ollama`) was not tried.
+- A tool's output inside a reply was not looked at. An effort or reasoning option was not found: `opencode run --help` lists `--model provider/model#variant`, `--thinking` and `--format`, and the `#variant` suffix was not tried.
+- The first gate was confirmed by the `Connected.` line. The canary file was not read.
+- Linux and Windows were not run.
+
