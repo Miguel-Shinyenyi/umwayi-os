@@ -959,8 +959,9 @@ class _Run:
     def run_child(self, role, argv, prompt, fp_fn, cap, before, agent, nonce_tag):
         e = self.env
         environ = e.child_environ()
-        if role in ("builder", "tester"):  # W55a: no __pycache__ left in the worktree by a Python the helper runs
-            environ["PYTHONDONTWRITEBYTECODE"] = "1"
+        # W55a, and the check and the guide too (first real goal run, 2026-11-22): no __pycache__ left in the worktree by a
+        # Python the helper runs. The tester and the check are read-only roles, so a bytecode folder they write fails the task.
+        environ["PYTHONDONTWRITEBYTECODE"] = "1"
         mark = logbook_mark(self.root) if role == "builder" else None  # W56: the entries before the builder
         proc = e.spawn(argv, self.root, environ)
         # The `started` event, with the pid, comes before the prompt: the child reads its prompt first and does nothing
