@@ -32,8 +32,7 @@ Run every test: `python -m unittest discover -s tests -t .`. Each layer has its 
   - `test_20` to `test_23`: a tampered logbook (an old chained entry; a budget settle out of shape; the same settle edited consistently; a truncated tail), each refused or found as its layer says;
   - `test_30`: a lost reservation (umwayi SIGKILLed), counted in full until `budget settle-lost`;
   - `test_40` to `test_46`: the kill switch in the middle of `agent run`, the cli chat and the ACP chat for Claude Code and Kiro, and at a scheduled job's start;
-  - `test_50`: a schedule installed, checked, run and removed with no `systemctl` on `PATH`, and with a fake one that records any call;
-  - `test_60`: the per-run limit passed in the second turn of an ACP chat;
+  - `test_50`: a schedule installed, checked, run and removed with no `systemctl` on `PATH`, and with a fake one that records any call; `test_60`: the per-run limit passed in the second turn of an ACP chat;
   - `test_70` to `test_73`: a planted crash in an append, before a reservation, in a settle and in a schedule install.
   After every scenario: `logbook verify`, `budget status`, nothing the scenario started still alive, and only the exit codes each command may give. A day step that fails skips the rest.
 - The security scan's tests (S.2): `tests/test_scan_receiver.py` (the telemetry receiver from the agent's side: binding, the run header, sizes, a slow client, 200 connections, the port after every way out), `tests/test_scan_files.py` (modes under umask 022 and 077, links, hard links, races, path arguments, and a guard on every mode change) and `tests/test_scan_secrets.py` (planted secrets in every entry place, and a sweep of every byte umwayi printed or wrote). The tool scans themselves are not tests; their record is [SECURITY-SCAN.md](SECURITY-SCAN.md).
@@ -168,6 +167,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/goal/test_files.py` | `.gitignore`, `umwayi.json` |
 | `tests/goal/test_gen.py` | `umwayi.json` |
 | `tests/goal/test_goal_map.py` | `umwayi.json` |
+| `tests/goal/test_goal_words.py` | `umwayi.json` |
 | `tests/goal/test_goalrun.py` | `umwayi.json` |
 | `tests/goal/test_guidance.py` | `.kiro`, `guidance.yaml` |
 | `tests/goal/test_guidance_coverage.py` | `.kiro`, `guidance.yaml` |

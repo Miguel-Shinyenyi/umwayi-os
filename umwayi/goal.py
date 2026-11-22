@@ -244,10 +244,26 @@ def _proposal(ctx, goal, builder, tester, model, effort, tester_model="", tester
     return gpr.for_goal(ctx.root, ctx.when, goal, packets, builder, tester, model, effort, tester_model, tester_effort)
 
 
-def _print_show(ctx, goal, proposal=None):
+def _mode_lines(ctx, goal, roles):
+    """One `enforcement for ROLE NAME: ...` line for each agent that has a part in the goal (R2.3: not one line for all)."""
+    seen, lines = set(), []
+    for role, name in roles:
+        if name and (role, name) not in seen:
+            seen.add((role, name))
+            text = enforce.mode_text(ctx.root, agent=name, goal=goal, today=ctx.when)
+            lines.append(text.replace("enforcement:", f"enforcement for {role} {name}:", 1))
+    return lines
+
+
+def _print_show(ctx, goal, proposal=None, builder=None, tester=None):
     g = gs.read_goal(ctx.root, goal)
-    ctx.say(enforce.mode_text(ctx.root, goal=goal, today=ctx.when))
-    ctx.say(f"Goal {goal}: {_goal_word(ctx, goal)}. Guide {g['guide']}. Plan budget {g['plan_budget_uu']} UU."
+    if g["approved"]:
+        builder, tester = g["builder"], g["tester"]
+    ctx.say(*_mode_lines(ctx, goal, [("guide", g["guide"]), ("builder", builder), ("tester", tester)]))
+    word = _goal_word(ctx, goal)
+    if g["refused"] and word == "refused":
+        word = f"refused ({_refused_words(g)})"  # the reason, as goal status gives it
+    ctx.say(f"Goal {goal}: {word}. Guide {g['guide']}. Plan budget {g['plan_budget_uu']} UU."
             + (f" Builder {g['builder']}, tester {g['tester']}, goal budget {g['goal_budget_uu']} UU." if g["approved"] else ""))
     per_task, tail = gpr.lines(proposal) if proposal is not None else ({}, "")
     for p, t in _packets(ctx, goal):
@@ -281,7 +297,7 @@ def show(ctx, goal, builder=None, tester=None, model=None, effort=None, tester_m
         if None in (builder, tester, model, effort):
             raise UsageError("goal show: a proposal needs --builder, --tester, --model and --effort together")
         proposal = _proposal(ctx, goal, builder, tester, model, effort, tester_model or "", tester_effort or "")
-    _print_show(ctx, goal, proposal)
+    _print_show(ctx, goal, proposal, builder, tester)
     return OK
 
 
@@ -404,6 +420,11 @@ def approve(ctx, goal, builder, tester, model, effort, task_budget_uu, goal_budg
         for v, what in ((plan_hours, "--plan-hours"), (wait_hours, "--wait-hours")):
             if v is not None and not 1 <= v <= 168:
                 raise Refused(f"{what} must be 1 to 168. Nothing changed.")
+        ctx.say(f"Approving goal {goal}: {len(kept)} tasks, {len(packets) - len(kept)} dropped. Guide {guide}, builder "
+                f"{builder}, tester {tester}. Model {model}, effort {effort}.",
+                "  Task budgets: " + ", ".join(f"{p.id} {per_task[p.id]} UU" for p in kept)
+                + f". Goal budget {goal_budget_uu} UU (the planning run's {g['plan_budget_uu']} UU is inside it).",
+                *_mode_lines(ctx, goal, [("guide", guide), ("builder", builder), ("tester", tester)]))
         if wait_hours is not None or plan_hours is not None:
             g2 = dict(g)
             if wait_hours is not None:
@@ -628,9 +649,13 @@ def _goal_word(ctx, goal):
 
 
 def _refused_words(g):
-    """`unclear`, or for a refused context entry `context: task 1, entry 2, private` (W55b): never the path."""
+    """`unclear`, or for a refused context entry `context: task 1, entry 2, private` (W55b), or for a protected path
+    `protected: task 1, docs-parts/` (the protected list's own entry): never the plan's own path."""
     c = g.get(gs.REFUSED_CONTEXT_KEY)
-    return f"{g['refused']}: {gs.refused_context_words(c)}" if c else g["refused"]
+    if c:
+        return f"{g['refused']}: {gs.refused_context_words(c)}"
+    p = g.get(gs.REFUSED_PROTECTED_KEY)
+    return f"{g['refused']}: {gs.refused_protected_words(p)}" if p else g["refused"]
 
 
 def _spent(ctx, goal):

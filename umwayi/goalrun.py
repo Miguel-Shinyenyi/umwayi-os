@@ -1444,7 +1444,8 @@ class _PlanRun(_Run):
         word = self.plan_word(res, nonce)
         if word is not None:
             gs.refuse_plan(self.root, self.goal, agent, word, when=e.when(), now=e.now(), plan_spent_uu=res.spent_uu,
-                           context=getattr(self, "refused_context", None))
+                           context=getattr(self, "refused_context", None),
+                           protected=getattr(self, "refused_protected", None))
             if word != "readonly":  # W55a: a refused plan removes its worktree; a changed one stays as evidence
                 self.drop_plan_worktree()
             raise _Done(Outcome(2, "plan", "", word))
@@ -1486,6 +1487,8 @@ class _PlanRun(_Run):
         except gp.PlanError as err:
             if err.word == "context" and err.entry and err.why in gp.CONTEXT_WHYS:  # W55b: where and why, not the path
                 self.refused_context = {"task": err.index, "entry": err.entry, "why": err.why}
+            if err.word == "protected" and err.protected:  # the protected list's own entry that matched, not the path
+                self.refused_protected = {"task": err.index, "entry": err.protected}
             return err.word
         return None
 
