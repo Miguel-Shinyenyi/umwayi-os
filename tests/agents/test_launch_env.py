@@ -45,6 +45,20 @@ class EnforcedEnvTests(unittest.TestCase):
                 for name in ("HOME", "PATH", "USER", "LANG", "TERM", "HTTPS_PROXY"):
                     self.assertEqual(env[name], OWNER[name])
 
+    def test_the_name_the_supervisor_sets_for_its_builder_and_tester_passes(self):
+        """The first real goal run failed with readonly_role_changed_tree: the allow list dropped PYTHONDONTWRITEBYTECODE, so the
+        tester's Python wrote a __pycache__ into the worktree. The supervisor sets it (goalrun.run_child) and it is not a secret."""
+        for platform in ("claude-code", "kiro"):
+            env = agents.enforced_env(dict(OWNER, PYTHONDONTWRITEBYTECODE="1"), agent(platform))
+            self.assertEqual(env["PYTHONDONTWRITEBYTECODE"], "1")
+        self.assertEqual(agents.SUPERVISOR_ENV, ("PYTHONDONTWRITEBYTECODE",))
+
+    def test_planted_fault_an_allow_list_without_the_supervisors_name(self):
+        without = tuple(n for n in agents.enforced_names("claude-code") if n not in agents.SUPERVISOR_ENV)
+        with mock.patch.object(agents, "enforced_names", lambda platform: without):
+            env = agents.enforced_env(dict(OWNER, PYTHONDONTWRITEBYTECODE="1"), agent())
+        self.assertNotIn("PYTHONDONTWRITEBYTECODE", env)  # what the first real run hit
+
     def test_claude_config_dir_is_claude_codes_own(self):
         self.assertIn("CLAUDE_CONFIG_DIR", agents.enforced_env(dict(OWNER), agent("claude-code")))
         self.assertNotIn("CLAUDE_CONFIG_DIR", agents.enforced_env(dict(OWNER), agent("kiro")))
@@ -250,6 +264,13 @@ class RealRunTests(AgentCase):
         (self.root / ".umwayi" / "enforcement.yaml").write_text("a: [\n", encoding="utf-8")
         r, started = self.run_one("reviewer")
         self.assertNotIn("GH_TOKEN", started["env_keys"])
+
+    def test_a_real_start_passes_the_name_the_supervisor_sets(self):
+        extra = dict(self.script({"do": "exit", "code": 0}), UMWAYI_TEST_REAL_ALLOW_LIST="1", PYTHONDONTWRITEBYTECODE="1")
+        subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", "run", "reviewer",
+                        "--prompt", "hello"], capture_output=True, text=True, timeout=120, env=self.env(extra), cwd=str(self.tmp))
+        started = [c for c in self.calls() if c.get("started")][-1]
+        self.assertIn("PYTHONDONTWRITEBYTECODE", started["env_keys"])
 
     def test_a_planted_marker_in_the_owners_environment_is_replaced_by_the_run_id(self):
         extra = dict(self.script({"do": "exit", "code": 0}), UMWAYI_TEST_REAL_ALLOW_LIST="1", UMWAYI_RUN="planted-run")

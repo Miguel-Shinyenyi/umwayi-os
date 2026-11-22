@@ -205,6 +205,9 @@ KIRO_SIGNIN_TEXT = "Sign in to Kiro first (kiro-cli login), then try again."
 # deny list. The names below, each only if set, plus the names the owner lists in `env_keep` for that agent (names, never
 # values), plus the run marker. A `cooperative` agent keeps the deny lists above and gets the marker only.
 RUN_MARKER = "UMWAYI_RUN"
+# Names the goal supervisor sets for its builder and tester (goalrun.py: no __pycache__ left in the worktree by a Python the
+# helper runs). They are not secrets, and without them a read-only role changes the tree. Found by the first real run.
+SUPERVISOR_ENV = ("PYTHONDONTWRITEBYTECODE",)
 ENV_KEEP_MAX = 32
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 
@@ -705,7 +708,7 @@ def enforced_names(platform: str) -> tuple:
     """The names an `enforced` Claude Code or Kiro start passes (W78 step 2). The list of the ACP chat (10.R11.9) and the
     terminal names a chat needs. CLAUDE_CONFIG_DIR is Claude Code's own."""
     base = tuple(n for n in CHILD_ENV_NAMES if n != "CLAUDE_CONFIG_DIR")
-    return base + ("TERM", "COLORTERM") + (("CLAUDE_CONFIG_DIR",) if platform == "claude-code" else ())
+    return base + ("TERM", "COLORTERM") + SUPERVISOR_ENV + (("CLAUDE_CONFIG_DIR",) if platform == "claude-code" else ())
 
 
 def keep_problem(name) -> str | None:
