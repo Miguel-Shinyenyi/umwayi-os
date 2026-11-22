@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This note covers finding F1 of the 2026-11-18 recordings (`recordings/2026-11-18/FEEDBACK.md`). It has two parts. A correct task fails because a plan's check says "only these files", and the report of a failed task says `Branch: (none), tip (none)` while the work exists. Nothing in this note is built. The owner picks, and then one task builds the pick.
+This note covers finding F1 of the 2026-11-18 recordings (`recordings/2026-11-18/FEEDBACK.md`). R1 and option (b) are built (2026-11-22); (a), (c) and R2 are not. It has two parts. A correct task fails because a plan's check says "only these files", and the report of a failed task says `Branch: (none), tip (none)` while the work exists. Nothing in this note is built. The owner picks, and then one task builds the pick.
 
 ## Current state
 
@@ -63,9 +63,10 @@ This is a recommendation. The owner decides.
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-22 | Design note only. Nothing is built until the owner picks. | Round 3, task 3 of the owner's message: the proposals (a) to (c) of F1 are the owner's to decide. |
+| 2026-11-22 | The owner picked R1 and option (b). Built: `branch` and `tip` recorded with a failed or stopped move once the builder ran; `Worktree:` line in the report; the tester and check prompts name the two files by right. (a), (c) and R2 are not built. | The owner's message of the same day. |
 
 ## Open questions
 
-1. R1 or R2 for the tip of a failed task?
-2. Is (a) plus (b) enough, or should a plan with an "only" check be refused at the plan stage as well?
+1. Answered: R1.
+2. Is (b) alone enough, or should (a) be added, or a plan with an "only" check be refused at the plan stage as well?
 3. Should the report of a failed task also say that the worktree is kept and for how long?
