@@ -1,4 +1,4 @@
-"""W9.16: the scope of a task, enforced while its helper runs (umwayi/scope.py, `umwayi check --scope`, the Claude Code hook).
+"""W9.16: the scope of a task, checked while its helper runs (umwayi/scope.py, `umwayi check --scope`, the Claude Code hook).
 
   * the scope file: strict shape; a link, a folder, a big file or the wrong keys are refused;
   * `violates`: a write inside the packet's files, folders and the own files is fine; outside the worktree, a protected path, `..`, an
