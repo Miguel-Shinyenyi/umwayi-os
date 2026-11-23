@@ -470,10 +470,16 @@ class CodeGuardTests(unittest.TestCase):
 
     def test_two_program_starts_each_with_an_argument_list_and_no_shell(self):
         _, calls = self._calls()
-        self.assertEqual(sorted((f, attr) for f, attr, _ in calls), [("_run_child", "run"), ("_start", "Popen")])
+        # W78 step 5: `_broker_start` also starts the enforcement broker, with the fixed argument list of umwayi/broker.py (`brk.argv`)
+        # and a small environment of its own; it is its own process, so it needs no session of the agent's
+        self.assertEqual(sorted((f, attr) for f, attr, _ in calls),
+                         [("_broker_start", "Popen"), ("_run_child", "run"), ("_start", "Popen")])
         for fname, attr, kw in calls:
             with self.subTest(call=f"{fname}: subprocess.{attr}"):
                 self.assertIs(kw["shell"].value, False)
+                if fname == "_broker_start":
+                    self.assertEqual(kw["env"].id, "env")
+                    continue
                 if attr == "run":
                     self.assertIn("timeout", kw)
                     self.assertIn("input", kw)
@@ -523,9 +529,11 @@ class CodeGuardTests(unittest.TestCase):
                     if isinstance(n, ast.Attribute) and n.attr in ("mkdtemp", "rmtree", "mkstemp", "NamedTemporaryFile",
                                                                    "TemporaryDirectory", "copy", "move"):
                         found.append((fn.name, n.attr))
-        self.assertEqual(sorted(found), [("_canary_folder", "mkdtemp"), ("_remove_canary_folder", "rmtree")])
+        # W78 step 5: the enforcement broker has a folder of its own (a short path in /tmp, mode 0700), made and removed in two places
+        self.assertEqual(sorted(found), [("_broker_end", "rmtree"), ("_broker_start", "mkdtemp"), ("_broker_start", "rmtree"),
+                                         ("_canary_folder", "mkdtemp"), ("_remove_canary_folder", "rmtree")])
         _, calls = self._calls()
-        [popen] = [kw for f, attr, kw in calls if attr == "Popen"]
+        [popen] = [kw for f, attr, kw in calls if attr == "Popen" and f == "_start"]
         self.assertEqual(popen["env"].id, "env")  # the allow list reaches the adapter
         src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
         self.assertEqual(src.count("env = child_env(os.environ)  # the allow list of 10.R11.9"), 1)
