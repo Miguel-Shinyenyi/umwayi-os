@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while building W41 C2
 title: unchecked tool calls are found after the run, from the platform's own report, and only for Claude Code
-number: 334
+number: 335
 
 These are facts of the code of this change. No real Claude Code ran with it; the tests use a fake `claude` that reports the events the Claude Code docs describe.
 

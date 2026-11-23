@@ -227,6 +227,14 @@ class AgentCase(unittest.TestCase):
         p.chmod(0o755)
         return p
 
+    def fake_sandbox_tools(self):
+        """Stand-ins for `bwrap` and `socat` on PATH, so an enforced Claude Code start finds the tools that W41 B1 asks for on Linux.
+        They run nothing: the tests never start a real sandbox."""
+        for name in ("bwrap", "socat"):
+            p = self.bin / name
+            p.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(0)\n", encoding="utf-8")
+            p.chmod(0o755)
+
     def fake_opencode(self, **cfg):
         """A fake `opencode` that answers --version and records every call (task 10.46). Its settings (version, exit,
         hang, big, no_newline) are written to a file next to it, because umwayi gives it only an allow-listed

@@ -914,8 +914,40 @@ def probe_argv(node: str, adapter: Path, name: str) -> list:
     return _assert_allowed([node, str(adapter), *CLAUDE_ACP_PROBES[name]])
 
 
-def claude_settings(python: str, hook: Path, root: Path) -> str:
-    """The --settings JSON for Claude Code, from a fixed template (design.md, layer 10)."""
+# W41 B1 (W78 step 4): Claude Code's own sandbox for the shell calls it makes. An `enforced` start of a Claude Code agent passes these
+# three keys with --settings and refuses to start without them. They are fixed here, never read from a file. umwayi reads
+# its own settings text back and looks for a sandbox it can host; it does not test that the sandbox holds.
+SANDBOX_SETTINGS = {"enabled": True, "failIfUnavailable": True, "allowUnsandboxedCommands": False}
+SANDBOX_TOOLS = ("bwrap", "socat")  # Linux only; macOS has Seatbelt built in. The owner installs them; umwayi never does.
+_platform = lambda: sys.platform  # a test replaces these two
+_which = shutil.which
+
+
+def sandbox_problem(settings_text: str) -> tuple | None:
+    """None when `settings_text` (the --settings JSON that would be passed) holds exactly the fixed sandbox block and this
+    machine can host it, else (reason, sentence) with the reason from enforce.REASONS: `profile` (the block is missing or
+    unreadable), `platform` (not macOS or Linux), `dependency` (bwrap or socat is not on PATH)."""
+    try:
+        block = json.loads(settings_text).get("sandbox")
+    except (ValueError, AttributeError):
+        block = None
+    if block != SANDBOX_SETTINGS:
+        return "profile", "the Claude Code sandbox settings are missing or not the fixed ones in the --settings JSON"
+    plat = _platform()
+    if plat == "darwin":
+        return None
+    if not plat.startswith("linux"):
+        return "platform", "Claude Code's sandbox runs only on macOS and Linux"
+    missing = [t for t in SANDBOX_TOOLS if not _which(t)]
+    if missing:
+        return "dependency", (f"{' and '.join(missing)} not found on PATH. Install {'it' if len(missing) == 1 else 'them'} "
+                              "yourself; umwayi installs nothing")
+    return None
+
+
+def claude_settings(python: str, hook: Path, root: Path, sandbox: bool = False) -> str:
+    """The --settings JSON for Claude Code, from a fixed template (design.md, layer 10). sandbox True (an `enforced` start,
+    W41 B1) adds the fixed sandbox block."""
     settings = {
         "disableAllHooks": False,
         "forceLoginMethod": "claudeai",  # 10.R12.7: a second line; the login check is the first
@@ -924,6 +956,8 @@ def claude_settings(python: str, hook: Path, root: Path) -> str:
             "timeout": CLAUDE_HOOK_TIMEOUT, "onFailure": "block",
         }]}]},
     }
+    if sandbox:
+        settings["sandbox"] = dict(SANDBOX_SETTINGS)
     return json.dumps(settings, separators=(",", ":"))
 
 
@@ -1011,7 +1045,7 @@ def _assert_allowed(argv: list, skip: int | None = None) -> list:
 
 def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: str,
                prompt: str | None = None, src: Path | None = None, model: str | None = None,
-               effort: str | None = None) -> tuple:
+               effort: str | None = None, sandbox: bool = False) -> tuple:
     """(argument list, stdin text or None). The only place an agent's command line is made.
 
     model and effort (W9.6) are for `agent run` of Claude Code and Kiro only; None adds nothing."""
@@ -1038,7 +1072,7 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
         # command_path is node here; the adapter is the fixed path, never looked up through PATH or npx
         return _assert_allowed([command_path, str(claude_acp_path(CLAUDE_ACP_ADAPTER, src))]), None
     if agent.platform == "claude-code":
-        settings = claude_settings(python, hook_path("claude-code", src), root)
+        settings = claude_settings(python, hook_path("claude-code", src), root, sandbox=sandbox)
         if mode == RUN:
             argv = [command_path, "-p", "--permission-mode", "default", "--settings", settings]
             if agent.max_turns is not None:
@@ -1198,6 +1232,17 @@ def _recorder(gate: Gate, order: list):
                 gate.checks.append(Check(rest, None, "an earlier check failed"))
         return ok
     return done
+
+
+def _sandbox_check(hook: Path, root: Path, done) -> bool:
+    """W41 B1: an `enforced` Claude Code start must pass Claude Code's sandbox settings and this machine must be able to host
+    them. It reads the settings text umwayi would pass and looks at the machine; it does not start Claude Code, so it does not
+    show that the sandbox holds. A refusal names the reason from the fixed list of enforce.REASONS."""
+    problem = sandbox_problem(claude_settings(python_path(), hook, root, sandbox=True))
+    if problem is None:
+        return done("sandbox settings", True, "the fixed sandbox block is in the settings, and this machine can host it "
+                                              "(not tested: whether the sandbox holds)")
+    return done("sandbox settings", False, f"refused ({problem[0]}): {problem[1]}")
 
 
 def _hook_checks(platform: str, root: Path, src: Path | None, done, env: dict | None = None) -> bool:
@@ -1543,14 +1588,22 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     gate = Gate()
     if mode == LOGIN and not can_login(agent):
         raise UsageError(LOGIN_ONLY)
+    if (agent.platform == "claude-code" and mode != LOGIN and is_claude_acp(agent, mode)
+            and scrub_applies(root, agent.name, _dt.date.today().isoformat())):
+        # W41 B1: the ACP adapter takes no --settings, so no sandbox block can reach it. Refused, never a fallback.
+        gate.checks.append(Check("sandbox settings", False, "refused (profile): the Claude Code ACP adapter takes no sandbox "
+                                 "settings; use transport cli for this agent, or set it cooperative at your terminal"))
+        return gate
     if agent.platform == "opencode":  # the six checks of 10.R13.8
         return _opencode_checks(agent, plat, gate, src, home)
     if is_claude_acp(agent, mode):
         return _claude_acp_checks(agent, root, src, gate, login_only=mode == LOGIN)
     claude = agent.platform == "claude-code"
     kiro = agent.platform == "kiro"
+    sandboxed = claude and mode != LOGIN and scrub_applies(root, agent.name, _dt.date.today().isoformat())
     order = ["command", "version", "login"] + ([] if mode == LOGIN else
-                                               ["hook script", "hook self-test"] + (["kiro hook file"] if kiro else []))
+                                               ["hook script", "hook self-test"] + (["kiro hook file"] if kiro else [])
+                                               + (["sandbox settings"] if sandboxed else []))
     done = _recorder(gate, order)
     # the environment the agent itself will get: the allow list when it is enforced (W78 step 2), else without the
     # credential names (10.R12.6, 10.R12.13)
@@ -1593,6 +1646,8 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
     if not _hook_checks(agent.platform, root, src, done):
         return gate
     hook = hook_path(agent.platform, src)
+    if sandboxed and not _sandbox_check(hook, root, done):
+        return gate
 
     if agent.platform == "kiro":
         want = kiro_hook_command("python3", hook, root)
@@ -1667,7 +1722,9 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
     modes = [RUN, CHAT]
     for mode in modes:
         argv, stdin = build_argv(agent, mode, gate.command_path, root, python,
-                                 prompt="PROMPT" if mode == RUN else None)
+                                 prompt="PROMPT" if mode == RUN else None,
+                                 sandbox=agent.platform == "claude-code" and scrub_applies(root, agent.name,
+                                                                                          _dt.date.today().isoformat()))
         shown = json.dumps(argv)
         lines.append(f"{mode} would start: {shown}" + (" with the prompt on stdin" if stdin is not None else ""))
     lines.append(f"Gated: agent {agent.name} can be started. Nothing was started.")
@@ -2012,7 +2069,7 @@ class _Run:
 
         # 6. the argument list, from the platform table only
         argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt,
-                                      model=self.options.model, effort=self.options.effort)
+                                      model=self.options.model, effort=self.options.effort, sandbox=self._sandbox())
 
         # 7. the start entry first, then the start
         how = f"{a.platform}, {a.transport}" + (", chat" if self.mode == CHAT else "")
@@ -2261,6 +2318,12 @@ class _Run:
     def _claude_acp(self) -> bool:
         """A Claude Code ACP chat (the canary, the inline settings, the ACP client). Never the sign-in."""
         return self.mode == CHAT and is_claude_acp(self.agent, self.mode)
+
+    def _sandbox(self) -> bool:
+        """W41 B1: a Claude Code start under a mode file that says `enforced` passes the sandbox settings. The gate check has
+        already refused the start when the settings or the machine cannot do it."""
+        return (self.agent.platform == "claude-code" and self.mode != LOGIN
+                and scrub_applies(self.root, self.agent.name, self.clock()))
 
     def _opencode(self) -> bool:
         """An OpenCode chat or run (the plugin's canary, the inline config, the ACP client). Login never gets here."""
