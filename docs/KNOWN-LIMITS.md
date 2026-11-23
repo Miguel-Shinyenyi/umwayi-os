@@ -2224,7 +2224,7 @@ These are facts of the code of this change.
 
 ## Enforced by default (W78), found while building the Landlock confinement (step 5b)
 
-### 338. the Landlock program exists and is tested on its own, but no helper is started through it
+### 339. the Landlock program exists and is tested on its own, but no helper is started through it
 
 These are facts of the code of this change.
 
@@ -2239,7 +2239,7 @@ These are facts of the code of this change.
 
 ## Enforced by default (W78), found while starting a run through Landlock (step 5b2)
 
-### 339. a confined run needs `confine: true`, and the allow list for a real Claude Code is a guess
+### 340. a confined run needs `confine: true`, and the allow list for a real Claude Code is a guess
 
 These are facts of the code of this change. No real Claude Code ran confined.
 

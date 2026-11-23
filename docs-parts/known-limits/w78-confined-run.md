@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while starting a run through Landlock (step 5b2)
 title: a confined run needs `confine: true`, and the allow list for a real Claude Code is a guess
-number: 339
+number: 340
 
 These are facts of the code of this change. No real Claude Code ran confined.
 
