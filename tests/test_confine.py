@@ -216,7 +216,7 @@ class KernelTests(KernelCase):
         p = subprocess.run(argv, capture_output=True, text=True, timeout=60, env={"PATH": os.environ.get("PATH", "")}, cwd=str(self.work))
         got = json.loads(p.stdout.strip().splitlines()[-1])
         self.assertNotEqual(got["code"], 0, p.stdout + p.stderr)
-        self.assertIn("PermissionError", got["err"])
+        self.assertIn("Permission denied", got["err"])  # the kernel's EACCES, as the grandchild's own error reports it
         self.assertFalse((self.other / "child.txt").exists())
 
     def test_a_listed_path_that_does_not_exist_refuses_and_the_command_is_not_run(self):
