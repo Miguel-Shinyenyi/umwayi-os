@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while building Seatbelt (step 7)
 title: Seatbelt is built and measured with a Python child on one Mac, and no helper is started through it
-number: 341
+number: 342
 
 These are facts of the code of this change.
 

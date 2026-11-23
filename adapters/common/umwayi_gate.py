@@ -143,8 +143,8 @@ def umwayi_command(root: Path, python: str | None = None) -> list:
     return [python or sys.executable, "-m", "umwayi", "--root", str(root)]
 
 
-def check_command(root: Path, python: str | None = None) -> list:
-    return umwayi_command(root, python) + ["check", "-", "--json", "--kill-switch"]
+def check_command(root: Path, python: str | None = None, scope: str | None = None) -> list:
+    return umwayi_command(root, python) + ["check", "-", "--json", "--kill-switch"] + (["--scope", scope] if scope else [])
 
 
 def _child_env(umwayi_src: Path | None) -> dict:
@@ -186,12 +186,12 @@ def run_broker_check(action: dict, sock: str, run: str, timeout: float = DEFAULT
 
 
 def run_check(action: dict, root: Path, umwayi_src: Path | None = None,
-              timeout: float = DEFAULT_TIMEOUT, python: str | None = None) -> CheckResult:
+              timeout: float = DEFAULT_TIMEOUT, python: str | None = None, scope: str | None = None) -> CheckResult:
     """Run `umwayi check - --json --kill-switch` with the action on stdin. Never raises for a child problem."""
     env = _child_env(umwayi_src)
     try:
         proc = subprocess.run(
-            check_command(root, python),
+            check_command(root, python, scope),
             input=json.dumps(action).encode("utf-8"),
             capture_output=True,
             timeout=timeout,

@@ -391,13 +391,15 @@ def options_for(platform, model, effort):
     return out
 
 
-def child_argv(name, cap_uu, workdir, model_effort=()):
+def child_argv(name, cap_uu, workdir, model_effort=(), scope_file=None):
     """The whole argument list of the one child. The prompt is never in it (W9.R3.5): it goes on standard input."""
     if not (isinstance(cap_uu, int) and not isinstance(cap_uu, bool) and cap_uu >= 1):
         raise ValueError("a run needs a cap of at least 1 UU")
     argv = CHILD_PREFIX + [name, "-", "--cap-uu", str(cap_uu)] + list(model_effort)
     if workdir is not None:
         argv += ["--workdir", str(workdir)]
+    if scope_file is not None:  # W9.16: the scope of the task, enforced by the Claude Code hook while the helper runs
+        argv += ["--scope-file", str(scope_file)]
     return argv
 
 
@@ -1041,9 +1043,31 @@ class _Run:
         if role == "builder":
             self.begin_builder(agent, cap)
         model, effort = self.model_effort(role)
-        argv = child_argv(agent, cap, self.worktree, options_for(platform, model, effort))
+        argv = child_argv(agent, cap, self.worktree, options_for(platform, model, effort),
+                          self.write_scope(role, platform, self.packet.files if role == "builder" else (),
+                                           self.own if role == "builder" else ()))
         fp_fn = self.fp_all(self.own) if role == "builder" else None
         return self.run_child(role, argv, prompt, fp_fn, cap, before, agent, TAGS.get(role))
+
+    def write_scope(self, role, platform, files, own):
+        """W9.16: write the scope file of this role's run and return its path, or None (Kiro and OpenCode have no such hook). The
+        builder may write the packet's files and the two own files; every other role may write none, so a file write of a tester,
+        a check or a planning run is No. The file is replaced for each run, next to the goal's records."""
+        if platform != "claude-code":
+            return None
+        from umwayi import scope
+        name = f"scope-{self.task}-{role}.json"
+        path = gs.goal_dir(self.root, self.goal) / name
+        try:
+            data = scope.make(str(self.worktree), files, own)
+            tmp = path.with_name("." + name + ".tmp")
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+            os.replace(tmp, path)
+        except (OSError, ValueError):
+            self.finish("agent_cannot_be_gated")  # no scope file, no run: fail closed
+        return str(path)
 
     def begin_builder(self, agent, cap):
         """Step 8: the start entry (with BASE), then the worktree, its checks, the gate for it."""
@@ -1669,7 +1693,7 @@ class _PlanRun(_Run):
         cap, before = self.step_budget("guide", agent, platform)
         self.begin_builder(agent, cap)
         model, effort = self.model_effort("guide")
-        argv = child_argv(agent, cap, self.worktree, options_for(platform, model, effort))
+        argv = child_argv(agent, cap, self.worktree, options_for(platform, model, effort), self.write_scope("plan", platform, (), ()))
         res = self.run_child("guide", argv, planning_prompt(self.g["text"], nonce), None, cap, before, agent, None)
         word = self.plan_word(res, nonce)
         if word is not None:
