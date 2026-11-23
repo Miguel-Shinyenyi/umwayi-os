@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while wiring the broker (step 5a2)
 title: an enforced Claude Code run asks the broker, but the helper can still write the logbook itself
-number: 335
+number: 336
 
 These are facts of the code of this change. No real Claude Code ran with it.
 

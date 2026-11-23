@@ -433,6 +433,8 @@ FACTS = {
     "counted": ("Counted from the logbook since the task started: {no} No, {ask} Ask me first, {guard} guard findings.",
                 {"no": r"\d{1,6}", "ask": r"\d{1,6}", "guard": r"\d{1,6}"}),
     # W78 step 3: which watched files changed during a run, by the fixed names of umwayi/watched.py, never a path or a word of a helper
+    # W78 step 8 (W41 C2): how many tool calls the platform reported and no hook checked; the ids are in the agent's own entry
+    "unchecked_calls": ("Tool calls with no check entry during the run: {n}.", {"n": r"\d{1,5}"}),
     "guard_files": ("Guard files changed during the run: {names}.", {"names": (
         "(?:" + "|".join(re.escape(x) for x in watched.NAMES) + ")(?:, (?:" + "|".join(re.escape(x) for x in watched.NAMES) + "))*")}),
     "main_ok": ("The local main is not behind origin/main.", {}),
