@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-from umwayi import fsutil, goalbudget, goallog, goalpacket as gp, logbook, taskqueue
+from umwayi import fsutil, goalbudget, goallog, goalpacket as gp, logbook, taskqueue, watched
 from umwayi.errors import UmwayiError
 
 try:
@@ -428,6 +428,9 @@ FACTS = {
     # the task of a plan refused as protected and the protected list entry that matched, never the plan's own path
     "plan_protected": ("Protected path of task {task}: {entry}.",
                        {"task": r"\d{1,3}", "entry": "|".join(re.escape(x) for x in gp.PROTECTED)}),
+    # W78 step 3: which watched files changed during a run, by the fixed names of umwayi/watched.py, never a path or a word of a helper
+    "guard_files": ("Guard files changed during the run: {names}.", {"names": (
+        "(?:" + "|".join(re.escape(x) for x in watched.NAMES) + ")(?:, (?:" + "|".join(re.escape(x) for x in watched.NAMES) + "))*")}),
     "main_ok": ("The local main is not behind origin/main.", {}),
     "no_leftover": ("No leftover.", {}),
     "clean_base": ("Clean at base.", {}),

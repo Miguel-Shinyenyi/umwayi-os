@@ -392,6 +392,10 @@ for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     kind = step["do"]
     if kind == "tool":
         tool(step["tool"], step.get("input", {}))
+    elif kind == "write":  # W78 step 3: change a file of the root, the way a helper that left its folder could
+        os.makedirs(os.path.dirname(step["path"]), exist_ok=True)
+        with open(step["path"], "w", encoding="utf-8") as f:
+            f.write(step.get("text", ""))
     elif kind == "sleep":
         time.sleep(step["s"])
     elif kind == "loop_tools":
