@@ -2,8 +2,8 @@
 
 Standard library only. The map is tools/ci_map.json. `python -m tools.ci_map check` fails (exit 2) when a test file
 reads a path the map does not list for it, when a test file has no entry, or when an entry is for a file that is gone.
-`python -m tools.ci_map table` prints the markdown table that docs/testing.md holds between two markers.
-W21: `table --write` puts that table into docs/testing.md (from the first begin marker to the last end marker, so a
+`python -m tools.ci_map table` prints the markdown table that tools/ci_map_table.md holds between two markers.
+W21: `table --write` puts that table into tools/ci_map_table.md (from the first begin marker to the last end marker, so a
 doubled marker is repaired), `table --check` exits 2 when the file does not hold it, and `update` rewrites the
 python and node sections of tools/ci_map.json from the scan: an entry that is still true is kept as it is, a test
 file with no entry (or a false one) gets what the scan found, and the entry of a file that is gone is dropped.
@@ -489,7 +489,7 @@ def table_markdown(data):
     return "\n".join(lines)
 
 
-TESTING_MD = REPO / "docs" / "testing.md"
+TESTING_MD = REPO / "tools" / "ci_map_table.md"  # the table moved out of docs/testing.md (G3): it grows with every test file
 _SECTIONS_AT = '\n "python": {\n'
 
 
@@ -507,7 +507,7 @@ def replace_block(text, table):
     b = text.find(TABLE_BEGIN.split(" (")[0])
     e = text.rfind(TABLE_END)
     if b < 0 or e < 0 or e < b:
-        raise MapError("docs/testing.md has no generated block (the begin and end markers of the ci-map table)")
+        raise MapError("tools/ci_map_table.md has no generated block (the begin and end markers of the ci-map table)")
     return text[:b] + table + text[e + len(TABLE_END):]
 
 
@@ -569,15 +569,15 @@ def main(argv):
             new = replace_block(text, table_markdown(data))
             if argv[1] == "--check":
                 if new != text:
-                    print("ci_map: the table in docs/testing.md is not the current table", file=sys.stderr)
+                    print("ci_map: the table in tools/ci_map_table.md is not the current table", file=sys.stderr)
                     return 2
-                print("ci_map: the table in docs/testing.md is current")
+                print("ci_map: the table in tools/ci_map_table.md is current")
                 return 0
             if new != text:
                 TESTING_MD.write_text(new, encoding="utf-8")
-                print("ci_map: docs/testing.md table written")
+                print("ci_map: tools/ci_map_table.md table written")
             else:
-                print("ci_map: docs/testing.md table already current")
+                print("ci_map: tools/ci_map_table.md table already current")
             return 0
         if argv[0] == "table":
             print(table_markdown(data))
