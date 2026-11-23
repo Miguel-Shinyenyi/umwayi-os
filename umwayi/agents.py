@@ -2351,7 +2351,10 @@ class _Run:
         return (sock, run)
 
     def _broker_row(self, ended: bool) -> dict:
-        return {"agent": self.agent.name, "platform": self.agent.platform, "task": "none", "mode": "enforced", "ended": ended}
+        row = {"agent": self.agent.name, "platform": self.agent.platform, "task": "none", "mode": "enforced", "ended": ended}
+        if self.scope_file:  # W9.16: the broker applies the scope of the task as `umwayi check --scope` does
+            row["scope"] = str(self.scope_file)
+        return row
 
     def _confine_argv(self, argv: list) -> list:
         """W78 step 6 (5b2): a `claude -p` run under a mode file that says `enforced` is started through `umwayi.confine`: Landlock,
