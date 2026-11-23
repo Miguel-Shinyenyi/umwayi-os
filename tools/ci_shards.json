@@ -584,6 +584,10 @@
    "seconds": 63.5,
    "shard": 2
   },
+  "tests/test_pr_numbers.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
   "tests/test_progress_page.py": {
    "seconds": 13.1,
    "shard": 1
