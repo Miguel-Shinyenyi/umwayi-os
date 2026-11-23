@@ -42,14 +42,16 @@ def main(argv, stdin, stdout, stderr) -> int:
 
     # --- arguments, without argparse (argparse exits 2 and prints usage; we want our own message)
     args = list(argv)
-    root = umwayi_src = broker_sock = broker_run = None
+    root = umwayi_src = broker_sock = broker_run = scope_file = None
     timeout = gate.DEFAULT_TIMEOUT
     while args:
         flag = args.pop(0)
-        if flag not in ("--root", "--umwayi-src", "--timeout", "--broker", "--run") or not args:
+        if flag not in ("--root", "--umwayi-src", "--timeout", "--broker", "--run", "--scope") or not args:
             return _block(stderr, f"umwayi hook: blocked, unknown or incomplete argument {flag[:40]!r}.")
         value = args.pop(0)
-        if flag == "--broker":
+        if flag == "--scope":
+            scope_file = value
+        elif flag == "--broker":
             broker_sock = value
         elif flag == "--run":
             broker_run = value
@@ -90,7 +92,7 @@ def main(argv, stdin, stdout, stderr) -> int:
     if broker_sock is not None:  # W78 step 5: the broker answers and writes the entry; never a fallback to `umwayi check`
         verdict = gate.decide(gate.run_broker_check(action, broker_sock, broker_run, timeout))
     else:
-        verdict = gate.decide(gate.run_check(action, root.resolve(), umwayi_src, timeout))
+        verdict = gate.decide(gate.run_check(action, root.resolve(), umwayi_src, timeout, scope=scope_file))
     out = {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",

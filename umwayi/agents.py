@@ -949,7 +949,8 @@ def sandbox_problem(settings_text: str) -> tuple | None:
     return None
 
 
-def claude_settings(python: str, hook: Path, root: Path, sandbox: bool = False, broker: tuple | None = None) -> str:
+def claude_settings(python: str, hook: Path, root: Path, sandbox: bool = False, broker: tuple | None = None,
+                    scope: str | None = None) -> str:
     """The --settings JSON for Claude Code, from a fixed template (design.md, layer 10). sandbox True (an `enforced` start,
     W41 B1) adds the fixed sandbox block. broker (socket path, run id) makes the hook ask the enforcement broker in place of
     `umwayi check` (W78 step 5)."""
@@ -958,7 +959,8 @@ def claude_settings(python: str, hook: Path, root: Path, sandbox: bool = False, 
         "forceLoginMethod": "claudeai",  # 10.R12.7: a second line; the login check is the first
         "hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{
             "type": "command", "command": python,
-            "args": [str(hook), "--root", str(root)] + (["--broker", str(broker[0]), "--run", str(broker[1])] if broker else []),
+            "args": [str(hook), "--root", str(root)] + (["--broker", str(broker[0]), "--run", str(broker[1])] if broker else [])
+                    + (["--scope", str(scope)] if scope else []),
             "timeout": CLAUDE_HOOK_TIMEOUT, "onFailure": "block",
         }]}]},
     }
@@ -1051,7 +1053,7 @@ def _assert_allowed(argv: list, skip: int | None = None) -> list:
 
 def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: str,
                prompt: str | None = None, src: Path | None = None, model: str | None = None,
-               effort: str | None = None, sandbox: bool = False, broker: tuple | None = None) -> tuple:
+               effort: str | None = None, sandbox: bool = False, broker: tuple | None = None, scope: str | None = None) -> tuple:
     """(argument list, stdin text or None). The only place an agent's command line is made.
 
     model and effort (W9.6) are for `agent run` of Claude Code and Kiro only; None adds nothing."""
@@ -1078,7 +1080,7 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
         # command_path is node here; the adapter is the fixed path, never looked up through PATH or npx
         return _assert_allowed([command_path, str(claude_acp_path(CLAUDE_ACP_ADAPTER, src))]), None
     if agent.platform == "claude-code":
-        settings = claude_settings(python, hook_path("claude-code", src), root, sandbox=sandbox, broker=broker)
+        settings = claude_settings(python, hook_path("claude-code", src), root, sandbox=sandbox, broker=broker, scope=scope)
         if mode == RUN:
             argv = [command_path, "-p", "--permission-mode", "default", "--settings", settings]
             if agent.max_turns is not None:
@@ -1887,7 +1889,8 @@ class _Run:
     """
 
     def __init__(self, root: Path, agent: Agent, prompt: str | None, clock, mode: str = RUN, out=None,
-                 options: RunOptions | None = None, worktree: str | None = None):
+                 options: RunOptions | None = None, worktree: str | None = None, scope_file: str | None = None):
+        self.scope_file = scope_file  # W9.16: a scope file of a goal task; the Claude Code hook passes it to `umwayi check --scope`
         self.options = options or RunOptions()  # W9.6: all None unless `agent run` was given an option
         self.worktree = worktree  # W9.6b: the name of the worktree given by --workdir, None when the option is not used
         self.root = root
@@ -2081,7 +2084,7 @@ class _Run:
         try:
             argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt,
                                           model=self.options.model, effort=self.options.effort, sandbox=self._sandbox(),
-                                          broker=self._broker_start())
+                                          broker=self._broker_start(), scope=self.scope_file)
         except BrokerNotStarted:  # W78 step 5: not confined, reason `broker`; never a fallback to cooperative
             why = self.log(f"Refused agent {a.name}: not confined (broker)", "the enforcement broker of the run could not be started",
                            "Nothing was started.")
@@ -3069,8 +3072,11 @@ def login_agent(root, name: str, clock, given: str | None = None) -> Result:
 
 
 def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap_uu: str | None = None,
-              model: str | None = None, effort: str | None = None, workdir: str | None = None) -> Result:
+              model: str | None = None, effort: str | None = None, workdir: str | None = None,
+              scope_file: str | None = None) -> Result:
     """`umwayi agent run NAME`, for Claude Code (part 3) and Kiro (part 4). The same steps for both.
+
+    scope_file (W9.16) is the scope file of a goal task: a Claude Code run only; its hook then answers No to a file write outside it.
 
     cap_uu, model and effort (W9.6) are the text of the options; none given means the run is as it was before.
     workdir (W9.6b) is a worktree umwayi made; the helper then works in it in place of the workdir of agents.yaml."""
@@ -3083,6 +3089,11 @@ def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap
         raise UsageError("agent: unknown platform. Nothing was started.")
     prompt = check_prompt(prompt, agent.platform)
     options = check_options(agent, cap_uu, model, effort)
+    if scope_file is not None:
+        if agent.platform != "claude-code" or workdir is None:
+            raise UsageError("agent: --scope-file is for a Claude Code run in a goal worktree (--workdir). Nothing was started.")
+        if not os.path.isabs(scope_file) or not os.path.isfile(scope_file):
+            raise UsageError("agent: --scope-file must be the absolute path of a file. Nothing was started.")
     agent = with_workdir(root, agent, workdir)
     if options.cap_uu is not None:  # above limits.per_run is 64, before the kill switch, the rules or the logbook
         try:
@@ -3092,4 +3103,4 @@ def run_agent(root, name: str, prompt: str, clock, given: str | None = None, cap
         if problem is not None:
             raise UsageError(f"agent: {problem}. Nothing was started.")
     return _Run(root, agent, prompt, clock, options=options,
-                worktree=None if workdir is None else os.path.basename(agent.workdir)).go()
+                worktree=None if workdir is None else os.path.basename(agent.workdir), scope_file=scope_file).go()

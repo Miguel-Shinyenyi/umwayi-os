@@ -650,7 +650,7 @@ def log_entry(decision: Decision, when: str) -> logbook.Entry:
 
 def check_and_log(
     action_text: str | None, rules_path: Path, root: Path, when: str, log: bool = True,
-    kill_state: str | None = None, stop_reason: str | None = None,
+    kill_state: str | None = None, stop_reason: str | None = None, stopped_by: str = "the kill switch",
 ) -> tuple[Decision, bool]:
     """Check an action and append one logbook entry. Returns (decision, logged).
 
@@ -679,7 +679,7 @@ def check_and_log(
     decision.kill_state = kill_state
     if stop_reason is not None:
         decision = replace(decision, answer=NO, rule_id=None, reason=stop_reason, matched=[], lapsed=[],
-                           stopped_by="the kill switch")
+                           stopped_by=stopped_by)
     if not log:
         return decision, False
     try:

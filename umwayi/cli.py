@@ -253,6 +253,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--rules", help="path to rules.yaml (default: <root>/rules.yaml)")
     c.add_argument("--json", action="store_true", help="print the answer as JSON")
     c.add_argument("--no-log", action="store_true", help="dry run: do not write the logbook entry")
+    c.add_argument("--scope", help="W9.16: a scope file of a goal task; a file write outside it is No (an overlay: it never allows)")
     c.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD for the logbook entry (default: today)")
     c.add_argument("--kill-switch", action="store_true",
                    help="answer No while the kill switch is on or its state cannot be read (the layer 9 adapters use this)")
@@ -328,6 +329,8 @@ def build_parser() -> argparse.ArgumentParser:
                                       "and the per-run watch of this run only")
     agr.add_argument("--workdir", help="run in this worktree, which umwayi made for a goal task, in place of the "
                                        "workdir of agents.yaml; any other path is refused (64)")
+    agr.add_argument("--scope-file", help="W9.16: the scope file of a goal task (with --workdir, Claude Code only); a file write "
+                                          "outside it is No")
     agr.add_argument("--model", help="the model word to hand to the agent (Claude Code or Kiro)")
     agr.add_argument("--effort", help="the effort level to hand to the agent: low, medium, high, xhigh or max "
                                       "(Claude Code or Kiro)")
@@ -566,6 +569,23 @@ def _cmd_verify(args, out) -> int:
     return code
 
 
+def _scope_stop(scope_file: str, action_text) -> str | None:
+    """None, or the reason of a No by the scope of the task (W9.16): the action writes a file that the scope does not allow, or the
+    scope file cannot be read and the action writes a file. Anything that is not a file write is left to the rules."""
+    from umwayi import scope
+    try:
+        action = rules.parse_action(action_text) if action_text is not None else {}
+    except UmwayiError:
+        return None  # the rules answer Ask me first for an action they cannot read
+    if not scope.writes_a_file(action):
+        return None
+    try:
+        sc = scope.load(scope_file)
+    except scope.ScopeError:
+        return scope.UNREADABLE
+    return scope.REASON if scope.violates(sc, action) else None
+
+
 def _cmd_check(args, out) -> int:
     root = Path(args.root)
     rules_path = Path(args.rules) if args.rules else root / "rules.yaml"
@@ -577,9 +597,13 @@ def _cmd_check(args, out) -> int:
             action_text = None
     kill_state = kill.state(root)
     stop = kill.reason(kill_state) if args.kill_switch and kill.stopped(kill_state) else None
+    stopped_by = "the kill switch"
+    if stop is None and args.scope:  # W9.16: the scope of the task, an overlay that can only add a No
+        stop = _scope_stop(args.scope, action_text)
+        stopped_by = "the scope of the task"
     decision, logged = rules.check_and_log(
         action_text, rules_path, root, args.date or _today(), log=not args.no_log,
-        kill_state=kill_state if args.kill_switch else None, stop_reason=stop,
+        kill_state=kill_state if args.kill_switch else None, stop_reason=stop, stopped_by=stopped_by,
     )
     if args.json:
         data = decision.to_dict()
@@ -832,7 +856,7 @@ def _cmd_agent(args, out) -> int:
             prompt = agents.read_prompt(args.prompt, args.prompt_file, args.source == "-", sys.stdin.buffer)
             return _cmd_helper(agents.run_agent(Path(args.root), args.name, prompt, _today, args.agents,
                                                 cap_uu=args.cap_uu, model=args.model, effort=args.effort,
-                                                workdir=args.workdir), out)
+                                                workdir=args.workdir, scope_file=args.scope_file), out)
         if args.agent_command == "chat":
             return _cmd_helper(agents.chat_agent(Path(args.root), args.name, _today, args.agents, out), out)
         if args.agent_command == "login":
