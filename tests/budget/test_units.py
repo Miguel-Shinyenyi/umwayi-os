@@ -55,6 +55,7 @@ class ValidateTests(BudgetCase):
         self.assertIn("per_day: used 0 UU, reserved 0 UU, left 500 UU (limit 500 UU)", s.stdout)
         self.assertIn("There is no units.yaml: every reading is unknown and the limits are the placeholders.",
                       s.stdout)
+        self.assertIn("To set real numbers, write a units.yaml in the root. The format is in docs/budget-governor.md, under units.yaml.", s.stdout)
 
     def test_floats_are_refused(self):
         self.assert_problem(UNITS_HEAD + "limits:\n  per_day: 5.5\n", 3, "limits.per_day must be a whole number, "

@@ -2126,3 +2126,15 @@ These are facts of the change that made the goal commands say what they know (R2
 - A planning run that changes a file has its plan refused (`guard`), and the plan worktree is removed when it is clean, as for any refused plan.
 - A watched file changed by the helper inside its own worktree (a copy of the repository) is not the file of the root and is not seen here; the scope check of the task refuses a protected path in the worktree.
 - C2 (a tool call that no hook checked) is not built, and `umwayi enforce check` still reports `detect-after` as refused.
+
+## Guidance items of W78 point 5
+
+### 332. The task card, the refusal step and the counts are guidance and bookkeeping, not enforcement
+
+These are facts of the code of this change.
+
+- The task card is text. A model can ignore it. The gate and the scope check decide.
+- The rules in the card are matched by the `platform` of a rule. A rule written with another matcher is counted as a general rule and its text is not shown.
+- The `Allowed next` step is one fixed sentence for each answer. It does not say which action would be allowed.
+- Refusals written by `umwayi check` itself, without the adapter gate, have no step. Only the adapters add it.
+- The counts cover calls that went through `umwayi check` while the task ran. A helper whose calls never reach the gate is counted as zero. A count of zero is not proof of obedience.

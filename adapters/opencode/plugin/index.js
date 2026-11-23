@@ -11,7 +11,7 @@ const MAX_OUTPUT = 64 * 1024
 // ask the owner afterwards. Code Mode (`execute` and the `opencode_*` tools inside it) is not on the list.
 const ASKED = new Set(["read", "glob", "grep", "write", "edit", "shell", "webfetch", "question", "subagent"])
 const TOKEN = /^[A-Za-z0-9_-]{16,128}$/
-const DENIED = "umwayi: this tool call was not allowed by the rules"
+const DENIED = "umwayi: this tool call was not allowed by the rules. Allowed next: do not do this; ask the owner to do it, or to change the rule."
 const BAD_OPTIONS = "umwayi: the gate options are missing or wrong"
 
 const text = (v) => typeof v === "string" && v.length > 0 && !v.includes("\0")

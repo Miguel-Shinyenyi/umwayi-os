@@ -159,6 +159,7 @@ per_day: used 0 UU, reserved 0 UU, left 500 UU (limit 500 UU)
 per_run: 100 UU reserved for every start; unknown_worst_case: 100 UU
 Of used: nothing was used on this day
 There is no units.yaml: every reading is unknown and the limits are the placeholders.
+To set real numbers, write a units.yaml in the root. The format is in docs/budget-governor.md, under units.yaml.
 Nothing was started or written.
 ```
 

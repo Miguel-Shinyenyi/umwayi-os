@@ -428,6 +428,10 @@ FACTS = {
     # the task of a plan refused as protected and the protected list entry that matched, never the plan's own path
     "plan_protected": ("Protected path of task {task}: {entry}.",
                        {"task": r"\d{1,3}", "entry": "|".join(re.escape(x) for x in gp.PROTECTED)}),
+    # W78 5(g): counts only, per task: the rules' refusals and Ask me first answers the umwayi checks wrote while the task ran, and
+    # the watched-file findings
+    "counted": ("Counted from the logbook since the task started: {no} No, {ask} Ask me first, {guard} guard findings.",
+                {"no": r"\d{1,6}", "ask": r"\d{1,6}", "guard": r"\d{1,6}"}),
     # W78 step 3: which watched files changed during a run, by the fixed names of umwayi/watched.py, never a path or a word of a helper
     "guard_files": ("Guard files changed during the run: {names}.", {"names": (
         "(?:" + "|".join(re.escape(x) for x in watched.NAMES) + ")(?:, (?:" + "|".join(re.escape(x) for x in watched.NAMES) + "))*")}),
@@ -467,6 +471,8 @@ NOT_DONE = {
     "nothing": "Nothing was started and nothing was answered.",
     "wt": "Nothing was pushed or merged. The owner's working copy was not touched.",
     "nodelete": "No branch was deleted and nothing was forced.",
+    "counts": "Only three numbers were kept. A count is not proof of obedience: a helper with none may never have tried, and a "
+              "count says nothing of what was not asked.",
 }
 
 
@@ -646,6 +652,12 @@ def worktree_entry(when, goal, task, action, base=None, how=None):
     raise ValueError("action")
 
 
+def counts_entry(when, goal, task, no, ask, guard):
+    """W78 5(g): one entry per task end, with three numbers and nothing else. Never a word, a path or a rule id."""
+    return _entry(when, f"Goal {_gid(goal)} task {_tid(task)}: counts",
+                  [("counted", {"no": str(no), "ask": str(ask), "guard": str(guard)})], "counts")
+
+
 def docs_entry(when, status_parts, limits_parts):
     return _entry(when, f"Docs built: {_need(_N, str(status_parts))} status parts, {_need(_N, str(limits_parts))} limits parts",
                   [("none", {})], "nothing")
@@ -684,6 +696,7 @@ _SHAPES = (
     ("worktree", re.compile(rf"Goal {_G} plan worktree made, base (?P<base>{_HEX_RX})")),
     ("worktree", re.compile(rf"Goal {_G} plan worktree removed")),
     ("docs_built", re.compile(rf"Docs built: (?P<status>{_N}) status parts, (?P<limits>{_N}) limits parts")),
+    ("counts", re.compile(rf"Goal {_G} task {_T}: counts")),
 )
 _NOT_DONE_VALUES = set(NOT_DONE.values())
 
@@ -793,7 +806,7 @@ def parse_entries(entries):
             for a in ("role", "agent", "base", "branch", "tip", "commit"):
                 if getattr(r, a) is not None:
                     setattr(t, a, getattr(r, a))
-        elif k == "worktree":
+        elif k in ("worktree", "counts"):
             if r.task and r.task not in v.tasks:
                 raise bad
         elif k == "approval_requested":

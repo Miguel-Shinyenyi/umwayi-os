@@ -50,7 +50,7 @@ HERE = os.path.dirname(os.path.realpath(sys.argv[0]))
 with open(os.path.join(HERE, "opencode-fake.json"), encoding="utf-8") as f:
     CFG = json.load(f)
 
-DENIED = "umwayi: this tool call was not allowed by the rules"
+DENIED = "umwayi: this tool call was not allowed by the rules. Allowed next: do not do this; ask the owner to do it, or to change the rule."
 ASKED = {"read", "glob", "grep", "write", "edit", "shell", "webfetch", "question", "subagent"}
 KIND = {"read": "read", "glob": "search", "grep": "search", "write": "edit", "edit": "edit", "shell": "execute",
         "webfetch": "fetch", "question": "other", "execute": "other", "subagent": "think"}
