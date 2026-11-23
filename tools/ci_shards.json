@@ -668,6 +668,10 @@
    "seconds": 1.9,
    "shard": 2
   },
+  "tests/test_stale_statements.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
   "tests/test_stalls.py": {
    "seconds": 0.5,
    "shard": 2
