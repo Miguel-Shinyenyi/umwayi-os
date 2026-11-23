@@ -151,19 +151,25 @@ def selftest() -> dict:
     return result
 
 
+TESTING_SWITCH = "--i-am-testing"
+
+
 def _parse_run(args: list):
-    """(read, write, no_network, command) from `--read P ... --write P ... [--no-network] -- /abs/command args`, or None."""
-    read, write, no_net, i = [], [], False, 0
+    """(read, write, no_network, testing, command) from `--read P ... --write P ... [--no-network] [--i-am-testing] -- /abs/command args`,
+    or None."""
+    read, write, no_net, testing, i = [], [], False, False, 0
     while i < len(args) and args[i] != "--":
         if args[i] == "--no-network":
             no_net, i = True, i + 1
+        elif args[i] == TESTING_SWITCH:
+            testing, i = True, i + 1
         elif args[i] in ("--read", "--write") and i + 1 < len(args) and args[i + 1] != "--":
             (read if args[i] == "--read" else write).append(args[i + 1])
             i += 2
         else:
             return None
     command = args[i + 1:]
-    return (read, write, no_net, command) if i < len(args) and command else None
+    return (read, write, no_net, testing, command) if i < len(args) and command else None
 
 
 def main(args=None) -> int:
@@ -174,10 +180,17 @@ def main(args=None) -> int:
         return 0 if available() else 2
     if args and args[0] == "run":  # the owner's try of a real command: `run --read P --write W [--no-network] -- /abs/cmd args`
         parsed = _parse_run(args[1:])
-        if parsed is None or not available():
-            sys.stderr.write("usage: python -m umwayi.seatbelt run --read PATH ... --write PATH ... [--no-network] -- /absolute/command ...\n")
-            return 64 if parsed is None else 2
-        read, write, no_net, command = parsed
+        if parsed is None:
+            sys.stderr.write("usage: python -m umwayi.seatbelt run --read PATH ... --write PATH ... [--no-network] [--i-am-testing] "
+                             "-- /absolute/command ...\n")
+            return 64
+        read, write, no_net, testing, command = parsed
+        allowed, why = start_allowed()
+        if not allowed and not (testing and available()):
+            # F3a: while CHECKED_ON_MAC is False a run is a hand test, and the owner says so by typing the switch
+            sys.stderr.write(f"refused: not confined ({why}). Allowed next: this is not checked on a Mac yet; to try it by hand, "
+                             f"type {TESTING_SWITCH} before the --.\n")
+            return 2
         try:
             full = argv(read, write, command, no_net)
         except SeatbeltRefused as e:
