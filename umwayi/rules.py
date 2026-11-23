@@ -93,6 +93,9 @@ class Decision:
     # W55b: the first word of the command of a shell tool call (command_word), named in the entry of a No or an
     # Ask me first only. Never in the JSON answer, never the command or any argument.
     command_word: str | None = None
+    # W41 C2: the platform's id of the tool call (Claude Code's tool_use_id), kept only if it is plain. It goes in the Checked line
+    # of the entry, so a call the platform reports and no entry names can be found after the run. Never in the JSON answer.
+    tool_use_id: str | None = None
 
     @property
     def exit_code(self) -> int:
@@ -521,7 +524,23 @@ def command_word(action: dict) -> str | None:
     return word if _COMMAND_WORD.fullmatch(word) else COMMAND_WORD_OTHER
 
 
+_TOOL_USE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
 def check(action_text: str | None, rules_path: Path, today: str | Callable[[], str] | None = None) -> Decision:
+    """The Decision of `_check`, with the action's tool_use_id kept when it is a plain one (W41 C2)."""
+    decision = _check(action_text, rules_path, today)
+    if action_text is not None:
+        try:
+            tid = parse_action(action_text).get("tool_use_id")
+        except UmwayiError:
+            tid = None
+        if isinstance(tid, str) and _TOOL_USE_ID.match(tid):
+            decision.tool_use_id = tid
+    return decision
+
+
+def _check(action_text: str | None, rules_path: Path, today: str | Callable[[], str] | None = None) -> Decision:
     """Return the Decision for an action. `today` is the date for the review_by of Yes rules (default: the system
     date); the callers without a root (jobs, helpers, publish, workflow steps) use the default.
 
@@ -623,6 +642,7 @@ def log_entry(decision: Decision, when: str) -> logbook.Entry:
             + (f"; kill switch: {decision.kill_state}" if decision.kill_state else "")
             + _fallback_text(decision.lapsed)
             + (decision.autonomy_text or "")
+            + (f"; tool use id: {decision.tool_use_id}" if decision.tool_use_id else "")
         ),
         not_done="The action was not run. The action JSON was not stored in the logbook.",
     )
