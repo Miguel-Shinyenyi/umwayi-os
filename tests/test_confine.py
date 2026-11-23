@@ -80,8 +80,8 @@ class PlanTests(unittest.TestCase):
 class ParseTests(unittest.TestCase):
     def test_the_fixed_shape(self):
         argv = confine.argv(["/usr"], ["/w"], ["/bin/true", "a"], no_network=True)
-        self.assertEqual(argv[1:3], ["-m", "umwayi.confine"])
-        self.assertEqual(confine.parse(argv[3:]), (["/usr"], ["/w"], True, ["/bin/true", "a"]))
+        self.assertEqual(argv[1], str(REPO / "umwayi" / "confine.py"))
+        self.assertEqual(confine.parse(argv[2:]), (["/usr"], ["/w"], True, ["/bin/true", "a"]))
 
     def test_anything_else_is_refused(self):
         for bad in ([], ["--"], ["--read", "/usr"], ["--read", "rel", "--", "/bin/true"], ["--x", "--", "/bin/true"],

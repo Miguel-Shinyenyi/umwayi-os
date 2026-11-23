@@ -392,6 +392,22 @@ for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     kind = step["do"]
     if kind == "tool":
         tool(step["tool"], step.get("input", {}))
+    elif kind == "try_write":  # W78 5b2: try to write a file and record the errno of the attempt (0 when it worked)
+        code = 0
+        try:
+            with open(step["path"], step.get("mode", "w"), encoding="utf-8") as f:
+                f.write("x")
+        except OSError as e:
+            code = e.errno
+        rec(event="try_write", path=step["path"], errno=code)
+    elif kind == "try_read":  # the same for a read
+        code = 0
+        try:
+            with open(step["path"], encoding="utf-8") as f:
+                f.read(1)
+        except OSError as e:
+            code = e.errno
+        rec(event="try_read", path=step["path"], errno=code)
     elif kind == "kill_broker":  # W78 5a3: end the enforcement broker the way a crash would (Linux: it finds the process by its socket path)
         sock = None
         for g in groups:

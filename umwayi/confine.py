@@ -1,6 +1,6 @@
 """W78 step 6 (5b): confine a process with Landlock (Linux), in a small program that runs before the helper.
 
-`python -m umwayi.confine --read PATH ... --write PATH ... [--no-network] -- COMMAND ARG ...` builds a Landlock ruleset, restricts
+`python umwayi/confine.py --read PATH ... --write PATH ... [--no-network] -- COMMAND ARG ...` builds a Landlock ruleset, restricts
 itself, and then runs COMMAND as its only child and gives its exit code. The command and every process it starts inherit the
 restriction. Landlock is
 the kernel's own: a refused write fails in the helper with the kernel's EACCES, not with a message of umwayi.
@@ -48,7 +48,7 @@ NET_ABI = 4
 
 READ_RIGHTS = FS_EXECUTE | FS_READ_FILE | FS_READ_DIR
 EXIT_REFUSED, EXIT_USAGE = 2, 64
-REASONS = ("unavailable", "kernel", "profile")  # a subset of enforce.REASONS, the fixed list
+REASONS = ("unavailable", "kernel", "profile", "platform")  # a subset of enforce.REASONS, the fixed list
 
 
 class ConfineRefused(Exception):
@@ -151,7 +151,7 @@ def apply(read_paths, write_paths, no_network: bool = False, abi: int | None = N
 
 def argv(read_paths, write_paths, command, no_network: bool = False) -> list:
     """The one argument list that runs `command` confined. The supervisor runs it with its own process start, never a shell."""
-    out = [sys.executable, "-m", "umwayi.confine"]
+    out = [sys.executable, os.path.abspath(__file__)]  # by path, not `-m`: it imports only the standard library, so it needs no PYTHONPATH
     for p in read_paths:
         out += ["--read", str(p)]
     for p in write_paths:
@@ -164,8 +164,50 @@ def argv(read_paths, write_paths, command, no_network: bool = False) -> list:
 STEPS = {
     "unavailable": "set `enforcement: cooperative` for this agent with an `until` date, at your terminal, or run on a Linux kernel with Landlock",
     "kernel": "run on a kernel with Landlock network rules (6.7 or later), or allow the network by setting cooperative at your terminal",
-    "profile": "fix the allow list: every listed path must exist",
+    "profile": "fix the allow list: every listed path must exist, and the work folder must not hold the umwayi root",
+    "platform": "run on Linux, or set `enforcement: cooperative` for this agent with an `until` date, at your terminal",
 }
+
+SYSTEM_READ = ("/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc", "/opt", "/proc", "/dev", "/sys")
+
+
+def _real(p) -> str:
+    return os.path.realpath(p)
+
+
+def _inside(child: str, parent: str) -> bool:
+    return child == parent or child.startswith(parent.rstrip("/") + "/")
+
+
+def run_paths(command: str, workdir: str, root: str, tmp: str, home: str | None, python: str, source: str,
+              config_dir: str | None = None) -> tuple:
+    """(read paths, write paths) for one helper run, the paths that exist, sorted. Read and execute: the system folders, the folders
+    of the command and of the Python that runs the hook, the umwayi source (the hook is there). Write: the work folder, a private
+    temporary folder (given to the helper as TMPDIR; /tmp itself is not listed, so the broker's folder there is not reachable), and
+    the helper's own config (`~/.claude`, `~/.claude.json`, or CLAUDE_CONFIG_DIR). Landlock can not take a path out of a listed
+    tree, so a work folder that holds the umwayi root is refused (`profile`): the logbook and the guard files would be writable."""
+    if platform_is_not_linux():
+        raise ConfineRefused("platform")
+    work, rt = _real(workdir), _real(root)
+    if _inside(rt, work):
+        raise ConfineRefused("profile")
+    reads = set(SYSTEM_READ)
+    for exe in (command, python):
+        real = _real(exe)
+        reads |= {os.path.dirname(real), os.path.dirname(os.path.dirname(real))}
+    reads |= {_real(sys.prefix), _real(sys.base_prefix), _real(source)}
+    writes = {work, _real(tmp)}
+    if home:
+        writes |= {_real(os.path.join(home, ".claude")), _real(os.path.join(home, ".claude.json"))}
+    if config_dir:
+        writes.add(_real(config_dir))
+    reads = {p for p in reads if p != "/" and os.path.exists(p)}
+    writes = {p for p in writes if os.path.exists(p)}
+    return sorted(reads), sorted(writes)
+
+
+def platform_is_not_linux() -> bool:
+    return not sys.platform.startswith("linux")
 
 
 def refusal(reason: str) -> str:

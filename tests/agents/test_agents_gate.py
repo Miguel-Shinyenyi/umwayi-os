@@ -529,9 +529,11 @@ class CodeGuardTests(unittest.TestCase):
                     if isinstance(n, ast.Attribute) and n.attr in ("mkdtemp", "rmtree", "mkstemp", "NamedTemporaryFile",
                                                                    "TemporaryDirectory", "copy", "move"):
                         found.append((fn.name, n.attr))
-        # W78 step 5: the enforcement broker has a folder of its own (a short path in /tmp, mode 0700), made and removed in two places
+        # W78 steps 5 and 6: the enforcement broker has a folder of its own and a confined run has a private temporary folder (short paths in
+        # /tmp, mode 0700), each made and removed in its own place
         self.assertEqual(sorted(found), [("_broker_end", "rmtree"), ("_broker_start", "mkdtemp"), ("_broker_start", "rmtree"),
-                                         ("_canary_folder", "mkdtemp"), ("_remove_canary_folder", "rmtree")])
+                                         ("_canary_folder", "mkdtemp"), ("_confine_argv", "mkdtemp"),
+                                         ("_confine_end", "rmtree"), ("_remove_canary_folder", "rmtree")])
         _, calls = self._calls()
         [popen] = [kw for f, attr, kw in calls if attr == "Popen" and f == "_start"]
         self.assertEqual(popen["env"].id, "env")  # the allow list reaches the adapter
