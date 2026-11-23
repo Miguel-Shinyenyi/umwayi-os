@@ -22,7 +22,7 @@ class RealListTests(unittest.TestCase):
 
     def test_the_real_list_loads_and_names_the_seven_files_in_this_order(self):
         self.assertEqual([e["path"] for e in self.entries],
-                         ["docs/status-log.md", "docs/KNOWN-LIMITS.md", "tools/ci_map.json", "tools/ci_shards.json", "docs/testing.md",
+                         ["docs/status-log.md", "docs/KNOWN-LIMITS.md", "tools/ci_map.json", "tools/ci_shards.json", "tools/ci_map_table.md",
                           "ui/dist/build.json"])
 
     def test_the_progress_page_is_not_listed_because_it_is_built_and_not_committed(self):
@@ -37,7 +37,7 @@ class RealListTests(unittest.TestCase):
         docs = [["python", "-m", "umwayi", "goal", "docs", "build"]]
         self.assertEqual([c["argv"] for c in by["docs/status-log.md"]["regenerate"]], docs)
         self.assertEqual([c["argv"] for c in by["docs/KNOWN-LIMITS.md"]["verify"]], [["python", "-m", "umwayi", "goal", "docs", "check"]])
-        self.assertEqual([c["argv"] for c in by["docs/testing.md"]["regenerate"]], [["python", "-m", "tools.ci_map", "table", "--write"]])
+        self.assertEqual([c["argv"] for c in by["tools/ci_map_table.md"]["regenerate"]], [["python", "-m", "tools.ci_map", "table", "--write"]])
         self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["regenerate"]], [["python", "-m", "tools.ci_shards", "assign-missing"]])
         self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["verify"]], [["python", "-m", "tools.ci_shards", "check"]])
         self.assertEqual([(c["argv"], c["cwd"]) for c in by["ui/dist/build.json"]["regenerate"]],
@@ -45,8 +45,8 @@ class RealListTests(unittest.TestCase):
         self.assertEqual([c["argv"] for c in by["ui/dist/build.json"]["verify"]], [["python", "-m", "unittest", "tests.test_ui_package"]])
 
     def test_the_testing_md_entry_is_a_block_and_the_markers_are_in_the_file(self):
-        block = next(e for e in self.entries if e["path"] == "docs/testing.md")["block"]
-        text = (REPO / "docs" / "testing.md").read_text(encoding="utf-8")
+        block = next(e for e in self.entries if e["path"] == "tools/ci_map_table.md")["block"]
+        text = (REPO / "tools" / "ci_map_table.md").read_text(encoding="utf-8")
         self.assertTrue(any(ln.startswith(block["begin"]) for ln in text.split("\n")))
         self.assertTrue(any(ln.startswith(block["end"]) for ln in text.split("\n")))
 
@@ -116,7 +116,7 @@ class HintTests(unittest.TestCase):
     def test_the_hint_is_the_exact_regenerate_command(self):
         self.assertEqual(gf.regenerate_hint("tools/ci_shards.json"), "To fix it, run: python -m tools.ci_shards assign-missing")
         self.assertEqual(gf.regenerate_hint("tools/ci_map.json"), "To fix it, run: python -m tools.ci_map update")
-        self.assertEqual(gf.regenerate_hint("docs/testing.md"), "To fix it, run: python -m tools.ci_map table --write")
+        self.assertEqual(gf.regenerate_hint("tools/ci_map_table.md"), "To fix it, run: python -m tools.ci_map table --write")
         self.assertEqual(gf.regenerate_hint("docs/status-log.md"), "To fix it, run: python -m umwayi goal docs build")
         self.assertEqual(gf.regenerate_hint("ui/dist/build.json"),
                          "To fix it, run: (cd ui && npm ci --ignore-scripts && node build.mjs)")

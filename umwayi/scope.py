@@ -1,4 +1,4 @@
-"""W9.16: the scope of a task, enforced while its helper runs (an overlay on the rules gate).
+"""W9.16: the scope of a task, checked while its helper runs (an overlay on the rules gate).
 
 The goal supervisor writes one small JSON file per role run: the worktree, the files the packet allows and the task's two own files.
 A Claude Code hook that was given `--scope FILE` passes it to `umwayi check --scope FILE`. For a tool call that writes a file (Write,

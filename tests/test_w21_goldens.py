@@ -100,12 +100,12 @@ class ShardGoldens(unittest.TestCase):
 
 
 class MapGoldens(unittest.TestCase):
-    def test_the_table_command_prints_the_block_docs_testing_md_holds(self):
+    def test_the_table_command_prints_the_block_the_table_file_holds(self):
         r = run("tools.ci_map", "table")
         self.assertEqual(r.returncode, 0)
         self.assertTrue(r.stdout.startswith(ci_map.TABLE_BEGIN + "\n"))
         self.assertTrue(r.stdout.endswith(ci_map.TABLE_END + "\n"))
-        self.assertIn(r.stdout.rstrip("\n"), (REPO / "docs" / "testing.md").read_text(encoding="utf-8"))
+        self.assertIn(r.stdout.rstrip("\n"), (REPO / "tools" / "ci_map_table.md").read_text(encoding="utf-8"))
 
     def test_check_says_the_map_is_true(self):
         r = run("tools.ci_map", "check")
