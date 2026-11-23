@@ -200,25 +200,42 @@ def _text(data: dict) -> str:
     return r if len(r) <= 300 else r[:297] + "..."
 
 
+# W78 5(d): every refusal a helper reads carries a reason and the allowed next step. The reason is the rule's own text (the
+# owner's words, or a fixed one); the step is one of these fixed sentences, chosen by the answer, never by the helper or the rule.
+# A rule text that already has the shape (`refused: ... Allowed next: ...`, W78 1B) is left as it is.
+NEXT_STEPS = {
+    "no": "do not do this; ask the owner to do it, or to change the rule",
+    "ask": "do not do this yet; wait for the owner's answer",
+    "blocked": "ask the owner to look at the logbook and at rules.yaml",
+}
+
+
+def _next(step: str, text: str) -> str:
+    """`text` with ` Allowed next: STEP.` after it, unless the text has the shape already."""
+    if "Allowed next:" in text:
+        return text
+    return f"{text} Allowed next: {NEXT_STEPS[step]}.".strip()
+
+
 def decide(result: CheckResult) -> Verdict:
     """Exit 0 allow, exit 2 deny, exit 3 ask; anything else is deny. Fail closed at every step."""
     if result.problem is not None or result.data is None:
-        return Verdict(DENY, f"umwayi: blocked, {result.problem or 'no answer'}.")
+        return Verdict(DENY, _next("blocked", f"umwayi: blocked, {result.problem or 'no answer'}."))
     data, code = result.data, result.exit_code
     answer = data.get("answer")
     who = _rule(data)
     text = _text(data)
     if data.get("kill_switch") != "off":
-        return Verdict(DENY, f"umwayi: blocked, the kill switch is on or its state cannot be read. {text}".strip())
+        return Verdict(DENY, _next("blocked", f"umwayi: blocked, the kill switch is on or its state cannot be read. {text}".strip()))
     if data.get("rules_ok") is not True:
-        return Verdict(DENY, f"umwayi: blocked, rules.yaml could not be used. {text}".strip())
+        return Verdict(DENY, _next("blocked", f"umwayi: blocked, rules.yaml could not be used. {text}".strip()))
     if code == 2 or answer == "No":
-        return Verdict(DENY, f"umwayi: No ({who}). {text}".strip())
+        return Verdict(DENY, _next("no", f"umwayi: No ({who}). {text}".strip()))
     if code == 0 and answer == "Yes":
         return Verdict(ALLOW, f"umwayi: Yes ({who}). {text}".strip())
     if code == 3 and answer == "Ask me first":
-        return Verdict(ASK, f"umwayi: Ask me first ({who}). {text}".strip())
-    return Verdict(DENY, f"umwayi: blocked, unexpected answer (exit {code}).")
+        return Verdict(ASK, _next("ask", f"umwayi: Ask me first ({who}). {text}".strip()))
+    return Verdict(DENY, _next("blocked", f"umwayi: blocked, unexpected answer (exit {code})."))
 
 
 # ------------------------------------------------------------- input

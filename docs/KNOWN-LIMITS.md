@@ -2114,3 +2114,15 @@ These are facts of the change that made the goal commands say what they know (R2
 - Nothing confines the helper (W78 B2 is not built). A program an allowed command starts can do what the owner's user can do. "Tester and guide first, a builder after five clean tester runs" is advice; no rule or check enforces it.
 - `agent check` of an OpenCode agent still says "chat" in its last lines; the checks are the ones a run uses.
 - `PLATFORM_OPTIONS` (the platforms that take a model and an effort from `goal approve`) is unchanged. A model for an OpenCode role comes from `agents.yaml`; an effort is refused until a documented flag is confirmed on a real install (it was not, on 2.3.0).
+
+## Guidance items of W78 point 5
+
+### 331. The task card, the refusal step and the counts are guidance and bookkeeping, not enforcement
+
+These are facts of the code of this change.
+
+- The task card is text. A model can ignore it. The gate and the scope check decide.
+- The rules in the card are matched by the `platform` of a rule. A rule written with another matcher is counted as a general rule and its text is not shown.
+- The `Allowed next` step is one fixed sentence for each answer. It does not say which action would be allowed.
+- Refusals written by `umwayi check` itself, without the adapter gate, have no step. Only the adapters add it.
+- The counts cover calls that went through `umwayi check` while the task ran. A helper whose calls never reach the gate is counted as zero. A count of zero is not proof of obedience.
