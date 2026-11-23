@@ -544,6 +544,10 @@
    "seconds": 19.5,
    "shard": 1
   },
+  "tests/test_lessons_as_checks.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
   "tests/test_logbook.py": {
    "seconds": 1.6,
    "shard": 3
