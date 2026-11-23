@@ -92,7 +92,7 @@ Each item is its own task. None starts before Dec 3: the Kiroween freeze is Nov 
 5. **The broker**: its own design note first ([enforcement-broker-design.md](enforcement-broker-design.md), 2026-11-22), then the build.
 6. **B2 on Linux**, tested in CI.
 7. **B2 on macOS**, after the owner checks on his Mac.
-8. **W41 C2**: tool calls no hook checked.
+8. **W41 C2**: tool calls no hook checked. Built 2026-11-23 for a `claude -p` run under a mode file that says `enforced`: the receiver keeps the `tool_use_id` and tool name of the platform's tool events, the hook gives the same id to `umwayi check` (Checked line), and after the run each reported id with no check entry is a finding (exit 2, one entry, one queue row; in a goal the cause `unchecked_tool_call`, reason unclear). It detects after the call. It was built against the fake claude, not a real one.
 9. **Guidance items (a) to (g)**, with W62 and W42.
 10. **Flip the default** with the README, `what-it-is.md`, KNOWN-LIMITS, the narrative and the write-up in one release.
 

@@ -61,7 +61,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, budget, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, units, watched
+from umwayi import __version__, acp, budget, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, toolcheck, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -2029,6 +2029,7 @@ class _Run:
                                    "(exit 2)."], why)
         if self.mode == CHAT:
             self._queue_summary()
+        self.tool_mark = toolcheck.mark(root) if self._c2() else None  # W41 C2: the entries of this run start here
         try:
             self._start(argv, a.workdir, stdin_text)
         except OSError:
@@ -2205,6 +2206,8 @@ class _Run:
             b["receiver"].drain(TELEMETRY_GRACE)  # the agent is stopped: only a report still in flight can arrive
             b["receiver"].stop()
             report = b["receiver"].totals.report()
+        if result is not None and self._c2():
+            result = self._tool_review(result, report)
         u = b["units"]
         reading = units.reading(u, a.platform, report, self.proc is not None, b["micros"])
         why = self._budget_log(budget.settle_text(b["run"], a.name, a.platform, b["micros"], reading, report),
@@ -2223,6 +2226,37 @@ class _Run:
                          "at the full reservation (exit 2).")
             code = 2
         return Result(code, lines)
+
+    def _c2(self) -> bool:
+        """W41 C2 applies to a `claude -p` run under a mode file that says `enforced`: Claude Code reports its tool calls to the
+        receiver, and a call no hook checked is a finding. Other modes and platforms keep today's behaviour."""
+        return (self.agent.platform == "claude-code" and self.mode == RUN and not is_claude_acp(self.agent, self.mode)
+                and scrub_applies(self.root, self.agent.name, self.clock()))
+
+    def _tool_review(self, result: Result, report) -> Result:
+        """The calls the platform reported and no hook checked (umwayi/toolcheck.py). A finding is one logbook entry, one queue
+        row and exit 2, as a changed guard file is. When nothing can be told, a line says so and nothing is stopped."""
+        a = self.agent
+        status, missing = toolcheck.review(self.root, getattr(self, "tool_mark", None), report)
+        lines = list(result.lines)
+        if status == toolcheck.OK:
+            return Result(result.code, lines)
+        if status == toolcheck.CANNOT_TELL:
+            lines.append("Tool calls the platform reported and no hook checked: cannot tell (no usable report arrived). "
+                         "This does not mean every call was checked.")
+            return Result(result.code, lines)
+        added, checked = toolcheck.entry_lines(a.name, missing)
+        why = self.log(added, checked + "; the receiver's own events were read, nothing else", NOT_LOGGED)
+        row = ""
+        try:
+            r, new = taskqueue.add_once(self.root, "decision", f"Unchecked tool calls during a run of agent {a.name}",
+                                        f"{len(missing)} tool call(s) ran without a check entry. Look at the logbook; nothing "
+                                        "was undone. Answer when you have checked it.", self.clock())
+            row = f" Queue item {r.id}." if new else f" Queue item {r.id} already asks about it."
+        except UmwayiError:
+            row = " The queue item could not be added."
+        lines.append(f"{len(missing)} tool call(s) ran without a check entry.{row} Nothing was undone. (exit 2)")
+        return self.result(2, lines, why)
 
     def _claude_acp(self) -> bool:
         """A Claude Code ACP chat (the canary, the inline settings, the ACP client). Never the sign-in."""

@@ -1,0 +1,4 @@
+date: 2026-11-23
+pr: none
+what: W78 build step 8 (W41 C2). The telemetry receiver keeps the `tool_use_id` and tool name of Claude Code's tool events (nothing else). The Claude Code hook gives its `tool_use_id` to `umwayi check`, which writes it in the Checked line. After a `claude -p` run under a mode file that says `enforced`, a reported id with no check entry is a finding: exit 2, one entry, one queue row; in a goal the cause `unchecked_tool_call` stops the task as `needs owner` and each call counts in the guard findings of the counts entry. No usable report is "cannot tell", never "all checked". It detects after the call. New `umwayi/toolcheck.py`. Stops for the owner.
+tests: `tests/agents/test_unchecked_tool_calls.py` (ran in Linux, needs /proc), `tests/goal/test_unchecked_calls.py`; fake claude only.
