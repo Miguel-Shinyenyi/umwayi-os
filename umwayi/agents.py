@@ -914,13 +914,15 @@ def probe_argv(node: str, adapter: Path, name: str) -> list:
     return _assert_allowed([node, str(adapter), *CLAUDE_ACP_PROBES[name]])
 
 
-def claude_settings(python: str, hook: Path, root: Path) -> str:
-    """The --settings JSON for Claude Code, from a fixed template (design.md, layer 10)."""
+def claude_settings(python: str, hook: Path, root: Path, broker: tuple | None = None) -> str:
+    """The --settings JSON for Claude Code, from a fixed template (design.md, layer 10). broker (socket path, run id) makes the
+    hook ask the enforcement broker in place of `umwayi check` (W78 step 5)."""
     settings = {
         "disableAllHooks": False,
         "forceLoginMethod": "claudeai",  # 10.R12.7: a second line; the login check is the first
         "hooks": {"PreToolUse": [{"matcher": "*", "hooks": [{
-            "type": "command", "command": python, "args": [str(hook), "--root", str(root)],
+            "type": "command", "command": python,
+            "args": [str(hook), "--root", str(root)] + (["--broker", str(broker[0]), "--run", str(broker[1])] if broker else []),
             "timeout": CLAUDE_HOOK_TIMEOUT, "onFailure": "block",
         }]}]},
     }
@@ -1011,7 +1013,7 @@ def _assert_allowed(argv: list, skip: int | None = None) -> list:
 
 def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: str,
                prompt: str | None = None, src: Path | None = None, model: str | None = None,
-               effort: str | None = None) -> tuple:
+               effort: str | None = None, broker: tuple | None = None) -> tuple:
     """(argument list, stdin text or None). The only place an agent's command line is made.
 
     model and effort (W9.6) are for `agent run` of Claude Code and Kiro only; None adds nothing."""
@@ -1038,7 +1040,7 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
         # command_path is node here; the adapter is the fixed path, never looked up through PATH or npx
         return _assert_allowed([command_path, str(claude_acp_path(CLAUDE_ACP_ADAPTER, src))]), None
     if agent.platform == "claude-code":
-        settings = claude_settings(python, hook_path("claude-code", src), root)
+        settings = claude_settings(python, hook_path("claude-code", src), root, broker=broker)
         if mode == RUN:
             argv = [command_path, "-p", "--permission-mode", "default", "--settings", settings]
             if agent.max_turns is not None:
@@ -1072,6 +1074,10 @@ class Check:
     name: str
     ok: bool | None  # None: not run, because an earlier check failed
     detail: str
+
+
+class BrokerNotStarted(Exception):
+    """The enforcement broker of an enforced run could not be started (W78 step 5)."""
 
 
 @dataclass
@@ -2011,8 +2017,15 @@ class _Run:
             return refused
 
         # 6. the argument list, from the platform table only
-        argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt,
-                                      model=self.options.model, effort=self.options.effort)
+        try:
+            argv, stdin_text = build_argv(a, self.mode, gate.command_path, root, python_path(), prompt=self.prompt,
+                                          model=self.options.model, effort=self.options.effort, broker=self._broker_start())
+        except BrokerNotStarted:  # W78 step 5: not confined, reason `broker`; never a fallback to cooperative
+            why = self.log(f"Refused agent {a.name}: not confined (broker)", "the enforcement broker of the run could not be started",
+                           "Nothing was started.")
+            return self.result(2, [f"refused: not confined (broker). Allowed next: run `umwayi enforce set cooperative --agent "
+                                   f"{a.name} --until DATE` at your terminal, or look at why the broker did not start. "
+                                   f"{not_started} (exit 2)"], why)
 
         # 7. the start entry first, then the start
         how = f"{a.platform}, {a.transport}" + (", chat" if self.mode == CHAT else "")
@@ -2205,6 +2218,9 @@ class _Run:
             b["receiver"].drain(TELEMETRY_GRACE)  # the agent is stopped: only a report still in flight can arrive
             b["receiver"].stop()
             report = b["receiver"].totals.report()
+        if self._broker_end() and result is not None:  # W78 step 5: the broker ended before the run did: every later call was No
+            result = Result(2, list(result.lines) + ["The enforcement broker ended before the run did, so every later tool call "
+                                                     "was refused (broker_lost, exit 2)."])
         u = b["units"]
         reading = units.reading(u, a.platform, report, self.proc is not None, b["micros"])
         why = self._budget_log(budget.settle_text(b["run"], a.name, a.platform, b["micros"], reading, report),
@@ -2223,6 +2239,58 @@ class _Run:
                          "at the full reservation (exit 2).")
             code = 2
         return Result(code, lines)
+
+    def _broker_wanted(self) -> bool:
+        """A `claude -p` run under a mode file that says `enforced` has its hook ask the enforcement broker (W78 step 5)."""
+        return (self.agent.platform == "claude-code" and self.mode == RUN and not is_claude_acp(self.agent, self.mode)
+                and scrub_applies(self.root, self.agent.name, self.clock()))
+
+    def _broker_start(self) -> tuple | None:
+        """Start the broker for this run: a private folder, a run table with this run, the socket. Returns (socket path, run id), or
+        None when this run is not enforced. A broker that cannot be started is an error of the start (the caller turns it into
+        exit 2): the hook never falls back to asking by itself."""
+        if not self._broker_wanted() or self.budget is None:
+            return None
+        from umwayi import broker as brk
+        run = self.budget["run"]
+        folder = None
+        try:
+            folder = tempfile.mkdtemp(prefix="umwayi-b", dir="/tmp" if os.path.isdir("/tmp") else None)
+            self.broker_folder = folder
+            table = os.path.join(folder, "table.json")
+            brk.write_table(table, {run: self._broker_row(False)})
+            sock = os.path.join(folder, "broker.sock")
+            env = {k: os.environ[k] for k in ("PATH", "LANG") if k in os.environ}
+            env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent)
+            proc = subprocess.Popen(brk.argv(self.root, table, sock), shell=False, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+            self.broker = brk.wait_for(brk.Handle(proc, sock))
+        except (OSError, UmwayiError):
+            if folder:
+                shutil.rmtree(folder, ignore_errors=True)
+            raise BrokerNotStarted() from None
+        self.broker_table = (table, run)
+        return (sock, run)
+
+    def _broker_row(self, ended: bool) -> dict:
+        return {"agent": self.agent.name, "platform": self.agent.platform, "task": "none", "mode": "enforced", "ended": ended}
+
+    def _broker_end(self) -> bool:
+        """Mark the run ended in the table, stop the broker and remove its folder. True when the broker had ended before."""
+        h = getattr(self, "broker", None)
+        if h is None:
+            return False
+        was_lost = h.lost()
+        try:
+            from umwayi import broker as brk
+            table, run = self.broker_table
+            brk.write_table(table, {run: self._broker_row(True)})
+        except (OSError, UmwayiError, ValueError):
+            pass
+        h.stop()
+        self.broker = None
+        shutil.rmtree(getattr(self, "broker_folder", ""), ignore_errors=True)
+        return was_lost
 
     def _claude_acp(self) -> bool:
         """A Claude Code ACP chat (the canary, the inline settings, the ACP client). Never the sign-in."""
