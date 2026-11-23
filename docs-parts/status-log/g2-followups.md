@@ -1,4 +1,4 @@
 date: 2026-11-23
-pr: none
+pr: 201
 what: G2 follow-ups. (a) `python -m tools.provenance_rehearsal prepare` makes a scratch root with a fake goal task, a THROWAWAY key and an agent of its own, and prints the commands, so the owner sees the prompts of `umwayi provenance sign` and `umwayi verify` before the real signing; `cleanup FOLDER` ends the agent and removes the folder. The owner's key, `~/.ssh` and agent are not used; the real signing stays the owner's act, after the owner sets `provenance.public_key`. (b) `docs/signing.md` says which public key file to publish and where, so a third party can check with `umwayi verify PATH --key`. (c) The repeated snapshot call in `test_verify_writes_nothing` is gone. Tools, docs and tests.
 tests: `tests/test_provenance_rehearsal.py` (a real ssh-keygen and ssh-agent), `tests/test_provsign.py`.
