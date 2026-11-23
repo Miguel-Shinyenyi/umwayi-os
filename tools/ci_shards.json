@@ -412,6 +412,10 @@
    "seconds": 0.0,
    "shard": 1
   },
+  "tests/test_broker.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
   "tests/test_builder_rules.py": {
    "seconds": 20.8,
    "shard": 1
@@ -458,7 +462,7 @@
   },
   "tests/test_election_clock_utc.py": {
    "seconds": 19.5,
-   "shard": 2
+   "shard": 3
   },
   "tests/test_elections.py": {
    "seconds": 13.4,
@@ -502,7 +506,7 @@
   },
   "tests/test_landlock_probe.py": {
    "seconds": 19.5,
-   "shard": 3
+   "shard": 2
   },
   "tests/test_logbook.py": {
    "seconds": 1.6,

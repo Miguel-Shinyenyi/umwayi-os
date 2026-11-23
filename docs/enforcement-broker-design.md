@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This note designs the broker named in [enforced-default-design.md](enforced-default-design.md) (W78, "The broker (design)", Q6): a small separate process that lets a confined helper's hook get a rules answer and have it logged, while the guard files stay unwritable from inside the confinement. It answers who writes the guard files once helpers are confined. Nothing in it is built.
+This note designs the broker named in [enforced-default-design.md](enforced-default-design.md) (W78, "The broker (design)", Q6): a small separate process that lets a confined helper's hook get a rules answer and have it logged, while the guard files stay unwritable from inside the confinement. It answers who writes the guard files once helpers are confined. Built in part on 2026-11-23 (step 5a): `umwayi/broker.py` alone, with `check` and `answer_status`, the limits, the run table and the fixed argument list. Not built: the supervisor starting it, the hooks asking it, `log`, `broker_lost`, and any confinement. Until those exist it changes no default and protects nothing. The rest of this note is still the design.
 
 Product first: umwayi-os runs by itself. Every rule below holds with no outside guide, no AI session reading the note and no Kiro web session. The outside guide only reviews.
 
