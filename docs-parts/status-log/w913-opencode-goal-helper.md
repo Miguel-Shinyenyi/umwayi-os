@@ -1,4 +1,4 @@
 date: 2026-11-22
-pr: none
+pr: 174
 what: W9.13, OpenCode as a goal builder, tester or guide. `umwayi agent run` of an OpenCode agent starts `opencode acp` with the chat's checks, canary, inline config and model compare, sends one prompt (`acp.Run`), prints only the agent's message text so the supervisor can read the tagged last line, rejects an Ask me first and ends at the first answer. `--effort` is refused (64) and `--model` must be the agent's own. `goal approve` and `goal show` take an OpenCode role with no model and no effort (the packet records the agent's model and a blank effort), and `--model` and `--effort` of `goal approve` are no longer required by the parser (a Claude Code or Kiro builder without them is still a usage error). The spend is declared or unknown, never measured. Tests in Linux: the run (27), the goal roles (9), two whole-system scenarios with a fake `opencode acp`. First code that lets OpenCode start as a goal helper, so it stops for the owner; the owner adds the Yes rules by hand and reviews the first real goal run. No real goal run with an OpenCode role was made.
 tests: see the pull request

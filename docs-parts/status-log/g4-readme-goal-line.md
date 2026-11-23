@@ -1,0 +1,4 @@
+date: 2026-11-23
+pr: 198
+what: G4. `README.md` said goal orchestration "is not built ... and comes after the freeze". It is built (start, show, approve, run, status, report, the failed-task report, proposed budgets, a worktree for each task, the scope check, the docs builder), tested with fakes and one small real Claude Code goal on 2026-11-22; the row now says so, and says there is no real goal with an OpenCode or Kiro role. A test, `tests/test_stale_statements.py`, makes the stale statement check of PR 167 code: a list of phrases that are not true now (searched in `README.md` and `docs/what-it-is.md`) and a rule that a README row that starts "not built", "specified" or "designed" may not name a command the parser has. Planted faults on the old line. Docs and a test.
+tests: `tests/test_stale_statements.py`.
