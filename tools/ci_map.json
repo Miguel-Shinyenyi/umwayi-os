@@ -145,6 +145,7 @@
   "tests/test_ci_workflow.py": [".github"],
   "tests/test_cli_map.py": ["ui", "ui/dist"],
   "tests/test_concerns.py": [".github", "jobs.yaml", "schedule.example.yaml", "workflows"],
+  "tests/test_confine.py": [],
   "tests/test_docs.py": [".gitignore", "PROJECT.md", "README.md", "docs"],
   "tests/test_election_clock_utc.py": [],
   "tests/test_elections.py": [],
