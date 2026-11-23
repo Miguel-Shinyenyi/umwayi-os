@@ -121,6 +121,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_generated_files.py` | `docs`, `tools` |
 | `tests/test_helpers.py` | `rules.yaml` |
 | `tests/test_honest.py` | `.kiro`, `adapters`, `docs`, `rules.yaml` |
+| `tests/test_limits_numbers.py` | `docs`, `docs-parts` |
 | `tests/test_logbook_chain.py` | `rules.yaml` |
 | `tests/test_logo.py` | `.github`, `ui`, `ui/dist` |
 | `tests/test_merge_main.py` | `.kiro`, `docs`, `docs-parts`, `tools`, `ui` |
