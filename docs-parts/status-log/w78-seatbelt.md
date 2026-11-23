@@ -1,0 +1,4 @@
+date: 2026-11-23
+pr: none
+what: W78 step 7 (Task 9), macOS confinement with Seatbelt, built behind a refusal. New `umwayi/seatbelt.py`: the profile text (deny by default; reads and executes below the read paths, writes below the write paths, the network unless asked), the quoting of paths (a path that could close the string is refused), the argument list for the fixed `/usr/bin/sandbox-exec`, and a self test for a Mac (`python -m umwayi.seatbelt selftest`). `CHECKED_ON_MAC` is False and nothing in `agents.py` uses the module, so an enforced run with `confine: true` on macOS is still refused (`platform`). Stops for the owner.
+tests: `tests/test_seatbelt.py`; the pure tests ran everywhere, the real-command tests ran on one Mac (macOS 27.0.1, Python 3.13, a Python child only) and are skipped in CI.
