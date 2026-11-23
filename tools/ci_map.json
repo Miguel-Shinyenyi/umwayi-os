@@ -182,6 +182,7 @@
   "tests/test_progress_page.py": [".gitignore", ".kiro", "docs", "ui", "ui/dist"],
   "tests/test_progress_workflow.py": [".github", "ui"],
   "tests/test_provenance.py": ["umwayi.json"],
+  "tests/test_provenance_rehearsal.py": [],
   "tests/test_provsign.py": [],
   "tests/test_ptysupport.py": [],
   "tests/test_queue.py": [],
