@@ -208,9 +208,10 @@ class KernelTests(KernelCase):
         self.assertEqual(self.result()["tcp_connect"], 0)
 
     def test_the_restriction_is_inherited_by_what_the_command_starts(self):
-        script = ("import subprocess, sys, json;"
-                  f"p = subprocess.run([sys.executable, '-c', 'open({str(self.other / 'child.txt')!r}, \"w\")'], capture_output=True);"
-                  "print(json.dumps({'code': p.returncode, 'err': p.stderr.decode()[-80:]}))")
+        inner = f"open({str(self.other / 'child.txt')!r}, 'w')"
+        script = ("import subprocess, sys, json\n"
+                  f"p = subprocess.run([sys.executable, '-c', {inner!r}], capture_output=True)\n"
+                  "print(json.dumps({'code': p.returncode, 'err': p.stderr.decode()[-80:]}))\n")
         argv = confine.argv(self.reads(), [str(self.work)], [sys.executable, "-c", script])
         p = subprocess.run(argv, capture_output=True, text=True, timeout=60, env={"PATH": os.environ.get("PATH", "")}, cwd=str(self.work))
         got = json.loads(p.stdout.strip().splitlines()[-1])
