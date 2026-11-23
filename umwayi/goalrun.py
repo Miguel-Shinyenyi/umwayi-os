@@ -1268,6 +1268,7 @@ class _Run:
         """A watched file changed during a run (W41 C1): the task goes to `needs owner`, with the fixed names in its entry and in
         the queue row. The next step does not start, and nothing is undone."""
         shown = ", ".join(names)
+        self.guard_n = getattr(self, "guard_n", 0) + 1  # W78 5(g): this finding is counted in the counts entry of the move
         self.finish("guard_file_changed", facts=[("cause", {"word": "guard_file_changed"}), ("guard_files", {"names": shown})],
                     recommendation=f"A guard file changed during the {role} run: {shown}. Look at it and at the logbook; "
                                    "nothing was undone. Answer when you have checked it.")
