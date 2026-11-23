@@ -154,6 +154,37 @@ def _child_env(umwayi_src: Path | None) -> dict:
     return env
 
 
+def run_broker_check(action: dict, sock: str, run: str, timeout: float = DEFAULT_TIMEOUT) -> CheckResult:
+    """W78 step 5: ask the enforcement broker (umwayi/broker.py) in place of `umwayi check`. One connection, one request line,
+    one answer line. A hook that was told to use the broker never falls back to `umwayi check`: no answer, a refusal or an
+    answer that is not the fixed shape is a block. Never raises. Standard library only; it does not import umwayi."""
+    import socket
+    try:
+        line = (json.dumps({"type": "check", "run": run, "action": action}, separators=(",", ":")) + "\n").encode("utf-8")
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            s.connect(sock)
+            s.sendall(line)
+            buf = b""
+            while b"\n" not in buf and len(buf) < 1024:
+                chunk = s.recv(1024)
+                if not chunk:
+                    break
+                buf += chunk
+        got = json.loads(buf.split(b"\n", 1)[0].decode("utf-8"))
+    except Exception:
+        return CheckResult(None, None, "the umwayi broker did not answer")
+    answer = got.get("answer") if isinstance(got, dict) else None
+    if answer not in ("Yes", "No", "Ask me first"):
+        return CheckResult(None, None, "the umwayi broker gave an answer that is not a verdict")
+    if "why" in got:
+        return CheckResult(None, None, f"the umwayi broker refused the request ({str(got['why'])[:30]})")
+    rule = got.get("rule")
+    code = {"Yes": 0, "No": 2, "Ask me first": 3}[answer]
+    return CheckResult(code, {"answer": answer, "rule_id": rule if isinstance(rule, str) else None, "reason": "",
+                              "kill_switch": "off", "rules_ok": True}, None)
+
+
 def run_check(action: dict, root: Path, umwayi_src: Path | None = None,
               timeout: float = DEFAULT_TIMEOUT, python: str | None = None) -> CheckResult:
     """Run `umwayi check - --json --kill-switch` with the action on stdin. Never raises for a child problem."""
