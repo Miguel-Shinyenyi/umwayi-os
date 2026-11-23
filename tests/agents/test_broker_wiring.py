@@ -157,6 +157,19 @@ class RealRunTests(RunCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn("--broker", self.hook_args(started))
 
+    def test_a_broker_that_ends_during_the_run_refuses_every_later_call_and_ends_the_run_with_exit_2_and_an_entry(self):
+        self.mode_file("enforcement: enforced\n")
+        read = {"do": "tool", "tool": "Read", "input": {"file_path": "/p/a"}}
+        extra = dict(self.script(dict(read, id="toolu_a"), {"do": "kill_broker"}, dict(read, id="toolu_b")))
+        r = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(self.root), "agent", "run", "reviewer", "--prompt", "hello"],
+                           capture_output=True, text=True, timeout=120, env=self.env(extra), cwd=str(self.tmp))
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        decisions = [c["decision"] for c in self.calls() if c.get("event") == "tool"]
+        self.assertEqual(decisions, ["allow", "deny"])  # the second call: no answer is No
+        self.assertIn("broker_lost", r.stdout)
+        log = (self.root / "LOGBOOK.md").read_text(encoding="utf-8")
+        self.assertIn("Enforcement broker lost during the run of agent reviewer", log)
+
     def test_planted_fault_an_enforced_hook_without_the_flags_would_not_use_the_broker(self):
         self.mode_file("enforcement: enforced\n")
         _, started, _ = self.go()

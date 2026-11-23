@@ -2278,8 +2278,11 @@ class _Run:
             b["receiver"].stop()
             report = b["receiver"].totals.report()
         if self._broker_end() and result is not None:  # W78 step 5: the broker ended before the run did: every later call was No
-            result = Result(2, list(result.lines) + ["The enforcement broker ended before the run did, so every later tool call "
-                                                     "was refused (broker_lost, exit 2)."])
+            why = self.log(f"Enforcement broker lost during the run of agent {self.agent.name}",
+                           "the broker had ended before the run did; every later tool call of the run was refused",
+                           "Nothing was undone. No answer is No.")
+            result = self.result(2, list(result.lines) + ["The enforcement broker ended before the run did, so every later tool call "
+                                                         "was refused (broker_lost, exit 2)."], why)
         if result is not None and self._c2():
             result = self._tool_review(result, report)
         u = b["units"]

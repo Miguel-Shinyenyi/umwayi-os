@@ -109,6 +109,7 @@ CAUSES = {
     "run_lock_busy": ("needs owner", "busy"),
     "worktree_not_clean": ("needs owner", "dirty"),
     "worktree_leftover": ("needs owner", "leftover"),
+    "broker_lost": ("needs owner", "unclear"),  # W78 step 5: the enforcement broker ended before the helper's run did
     "provenance_not_recorded": ("needs owner", "config"),  # W49: the owner turned records on and one could not be made
     "unchecked_tool_call": ("needs owner", "unclear"),  # W78 step 8 (W41 C2): a tool call the platform reported and no hook checked
     "guard_file_changed": ("needs owner", "unclear"),  # W78 step 3 (W41 C1): a watched file changed during a run (Q5: stop)

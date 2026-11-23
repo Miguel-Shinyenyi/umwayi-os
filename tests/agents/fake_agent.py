@@ -393,6 +393,21 @@ for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     kind = step["do"]
     if kind == "tool":
         tool(step["tool"], step.get("input", {}), step.get("id", "toolu_fake"), bool(step.get("skip_hook")))
+    elif kind == "kill_broker":  # W78 5a3: end the enforcement broker the way a crash would (Linux: it finds the process by its socket path)
+        sock = None
+        for g in groups:
+            for h in g.get("hooks", []):
+                a = h.get("args", [])
+                if "--broker" in a:
+                    sock = a[a.index("--broker") + 1]
+        for pid in [p for p in os.listdir("/proc") if p.isdigit()]:
+            try:
+                if sock and sock.encode() in open(f"/proc/{pid}/cmdline", "rb").read() and b"umwayi.broker" in open(f"/proc/{pid}/cmdline", "rb").read():
+                    os.kill(int(pid), signal.SIGKILL)
+            except OSError:
+                pass
+        time.sleep(0.3)
+        rec(event="kill_broker", sock=sock)
     elif kind == "write":  # W78 step 3: change a file of the root, the way a helper that left its folder could
         os.makedirs(os.path.dirname(step["path"]), exist_ok=True)
         with open(step["path"], "w", encoding="utf-8") as f:
