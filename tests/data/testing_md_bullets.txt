@@ -1,0 +1,26 @@
+- CI (`.github/workflows/ci.yml`, W20) r
+- Tests that start umwayi run `python -m
+- `tests/test_ui_package.py` (layer 12, 
+- `tests/serve/` (the local backend, W6.
+- `tests/budget/test_run_golden.py` and 
+- `tests/goal/test_docs_parts.py` (W9.9,
+- `tests/goal/test_worktree_golden.py` a
+- `tests/goal/test_goalrun.py` (W9.7, th
+- `tests/goal/test_cli.py`, `test_owner_
+- `tests/test_site_package.py` (layer 12
+- `ui/test/access.test.mjs`, the six UI.
+- `tests/test_quickstart.py` (W25) keeps
+- `tests/test_view.py` (UI.2) runs `umwa
+- `ui/test/stepdown.test.mjs` (UI.8) tes
+- `tests/test_reopen.py` (L13.2) runs `u
+- `tests/autonomy/` (L13.5) runs graded 
+- `tests/test_honest.py` (L13.4) is the 
+- `tests/test_system.py` runs the umwayi
+- `tests/test_whole_system.py` (S.1, wit
+- The security scan's tests (S.2): `test
+- `tests/test_elections.py` (layer 13, s
+- **Four jobs.** `plan` (always runs) re
+- It never pushes, never forces and neve
+- It cannot judge a conflict in a file t
+- The numbers of two limits parts that w
+- The owner's real runs are not part of 

@@ -1,4 +1,4 @@
 date: 2026-11-23
-pr: none
+pr: 186
 what: W78 step 5 (5a2), the broker wired to a Claude Code run. A `claude -p` run under a mode file that says `enforced` starts the enforcement broker (a private folder in /tmp, a run table with the run, the socket) before the child and stops it after, and the hook gets `--broker SOCK --run RID`: it asks the broker in place of `umwayi check` and never falls back (no answer, a refusal or a non-verdict is a block). A broker that cannot start refuses the start (exit 2, "not confined (broker)"). A broker that ended before the run did adds a line and exit 2. Cooperative and no mode file are unchanged. Nothing is confined, so the broker still protects nothing. Stops for the owner.
 tests: `tests/agents/test_broker_wiring.py` (real runs of the fake claude, the real hook and the real broker; ran in Linux), fake only.

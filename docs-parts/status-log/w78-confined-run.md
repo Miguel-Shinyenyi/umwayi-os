@@ -1,4 +1,4 @@
 date: 2026-11-23
-pr: none
+pr: 190
 what: W78 step 6 (5b2), an enforced Claude Code run started through Landlock. New agents.yaml key `confine` (true or false, off by default). An enforced `claude -p` run of an agent with `confine: true` is started through `umwayi/confine.py` with write access to its work folder, a private temporary folder (TMPDIR) and its own config only, and read and execute below the system folders and the folders of its command. The umwayi root, /tmp and every other path are refused by the kernel. It is refused (exit 2, `not confined (platform)` or `(unavailable)` or `(profile)`) where Landlock is not there or the work folder holds the root. Cooperative agents, roots with no mode file and agents without `confine` are unchanged. Stops for the owner.
 tests: `tests/agents/test_confined_run.py` (fake claude, the real hook, the real broker and the real Landlock program; the confined runs need Landlock and ran only in CI); no real Claude Code.

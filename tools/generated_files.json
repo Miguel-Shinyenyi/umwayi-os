@@ -24,7 +24,7 @@
    "verify": [{"argv": ["python", "-m", "tools.ci_shards", "check"]}]
   },
   {
-   "path": "docs/testing.md",
+   "path": "tools/ci_map_table.md",
    "block": {"begin": "<!-- ci-map:begin", "end": "<!-- ci-map:end -->"},
    "regenerate": [{"argv": ["python", "-m", "tools.ci_map", "table", "--write"]}],
    "verify": [{"argv": ["python", "-m", "tools.ci_map", "table", "--check"]}]

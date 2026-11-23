@@ -93,6 +93,50 @@ class RefusalTests(unittest.TestCase):
         self.assertNotIn("seatbelt", agents_src)
 
 
+class RunRefusalTests(unittest.TestCase):
+    """F3a: `run` refuses while CHECKED_ON_MAC is False, unless the owner types the switch, and the refusal names the switch."""
+
+    ARGS = ["run", "--read", "/usr", "--write", "/tmp/x", "--", "/usr/bin/true"]
+
+    def run_main(self, args, available=True):
+        import io
+        err = io.StringIO()
+        with mock.patch.object(sb, "available", lambda: available), mock.patch.object(sys, "stderr", err), \
+                mock.patch.object(os, "posix_spawn", return_value=123) as spawn, mock.patch.object(os, "waitpid", return_value=(123, 0)):
+            code = sb.main(args)
+        return code, err.getvalue(), spawn
+
+    def test_without_the_switch_it_is_refused_with_platform_and_names_the_switch_and_starts_nothing(self):
+        code, err, spawn = self.run_main(self.ARGS)
+        self.assertEqual(code, 2)
+        self.assertIn("refused: not confined (platform). Allowed next:", err)
+        self.assertIn("--i-am-testing", err)
+        spawn.assert_not_called()
+
+    def test_with_the_switch_on_a_mac_with_sandbox_exec_it_runs(self):
+        code, err, spawn = self.run_main(["run", "--read", "/usr", "--i-am-testing", "--", "/usr/bin/true"])
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(spawn.call_args.args[0], sb.SANDBOX_EXEC)
+
+    def test_the_switch_does_not_help_where_sandbox_exec_is_missing(self):
+        code, err, spawn = self.run_main(["run", "--read", "/usr", "--i-am-testing", "--", "/usr/bin/true"], available=False)
+        self.assertEqual(code, 2)
+        spawn.assert_not_called()
+
+    def test_a_flag_that_is_not_the_switch_is_a_usage_error(self):
+        code, err, spawn = self.run_main(["run", "--read", "/usr", "--i-am-sure", "--", "/usr/bin/true"])
+        self.assertEqual(code, 64)
+        spawn.assert_not_called()
+
+    def test_the_selftest_still_works_without_the_switch(self):
+        import io
+        out = io.StringIO()
+        with mock.patch.object(sb, "selftest", return_value={"available": True}), mock.patch.object(sb, "available", lambda: True), \
+                mock.patch.object(sys, "stdout", out):
+            self.assertEqual(sb.main(["selftest"]), 0)
+        self.assertIn('"available": true', out.getvalue())
+
+
 @unittest.skipUnless(MAC, "needs macOS with sandbox-exec: the owner's check")
 class RealMacTests(unittest.TestCase):
     def test_the_selftest_shows_the_kernel_refusals_on_this_mac(self):
