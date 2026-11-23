@@ -51,7 +51,13 @@ TOKEN_METRIC = "claude_code.token.usage"
 METRIC_TYPES = {"input": "input", "output": "output", "cacheRead": "cache_read", "cacheCreation": "cache_creation"}
 EVENT_TOKENS = {"input_tokens": "input", "output_tokens": "output", "cache_read_tokens": "cache_read",
                 "cache_creation_tokens": "cache_creation"}
-EVENT_KEYS = ("event.name", "model", "cost_usd_micros", "cost_usd", *EVENT_TOKENS)
+EVENT_KEYS = ("event.name", "model", "cost_usd_micros", "cost_usd", "tool_use_id", "tool_name", *EVENT_TOKENS)
+# W41 C2: the tool events keep only the call's id and the tool's name, never an input, a result or a parameter. OTEL_LOG_TOOL_DETAILS
+# stays 0, so none arrives. The id is checked against this pattern and a bad one is counted, not kept.
+TOOL_EVENTS = ("tool_result", "tool_decision", "claude_code.tool_result", "claude_code.tool_decision")
+TOOL_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+TOOL_NAME = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
+MAX_TOOL_IDS = 20000
 
 
 def telemetry_env(port: int, secret: str) -> dict:
@@ -171,6 +177,8 @@ class Totals:
         self.event_tokens = Counter()  # (model, type) -> count
         self.metric_tokens = Counter()
         self.models: list = []
+        self.tools: dict = {}  # W41 C2: tool_use_id -> tool name, from the tool events
+        self.tools_bad = 0  # tool events with an id or a name that was not plain; counted, not kept
         self.invalid: str | None = None
         self.refused = Counter()  # HTTP status -> count
         self.accepted = 0
@@ -227,15 +235,19 @@ class Totals:
             self._check_total()
 
     def fold_logs(self, body) -> None:
-        requests, cost, tokens, models = 0, 0, Counter(), []
+        requests, cost, tokens, models, tools = 0, 0, Counter(), [], []
         for rl in _list(_dict(body).get("resourceLogs")):
             for sl in _list(_dict(rl).get("scopeLogs")):
                 for rec in _list(_dict(sl).get("logRecords")):
                     rec = _dict(rec)
                     attrs = _attrs(rec.get("attributes"), EVENT_KEYS)
                     body_name = _string(rec.get("body")) if isinstance(rec.get("body"), dict) else None
-                    if _string(attrs.get("event.name")) != "api_request" and body_name != "claude_code.api_request":
-                        continue  # any other event (a prompt, a tool result) is skipped unread
+                    event = _string(attrs.get("event.name"))
+                    if event in TOOL_EVENTS or body_name in TOOL_EVENTS:
+                        tools.append((_string(attrs.get("tool_use_id")), _string(attrs.get("tool_name"))))
+                        continue
+                    if event != "api_request" and body_name != "claude_code.api_request":
+                        continue  # any other event (a prompt) is skipped unread
                     requests += 1
                     if "cost_usd_micros" in attrs:
                         cost += _int_value(attrs["cost_usd_micros"])
@@ -250,6 +262,13 @@ class Totals:
                             tokens[(model, t)] += _int_value(attrs[key])
                     models.append(model)
         with self.lock:
+            for tid, name in tools:
+                if not (isinstance(tid, str) and TOOL_ID.match(tid) and isinstance(name, str) and TOOL_NAME.match(name)):
+                    self.tools_bad += 1
+                elif tid in self.tools or len(self.tools) < MAX_TOOL_IDS:
+                    self.tools[tid] = name
+                else:
+                    self.tools_bad += 1
             self.requests += requests
             self.event_micros += cost
             for (model, t), n in tokens.items():
@@ -275,7 +294,7 @@ class Totals:
                     "by_type": {t: sum(n for (_m, tt), n in tokens.items() if tt == t)
                                 for t in ("input", "output", "cache_read", "cache_creation")},
                     "models": list(self.models), "invalid": self.invalid, "accepted": self.accepted,
-                    "refused": dict(self.refused)}
+                    "refused": dict(self.refused), "tools": dict(self.tools), "tools_bad": self.tools_bad}
 
 
 _CLASSES = None

@@ -298,10 +298,10 @@ if "--settings" in ARGS:
 groups = [] if settings.get("disableAllHooks") else settings.get("hooks", {}).get("PreToolUse", [])
 
 
-def run_hook(h: dict, name: str, inp: dict) -> str:
+def run_hook(h: dict, name: str, inp: dict, tid: str = "toolu_fake") -> str:
     payload = {"session_id": "fake-session", "transcript_path": "/dev/null", "cwd": os.getcwd(),
                "hook_event_name": "PreToolUse", "permission_mode": "default", "tool_name": name,
-               "tool_input": inp, "tool_use_id": "toolu_fake"}
+               "tool_input": inp, "tool_use_id": tid}
     failed = "block" if h.get("onFailure") == "block" else "error-allow"
     try:
         r = subprocess.run([h["command"], *h.get("args", [])], input=json.dumps(payload).encode("utf-8"),
@@ -366,11 +366,12 @@ def kiro_tool(name: str, inp: dict) -> str:
     return final
 
 
-def tool(name: str, inp: dict) -> str:
+def tool(name: str, inp: dict, tid: str = "toolu_fake", skip_hook: bool = False) -> str:
+    """A tool call through the hooks. `skip_hook` is a call the platform made without running any hook (W41 C2 tests)."""
     if KEY == "KIRO":
         return kiro_tool(name, inp)
-    answers = [run_hook(h, name, inp) for g in groups if g.get("matcher") in ("*", "", None, name)
-               for h in g.get("hooks", [])]
+    answers = [] if skip_hook else [run_hook(h, name, inp, tid) for g in groups if g.get("matcher") in ("*", "", None, name)
+                                    for h in g.get("hooks", [])]
     final = max(answers, key=lambda d: ORDER[d]) if answers else "no-hook"
     rec(event="tool", tool=name, input=inp, decision=final)
     return final
@@ -391,7 +392,7 @@ signal.signal(signal.SIGTERM, on_term)
 for step in json.loads(os.environ.get("FAKE_SCRIPT", "[]")):
     kind = step["do"]
     if kind == "tool":
-        tool(step["tool"], step.get("input", {}))
+        tool(step["tool"], step.get("input", {}), step.get("id", "toolu_fake"), bool(step.get("skip_hook")))
     elif kind == "write":  # W78 step 3: change a file of the root, the way a helper that left its folder could
         os.makedirs(os.path.dirname(step["path"]), exist_ok=True)
         with open(step["path"], "w", encoding="utf-8") as f:
