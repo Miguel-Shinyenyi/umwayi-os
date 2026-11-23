@@ -68,6 +68,12 @@ class Rule:
     autonomy: Autonomy | None = None  # layer 13.R9.2: the opt-in of an Ask me first rule, or None
 
 
+ALLOWED_NEXT = {
+    "No": "do not do this; ask the owner to do it, or to change the rule",
+    "Ask me first": "do not do this yet; wait for the owner's answer",
+}
+
+
 @dataclass
 class Decision:
     answer: str
@@ -101,6 +107,12 @@ class Decision:
     def exit_code(self) -> int:
         return EXIT_CODES[self.answer]
 
+    @property
+    def allowed_next(self) -> str | None:
+        """W78 5(d): the one fixed step after a No or an Ask me first, chosen by the answer and never by a rule's text or the action.
+        A Yes has none. The same sentences as NEXT_STEPS of adapters/common/umwayi_gate.py (a test holds them equal)."""
+        return ALLOWED_NEXT.get(self.answer)
+
     def to_dict(self) -> dict:
         """The --json answer. Adapters (layer 9) read answer, rule_id and rules_ok, never the reason text."""
         data = {
@@ -113,6 +125,8 @@ class Decision:
         }
         if self.lapsed:  # only when a rule fell back: without one the answer is the same bytes as before layer 13
             data["election_fallbacks"] = [rid for rid, _ in self.lapsed]
+        if self.allowed_next is not None:  # only for a No and an Ask me first, after every key an adapter read before
+            data["allowed_next"] = self.allowed_next
         if self.autonomy is not None:  # only while graded autonomy is on and an opt-in rule matched (13.R12.2)
             data["autonomy"] = dict(self.autonomy)
         return data
@@ -121,6 +135,8 @@ class Decision:
         text = f"{self.answer}\nRule: {self.rule_id or '(none)'}\nReason: {self.reason}\n"
         if self.lapsed:
             text += f"Election fallbacks: {', '.join(f'{rid} (review_by {day})' for rid, day in self.lapsed)}\n"
+        if self.allowed_next is not None:  # after the first line and the Rule and Reason lines, so a reader of those is not changed
+            text += f"Allowed next: {self.allowed_next}.\n"
         return text
 
 
