@@ -323,8 +323,7 @@ def serve(root, table, sock_path, parent: int | None = None, stop: threading.Eve
         if os.path.lexists(sock_path):
             return EXIT_NO  # never replace a path: a planted file or link is an error
         srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        srv.bind(str(sock_path))
-        os.chmod(sock_path, 0o600)
+        srv.bind(str(sock_path))  # who may connect is the private (0700) folder, checked above; no mode is changed here
         srv.listen(MAX_CONNECTIONS)
         srv.settimeout(0.5)
     except (OSError, TableError):

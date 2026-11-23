@@ -373,10 +373,10 @@ class StartTests(BrokerCase):
             self.start(wait_s=1.0)
         self.assertEqual((self.folder / "broker.sock").read_text(encoding="utf-8"), "planted")  # never replaced
 
-    def test_the_socket_and_the_table_are_private_files(self):
+    def test_the_table_is_a_private_file_and_the_socket_lies_in_a_private_folder(self):
         self.start()
-        self.assertEqual(os.stat(self.handle.sock_path).st_mode & 0o777, 0o600)
         self.assertEqual(os.stat(self.table).st_mode & 0o777, 0o600)
+        self.assertEqual(os.stat(self.folder).st_mode & 0o777, 0o700)
 
     def test_stop_removes_the_socket_and_exits_0(self):
         self.start()
