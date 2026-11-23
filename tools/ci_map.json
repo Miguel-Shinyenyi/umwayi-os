@@ -167,6 +167,7 @@
   "tests/test_helpers.py": ["rules.yaml"],
   "tests/test_honest.py": [".kiro", "adapters", "docs", "rules.yaml"],
   "tests/test_landlock_probe.py": [],
+  "tests/test_limits_numbers.py": ["docs", "docs-parts"],
   "tests/test_logbook.py": [],
   "tests/test_logbook_chain.py": ["rules.yaml"],
   "tests/test_logbook_crash.py": [],
