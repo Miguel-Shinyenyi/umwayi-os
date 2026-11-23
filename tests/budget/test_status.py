@@ -79,6 +79,7 @@ class StatusTests(BudgetCase):
             "1 reservation(s) of this day have no settle and count in full; if no agent runs now, run umwayi budget "
             "settle-lost --by NAME",
             "There is no units.yaml: every reading is unknown and the limits are the placeholders.",
+            "To set real numbers, write a units.yaml in the root. The format is in docs/budget-governor.md, under units.yaml.",
             "Nothing was started or written.",
         ])
         y = self.budget("status", "--date", days_ago(1))
