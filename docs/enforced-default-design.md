@@ -83,7 +83,7 @@ It ships as `enforced`. Until the minimum profile exists (A, C1, B1 for Claude C
 
 ### Build order
 
-Each item is its own task. None starts before Dec 3: the Kiroween freeze is Nov 29 to Dec 2 and the submission is Dec 3. This note is allowed before.
+Each item is its own task. Dates are guidelines. The honesty rule and the owner stops are the limits, and no default behavior changes without an owner stop.
 
 1. **Mode setting and the rules.** The `enforcement` setting and its guard file, `umwayi enforce check`, the refusal wording with a next step (5d), and the one owner approved rules change: deny the owner's commands to helpers; guard lists for `guidance.yaml`, `units.yaml`, `agents.yaml`, the tools folder and `.kiro/steering/umwayi`; a terminal check on `umwayi queue answer`. The task says how the pseudo-terminal case and sessions opened outside umwayi are closed, or stay limits (open question 1).
 2. **W41 A**: scrubbed environment, run marker, `env_keep`, with the W68 allow listed environment built once here. Built 2026-11-22 for Claude Code and Kiro starts under a mode file that says `enforced` (`enforced_env` and `scrub_applies` in `umwayi/agents.py`). With no mode file, and for a `cooperative` agent, a start keeps the old environment and gets no marker, until the default flip of step 10. One tiny real Claude Code goal passed under it on 2026-11-22; Kiro and larger goals are not checked.
