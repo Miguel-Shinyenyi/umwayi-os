@@ -442,6 +442,21 @@ def logbook_mark(root):
         return None
 
 
+_BROKER_LOST_ADDED = re.compile(r"Enforcement broker lost during the run of agent [A-Za-z0-9_.-]{1,64}")
+
+
+def broker_lost_since(root, mark):
+    """True when `umwayi agent run` wrote the broker-lost entry after `mark`. Only the added line is read."""
+    if mark is None:
+        return False
+    try:
+        entries = logbook.read_checked(root)
+    except UmwayiError:
+        return False
+    return any(getattr(e, "source", None) == "umwayi agent run" and _BROKER_LOST_ADDED.fullmatch(getattr(e, "added", "") or "")
+               for e in entries[mark:])
+
+
 def block_since(root, mark):
     """The fixed words (goalstate.block_words) of the last tool call that the rules blocked in the entries written after
     `mark`, or None. Only the added line of a `umwayi check` entry is read: never the action, never an argument."""
@@ -681,6 +696,7 @@ class RoleResult:
     cap_uu: int
     over: bool  # the run passed its cap (the ledger says so)
     guard: tuple = ()  # W78 step 3: the names (umwayi/watched.py) of the watched files that changed during the run
+    broker_lost: bool = False  # W78 step 5: the agent's own entry says its enforcement broker ended before the run did
 
 
 class _Run:
@@ -1059,6 +1075,7 @@ class _Run:
         environ["PYTHONDONTWRITEBYTECODE"] = "1"
         mark = logbook_mark(self.root) if role == "builder" else None  # W56: the entries before the builder
         guard_before = watched.snapshot(self.root)  # W78 step 3 (W41 C1): read again after the run
+        lost_mark = logbook_mark(self.root)  # W78 step 5: the entries of this run start here
         proc = e.spawn(argv, self.root, environ)
         # The `started` event, with the pid, comes before the prompt: the child reads its prompt first and does nothing
         # until it has it, so no helper acts before the start is on record. If the event cannot be written the child is
@@ -1095,7 +1112,7 @@ class _Run:
         if role == "builder":
             self.blocked = block_since(self.root, mark)
         guard = tuple(watched.changed(guard_before, watched.snapshot(self.root)))
-        return RoleResult(code, why, reader, uu, cap, uu > cap, guard)
+        return RoleResult(code, why, reader, uu, cap, uu > cap, guard, broker_lost_since(self.root, lost_mark))
 
     def stop_child(self, proc):
         """SIGTERM to the child (which stops the AI helper and its group, settles the budget and writes its entries),
@@ -1222,6 +1239,10 @@ class _Run:
             self.stop_running("owner_stop")
         if res.guard:  # W78 step 3: a watched file changed, so the task stops before the next step starts (Q5)
             self.finish_guard(role, res.guard)
+        if res.broker_lost:  # W78 step 5: no answer is No, and the broker is gone: the task stops before the next step starts
+            self.finish("broker_lost", facts=[("cause", {"word": "broker_lost"})],
+                        recommendation=f"The enforcement broker of the {role} run ended before the run did, so every later tool call "
+                                       "was refused. Look at the logbook; nothing was undone. Answer when you have checked it.")
         if res.why == "stalled":
             self.finish("no_progress")
         if res.why == "looping":
@@ -1621,7 +1642,7 @@ class _PlanRun(_Run):
             raise _Done(Outcome(2, "stopped", "owner", "owner_stop"))
         if res.why in ("stalled", "looping"):
             return "stalled" if res.why == "stalled" else "looping"
-        if res.guard:  # W78 step 3: the planning run changed a watched file, so the plan is refused
+        if res.guard or res.broker_lost:  # W78 steps 3 and 5: the planning run changed a watched file or lost its broker
             return "guard"
         if GIT.status(self.root, self.worktree) or GIT.head(self.root, self.worktree) != self.base:
             return "readonly"

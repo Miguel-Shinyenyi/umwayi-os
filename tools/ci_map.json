@@ -87,6 +87,7 @@
   "tests/budget/test_units.py": ["adapters"],
   "tests/goal/test_approvals.py": ["umwayi.json"],
   "tests/goal/test_blocked.py": ["umwayi.json"],
+  "tests/goal/test_broker_lost.py": ["umwayi.json"],
   "tests/goal/test_budget.py": [],
   "tests/goal/test_cli.py": ["umwayi.json"],
   "tests/goal/test_docs_parts.py": [".gitignore", "PROJECT.md", "README.md", "docs", "docs-parts"],

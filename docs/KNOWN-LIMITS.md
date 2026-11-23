@@ -2168,3 +2168,13 @@ These are facts of the code of this change. No real Claude Code ran with it.
 - A broker that dies during a run makes every later hook call No. The run ends with exit 2 and a line that says so; the cause word `broker_lost` and the stop of the goal task are not built.
 - The `umwayi agent check` output does not show the broker.
 - The hook of the broker path does not add the tool_use_id to the check entry unless the C2 change (PR 183) is in.
+
+## Enforced by default (W78), found while building broker_lost (step 5a3)
+
+### 335. a lost broker is found when the run ends, not while it runs
+
+These are facts of the code of this change.
+
+- The run is told its broker is gone only by the hook's answers: every call after the loss is refused. The supervisor learns of it when the run ends and stops the task then, not at the moment of the loss.
+- A broker that ended and was started again is not a case: a broker is started once per run.
+- Only a `claude -p` run is covered. The task id is still `none` in the run table.

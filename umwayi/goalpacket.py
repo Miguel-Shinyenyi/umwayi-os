@@ -109,6 +109,7 @@ CAUSES = {
     "run_lock_busy": ("needs owner", "busy"),
     "worktree_not_clean": ("needs owner", "dirty"),
     "worktree_leftover": ("needs owner", "leftover"),
+    "broker_lost": ("needs owner", "unclear"),  # W78 step 5: the enforcement broker ended before the helper's run did
     "guard_file_changed": ("needs owner", "unclear"),  # W78 step 3 (W41 C1): a watched file changed during a run (Q5: stop)
     "worktree_cap": ("needs owner", "leftover"),
     "main_behind_origin": ("needs owner", "stale"),
