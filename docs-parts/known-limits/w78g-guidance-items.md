@@ -1,6 +1,6 @@
 section: Guidance items of W78 point 5
 title: The task card, the refusal step and the counts are guidance and bookkeeping, not enforcement
-number: 331
+number: 332
 
 These are facts of the code of this change.
 

@@ -158,7 +158,7 @@ Every entry has a fixed shape. It holds names from fixed lists and counts, never
   - 10.R5.7 keeps its never list, and B1 adds `allowUnsandboxedCommands: false` to the one settings template.
   - New W41.R3 (B1) and W41.R4 (B2).
 - **C:**
-  - W9.R6.2 gains the cause words `guard_file_changed` and `unchecked_tool_call` (both `needs owner`, reason `unclear`).
+  - W9.R6.2 gains the cause words `guard_file_changed` and `unchecked_tool_call` (both `needs owner`, reason `unclear`). C1 is built (`umwayi/watched.py`, 2026-11-22) with `guard_file_changed`; C2 and `unchecked_tool_call` are not.
   - W9.R8.3 gains "and the detect-after of W41.R5".
   - B.R2 gains the two event kinds the receiver keeps.
   - Layer 9 gains the hook's `tool_use_id` for Claude Code.

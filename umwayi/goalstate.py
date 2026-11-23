@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-from umwayi import fsutil, goalbudget, goallog, goalpacket as gp, logbook, taskqueue
+from umwayi import fsutil, goalbudget, goallog, goalpacket as gp, logbook, taskqueue, watched
 from umwayi.errors import UmwayiError
 
 try:
@@ -432,6 +432,9 @@ FACTS = {
     # the watched-file findings
     "counted": ("Counted from the logbook since the task started: {no} No, {ask} Ask me first, {guard} guard findings.",
                 {"no": r"\d{1,6}", "ask": r"\d{1,6}", "guard": r"\d{1,6}"}),
+    # W78 step 3: which watched files changed during a run, by the fixed names of umwayi/watched.py, never a path or a word of a helper
+    "guard_files": ("Guard files changed during the run: {names}.", {"names": (
+        "(?:" + "|".join(re.escape(x) for x in watched.NAMES) + ")(?:, (?:" + "|".join(re.escape(x) for x in watched.NAMES) + "))*")}),
     "main_ok": ("The local main is not behind origin/main.", {}),
     "no_leftover": ("No leftover.", {}),
     "clean_base": ("Clean at base.", {}),

@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from umwayi import agents, budget, goalbudget, goaldocs, goalgit as gg, goallog, goalpacket as gp, goalstate as gs, goalwatch as gw
-from umwayi import enforce, kill, logbook, rules, runlock, taskqueue, units
+from umwayi import enforce, kill, logbook, rules, runlock, taskqueue, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 POLL_S = 1.0  # the watch wakes this often
@@ -680,6 +680,7 @@ class RoleResult:
     spent_uu: int
     cap_uu: int
     over: bool  # the run passed its cap (the ledger says so)
+    guard: tuple = ()  # W78 step 3: the names (umwayi/watched.py) of the watched files that changed during the run
 
 
 class _Run:
@@ -1057,6 +1058,7 @@ class _Run:
         # Python the helper runs. The tester and the check are read-only roles, so a bytecode folder they write fails the task.
         environ["PYTHONDONTWRITEBYTECODE"] = "1"
         mark = logbook_mark(self.root) if role == "builder" else None  # W56: the entries before the builder
+        guard_before = watched.snapshot(self.root)  # W78 step 3 (W41 C1): read again after the run
         proc = e.spawn(argv, self.root, environ)
         # The `started` event, with the pid, comes before the prompt: the child reads its prompt first and does nothing
         # until it has it, so no helper acts before the start is on record. If the event cannot be written the child is
@@ -1092,7 +1094,8 @@ class _Run:
             measured[role] = (uu0 + uu, ok0 and goalbudget.window_measured(before, after, agent))
         if role == "builder":
             self.blocked = block_since(self.root, mark)
-        return RoleResult(code, why, reader, uu, cap, uu > cap)
+        guard = tuple(watched.changed(guard_before, watched.snapshot(self.root)))
+        return RoleResult(code, why, reader, uu, cap, uu > cap, guard)
 
     def stop_child(self, proc):
         """SIGTERM to the child (which stops the AI helper and its group, settles the budget and writes its entries),
@@ -1217,12 +1220,22 @@ class _Run:
             self.stop_running("log_write_failed")
         if res.why == "owner":
             self.stop_running("owner_stop")
+        if res.guard:  # W78 step 3: a watched file changed, so the task stops before the next step starts (Q5)
+            self.finish_guard(role, res.guard)
         if res.why == "stalled":
             self.finish("no_progress")
         if res.why == "looping":
             self.finish("same_error_twice")
         if res.over:
             self.finish("task_budget_spent")
+
+    def finish_guard(self, role, names):
+        """A watched file changed during a run (W41 C1): the task goes to `needs owner`, with the fixed names in its entry and in
+        the queue row. The next step does not start, and nothing is undone."""
+        shown = ", ".join(names)
+        self.finish("guard_file_changed", facts=[("cause", {"word": "guard_file_changed"}), ("guard_files", {"names": shown})],
+                    recommendation=f"A guard file changed during the {role} run: {shown}. Look at it and at the logbook; "
+                                   "nothing was undone. Answer when you have checked it.")
 
     def after_block(self, res):
         """W56: the rules gate said No or Ask me first to a call of the builder, and the builder then gave up (an exit
@@ -1607,6 +1620,8 @@ class _PlanRun(_Run):
             raise _Done(Outcome(2, "stopped", "owner", "owner_stop"))
         if res.why in ("stalled", "looping"):
             return "stalled" if res.why == "stalled" else "looping"
+        if res.guard:  # W78 step 3: the planning run changed a watched file, so the plan is refused
+            return "guard"
         if GIT.status(self.root, self.worktree) or GIT.head(self.root, self.worktree) != self.base:
             return "readonly"
         if res.over:
