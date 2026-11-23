@@ -18,7 +18,7 @@ from umwayi.errors import ConfigError
 CONFIG_NAME = "umwayi.json"
 MAX_CONFIG_BYTES = 64 * 1024  # an umwayi.json larger than this is refused unread (S.2)
 _REQUIRED = {"memory_dir", "private_paths"}
-_OPTIONAL = {"social_channels"}  # layer 7: channel names for the social helper
+_OPTIONAL = {"social_channels", "provenance"}  # layer 7: channel names for the social helper; W49: {"record": true}
 _CHANNEL = re.compile(r"^[a-z][a-z0-9-]{0,19}$")
 MAX_CHANNELS = 5
 
@@ -29,6 +29,7 @@ class Config:
     memory_dir: str
     private_paths: tuple[str, ...]
     social_channels: tuple[str, ...] = ()
+    provenance_record: bool = False  # W49: write a provenance record for each task that reaches `in review` (off by default)
 
 
 def _clean_rel(value: object, what: str) -> str:
@@ -78,7 +79,11 @@ def load_config(root: Path) -> Config:
         raise ConfigError("config: private_paths must be a list")
     private = tuple(_clean_rel(p, "private_paths entry") for p in priv)
     channels = _channels(data.get("social_channels", []))
-    return Config(root=root, memory_dir=memory_dir, private_paths=private, social_channels=channels)
+    prov = data.get("provenance", {})
+    if not isinstance(prov, dict) or set(prov) - {"record"} or not isinstance(prov.get("record", False), bool):
+        raise ConfigError('config: provenance must be an object with only "record": true or false')
+    return Config(root=root, memory_dir=memory_dir, private_paths=private, social_channels=channels,
+                  provenance_record=prov.get("record", False))
 
 
 def _channels(value: object) -> tuple[str, ...]:

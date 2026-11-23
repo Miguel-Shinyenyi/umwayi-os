@@ -6,7 +6,7 @@ This page is the design of two tasks the owner named on Nov 15. W49 keeps a prov
 
 ## Current state
 
-**Nothing is built.** This page is a design note only: no code, test, rule, steering file, safety check or workflow changed. It is built only after the owner answers the open questions below. The facts about `ssh-keygen` and the Python AST were measured in the sandbox on Nov 16 (OpenSSH_9.9p1; Python 3.10.20 to 3.14.4) and are named where they are used.
+**Built in part (2026-11-23): the record only.** `umwayi/provenance.py` makes, stores and seals the record of a task (W49.R1 to R3) when `umwayi.json` has `"provenance": {"record": true}` (off by default; a deviation from this note, which makes it always on, so no existing root changes). It needs the hash chain; without one the task is `needs owner` (config). Not built: signing, `umwayi provenance sign` and `umwayi verify`. They need the owner's key, and the tests of this note use throwaway keys, which this build does not make. Until they exist a record proves nothing of origin. The rest of this page describes the whole design. Before the build it said: **Nothing is built.** This page is a design note only: no code, test, rule, steering file, safety check or workflow changed. It is built only after the owner answers the open questions below. The facts about `ssh-keygen` and the Python AST were measured in the sandbox on Nov 16 (OpenSSH_9.9p1; Python 3.10.20 to 3.14.4) and are named where they are used.
 
 ### The record (W49)
 
