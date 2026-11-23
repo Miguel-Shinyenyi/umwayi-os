@@ -21,11 +21,14 @@ BEFORE_JSON = """{
   ],
   "rules_ok": true,
   "action_ok": true,
+  "allowed_next": "do not do this yet; wait for the owner's answer",
   "logged": true,
   "kill_switch": "off"
 }
 """
-BEFORE_TEXT = "Ask me first\nRule: commit-ask\nReason: The owner is asked before an AI helper commits.\n"
+# W78 5(d): the `allowed_next` key and the last line are the only additions to the bytes of before, for a No and an Ask me first
+BEFORE_TEXT = ("Ask me first\nRule: commit-ask\nReason: The owner is asked before an AI helper commits.\n"
+               "Allowed next: do not do this yet; wait for the owner's answer.\n")
 BEFORE_ENTRY = {
     "source": "umwayi check",
     "added": "Rule commit-ask gave Ask me first; action type: tool_bash; command word: git",

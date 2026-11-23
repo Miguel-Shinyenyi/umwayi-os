@@ -288,7 +288,9 @@ GOLDEN_JSON = """{
   "kill_switch": "off"
 }
 """
-GOLDEN_TEXT_NO = "No\nRule: no-money\nReason: Helpers never move money.\n"
+# W78 5(d): the first three lines are the bytes of before; the one line after them, `Allowed next: ...`, is the only addition and is for a No and an Ask me first
+GOLDEN_TEXT_NO = ("No\nRule: no-money\nReason: Helpers never move money.\n"
+                  "Allowed next: do not do this; ask the owner to do it, or to change the rule.\n")
 GOLDEN_LOGBOOK = """# Logbook
 
 ## 2026-11-07
