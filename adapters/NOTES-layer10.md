@@ -1186,6 +1186,7 @@ So a non-interactive run needs no terminal. `opencode run` is one command with a
 - A tool's output inside a reply was not looked at. An effort or reasoning option was not found: `opencode run --help` lists `--model provider/model#variant`, `--thinking` and `--format`, and the `#variant` suffix was not tried.
 - The first gate was confirmed by the `Connected.` line. The canary file was not read.
 - Linux and Windows were not run.
+- No real goal was run with an OpenCode role. The W9.13 build is tested with a fake `opencode acp` and this check.
 
 
 ## A real Claude Code goal under the scrubbed environment, 2026-11-22

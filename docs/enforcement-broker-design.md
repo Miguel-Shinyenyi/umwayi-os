@@ -111,7 +111,7 @@ A whole system scenario in `GoalWholeSystemTests` runs one task in `enforced` mo
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-22 | Design note only. The broker never writes a guard file; the owner's commands do. The channel is two ways, with way 2 recommended. | Round 4, task 4 of the owner's message. The W78 note's "only write access to the guard files" and "one inherited socket pair" were written before the hooks were read for this. |
-| 2026-11-22 | The owner approved open question 2: a third exception to product rule 5, `socket` in `umwayi/broker.py` only, named by file in `tests/test_system.py`. The other open questions are not yet decided. | The owner accepted the recommendation in the chat of the same day. |
+| 2026-11-22 | The owner approved open question 2: a third exception to product rule 5, `socket` in `umwayi/broker.py` only, named by file in `tests/test_system.py`. The other open questions are not yet decided. | Accepted by the owner (message of 2026-11-22). The message is not kept in the repo; the guide checks the date with the owner. |
 
 ## Open questions
 
