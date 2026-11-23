@@ -1339,8 +1339,33 @@ class _Run:
                  ("tester", {"name": self.g["tester"], "p": str(len(self.verdicts)), "m": str(len(self.verdicts))}),
                  ("guide", {"name": self.g["guide"], "word": "accept"}),
                  ("spent", {"a": str(self.spent_total()), "b": str(int(self.packet.budget_uu))})]
+        self.record_provenance()
         self.move("in review", "checked", branch=self.branch, tip=self.tip, facts=facts, not_done="nodiff")
         return Outcome(0, "in review", "checked", "in_review")
+
+    def record_provenance(self):
+        """W49: when the owner turned records on (`umwayi.json`: "provenance": {"record": true}), the record of the task is made
+        and sealed just before `in review`. A record that cannot be made or logged stops the task: a failed log write is the
+        record failure of every write (W9.R13), anything else is `needs owner` (config). Off, it does nothing. No signature."""
+        from pathlib import Path
+        from umwayi import config as cfg
+        from umwayi import provenance
+        try:
+            on = cfg.load_config(Path(self.root)).provenance_record
+        except UmwayiError:
+            return
+        if not on:
+            return
+        try:
+            provenance.make(self.root, self.goal, self.task, self.base, self.tip, self.packet.sha256(),
+                            GIT.changed(self.root, self.worktree, self.base), self.worktree, self.env.when())
+        except gg.Refused:
+            self.finish("provenance_not_recorded", facts=[("cause", {"word": "provenance_not_recorded"})])
+        except provenance.ProvenanceError as e:
+            if e.reason == "log":
+                self.say(RECORD_FAILED)
+                raise _Done(Outcome(2, "", "", "record")) from None
+            self.finish("provenance_not_recorded", facts=[("cause", {"word": "provenance_not_recorded"})])
 
 
     def scope_check(self):

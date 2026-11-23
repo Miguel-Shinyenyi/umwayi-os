@@ -38,3 +38,5 @@ outbox/
 # goal orchestration (W9): the state of the goals and the one-supervisor lock
 .umwayi/goals/
 .umwayi/goal.lock
+# W49: provenance records of goal tasks (beside the work, never in it)
+.umwayi/provenance/
