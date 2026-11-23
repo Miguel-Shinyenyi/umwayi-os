@@ -208,16 +208,17 @@ class KernelTests(KernelCase):
         self.assertEqual(self.result()["tcp_connect"], 0)
 
     def test_the_restriction_is_inherited_by_what_the_command_starts(self):
-        inner = f"open({str(self.other / 'child.txt')!r}, 'w')"
-        script = ("import subprocess, sys, json\n"
-                  f"p = subprocess.run([sys.executable, '-c', {inner!r}], capture_output=True)\n"
-                  "print(json.dumps({'code': p.returncode, 'err': p.stderr.decode()[-80:]}))\n")
-        argv = confine.argv(self.reads(), [str(self.work)], [sys.executable, "-c", script])
+        # the command is a shell that starts another shell (a grandchild of this program) which tries to write outside
+        target = self.other / "child.txt"
+        sh = shutil.which("sh") or "/bin/sh"
+        inner = f"{sh} -c 'echo x > {target}' 2>&1; echo code=$?"
+        argv = confine.argv(self.reads(), [str(self.work)], [sh, "-c", inner])
         p = subprocess.run(argv, capture_output=True, text=True, timeout=60, env={"PATH": os.environ.get("PATH", "")}, cwd=str(self.work))
-        got = json.loads(p.stdout.strip().splitlines()[-1])
-        self.assertNotEqual(got["code"], 0, p.stdout + p.stderr)
-        self.assertIn("Permission denied", got["err"])  # the kernel's EACCES, as the grandchild's own error reports it
-        self.assertFalse((self.other / "child.txt").exists())
+        self.assertIn("Permission denied", p.stdout + p.stderr, p.stdout + p.stderr)  # the kernel's EACCES, from the grandchild
+        self.assertNotIn("code=0", p.stdout)
+        self.assertFalse(target.exists())
+        control = subprocess.run([sh, "-c", inner], capture_output=True, text=True, timeout=60)  # planted fault: unconfined it works
+        self.assertIn("code=0", control.stdout, control.stdout + control.stderr)
 
     def test_a_listed_path_that_does_not_exist_refuses_and_the_command_is_not_run(self):
         marker = self.base / "marker"
