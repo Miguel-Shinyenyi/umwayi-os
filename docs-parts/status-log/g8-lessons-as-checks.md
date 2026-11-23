@@ -1,4 +1,4 @@
 date: 2026-11-23
-pr: none
+pr: 202
 what: G8 (a, b, e, f), lessons as deterministic code. (a) `tests/data/testing_md_bullets.txt` pins the first words of each bullet of `docs/testing.md`; a lost bullet fails the build. (b) `tools/pre_push.py` names and runs the tests a change can break: the three scanner and guard tests always, the guard test of each package touched, and every test file that mentions the name of a file the branch changes or moves (the search I did too late for PR 196); `--install` writes a git pre-push hook that runs it and never overwrites a hook that is not ours. (e) `tools/pr_green.py PR` says green only for the check runs of the exact head commit of the pull request, with `result` finished with success and nothing running or failed; an older commit's run is not green. (f) a test fails when a status part that main holds is missing from the branch. G8 c is F4b, d is F4a plus the renumbering of `merge_main`, g waits for the lessons file. Tools and tests; no product code.
 tests: `tests/test_lessons_as_checks.py` (16 tests, planted faults for each).
