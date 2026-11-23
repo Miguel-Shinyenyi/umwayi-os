@@ -268,6 +268,10 @@
    "seconds": 95.8,
    "shard": 2
   },
+  "tests/goal/test_guard_count.py": {
+   "seconds": 19.5,
+   "shard": 1
+  },
   "tests/goal/test_guard_files.py": {
    "seconds": 15.0,
    "shard": 3
