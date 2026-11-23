@@ -2155,16 +2155,16 @@ These are facts of the code of this change.
 - The queue row of an Ask me first holds the run id and the action type only. The row title is `Ask me first in run RUNID`, so one run has at most one open row at a time.
 - `answer_status` reads the newest row of the run; it never returns the answer text.
 
-## Provenance record (W49), found while building the record
+## Enforced by default (W78), found while building W41 B1
 
-### 334. the record exists but nothing signs or verifies it, and it is off unless the owner turns it on
+### 334. the Claude Code sandbox settings are passed and the tools are looked for, but nothing tests that the sandbox holds
 
-These are facts of the code of this change. The record is made by the supervisor and read by nothing yet.
+These are facts of the code of this change. No real Claude Code ran with the sandbox on.
 
-- `umwayi.json` must say `"provenance": {"record": true}`. Off, no task has a record and nothing changes. The design note makes it always on; this is the deviation, so no existing root breaks for lack of a hash chain.
-- A record needs the hash chain (`umwayi logbook seal --chain`). With the setting on and no chain, the task goes to `needs owner` (config, cause `provenance_not_recorded`) and no record is written.
-- The record is not signed. `umwayi provenance sign` and `umwayi verify` are not built: they need the owner's key, and their tests need keys. A record on its own does not show that a file came out of a umwayi task. Anyone who can write the root can write a record and its entry.
-- `provenance.compare` says whether bytes match a record. It is a comparison, not a proof, and no command calls it yet.
-- The records are on this machine in `.umwayi/provenance/`. A clone has none. `.gitignore` ignores the folder.
-- The structure hash of a `.py` file is compared only under the same Python minor version. A docstring change counts as a structure change.
-- The record holds paths, hashes and sizes of the files a task changed. It holds no content. The entry holds the hash of the record and counts, no path.
+- A start under a mode file that says `enforced` passes `{"enabled": true, "failIfUnavailable": true, "allowUnsandboxedCommands": false}` with `--settings`. A cooperative agent and a root with no mode file are unchanged.
+- umwayi reads back the settings text it would pass and looks for `bwrap` and `socat` on PATH (Linux). It does not run them, so a tool that is on PATH and broken, or an Ubuntu AppArmor rule that blocks `bwrap`, shows up only when Claude Code itself refuses to start (`failIfUnavailable`).
+- A managed setting of Claude Code, which beats `--settings`, can change the sandbox. umwayi does not read managed settings.
+- The sandbox covers the shell commands Claude Code runs and what they start. The built-in Read, Edit and Write tools, hooks and MCP servers stay outside it (Claude Code's own docs). The write access of the sandbox is Claude Code's default (the working folder); umwayi sets no `filesystem` keys.
+- The Claude Code ACP adapter takes no `--settings`, so an `enforced` ACP agent is refused with reason `profile`. The owner sets that agent cooperative, or uses transport cli.
+- `umwayi enforce check` still reports confinement as refused for Claude Code: the sandbox is one of the parts of confinement, not all of it.
+- Kiro and OpenCode have no such sandbox. They need B2.
