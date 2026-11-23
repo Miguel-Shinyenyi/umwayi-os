@@ -61,7 +61,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, budget, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, units
+from umwayi import __version__, acp, budget, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -2035,8 +2035,32 @@ class _Run:
             why = self.log(f"Agent {a.name} could not start", "the program could not be started", "Nothing ran.")
             return self.result(2, [f"Agent {a.name} could not be started (exit 2)."], why)
 
-        # 8. watch, 9. the end
-        return self._watch()
+        # 8. watch, 9. the end; 10. the watched files, read before the start and again after the end (W78 step 3, W41 C1)
+        guard_before = watched.snapshot(root)
+        return self._guard_check(guard_before, self._watch())
+
+    def _guard_check(self, before: dict, result: Result) -> Result:
+        """A watched file (umwayi/watched.py) that changed during the run is a finding: one logbook entry, one queue row, and
+        exit 2 even when the run itself ended well. Nothing is undone. The names are the fixed ones of the list, never a path.
+        A login is not a run of a helper."""
+        if self.mode == LOGIN:
+            return result
+        names = watched.changed(before, watched.snapshot(self.root))
+        if not names:
+            return result
+        a, shown = self.agent, ", ".join(names)
+        why = self.log(f"Guard files changed during the run of agent {a.name}: {shown}",
+                       "the watched files were read before the start and again after the end; nothing was undone", NOT_LOGGED)
+        row = ""
+        try:
+            r, added = taskqueue.add_once(self.root, "decision", f"Guard files changed during a run of agent {a.name}",
+                                          f"{shown} changed while the agent ran. Look at it and at the logbook; nothing was "
+                                          "undone. Answer when you have checked it.", self.clock())
+            row = f" Queue item {r.id}." if added else f" Queue item {r.id} already asks about it."
+        except UmwayiError:
+            row = " The queue item could not be added."
+        line = f"A guard file changed during the run: {shown}. Nothing was undone.{row} (exit 2)"
+        return self.result(2, list(result.lines) + [line], why)
 
     # ------------------------------------------------------------ the budget governor (B.R1, B.R2, B.R3)
 
