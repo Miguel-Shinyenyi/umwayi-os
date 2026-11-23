@@ -135,6 +135,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/agents/test_launch_env.py` | `adapters` |
 | `tests/agents/test_login_wizard.py` | `adapters` |
 | `tests/agents/test_opencode_mutants.py` | `adapters`, `rules.yaml` |
+| `tests/agents/test_sandbox_settings.py` | `adapters` |
 | `tests/autonomy/test_gates.py` | `rules.yaml` |
 | `tests/autonomy/test_guards.py` | `adapters`, `rules.yaml` |
 | `tests/autonomy/test_inputs.py` | `rules.yaml` |
