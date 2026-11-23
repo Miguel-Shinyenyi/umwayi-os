@@ -2185,7 +2185,7 @@ These are facts of the code of this change. No real Claude Code ran with it.
 
 ## Enforced by default (W78), found while building broker_lost (step 5a3)
 
-### 335. a lost broker is found when the run ends, not while it runs
+### 336. a lost broker is found when the run ends, not while it runs
 
 These are facts of the code of this change.
 
