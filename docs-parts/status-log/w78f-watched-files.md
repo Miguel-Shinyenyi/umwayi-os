@@ -1,4 +1,4 @@
 date: 2026-11-23
-pr: none
+pr: 175
 what: W78 build step 3 (W41 C1), the watched files. New `umwayi/watched.py`: the mode file, `guidance.yaml`, `units.yaml`, `agents.yaml`, `rules.yaml`, `autonomy.yaml`, `.kiro/steering/umwayi` and the `tools/` folder are read (SHA-256, links not followed) before a helper starts and again after it ends. The goal supervisor does this for every role (the guide's planning run, the builder, the tester and the guide's check): a change is the cause word `guard_file_changed`, the task goes to `needs owner` (reason unclear), the next step does not start, and the entry and the queue item name the files by their fixed names. A planning run that changes one has its plan refused (`guard`). `agent run` and the cli chat write one entry, add one queue item and give exit 2. Nothing is undone. C2 (tool calls no hook checked) is not built. Guard list: stops for the owner.
 tests: see the pull request

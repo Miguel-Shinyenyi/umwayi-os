@@ -91,7 +91,7 @@ def _make_seed(base):
     archive = subprocess.run(["git", "archive", "HEAD"], cwd=REPO, capture_output=True, check=True).stdout
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(seed)
-    for name in ("generated_files.py", "generated_files.json", "merge_main.py", "ci_map.py", "ci_shards.py"):
+    for name in ("generated_files.py", "generated_files.json", "merge_main.py", "ci_map.py", "ci_shards.py", "ci_map_table.md"):
         shutil.copy2(REPO / "tools" / name, seed / "tools" / name)
     for args in (("tools.ci_map", "update"), ("tools.ci_shards", "assign-missing"), ("tools.ci_map", "table", "--write")):
         r = subprocess.run([sys.executable, "-m", *args], cwd=seed, capture_output=True, text=True, env=ENV)
@@ -159,7 +159,7 @@ class NothingToDoTests(MergeMainBase):
         r = self.merge_main(self.b)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(git(self.b, "rev-parse", "HEAD").stdout, head)
-        for path in ("docs/status-log.md", "docs/KNOWN-LIMITS.md", "tools/ci_map.json", "tools/ci_shards.json", "docs/testing.md",
+        for path in ("docs/status-log.md", "docs/KNOWN-LIMITS.md", "tools/ci_map.json", "tools/ci_shards.json", "tools/ci_map_table.md",
                      "ui/dist/build.json"):
             self.assertRegex(r.stdout, rf"(?m)^kept {re.escape(path)}: ")
         self.assertIn("already merged", r.stdout)
@@ -299,7 +299,7 @@ class TestFileTests(MergeMainBase):
         self.land(self.a)
         r = self.merge_main(self.b)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        for path in ("tools/ci_shards.json", "docs/testing.md"):
+        for path in ("tools/ci_shards.json", "tools/ci_map_table.md"):
             text = (self.b / path).read_text(encoding="utf-8")
             self.assertNotIn("<<<<<<<", text, path)
         self.assertListedOnce(self.b, "test_w21_one.py", "test_w21_two.py")

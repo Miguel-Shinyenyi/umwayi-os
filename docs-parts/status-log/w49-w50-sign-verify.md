@@ -1,4 +1,4 @@
 date: 2026-11-23
-pr: none
+pr: 195
 what: W49 and W50, signing and verify. New `umwayi/provsign.py`. `umwayi provenance sign GOAL TASK` (the owner's terminal, the kill switch, the owner types yes) signs the record with the key `ssh-agent` holds for `provenance.public_key` of `umwayi.json` (`ssh-keygen -Y sign -U`, so no private key is read), checks the signature at once, and writes `TASK.json.sig` and one signed entry together or neither. `umwayi verify PATH [--key] [--anchor]` answers made by umwayi and unchanged (0, with a structure line for a `.py` file whose comments changed), changed since (3, naming an older matching record if there is one), or no record or a refusal (2); a newer record that is signed but not trusted never falls back to an older one. Writes nothing. Stops for the owner.
 tests: `tests/test_provsign.py` (18 tests with a real `ssh-keygen` and `ssh-agent` and throwaway keys the tests make); the owner's own key has not signed anything.
