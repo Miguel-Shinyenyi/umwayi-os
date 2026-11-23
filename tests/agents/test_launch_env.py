@@ -225,6 +225,7 @@ class RealRunTests(AgentCase):
                           f"    trust_tools: [read_file]\n    env_keep: [{self.FAKES}]\n")
         self.kiro_hook_file(command=self.kiro_command(python=sys.executable))
         self.roomy_budget()
+        self.fake_sandbox_tools()  # W41 B1: an enforced Claude Code start needs bwrap and socat on Linux
 
     def mode_file(self, text):
         (self.root / ".umwayi").mkdir(exist_ok=True)
