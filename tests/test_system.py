@@ -427,7 +427,10 @@ ALLOWED_NETWORK = {("umwayi/telemetry.py", "http.server"), ("umwayi/telemetry.py
                    # library server on 127.0.0.1, by name, inside the function that makes the server and no other module
                    ("umwayi/serve.py", "http.server"), ("umwayi/serve.py", "http.server.BaseHTTPRequestHandler"),
                    ("umwayi/serve.py", "http.server.HTTPServer"), ("umwayi/serve.py", "http.server.ThreadingHTTPServer"),
-                   ("umwayi/serve.py", "socket")}
+                   ("umwayi/serve.py", "socket"),
+                   # W78 step 5 (5a): the enforcement broker, a Unix socket in a private run folder. Approved by the owner on
+                   # 2026-11-22 (open question 2 of docs/enforcement-broker-design.md): `socket` only, inside functions
+                   ("umwayi/broker.py", "socket")}
 
 
 class CodeTests(SystemBase):
