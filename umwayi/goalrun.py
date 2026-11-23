@@ -268,9 +268,62 @@ def planning_prompt(goal_text, nonce):
         "Nonce: " + nonce + "\n")
 
 
-def builder_prompt(packet, goal, task, branch, date, nonce, mode=""):
+CARD_MAX_NO = 12  # the No rules named in a task card; the rest are counted
+
+
+def _rule_platforms(rule):
+    for m in rule.matchers:
+        if m.field == "platform":
+            return tuple(m.values)
+    return None
+
+
+def rules_card(root, platform):
+    """W78 5(a): the rules in force for a helper of this platform, in the order of rules.yaml and in fixed words. The rules
+    that name this platform are listed (the No rules by id and title, the others counted); a rule that names no platform
+    applies to every helper and is counted. Reads only. Never raises: a rules.yaml that cannot be read is said so, because
+    then every call is Ask me first."""
+    from pathlib import Path
+    try:
+        rl = rules.load_rules(Path(root) / "rules.yaml")
+    except Exception:
+        return ["Rules in force: rules.yaml could not be read, so every call you make is Ask me first."]
+    mine = [r for r in rl if _rule_platforms(r) is not None and platform in _rule_platforms(r)]
+    general = [r for r in rl if _rule_platforms(r) is None]
+    no = [r for r in mine if r.verdict == rules.NO]
+    lines = [f"Rules in force for {platform} (rules.yaml): {len(no)} No, "
+             f"{sum(1 for r in mine if r.verdict == rules.ASK)} Ask me first, {sum(1 for r in mine if r.verdict == rules.YES)} "
+             f"Yes, and {len(general)} general rules for every helper. No beats Ask me first, Ask me first beats Yes, and a call "
+             "that no rule matches is Ask me first."]
+    for r in no[:CARD_MAX_NO]:
+        title = " ".join(r.title.split())[:80] if isinstance(r.title, str) and r.title.isprintable() else ""
+        lines.append(f"- No, {r.id}: {title}")
+    if len(no) > CARD_MAX_NO:
+        lines.append(f"- and {len(no) - CARD_MAX_NO} more No rules")
+    return lines
+
+
+def task_card(role, own, mode, rules_lines):
+    """W78 5(a): the first lines of every helper's prompt, in one fixed order and in fixed words: the mode, the scope and the
+    rules in force. Guidance is not enforcement: a model can ignore these lines, and the gate and the scope check decide
+    whether it did. The scope card of a builder is the packet's files, the two files by right and the protected list; a
+    tester and a check change no file."""
+    lines = ["Task card (fixed words from umwayi; the gate and the scope check decide, not these lines):"]
+    lines.append("Mode: " + (mode if mode else "enforcement: not stated"))
+    if role == "builder":
+        lines.append("Scope: you may change only the files named below and the two files of yours by right (" + ", ".join(own)
+                     + "). A change to any other file fails the task. These files are protected, never change them: "
+                     + ", ".join(gp.PROTECTED) + ".")
+    else:
+        lines.append("Scope: you change no file. A change to any file fails the task.")
+    lines.extend(rules_lines)
+    return lines
+
+
+def builder_prompt(packet, goal, task, branch, date, nonce, mode="", rules=()):
     status, limits = gp.own_files(goal, task)
     lines = ["You are the builder for one task. Work only in the current folder. You are on the branch " + branch + ".",
+             *task_card("builder", gp.own_files(goal, task), mode, rules),
              "Task: " + packet.goal, "Read these files first:"]
     lines += ["- " + c for c in packet.context] or ["- (none)"]
     lines += ["Acceptance checks (a tester who is not you will check each one):"]
@@ -282,7 +335,7 @@ def builder_prompt(packet, goal, task, branch, date, nonce, mode=""):
               "untracked file at all, such as a __pycache__ folder.",
               _STATUS_FORMAT.format(status=status, date=date).rstrip("\n"),
               _LIMITS_FORMAT.format(limits=limits).rstrip("\n"),
-              "Write no em dash. When you are done, stop.", *([mode] if mode else []), "Nonce: " + nonce]
+              "Write no em dash. When you are done, stop.", "Nonce: " + nonce]
     return "\n".join(lines) + "\n"
 
 
@@ -296,21 +349,23 @@ def own_files_line(own):
             "changes are these."]
 
 
-def tester_prompt(packet, branch, tip, nonce, mode="", own=()):
+def tester_prompt(packet, branch, tip, nonce, mode="", own=(), rules=()):
     lines = ["You are the tester. You did not build this. Change no file. Work only in the current folder, which is on "
              "the branch " + branch + " at the commit " + tip[:12] + ".",
+             *task_card("tester", own, mode, rules),
              "Task that was built: " + packet.goal, "Check each one with your own tools (run or read what you need):"]
     lines += [f"{i}. {c}" for i, c in enumerate(packet.checks, 1)]
     lines += [*own_files_line(own), "If you cannot tell, say unclear.",
               'Print exactly one last line: UMWAYI-RESULT <nonce> {"checks":[{"n":1,"verdict":"pass","evidence":"..."}]} '
               "with one entry for each number above, the verdict pass, fail or unclear, and evidence of 5 to 300 "
-              "characters.", *([mode] if mode else []), "Nonce: " + nonce]
+              "characters.", "Nonce: " + nonce]
     return "\n".join(lines) + "\n"
 
 
-def check_prompt(packet, branch, tip, nfiles, verdicts, nonce, own=()):
+def check_prompt(packet, branch, tip, nfiles, verdicts, nonce, own=(), mode="", rules=()):
     lines = ["You are the guide, checking a result against its packet. Change no file. The branch is " + branch +
              " at the commit " + tip[:12] + ". " + f"{nfiles} files changed, all inside the packet.",
+             *task_card("check", own, mode, rules),
              "Task: " + packet.goal, "Acceptance checks and the tester's verdicts:"]
     for (n, verdict, evidence), check in zip(verdicts, packet.checks):
         lines.append(f"{n}. {check} -> {verdict}: {evidence}")
@@ -352,6 +407,30 @@ def child_argv(name, cap_uu, workdir, model_effort=()):
 _BLOCK_ADDED = re.compile(r"(?:Rule (?P<rule>[a-z0-9][a-z0-9_-]{0,99}) gave|No rule gave) (?P<answer>No|Ask me first); "
                           r"action type: (?P<type>tool_[A-Za-z0-9_.:-]{1,40})(?:; command word: (?P<word>[a-z0-9_.+-]{1,24}))?")
 BLOCK_SOURCE = "umwayi check"
+# W78 5(g): every No and Ask me first answer to a tool call or a permission request of a helper, counted and nothing else
+_COUNT_ADDED = re.compile(r"(?:Rule [a-z0-9][a-z0-9_-]{0,99} gave|No rule gave) (?P<answer>No|Ask me first); "
+                          r"action type: (?:tool_[A-Za-z0-9_.:-]{1,40}|acp_permission)")
+COUNT_STATES = ("in review", "failed", "needs owner", "stopped")
+
+
+def count_since(root, mark):
+    """(No, Ask me first) answers of the `umwayi check` entries written after `mark` to a tool call or a permission request,
+    or None when the logbook cannot be read. Only the added line is read, and only to be counted."""
+    if mark is None:
+        return None
+    try:
+        entries = logbook.read_checked(root)
+    except UmwayiError:
+        return None
+    no = ask = 0
+    for e in entries[mark:]:
+        if getattr(e, "source", None) != BLOCK_SOURCE:
+            continue
+        m = _COUNT_ADDED.match(getattr(e, "added", "") or "")
+        if m:
+            no += m.group("answer") == "No"
+            ask += m.group("answer") == "Ask me first"
+    return no, ask
 
 
 def logbook_mark(root):
@@ -692,6 +771,10 @@ class _Run:
         return prior
 
     def move(self, new, reason, **kw):
+        if new in COUNT_STATES and "pre" not in kw:  # W78 5(g): three numbers when a task leaves running, counts only
+            got = count_since(self.root, getattr(self, "count_mark", None))
+            if got is not None:
+                kw["pre"] = [gs.counts_entry(self.env.when(), self.goal, self.task, got[0], got[1], getattr(self, "guard_n", 0))]
         try:
             return gs.change_state(self.root, self.goal, self.task, new, reason, when=self.env.when(), now=self.env.now(),
                                    spent_uu=self.spent_total(), measured_uu=self.measured_record(), **kw)
@@ -760,6 +843,15 @@ class _Run:
             self.stop_running("kill_switch")
         kill_all(self.env)
         raise _Done(Outcome(3, self.t["state"], "kill", "kill_switch"))
+
+    def card_rules(self, role):
+        """The rules lines of the task card of a role (W78 5(a)). Never finishes the task: an agent that cannot be found is
+        left to the steps of the start, and the card then names no platform."""
+        try:
+            platform = agents.find(agents.load(self.root), self.agent_of(role)).platform
+        except (UsageError, ConfigError):
+            platform = "(unknown)"
+        return rules_card(self.root, platform)
 
     def platform_of(self, agent):
         """The platform of an agent, read from agents.yaml only after the kill switch and the state were checked. An
@@ -1172,8 +1264,10 @@ class _Run:
         """queued to in review: the builder, the scope check, the tester, the guide's check (W9.R8). Returns an Outcome."""
         e = self.env
         nonce = e.nonce()
+        self.count_mark = logbook_mark(self.root)  # W78 5(g): the counts of this task start here
         prompt = builder_prompt(self.packet, self.goal, self.task, self.branch, e.when(), nonce,
-                                mode=enforce.mode_text(e.root, goal=self.goal, today=e.when()))
+                                mode=enforce.mode_text(e.root, goal=self.goal, today=e.when()),
+                                rules=self.card_rules("builder"))
         res = self.start_role("builder", prompt)
         self.after_stop("builder", res)
         self.after_block(res)
@@ -1245,7 +1339,8 @@ class _Run:
     def tester_run(self):
         nonce = self.env.nonce()
         prompt = tester_prompt(self.packet, self.branch, self.tip, nonce,
-                               mode=enforce.mode_text(self.env.root, goal=self.goal, today=self.env.when()), own=self.own)
+                               mode=enforce.mode_text(self.env.root, goal=self.goal, today=self.env.when()), own=self.own,
+                               rules=self.card_rules("tester"))
         before = self.fp_all()()[0]
         res = self.start_role("tester", prompt)
         self.after_stop("tester", res)
@@ -1267,7 +1362,9 @@ class _Run:
 
     def check_run(self):
         nonce = self.env.nonce()
-        prompt = check_prompt(self.packet, self.branch, self.tip, self.nfiles, self.verdicts, nonce, own=self.own)
+        prompt = check_prompt(self.packet, self.branch, self.tip, self.nfiles, self.verdicts, nonce, own=self.own,
+                              mode=enforce.mode_text(self.env.root, goal=self.goal, today=self.env.when()),
+                              rules=self.card_rules("check"))
         before = self.fp_all()()[0]
         res = self.start_role("check", prompt)
         self.after_stop("check", res)

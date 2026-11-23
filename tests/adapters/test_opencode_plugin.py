@@ -43,7 +43,7 @@ RULES_EXAMPLE = REPO / "adapters" / "opencode" / "rules.example.yaml"
 
 TOKEN = "0123456789abcdef0123456789abcdef"
 SECRET = "sk-live-PLUGIN-TEST-SECRET"
-DENIED = "umwayi: this tool call was not allowed by the rules"
+DENIED = "umwayi: this tool call was not allowed by the rules. Allowed next: do not do this; ask the owner to do it, or to change the rule."
 BAD_OPTIONS = "umwayi: the gate options are missing or wrong"
 ASKED = ["read", "glob", "grep", "write", "edit", "shell", "webfetch", "question", "subagent"]
 NOT_ASKED = ["execute", "opencode_worktree_list", "opencode_worktree_remove", "opencode_session_move",

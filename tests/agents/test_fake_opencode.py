@@ -24,7 +24,7 @@ from umwayi import agents
 from tests.agents.support import AgentCase, REPO
 
 TOKEN = "0123456789abcdef0123456789abcdef"
-DENIED = "umwayi: this tool call was not allowed by the rules"
+DENIED = "umwayi: this tool call was not allowed by the rules. Allowed next: do not do this; ask the owner to do it, or to change the rule."
 
 
 class Driver:
