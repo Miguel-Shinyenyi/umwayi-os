@@ -112,6 +112,7 @@ class RunCase(AgentCase):
         self.write_agents("agents:\n  - name: reviewer\n    platform: claude-code\n    command: claude\n    workdir: {work}\n"
                           f"    env_keep: [{FAKES}]\n")
         self.roomy_budget()
+        self.fake_sandbox_tools()  # W41 B1: an enforced Claude Code start needs bwrap and socat on Linux
 
     def mode_file(self, text):
         (self.root / ".umwayi").mkdir(exist_ok=True)

@@ -144,6 +144,10 @@
    "seconds": 11.2,
    "shard": 2
   },
+  "tests/agents/test_sandbox_settings.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
   "tests/autonomy/test_gates.py": {
    "seconds": 53.3,
    "shard": 2
