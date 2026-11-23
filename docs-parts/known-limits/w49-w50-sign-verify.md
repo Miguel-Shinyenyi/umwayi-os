@@ -1,6 +1,6 @@
 section: Provenance (W49, W50), found while building signing and verify
 title: a signature proves that the key in the agent signed, and nothing about the code
-number: 342
+number: 343
 
 These are facts of the code of this change. Tested with throwaway keys; the owner's own key has not signed a real record.
 

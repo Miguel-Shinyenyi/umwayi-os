@@ -85,7 +85,9 @@ def read_table(path) -> dict:
         raise TableError("table")
     for rid, row in runs.items():
         if not (isinstance(rid, str) and RUN_ID.match(rid) and isinstance(row, dict)
-                and set(row) == {"agent", "platform", "task", "mode", "ended"}
+                and set(row) - {"scope"} == {"agent", "platform", "task", "mode", "ended"}
+                and (row.get("scope") is None or (isinstance(row["scope"], str) and row["scope"].startswith("/")
+                                                   and len(row["scope"]) <= 4096 and "\x00" not in row["scope"]))
                 and all(isinstance(row[k], str) and _PLAIN.match(row[k]) for k in ("agent", "platform", "task", "mode"))
                 and isinstance(row["ended"], bool)):
             raise TableError("table")
@@ -158,7 +160,7 @@ class Broker:
         if not isinstance(action, dict):
             return self.refuse("bad_request", valid)
         action = dict(action, platform=row["platform"])  # the table says the platform, not the request
-        return self.check(valid, action)
+        return self.check(valid, action, row.get("scope"))
 
     def within_rate(self, rid: str, now: float | None = None) -> bool:
         now = time.monotonic() if now is None else now
@@ -173,14 +175,25 @@ class Broker:
 
     # ------------------------------------------------------------------ check
 
-    def check(self, rid: str, action: dict) -> dict:
+    def check(self, rid: str, action: dict, scope_file: str | None = None) -> dict:
         """The rules check of `umwayi check`, run in this process. The kill switch on or unreadable is No; the entry is written
-        here, through the checked append. An entry that cannot be written (a lock held, a broken chain) is No."""
+        here, through the checked append. An entry that cannot be written (a lock held, a broken chain) is No. A run with a scope file
+        in its table row (W9.16) also gets No for a file write outside it, as `umwayi check --scope` gives: an overlay, never an allow."""
         st = kill.state(self.root)
         stop = kill.reason(st) if kill.stopped(st) else None
+        stopped_by = "the kill switch"
+        if stop is None and scope_file is not None:
+            from umwayi import scope as scopemod
+            if scopemod.writes_a_file(action):
+                try:
+                    sc = scopemod.load(scope_file)
+                    stop = scopemod.REASON if scopemod.violates(sc, action) else None
+                except scopemod.ScopeError:
+                    stop = scopemod.UNREADABLE
+                stopped_by = scopemod.STOPPED_BY if stop is not None else stopped_by
         try:
             decision, logged = rules.check_and_log(json.dumps(action, separators=(",", ":")), self.root / "rules.yaml", self.root,
-                                                   rules.system_today(), kill_state=st, stop_reason=stop)
+                                                   rules.system_today(), kill_state=st, stop_reason=stop, stopped_by=stopped_by)
         except Exception:  # an unexpected error is No, never an exception out of a request
             return self.refuse("log_failed", rid)
         if not logged:

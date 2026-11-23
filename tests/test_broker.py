@@ -384,6 +384,53 @@ class StartTests(BrokerCase):
         self.assertFalse(os.path.exists(self.handle.sock_path))
 
 
+class ScopeTests(BrokerCase):
+    """W9.16 through the broker: a run whose table row names a scope file gets No for a file write outside it."""
+
+    def setUp(self):
+        super().setUp()
+        from umwayi import scope
+        self.wt = self.base / "wt"
+        self.wt.mkdir()
+        self.scope_file = self.base / "scope.json"
+        self.scope_file.write_bytes(scope.make(str(self.wt), ["umwayi/a.py"], []))
+        (self.root / "rules.yaml").write_text(RULES + """  - id: write-yes
+    title: writes
+    text: x
+    verdict: yes
+    matchers:
+      type: tool_write
+""", encoding="utf-8")
+        self.runs[RID] = dict(ROW, scope=str(self.scope_file))
+        broker.write_table(self.table, self.runs)
+
+    def write(self, path):
+        return check({"type": "tool_write", "tool": "Write", "path": str(self.wt / path), "cwd": str(self.wt)})
+
+    def test_a_write_inside_follows_the_rules_and_outside_is_no_with_the_scopes_entry(self):
+        self.start()
+        self.assertEqual(self.ask(self.write("umwayi/a.py")), {"answer": "Yes", "rule": "write-yes"})
+        got = self.ask(self.write("rules.yaml"))
+        self.assertEqual((got["answer"], got["rule"]), ("No", None))
+        self.assertIn("The scope of the task gave No", self.log_text())
+
+    def test_other_calls_are_left_to_the_rules_and_an_unreadable_scope_refuses_every_write(self):
+        self.start()
+        self.assertEqual(self.ask(check(READ))["answer"], "Yes")
+        self.scope_file.unlink()
+        self.assertEqual(self.ask(self.write("umwayi/a.py"))["answer"], "No")
+        self.assertEqual(self.ask(check(READ))["answer"], "Yes")
+
+    def test_a_row_with_no_scope_is_as_before_and_a_relative_scope_path_is_a_bad_table(self):
+        self.runs[RID] = dict(ROW)
+        broker.write_table(self.table, self.runs)
+        self.start()
+        self.assertEqual(self.ask(self.write("rules.yaml"))["answer"], "Yes")  # no overlay: planted fault of the tests above
+        self.runs[RID] = dict(ROW, scope="relative.json")
+        broker.write_table(self.table, self.runs)
+        self.assertEqual(self.ask(self.write("umwayi/a.py"))["why"], "table")
+
+
 class SourceTests(unittest.TestCase):
     def test_b10_the_writers_are_the_listed_ones_and_no_guard_file_or_goal_state_is_named(self):
         src = (REPO / "umwayi" / "broker.py").read_text(encoding="utf-8")
