@@ -141,11 +141,11 @@ class RealMapTests(unittest.TestCase):
         self.assertIn("ui/dist/index.html", node["site/test/home.test.mjs"])
         self.assertEqual(node["ui/test/engine.test.mjs"], [])
 
-    def test_docs_testing_md_holds_the_current_table(self):
-        text = (REPO / "docs" / "testing.md").read_text(encoding="utf-8")
+    def test_the_table_file_holds_the_current_table(self):
+        text = (REPO / "tools" / "ci_map_table.md").read_text(encoding="utf-8")
         table = ci_map.table_markdown(DATA)
         self.assertTrue(table in text, generated_files.stale_message(
-            "docs/testing.md", "docs/testing.md does not hold the current table between its markers"))
+            "tools/ci_map_table.md", "tools/ci_map_table.md does not hold the current table between its markers"))
         self.assertTrue(ci_map.TABLE_BEGIN in text and ci_map.TABLE_END in text)
 
     def test_no_em_dash_in_the_map_or_tools(self):
@@ -225,7 +225,7 @@ if __name__ == "__main__":
 
 
 class UpdateAndBlockTests(unittest.TestCase):
-    """W21: the generator for tools/ci_map.json and the writer of the table block in docs/testing.md."""
+    """W21: the generator for tools/ci_map.json and the writer of the table block in tools/ci_map_table.md."""
 
     TEXT = ci_map.MAP_PATH.read_text(encoding="utf-8")
 
@@ -292,7 +292,7 @@ class UpdateAndBlockTests(unittest.TestCase):
 
     def test_table_check_and_write_on_the_real_file(self):
         r = subprocess.run([sys.executable, "-m", "tools.ci_map", "table", "--check"], cwd=REPO, capture_output=True, text=True)
-        self.assertEqual((r.returncode, r.stdout), (0, "ci_map: the table in docs/testing.md is current\n"))
+        self.assertEqual((r.returncode, r.stdout), (0, "ci_map: the table in tools/ci_map_table.md is current\n"))
 
     def test_a_bad_table_option_is_a_usage_error(self):
         r = subprocess.run([sys.executable, "-m", "tools.ci_map", "table", "--nope"], cwd=REPO, capture_output=True, text=True)
@@ -313,8 +313,8 @@ def tuple_of(scan):
 
 
 class W47aTableTests(unittest.TestCase):
-    """W47a: the table in docs/testing.md must not change when a pull request adds a test file that reads nothing outside
-    its own area, so two such pull requests never touch the same line of docs/testing.md."""
+    """W47a: the table in tools/ci_map_table.md must not change when a pull request adds a test file that reads nothing outside
+    its own area, so two such pull requests never touch the same line of tools/ci_map_table.md."""
 
     def test_a_new_test_file_that_reads_nothing_outside_leaves_the_table_as_it_was(self):
         more = json.loads(json.dumps(DATA))
