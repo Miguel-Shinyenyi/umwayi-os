@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while building the Landlock confinement (step 5b)
 title: the Landlock program exists and is tested on its own, but no helper is started through it
-number: 337
+number: 338
 
 These are facts of the code of this change.
 
