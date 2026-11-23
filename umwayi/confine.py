@@ -185,7 +185,8 @@ def run_paths(command: str, workdir: str, root: str, tmp: str, home: str | None,
     of the command and of the Python that runs the hook, the umwayi source (the hook is there). Write: the work folder, a private
     temporary folder (given to the helper as TMPDIR; /tmp itself is not listed, so the broker's folder there is not reachable), and
     the helper's own config (`~/.claude`, `~/.claude.json`, or CLAUDE_CONFIG_DIR). Landlock can not take a path out of a listed
-    tree, so a work folder that holds the umwayi root is refused (`profile`): the logbook and the guard files would be writable."""
+    tree, so a work folder that holds the umwayi root is refused (`profile`): the logbook and the guard files would be writable.
+    (agents.yaml already refuses such a working folder; this is the same rule at the start.)"""
     if platform_is_not_linux():
         raise ConfineRefused("platform")
     work, rt = _real(workdir), _real(root)
@@ -201,7 +202,9 @@ def run_paths(command: str, workdir: str, root: str, tmp: str, home: str | None,
         writes |= {_real(os.path.join(home, ".claude")), _real(os.path.join(home, ".claude.json"))}
     if config_dir:
         writes.add(_real(config_dir))
-    reads = {p for p in reads if p != "/" and os.path.exists(p)}
+    # a read path that holds the root is dropped (the command's folders can reach up to a test or install folder that does): the helper
+    # then fails where it needs it, which is loud, and the root is not readable
+    reads = {p for p in reads if p != "/" and os.path.exists(p) and not _inside(rt, p)}
     writes = {p for p in writes if os.path.exists(p)}
     return sorted(reads), sorted(writes)
 

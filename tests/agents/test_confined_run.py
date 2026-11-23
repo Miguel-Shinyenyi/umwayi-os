@@ -59,6 +59,15 @@ class PathTests(unittest.TestCase):
         self.assertIn("/usr", read)
         self.assertEqual(set(read) & set(write), set())
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "the lists are Linux paths")
+    def test_a_command_folder_that_holds_the_root_is_dropped_from_the_read_list(self):
+        (self.base / "cmd" / "bin").mkdir(parents=True)
+        (self.base / "cmd" / "bin" / "claude").write_text("#!/bin/sh\n", encoding="utf-8")
+        read, _ = self.paths(command=str(self.base / "cmd" / "bin" / "claude"))
+        root = str(self.base / "root")
+        self.assertFalse([p for p in read if root == p or root.startswith(p.rstrip("/") + "/")], read)  # the root is unreadable
+        self.assertIn(str(self.base / "cmd" / "bin"), read)  # the folder of the command itself is still listed
+
     def test_a_work_folder_that_holds_the_root_is_refused_with_profile(self):
         for workdir in (str(self.base), str(self.base / "root")):
             with self.subTest(workdir=workdir), self.assertRaises(confine.ConfineRefused) as cm:
@@ -151,13 +160,13 @@ class ConfinedRunTests(RunCase):
         self.addCleanup(lambda: os.path.exists("/tmp/umwayi-planted-by-a-test") and os.unlink("/tmp/umwayi-planted-by-a-test"))
         self.assertEqual((w["inside.txt"], w["planted-guard.txt"], w["planted.txt"]), (0, 0, 0))  # so the refusals are the kernel's
 
-    def test_a_work_folder_that_holds_the_root_is_refused_and_nothing_starts(self):
+    def test_a_work_folder_that_holds_the_root_never_starts(self):
+        # agents.yaml itself refuses such a working folder (exit 64); run_paths refuses it again at the start (see PathTests)
         self.write_agents("agents:\n  - name: reviewer\n    platform: claude-code\n    command: claude\n    workdir: {work}\n"
                           f"    env_keep: [{FAKES}]\n    confine: true\n".replace("{work}", str(self.tmp)))
         self.enforced()
         r = self.go()
-        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
-        self.assertIn("refused: not confined (profile). Allowed next:", r.stdout)
+        self.assertIn(r.returncode, (2, 64), r.stdout + r.stderr)
         self.assertEqual([c for c in self.calls() if c.get("started")], [])
 
     def test_the_temporary_folder_is_removed_after_the_run(self):
