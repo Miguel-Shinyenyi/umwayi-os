@@ -110,7 +110,7 @@ class TaskCardTests(unittest.TestCase):
             self.assertIn("you change no file", gr.task_card(role, self.OWN, "m", [])[2])
 
     def test_a_missing_mode_is_said_not_left_out(self):
-        self.assertIn("Mode: enforcement: not stated", gr.task_card("tester", (), "", []))
+        self.assertIn("Mode: enforcement: not stated. Enforcement is cooperative today and enforced where built.", gr.task_card("tester", (), "", []))
 
 
 class PromptsStartWithTheCardTests(cs.CmdCase):
@@ -126,7 +126,7 @@ class PromptsStartWithTheCardTests(cs.CmdCase):
             with self.subTest(role=role):
                 lines = text.splitlines()
                 self.assertTrue(lines[1].startswith("Task card (fixed words from umwayi"), lines[1])
-                self.assertEqual(lines[2], "Mode: enforcement: enforced")
+                self.assertEqual(lines[2], "Mode: enforcement: enforced. Enforcement is cooperative today and enforced where built.")
                 self.assertTrue(lines[3].startswith("Scope: "))
                 self.assertTrue(lines[4].startswith("Rules in force for claude-code"))
                 self.assertTrue(text.endswith("Nonce: N\n"))

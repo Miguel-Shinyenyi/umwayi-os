@@ -309,7 +309,9 @@ def task_card(role, own, mode, rules_lines):
     whether it did. The scope card of a builder is the packet's files, the two files by right and the protected list; a
     tester and a check change no file."""
     lines = ["Task card (fixed words from umwayi; the gate and the scope check decide, not these lines):"]
-    lines.append("Mode: " + (mode if mode else "enforcement: not stated"))
+    # G5: the mode is followed by the plain statement that nothing is enforced yet (enforce.TODAY_NOTE), as the status line has it
+    lines.append("Mode: " + (mode if mode else "enforcement: not stated") + ". "
+                 + enforce.TODAY_NOTE[0].upper() + enforce.TODAY_NOTE[1:] + ".")
     if role == "builder":
         lines.append("Scope: you may change only the files named below and the two files of yours by right (" + ", ".join(own)
                      + "). A change to any other file fails the task. These files are protected, never change them: "
