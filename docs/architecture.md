@@ -51,5 +51,5 @@ Newest first. Each row names where it was decided.
 
 ## Open questions
 
-- A sandbox for agents and helpers is deferred to its own spec after Dec 3 (L11-Q13).
+- A sandbox for agents and helpers is deferred to its own spec (L11-Q13). The date is a guideline; the design is `docs/enforced-default-design.md`.
 - An SQLite index is deferred to after Dec 3 (L11-Q11).
