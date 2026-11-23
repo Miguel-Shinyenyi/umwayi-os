@@ -61,7 +61,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, budget, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, toolcheck, units, watched
+from umwayi import __version__, acp, budget, confine, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, toolcheck, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -272,7 +272,7 @@ _OPENCODE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 _OPENCODE_SUBSTITUTION = re.compile(r"\{(?:env|file):", re.IGNORECASE)
 
 KEYS = ("name", "platform", "command", "transport", "workdir", "kiro_agent", "trust_tools",
-        "max_turns", "timeout_minutes", "provider", "model", "env_keep")
+        "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine")
 REQUIRED = ("name", "platform", "command", "workdir")
 RUN, CHAT, LOGIN = "run", "chat", "login"  # LOGIN: `umwayi agent login NAME` (10.R12.9, part 7c-2)
 CLI, ACP = "cli", "acp"
@@ -299,6 +299,7 @@ class Agent:
     provider: str | None = None  # platform opencode only (10.R13.2)
     model: str | None = None  # platform opencode only: provider/model-id
     env_keep: tuple = ()  # W78 step 2: names (never values) an enforced start passes on besides the allow list
+    confine: bool = False  # W78 step 6: an enforced `claude -p` run of this agent starts through Landlock (off by default)
 
 
 @dataclass(frozen=True)
@@ -539,6 +540,9 @@ def check_text(text: str, root: Path) -> tuple:
         timeout = item.get("timeout_minutes", DEFAULT_TIMEOUT_MINUTES)
         if "timeout_minutes" in item and not _whole(timeout, 1, 720):
             problem(f"{label}: timeout_minutes must be a whole number from 1 to 720", "agents", i, "timeout_minutes")
+        confine = item.get("confine", False)
+        if "confine" in item and not isinstance(confine, bool):
+            problem(f"{label}: confine must be true or false", "agents", i, "confine")
         env_keep = item.get("env_keep", [])
         if "env_keep" in item:
             if not isinstance(env_keep, list):
@@ -577,7 +581,7 @@ def check_text(text: str, root: Path) -> tuple:
             parsed.append(Agent(name, pname, cmd, transport, item["workdir"], kiro_agent,
                                 tuple(tools) if isinstance(tools, list) else (), max_turns, timeout, line("agents", i),
                                 provider if pname == "opencode" else None, model if pname == "opencode" else None,
-                                tuple(env_keep) if isinstance(env_keep, list) else ()))
+                                tuple(env_keep) if isinstance(env_keep, list) else (), confine is True))
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
     return parsed, []
@@ -2084,6 +2088,13 @@ class _Run:
             return self.result(2, [f"refused: not confined (broker). Allowed next: run `umwayi enforce set cooperative --agent "
                                    f"{a.name} --until DATE` at your terminal, or look at why the broker did not start. "
                                    f"{not_started} (exit 2)"], why)
+        try:
+            argv = self._confine_argv(argv)
+        except confine.ConfineRefused as e:  # W78 step 6: not confined, a fixed reason; never a fallback to cooperative
+            self._broker_end()
+            why = self.log(f"Refused agent {a.name}: not confined ({e.reason})", "Landlock confinement of the run could not be set up",
+                           "Nothing was started.")
+            return self.result(2, [f"{confine.refusal(e.reason)} {not_started} (exit 2)"], why)
 
         # 7. the start entry first, then the start
         how = f"{a.platform}, {a.transport}" + (", chat" if self.mode == CHAT else "")
@@ -2339,10 +2350,33 @@ class _Run:
     def _broker_row(self, ended: bool) -> dict:
         return {"agent": self.agent.name, "platform": self.agent.platform, "task": "none", "mode": "enforced", "ended": ended}
 
+    def _confine_argv(self, argv: list) -> list:
+        """W78 step 6 (5b2): a `claude -p` run under a mode file that says `enforced` is started through `umwayi.confine`: Landlock,
+        write access only to the work folder, a private temporary folder and the helper's own config, read and execute below the
+        system folders and the folders of the command. Only for an agent with `confine: true` in agents.yaml (off by default, so no
+        enforced run changes until the owner turns it on). No network rule: Claude Code needs its API. Raises ConfineRefused with a
+        fixed reason; the caller refuses the start. Not wanted: the argument list as it is."""
+        if not self._broker_wanted() or not self.agent.confine:
+            return argv
+        abi = confine.abi_version()
+        confine.plan(abi, False)  # unavailable: no Landlock here
+        tmp = tempfile.mkdtemp(prefix="umwayi-t", dir="/tmp" if os.path.isdir("/tmp") else None)
+        self.confine_tmp = tmp
+        read, write = confine.run_paths(argv[0], self.agent.workdir, str(self.root), tmp, os.environ.get("HOME"), sys.executable,
+                                        str(Path(__file__).resolve().parent.parent), os.environ.get("CLAUDE_CONFIG_DIR"))
+        return confine.argv(read, write, argv)
+
+    def _confine_end(self) -> None:
+        tmp = getattr(self, "confine_tmp", None)
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+            self.confine_tmp = None
+
     def _broker_end(self) -> bool:
         """Mark the run ended in the table, stop the broker and remove its folder. True when the broker had ended before."""
         h = getattr(self, "broker", None)
         if h is None:
+            self._confine_end()
             return False
         was_lost = h.lost()
         try:
@@ -2354,6 +2388,7 @@ class _Run:
         h.stop()
         self.broker = None
         shutil.rmtree(getattr(self, "broker_folder", ""), ignore_errors=True)
+        self._confine_end()
         return was_lost
 
     def _c2(self) -> bool:
@@ -2542,6 +2577,8 @@ class _Run:
             env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
         else:
             env = kiro_env(os.environ)  # umwayi's environment minus KIRO_API_KEY (10.R12.13)
+        if getattr(self, "confine_tmp", None):  # W78 step 6: the helper's temporary files go to its own folder, not /tmp
+            env["TMPDIR"] = self.confine_tmp
         if enforced and self.mode != LOGIN:  # the names the owner listed for this agent, on top of an allow list
             env.update({k: os.environ[k] for k in self.agent.env_keep
                         if k not in env and isinstance(os.environ.get(k), str) and keep_problem(k) is None})

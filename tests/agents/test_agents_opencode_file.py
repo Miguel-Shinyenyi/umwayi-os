@@ -79,7 +79,7 @@ class PlatformTableTests(unittest.TestCase):
 
     def test_the_keys_are_fixed(self):
         self.assertEqual(agents.KEYS, ("name", "platform", "command", "transport", "workdir", "kiro_agent",
-                                       "trust_tools", "max_turns", "timeout_minutes", "provider", "model", "env_keep"))
+                                       "trust_tools", "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine"))
         self.assertEqual(agents.REQUIRED, ("name", "platform", "command", "workdir"))
 
     def test_the_agent_record_has_provider_and_model_with_no_default(self):

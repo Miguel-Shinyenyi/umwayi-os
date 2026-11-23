@@ -123,6 +123,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/agents/test_agents_run.py` | `adapters` |
 | `tests/agents/test_broker_wiring.py` | `adapters` |
 | `tests/agents/test_claude_acp_package.py` | `*`, `adapters` |
+| `tests/agents/test_confined_run.py` | `adapters` |
 | `tests/agents/test_fake_opencode.py` | `adapters` |
 | `tests/agents/test_kiro_hook_root.py` | `adapters` |
 | `tests/agents/test_kiro_whoami_timeout.py` | `adapters` |
