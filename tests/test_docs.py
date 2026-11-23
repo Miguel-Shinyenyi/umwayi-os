@@ -38,6 +38,15 @@ _LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 _CODE_SPAN = re.compile(r"`+[^`]*`+")
 
 
+TESTING_MD_MAX_LINES = 290  # G3: a margin under the 300 line cap, so no pull request meets the cap at the last line
+
+
+def margin_problem(name: str, text: str, margin: int = TESTING_MD_MAX_LINES):
+    """None, or the sentence of the failure when `text` has more than `margin` lines."""
+    n = len(text.split("\n"))
+    return None if n <= margin else f"{name} has {n} lines, more than the margin of {margin}: move a section out, do not join lines"
+
+
 def outside_code(text: str) -> list:
     """(line number, line) of every line outside fenced code blocks."""
     out, fence = [], None
@@ -180,6 +189,15 @@ class RepoDocsTests(unittest.TestCase):
         for p in doc_files(REPO):
             for _level, h in headings(p.read_text(encoding="utf-8")):
                 self.assertNotRegex(h, r"^\d{4}-\d{2}-\d{2}$", f"{p.name}: an example entry read as a heading")
+
+
+class TestingMdMarginTests(unittest.TestCase):
+    def test_docs_testing_md_keeps_a_margin_under_the_cap(self):
+        self.assertIsNone(margin_problem("docs/testing.md", (REPO / "docs" / "testing.md").read_text(encoding="utf-8")))
+
+    def test_planted_fault_a_page_over_the_margin_fails(self):
+        self.assertIsNone(margin_problem("x.md", "\n".join(["line"] * TESTING_MD_MAX_LINES)))
+        self.assertIn("more than the margin of 290", margin_problem("x.md", "\n".join(["line"] * (TESTING_MD_MAX_LINES + 1))))
 
 
 class PlantedFaultTests(unittest.TestCase):
