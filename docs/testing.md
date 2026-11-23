@@ -212,6 +212,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_petition.py` | `rules.yaml` |
 | `tests/test_progress_page.py` | `.gitignore`, `.kiro`, `docs`, `ui`, `ui/dist` |
 | `tests/test_progress_workflow.py` | `.github`, `ui` |
+| `tests/test_provenance.py` | `umwayi.json` |
 | `tests/test_quickstart.py` | `README.md`, `docs`, `rules.yaml` |
 | `tests/test_reopen.py` | `adapters`, `rules.yaml` |
 | `tests/test_routing.py` | `.github`, `.kiro`, `docs`, `jobs.yaml`, `schedule.example.yaml`, `workflows` |
