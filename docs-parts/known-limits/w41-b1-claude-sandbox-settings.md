@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while building W41 B1
 title: the Claude Code sandbox settings are passed and the tools are looked for, but nothing tests that the sandbox holds
-number: 333
+number: 334
 
 These are facts of the code of this change. No real Claude Code ran with the sandbox on.
 

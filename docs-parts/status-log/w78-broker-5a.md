@@ -1,0 +1,4 @@
+date: 2026-11-23
+pr: none
+what: W78 build step 5a, the broker alone. New `umwayi/broker.py`: a separate process on a Unix socket in a private run folder; a run table the supervisor writes; two requests, `check` (the rules check run in the broker, the entry written there with the logbook's lock and chain checks, a queue row for Ask me first) and `answer_status`; limits of 4 KiB, 10 seconds, 16 connections and 20 requests a second; the kill switch and a failed log write are No; the platform comes from the table. `socket` is imported in functions only (the third exception, approved 2026-11-22, named in `tests/test_system.py`). Nothing starts it and no hook asks it yet, so no default changes. Stops for the owner.
+tests: `tests/test_broker.py` (31 tests, a real child process on a real socket); no confinement, no real helper.

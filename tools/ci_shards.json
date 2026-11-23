@@ -142,7 +142,7 @@
   },
   "tests/agents/test_sandbox_settings.py": {
    "seconds": 19.5,
-   "shard": 1
+   "shard": 2
   },
   "tests/autonomy/test_gates.py": {
    "seconds": 53.3,
@@ -270,7 +270,7 @@
   },
   "tests/goal/test_guard_count.py": {
    "seconds": 19.5,
-   "shard": 2
+   "shard": 1
   },
   "tests/goal/test_guard_files.py": {
    "seconds": 15.0,
@@ -415,6 +415,10 @@
   "tests/test_board_status.py": {
    "seconds": 0.0,
    "shard": 1
+  },
+  "tests/test_broker.py": {
+   "seconds": 19.5,
+   "shard": 2
   },
   "tests/test_builder_rules.py": {
    "seconds": 20.8,
