@@ -847,7 +847,7 @@ class CodeGuardTests(unittest.TestCase):
         # Multiline: before layer 10 this pattern had no (?m), so it only looked at the first line and matched nothing.
         pattern = r"(?m)^\s*(import|from)\s+subprocess"
         users = sorted(n for n in self.MODULES if re.search(pattern, (PKG / n).read_text(encoding="utf-8")))
-        self.assertEqual(users, ["agents.py", "goalgit.py", "goalrun.py", "report.py"],
+        self.assertEqual(users, ["agents.py", "goalgit.py", "goalrun.py", "provsign.py", "report.py"],  # W49: provsign.py runs ssh-keygen
                          "only report.py (git log), agents.py (layer 10 gate checks) and goalgit.py (W9.6b, the fixed "
                          "git list of goal orchestration) may start a program")
 

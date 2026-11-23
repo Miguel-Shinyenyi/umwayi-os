@@ -49,6 +49,8 @@ A missing or broken `rules.yaml` is not a config error: it gives Ask me first.
 | `umwayi autonomy status` | 0 printed, 2 an unexpected error, 64 a bad `--class` or `--date`; never 1 or 3 |
 | `umwayi autonomy validate` | 0 valid (or no file), 64 invalid (every problem with a line number), 2 an unexpected error; never 1 or 3 |
 | `umwayi queue answer` | as the other queue commands; 64 also for a decision without `--revisit-if` and a task with it |
+| `umwayi provenance sign GOAL TASK` | 0 signed; 2 a refusal (not the owner's terminal, no key, not in the agent, the owner did not type yes, no record, signed already); 3 the kill switch; 64 usage |
+| `umwayi verify PATH` | 0 made by umwayi and unchanged; 3 made by umwayi and changed since; 2 no record, or a refusal (the logbook does not verify, a signed record that is not trusted); 64 usage (a link, a folder, a path outside the root, no key). Never 1 |
 | any command given a path longer than the system allows | 64, a usage error that does not print the path |
 | the layer 9 adapters | never 1; any error blocks (Kiro 0 or 2, generic 0, 2 or 3) |
 
