@@ -325,6 +325,7 @@ def status(root: Path, day: str, today: str) -> tuple:
         lines.append("units.yaml changed since the last logged change; the change is logged before the next start")
     if not u.present:
         lines.append("There is no units.yaml: every reading is unknown and the limits are the placeholders.")
+        lines.append("To set real numbers, write a units.yaml in the root. The format is in docs/budget-governor.md, under units.yaml.")
     lines.append("Nothing was started or written.")
     return 0, lines
 
