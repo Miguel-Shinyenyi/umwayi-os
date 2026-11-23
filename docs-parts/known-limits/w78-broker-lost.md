@@ -1,6 +1,6 @@
 section: Enforced by default (W78), found while building broker_lost (step 5a3)
 title: a lost broker is found when the run ends, not while it runs
-number: 336
+number: 337
 
 These are facts of the code of this change.
 
