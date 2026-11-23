@@ -442,6 +442,29 @@ def logbook_mark(root):
         return None
 
 
+_UNCHECKED_ADDED = re.compile(r"Unchecked tool calls during the run of agent [A-Za-z0-9_.-]{1,64}: (?P<n>[0-9]{1,5})")
+AGENT_SOURCE = "umwayi agent run"
+
+
+def unchecked_since(root, mark):
+    """How many tool calls the entries written after `mark` by `umwayi agent run` say were reported and not checked (W41 C2),
+    or 0. Only the added line is read, and only for its number. A logbook that cannot be read counts as 0 here: the agent's own
+    exit 2 and the queue row are still there."""
+    if mark is None:
+        return 0
+    try:
+        entries = logbook.read_checked(root)
+    except UmwayiError:
+        return 0
+    n = 0
+    for e in entries[mark:]:
+        if getattr(e, "source", None) == AGENT_SOURCE:
+            m = _UNCHECKED_ADDED.fullmatch(getattr(e, "added", "") or "")
+            if m:
+                n += int(m.group("n"))
+    return n
+
+
 def block_since(root, mark):
     """The fixed words (goalstate.block_words) of the last tool call that the rules blocked in the entries written after
     `mark`, or None. Only the added line of a `umwayi check` entry is read: never the action, never an argument."""
@@ -681,6 +704,7 @@ class RoleResult:
     cap_uu: int
     over: bool  # the run passed its cap (the ledger says so)
     guard: tuple = ()  # W78 step 3: the names (umwayi/watched.py) of the watched files that changed during the run
+    unchecked: int = 0  # W78 step 8 (W41 C2): tool calls the platform reported and no hook checked, as the agent's own entry counts them
 
 
 class _Run:
@@ -1058,6 +1082,7 @@ class _Run:
         # Python the helper runs. The tester and the check are read-only roles, so a bytecode folder they write fails the task.
         environ["PYTHONDONTWRITEBYTECODE"] = "1"
         mark = logbook_mark(self.root) if role == "builder" else None  # W56: the entries before the builder
+        c2_mark = logbook_mark(self.root)  # W41 C2: the entries of this run start here
         guard_before = watched.snapshot(self.root)  # W78 step 3 (W41 C1): read again after the run
         proc = e.spawn(argv, self.root, environ)
         # The `started` event, with the pid, comes before the prompt: the child reads its prompt first and does nothing
@@ -1095,7 +1120,7 @@ class _Run:
         if role == "builder":
             self.blocked = block_since(self.root, mark)
         guard = tuple(watched.changed(guard_before, watched.snapshot(self.root)))
-        return RoleResult(code, why, reader, uu, cap, uu > cap, guard)
+        return RoleResult(code, why, reader, uu, cap, uu > cap, guard, unchecked_since(self.root, c2_mark))
 
     def stop_child(self, proc):
         """SIGTERM to the child (which stops the AI helper and its group, settles the budget and writes its entries),
@@ -1222,12 +1247,22 @@ class _Run:
             self.stop_running("owner_stop")
         if res.guard:  # W78 step 3: a watched file changed, so the task stops before the next step starts (Q5)
             self.finish_guard(role, res.guard)
+        if res.unchecked:  # W78 step 8: a tool call no hook checked, so the task stops before the next step starts
+            self.finish_unchecked(role, res.unchecked)
         if res.why == "stalled":
             self.finish("no_progress")
         if res.why == "looping":
             self.finish("same_error_twice")
         if res.over:
             self.finish("task_budget_spent")
+
+    def finish_unchecked(self, role, n):
+        """The platform reported tool calls that no hook checked (W41 C2): the task goes to `needs owner`, with the number in its
+        entry and in the queue row. The ids are in the agent's own entry. Nothing is undone."""
+        self.guard_n = getattr(self, "guard_n", 0) + n  # W78 5(g): each call is one finding in the counts entry
+        self.finish("unchecked_tool_call", facts=[("cause", {"word": "unchecked_tool_call"}), ("unchecked_calls", {"n": str(n)})],
+                    recommendation=f"{n} tool call(s) of the {role} ran with no check entry. Look at the logbook, where the agent's "
+                                   "own entry names them. Nothing was undone. Answer when you have checked it.")
 
     def finish_guard(self, role, names):
         """A watched file changed during a run (W41 C1): the task goes to `needs owner`, with the fixed names in its entry and in
@@ -1646,7 +1681,7 @@ class _PlanRun(_Run):
             raise _Done(Outcome(2, "stopped", "owner", "owner_stop"))
         if res.why in ("stalled", "looping"):
             return "stalled" if res.why == "stalled" else "looping"
-        if res.guard:  # W78 step 3: the planning run changed a watched file, so the plan is refused
+        if res.guard or res.unchecked:  # W78 steps 3 and 8: the planning run changed a watched file or made a call no hook checked
             return "guard"
         if GIT.status(self.root, self.worktree) or GIT.head(self.root, self.worktree) != self.base:
             return "readonly"
