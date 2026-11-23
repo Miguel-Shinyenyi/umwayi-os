@@ -596,6 +596,10 @@
    "seconds": 19.5,
    "shard": 2
   },
+  "tests/test_provenance_rehearsal.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
   "tests/test_provsign.py": {
    "seconds": 19.5,
    "shard": 3

@@ -242,13 +242,10 @@ class VerifyTests(SignCase):
 
     def test_verify_writes_nothing(self):
         self.signed()
+        self.put("umwayi/a.py", b"x = 1\nprint(1)\n")  # a changed file, so the answer is 3 and the code reaches every branch
         before = self.snapshot()
         self.verify()
-        self.put("umwayi/a.py", b"x = 1\n#")
-        self.snapshot()
-        before = self.snapshot()
-        self.verify()
-        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.snapshot(), before)  # no file of the root changed, no entry, no temporary file left
 
 
 @unittest.skipUnless(TOOLS, "ssh-keygen, ssh-agent and ssh-add are needed")
