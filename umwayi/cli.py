@@ -26,6 +26,7 @@ import argparse
 import errno
 import json
 import re
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -502,7 +503,70 @@ def build_parser() -> argparse.ArgumentParser:
                          "start of the entry the interrupted write intended")
     lr.add_argument("--by", required=True, help="who cuts it, one short line of plain text")
     lr.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+    pv = sub.add_parser("provenance", help="the provenance record of a goal task (W49); 0, 2, 3 or 64")
+    pvsub = pv.add_subparsers(dest="provenance_command")
+    pvs = pvsub.add_parser("sign", help="sign the record of a task with your SSH key, at your terminal (the key stays in ssh-agent)")
+    pvs.add_argument("goal")
+    pvs.add_argument("task")
+    pvs.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+    vf = sub.add_parser("verify", help="W50: was this file made by a umwayi task and is it unchanged? 0 unchanged, 3 changed since, "
+                                       "2 no record or a refusal, 64 usage")
+    vf.add_argument("path", help="a regular file inside the root")
+    vf.add_argument("--key", help="a public key file to check with, in place of provenance.public_key of umwayi.json")
+    vf.add_argument("--anchor", help="also compare the logbook chain with an anchor COUNT:HEX kept elsewhere")
     return p
+
+
+def _provenance_key(root: Path, given: str | None) -> str:
+    from umwayi import config as cfgmod
+    if given:
+        return given
+    key = cfgmod.load_config(root).provenance_key
+    if not key:
+        raise UsageError('provenance: no public key: set "provenance": {"public_key": "/path/to/key.pub"} in umwayi.json, or give --key')
+    return key
+
+
+def _cmd_provenance_sign(args, out) -> int:
+    """`umwayi provenance sign GOAL TASK` (W49.R4): the owner's act, at a terminal, with the key held by ssh-agent. 0 signed, 2 a refusal,
+    3 the kill switch, 64 usage."""
+    from umwayi import provsign
+    root = Path(args.root)
+    key = _provenance_key(root, None)
+    if not _owner_terminal():
+        out.write("refused: signing is the owner's, at the owner's terminal. Allowed next: run umwayi provenance sign again at your terminal.\n")
+        return EXIT_CRASH
+
+    def confirm(lines):
+        for line in lines:
+            out.write(line + "\n")
+        out.write("Type yes to sign: ")
+        out.flush()
+        return sys.stdin.readline().strip() == "yes"
+    try:
+        got = provsign.sign_task(root, args.goal, args.task, args.date or _today(), key, confirm)
+    except provsign.SignError as e:
+        out.write(f"refused: {provsign.REFUSALS[e.reason]}. Nothing was signed.\n")
+        return 3 if e.reason == "kill_switch" else EXIT_CRASH
+    out.write(f"Signed the record of {got['goal']} {got['task']} with key {got['key']}.\n")
+    return 0
+
+
+def _cmd_verify(args, out) -> int:
+    from umwayi import provsign
+    root = Path(args.root)
+    rel = args.path
+    abs_path = (root / rel) if not os.path.isabs(rel) else Path(rel)
+    try:
+        rel = os.path.relpath(abs_path.resolve(strict=False), root.resolve())
+    except ValueError:
+        raise UsageError("verify: the path must be a file inside the root") from None
+    if rel.startswith("..") or os.path.islink(abs_path) or not os.path.isfile(abs_path):
+        raise UsageError("verify: the path must be a regular file inside the root (no link)")
+    anchor = logbook.parse_anchor(args.anchor) if args.anchor is not None else None
+    code, lines = provsign.verify_path(root, rel, _provenance_key(root, args.key), anchor)
+    out.write("\n".join(lines) + "\n")
+    return code
 
 
 def _scope_stop(scope_file: str, action_text) -> str | None:
@@ -1162,6 +1226,10 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_feedback_send(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "provenance" and getattr(args, "provenance_command", None) == "sign":
+            return _cmd_provenance_sign(args, out)
+        if args.command == "verify":
+            return _cmd_verify(args, out)
         if args.command == "autonomy" and getattr(args, "autonomy_command", None) == "record":
             e = autonomy.record(Path(args.root), args.cls, args.outcome, args.by, args.ref, args.date or _today())
             out.write(f"Recorded {e.added.split(' recorded by ')[0]}.\n"

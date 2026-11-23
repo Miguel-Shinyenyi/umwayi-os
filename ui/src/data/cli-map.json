@@ -982,6 +982,35 @@
           "children": []
         }
       ]
+    },
+    {
+      "name": "provenance",
+      "path": [
+        "provenance"
+      ],
+      "help": "the provenance record of a goal task (W49); 0, 2, 3 or 64",
+      "line": "the provenance record of a goal task (W49)",
+      "children": [
+        {
+          "name": "sign",
+          "path": [
+            "provenance",
+            "sign"
+          ],
+          "help": "sign the record of a task with your SSH key, at your terminal (the key stays in ssh-agent)",
+          "line": "sign the record of a task with your SSH key, at your terminal (the key stays in ssh-agent)",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "verify",
+      "path": [
+        "verify"
+      ],
+      "help": "W50: was this file made by a umwayi task and is it unchanged? 0 unchanged, 3 changed since, 2 no record or a refusal, 64 usage",
+      "line": "W50: was this file made by a umwayi task and is it unchanged? 0 unchanged, 3 changed since, 2 no record or a refusal, 64 usage",
+      "children": []
     }
   ]
 }

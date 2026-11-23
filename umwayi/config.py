@@ -30,6 +30,7 @@ class Config:
     private_paths: tuple[str, ...]
     social_channels: tuple[str, ...] = ()
     provenance_record: bool = False  # W49: write a provenance record for each task that reaches `in review` (off by default)
+    provenance_key: str | None = None  # W49: the file of the owner's public key that signs the records (never a private key)
 
 
 def _clean_rel(value: object, what: str) -> str:
@@ -80,10 +81,12 @@ def load_config(root: Path) -> Config:
     private = tuple(_clean_rel(p, "private_paths entry") for p in priv)
     channels = _channels(data.get("social_channels", []))
     prov = data.get("provenance", {})
-    if not isinstance(prov, dict) or set(prov) - {"record"} or not isinstance(prov.get("record", False), bool):
-        raise ConfigError('config: provenance must be an object with only "record": true or false')
+    key = prov.get("public_key") if isinstance(prov, dict) else None
+    if (not isinstance(prov, dict) or set(prov) - {"record", "public_key"} or not isinstance(prov.get("record", False), bool)
+            or (key is not None and (not isinstance(key, str) or not key.startswith("/") or "\x00" in key))):
+        raise ConfigError('config: provenance must be an object with "record": true or false and an optional "public_key": an absolute path')
     return Config(root=root, memory_dir=memory_dir, private_paths=private, social_channels=channels,
-                  provenance_record=prov.get("record", False))
+                  provenance_record=prov.get("record", False), provenance_key=key)
 
 
 def _channels(value: object) -> tuple[str, ...]:
