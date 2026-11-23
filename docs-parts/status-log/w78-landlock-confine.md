@@ -1,0 +1,4 @@
+date: 2026-11-23
+pr: none
+what: W78 step 6 (5b), Landlock confinement alone. New `umwayi/confine.py`: `python -m umwayi.confine --read PATH ... --write PATH ... [--no-network] -- COMMAND` builds a Landlock ruleset (every right the kernel's ABI handles; read and execute below `--read`, everything below `--write`), restricts itself, then `execv`s the command, so every process it starts inherits the restriction and a refused write fails with the kernel's EACCES. `--no-network` handles TCP bind and connect with no rule and needs ABI 4, else reason `kernel`. No Landlock, a missing path or a failed restriction refuses (exit 2, `refused: not confined (REASON). Allowed next: ...`) and the command is never run. Nothing starts a helper through it yet. Stops for the owner.
+tests: `tests/test_confine.py`; pure tests ran here, kernel tests need Landlock (skipped here), the CI log is their first run.
