@@ -76,7 +76,7 @@ def main(argv, stdin, stdout, stderr) -> int:
         data = gate.read_hook_input(stdin.buffer if hasattr(stdin, "buffer") else stdin)
         if data.get("hook_event_name") != "PreToolUse":
             raise gate.AdapterError("this hook only handles PreToolUse")
-        extra = {k: data.get(k) for k in ("permission_mode", "agent_type")}
+        extra = {k: data.get(k) for k in ("permission_mode", "agent_type", "tool_use_id")}
         action = gate.tool_action("claude-code", data.get("tool_name"), data.get("tool_input"), extra)
         cwd = gate.clean_cwd(data.get("cwd"))  # W57: Claude Code documents cwd in every hook input
         if cwd is not None:
