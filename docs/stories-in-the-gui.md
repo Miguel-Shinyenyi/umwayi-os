@@ -37,7 +37,7 @@ A plain list view comes first (no 3D, no WebGL), then the panels.
 
 ### The story file (proposed)
 
-One file per story, `docs/stories/ID.json` (JSON is in the standard library, and a page can read it through a script tag with no network): `id`, `title`, `command` (the exact terminal command or the module), `prs`, `built` (`built`, `partly` or `planned`), `honesty` (one sentence), `analogy`, `analogy_stops`, `does_not` (a list), `owner_check` (a list), `words` (the fixed words) and `scenes` (five: label, chip, tone, caption).
+One file per story, `docs/stories/ID.json` (JSON is in the standard library, and a page can read it through a script tag with no network): `id`, `title`, `command` (the exact terminal command or the module), `prs`, `built` (`built`, `partly` or `planned`), `honesty` (one sentence), `analogy`, `analogy_stops`, `does_not` (a list), `owner_check` (a list), `words` (the fixed words), `code` (the files whose text must hold those words) and `scenes` (five: label, chip, tone, caption). The field `code` was added in step 2, so that the test knows where to look for each word.
 
 Tests planned with the files, each with a planted fault: the five scenes exist; every word in `words` appears in the code the story names (a story with a word the code does not print fails); the honesty scan passes; no em dash; at least 100 words in the prose fields.
 
@@ -59,6 +59,7 @@ It does not prove that a story is good (the owner and the guide read it), that a
 ## Decisions log
 
 - 2026-11-24 (owner): the stories that make a video also build the GUI on top of the terminal. The videos do not wait. Posting stays the owner's act.
+- 2026-11-24 (step 2, built): the four files are in `docs/stories/` (broker, sandbox-settings, provenance, fuel-gauge) with `tests/test_stories.py`. The fuel gauge says that nothing calls the gate yet (G-0014).
 - 2026-11-24 (this note): the order of work, one pull request open at a time. (1) This note, docs only. (2) The four story files and their tests. (3) A read only command that exports the stories for the page (a new command: owner stop). (4) The list view and the panels (owner stop). (5) Later, live state through a read only snapshot.
 
 ## Open questions
