@@ -148,6 +148,7 @@
   "tests/test_broker.py": [],
   "tests/test_builder_rules.py": ["*", "adapters", "rules.yaml"],
   "tests/test_builder_workflow.py": [".kiro", "tools"],
+  "tests/test_channel.py": [],
   "tests/test_check_log.py": [],
   "tests/test_checks.py": [".kiro", "adapters", "ui"],
   "tests/test_ci_draft.py": [".github"],
