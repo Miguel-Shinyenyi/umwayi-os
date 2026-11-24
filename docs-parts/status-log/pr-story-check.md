@@ -1,4 +1,4 @@
 date: 2026-11-24
-pr: none
+pr: 209
 what: N10 L7. The pull request template has the lines `Owner stop:`, `Video:` and `Limits and honesty:` and the headings Story then Record. The CI `plan` job runs `python -m tools.pr_story --event-file "$GITHUB_EVENT_PATH"` after the base check: a pull request that says `Owner stop: yes` fails when its story (the text under `## Story`, placeholder lines and comments not counted) has fewer than 100 words; every other pull request gets a warning. An honesty scan fails any pull request text that overclaims ("is enforced", "enforced by default", "is sandboxed", "is confined", "now enforced"), after the cooperative sentence and negations are taken out; a bare use of the words enforced, sandboxed or confined is a warning. The check proves a story exists, not that it is good. A workflow and template change: owner stop. L8 (video script), L9 (video budget) and L10 (first test of the rule) are later.
 tests: `tests/test_pr_story.py` (planted faults, the real command on event files, the real template and workflow), `tests/test_ci_workflow.py`, `tests/test_pr_base.py`.
