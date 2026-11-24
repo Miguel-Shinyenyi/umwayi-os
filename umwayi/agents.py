@@ -1149,7 +1149,7 @@ def _run_child(argv: list, stdin: bytes, timeout: float, cwd: str, env: dict | N
     try:
         proc = subprocess.run(argv, input=stdin, stdout=subprocess.PIPE if keep_output else subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL, timeout=timeout, cwd=cwd, env=env,
-                              shell=False, check=False)
+                              shell=False, check=False, close_fds=True, pass_fds=())  # F1c: the child inherits no open file
     except subprocess.TimeoutExpired:
         return None, b""
     except (OSError, ValueError):
@@ -2088,9 +2088,8 @@ class _Run:
         except BrokerNotStarted:  # W78 step 5: not confined, reason `broker`; never a fallback to cooperative
             why = self.log(f"Refused agent {a.name}: not confined (broker)", "the enforcement broker of the run could not be started",
                            "Nothing was started.")
-            return self.result(2, [f"refused: not confined (broker). Allowed next: run `umwayi enforce set cooperative --agent "
-                                   f"{a.name} --until DATE` at your terminal, or look at why the broker did not start. "
-                                   f"{not_started} (exit 2)"], why)
+            return self.result(2, [f"refused: not confined (broker). Allowed next: look at why the broker did not start; the owner chooses "
+                                   f"the mode of agent {a.name} by hand. {not_started} (exit 2)"], why)
         try:
             argv = self._confine_argv(argv)
         except confine.ConfineRefused as e:  # W78 step 6: not confined, a fixed reason; never a fallback to cooperative
@@ -2341,7 +2340,7 @@ class _Run:
             env = {k: os.environ[k] for k in ("PATH", "LANG") if k in os.environ}
             env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent)
             proc = subprocess.Popen(brk.argv(self.root, table, sock), shell=False, stdin=subprocess.DEVNULL,
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env, close_fds=True, pass_fds=())
             self.broker = brk.wait_for(brk.Handle(proc, sock))
         except (OSError, UmwayiError):
             if folder:
@@ -2593,7 +2592,7 @@ class _Run:
         if receiver is not None:  # B.R2.2: this run's own receiver; claude_env and child_env carry no other OTEL_*
             env.update(telemetry.telemetry_env(receiver.server.server_address[1], receiver.secret))
         self.proc = subprocess.Popen(argv, cwd=cwd, shell=False, start_new_session=new_session, stdin=stdin,
-                                     stdout=stdout, env=env)
+                                     stdout=stdout, env=env, close_fds=True, pass_fds=())  # F1c: no inherited file descriptor above 2
         self.started = time.monotonic()
         if stdin_text is not None:
             # Written by a helper thread: a prompt bigger than the pipe buffer, sent to an agent that does not
