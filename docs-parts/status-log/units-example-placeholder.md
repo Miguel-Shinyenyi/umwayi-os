@@ -1,0 +1,4 @@
+date: 2026-11-24
+pr: none
+what: Q1 of QUEUE.md (the guide's recommendation, yes). The provider example in the `umwayi/units.py` text used a provider named `muse`, 14000 credits and `accepted_free: true` dated today, which read like a real acceptance although the owner has not accepted the data use trade. It is now `example-provider`, 1000 credits, dated 2026-01-01, marked `EXAMPLE ONLY, not a record`, with a note that only `true` is allowed in an acceptance and that the way to say no is to remove the block (the loader refuses `false`, so the placeholder the guide suggested, `accepted_free: false`, would not load). A test reads the example out of the module text, checks that it is a valid file, and that a real looking version is caught. Comment and test only.
+tests: `tests/budget/test_providers.py` (the example is valid and marked, and the old real looking one is flagged).
