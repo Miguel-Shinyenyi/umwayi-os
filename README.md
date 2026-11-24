@@ -70,7 +70,7 @@ New here? Start with the [tester quickstart](docs/quickstart.md): install, a fir
 | budget governor | a budget per run and per day, the telemetry receiver | [budget-governor.md](docs/budget-governor.md) |
 | feedback channel | the folder the guide and the builder both write and read: the entry format and the rules; the `inbox` and `ack` commands are planned, not built | [feedback-channel.md](docs/feedback-channel.md) |
 | stories in the GUI | planned, design note only: one story per feature used in the PR text, a video and a panel in the browser layer on top of the terminal | [stories-in-the-gui.md](docs/stories-in-the-gui.md) |
-| PR queue | planned, design note only: a record of queued branches, what to push next, a conflict table and a read only watch | [pr-queue-design.md](docs/pr-queue-design.md) |
+| PR queue | built, read only: `pr-queue.md`, `umwayi pr queue list` and `next` (what to push, or to wait, and when the queue is low); not built: `add`, the conflict table and the watch | [pr-queue-design.md](docs/pr-queue-design.md) |
 | 12 view | a calm, realistic 3D scene of eleven natural features and the home page, that will show counts from a read only snapshot (the snapshot command, the scene, the home page and the public site are built) | [interface.md](docs/interface.md) |
 
 How they fit together: [docs/architecture.md](docs/architecture.md). Requirements, design and tasks: `.kiro/specs/umwayi-os/`. Product rules: `.kiro/steering/product.md`.
