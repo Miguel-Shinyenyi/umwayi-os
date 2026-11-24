@@ -1,0 +1,4 @@
+date: 2026-11-24
+pr: 214
+what: N8, L1, second of two. `guidance.yaml` gains 44 entries, one per lesson of `docs/supervisor-lessons.md`, each with its source line, the SHA-256 of that line and `review_by: 2027-02-22`. Ten lessons have a test and enter as `enforce` with a `test` key (A1 to A8, A12, A14, the same tests as `docs/lessons-as-checks.md`); three are owner only (B1, C18, C19); the other 31 enter as `advise` because no test exists yet, as the owner answered on 2026-11-24 ("advise until a test exists"). A lesson moves to `enforce` in the pull request that adds its test. Advise lines are not put into any prompt yet, so no prompt changes; `umwayi goal guard` now also checks the 44 source hashes and the 10 tests. Changing `guidance.yaml` is an owner stop.
+tests: `tests/goal/test_guidance_lessons.py` (one entry per lesson line, the tests of the map, an edited line stops the loader), `tests/goal/test_guidance_coverage.py` (two rules now allow a test).

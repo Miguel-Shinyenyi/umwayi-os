@@ -96,7 +96,9 @@ class ReviewByTests(LessonRepo):
                     self.parse(kind="advise", review_by=d)
 
     def test_an_entry_without_review_by_lists_as_before(self):
-        self.assertTrue(all(e.review_by is None and e.test is None for e in g.load(REPO)))  # no entry uses the new keys yet
+        old = [e for e in g.load(REPO) if not e.id.startswith("lesson-")]
+        self.assertEqual(len(old), 31)
+        self.assertTrue(all(e.review_by is None and e.test is None for e in old))  # the entries before the lessons are unchanged
 
 
 class LessonsPageTests(unittest.TestCase):
@@ -115,6 +117,72 @@ class LessonsPageTests(unittest.TestCase):
         a = g.compute_hash(REPO, "docs/supervisor-lessons.md#Lessons A#1")
         self.assertRegex(a, r"^[0-9a-f]{64}$")
         self.assertNotEqual(a, g.compute_hash(REPO, "docs/supervisor-lessons.md#Lessons A#2"))
+
+
+class RealLessonEntriesTests(unittest.TestCase):
+    """The entries of guidance.yaml for the 44 lessons (the second pull request of L1)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.lessons = {e.id: e for e in g.load(REPO) if e.id.startswith("lesson-")}
+
+    def test_every_lesson_line_of_the_page_has_exactly_one_entry(self):
+        page = (REPO / "docs" / "supervisor-lessons.md").read_text(encoding="utf-8")
+        import re
+        ids = re.findall(r"(?m)^\d+\. \[([ABCD]\d+), [EAO], tier \d\]", page)
+        self.assertEqual(len(ids), 44)
+        self.assertEqual(sorted(self.lessons), sorted("lesson-" + i.lower() for i in ids))
+        for e in self.lessons.values():
+            self.assertRegex(e.source, r"^docs/supervisor-lessons\.md#Lessons [ABCD]#\d+$")
+
+    def test_an_enforce_lesson_names_a_test_and_a_lesson_without_one_is_advise_or_owner(self):
+        for e in self.lessons.values():
+            if e.kind == "enforce":
+                self.assertIsNotNone(e.test, e.id)  # the loader has already checked that the test exists
+                self.assertIsNone(e.check, e.id)
+            else:
+                self.assertIn(e.kind, ("advise", "owner"), e.id)
+                self.assertIsNone(e.test, e.id)
+        self.assertEqual(sorted(e.id for e in self.lessons.values() if e.kind == "enforce"),
+                         sorted("lesson-" + i for i in ("a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a12", "a14")))
+
+    def test_the_owner_only_lessons_are_the_three_the_note_marks_o(self):
+        self.assertEqual(sorted(e.id for e in self.lessons.values() if e.kind == "owner"), ["lesson-b1", "lesson-c18", "lesson-c19"])
+
+    def test_the_enforce_entries_use_the_same_tests_as_the_lessons_map(self):
+        text = (REPO / "docs" / "lessons-as-checks.md").read_text(encoding="utf-8")
+        for e in self.lessons.values():
+            if e.kind == "enforce":
+                file, _, name = e.test.partition(" ")
+                self.assertIn(f"`{file}`", text.split(f"| {e.id[7:].upper()} |")[1].split("\n")[0], e.id)
+                self.assertIn(name, text.split(f"| {e.id[7:].upper()} |")[1].split("\n")[0], e.id)
+
+    def test_every_lesson_has_a_review_date_in_the_future_of_the_page_and_a_tier_from_the_page(self):
+        import re
+        page = (REPO / "docs" / "supervisor-lessons.md").read_text(encoding="utf-8")
+        tiers = {m.group(1).lower(): int(m.group(2)) for m in re.finditer(r"(?m)^\d+\. \[([ABCD]\d+), [EAO], tier (\d)\]", page)}
+        for e in self.lessons.values():
+            self.assertEqual(e.review_by, "2027-02-22", e.id)
+            self.assertEqual(e.tier, tiers[e.id[7:]], e.id)
+
+    def test_planted_fault_an_edited_lesson_line_stops_the_loader(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for rel in ("guidance.yaml", "docs/supervisor-lessons.md", "docs/lessons-as-checks.md"):
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / rel, root / rel)
+            for t in {e.test.split(" ")[0] for e in self.lessons.values() if e.test}:
+                (root / t).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / t, root / t)
+            for rel in {e.source.split("#")[0] for e in g.load(REPO) if e.source_repo == "umwayi-os"}:
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / rel, root / rel)
+            self.assertEqual(len([e for e in g.load(root) if e.id.startswith("lesson-")]), 44)
+            page = root / "docs" / "supervisor-lessons.md"
+            page.write_text(page.read_text(encoding="utf-8").replace("1. [A1, E, tier 4] docs/testing.md", "1. [A1, E, tier 4] docs/testing.md is a page that", 1), encoding="utf-8")
+            with self.assertRaises(g.SourceChanged):
+                g.load(root)
 
 
 if __name__ == "__main__":

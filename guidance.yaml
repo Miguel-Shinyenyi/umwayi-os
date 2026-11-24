@@ -288,3 +288,440 @@ guidance:
     applies_to: task
     tier: 1
     source_hash: "0e0b1b0a9f74ca0e416944012853ff6ed2854986fc1b25b1e894d7d3777c79c7"
+  - id: lesson-a1
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#1"
+    text: "docs/testing.md stays under 300 lines; fold bullets."
+    kind: enforce
+    test: "tests/test_docs.py TestingMdMarginTests"
+    applies_to: pr
+    tier: 4
+    source_hash: "4ca15a99140e1a07971a8e02b9d356caccb75873c1c93b9d9f1af613566318a4"
+    review_by: "2027-02-22"
+  - id: lesson-a2
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#2"
+    text: "Never hand edit tools/ci_shards.json; regenerate it with the shard tool."
+    kind: enforce
+    test: "tests/test_ci_shards.py test_the_file_is_the_fixed_point_of_balance"
+    applies_to: pr
+    tier: 4
+    source_hash: "e644e154850b1e61ee1811ca46d30c0ab0ad7262157c48858f59fec87f7f5bbc"
+    review_by: "2027-02-22"
+  - id: lesson-a3
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#3"
+    text: "A new test file needs its line in tools/ci_map.json."
+    kind: enforce
+    test: "tests/test_ci_map.py test_every_test_file_has_an_entry_and_no_entry_is_for_a_missing_file"
+    applies_to: pr
+    tier: 4
+    source_hash: "aa0c6304ba5aa9d70ee4c1a5bed2e0834568b7a54d12ce3429e25ed2949768e0"
+    review_by: "2027-02-22"
+  - id: lesson-a4
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#4"
+    text: "No pty, shell or os.system in the package; avoid sentence ends like empty. in goalrun.py."
+    kind: enforce
+    test: "tests/test_automation.py test_no_shell_anywhere"
+    applies_to: pr
+    tier: 4
+    source_hash: "4326afaeaf276a685739725652c4a59a2f8b70635fff32566491d03f835634d8"
+    review_by: "2027-02-22"
+  - id: lesson-a5
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#5"
+    text: "KNOWN-LIMITS numbers are unique; take the next free number and renumber if another PR took it."
+    kind: enforce
+    test: "tests/test_limits_numbers.py test_no_number_is_used_twice_among_the_parts"
+    applies_to: pr
+    tier: 4
+    source_hash: "8d358c378ad3fb925489f84afb8b5643077a5977480892ab2e9a4a8bc2ecfd45"
+    review_by: "2027-02-22"
+  - id: lesson-a6
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#6"
+    text: "Keep every row of the status-log on every rebase; the row set may only grow."
+    kind: enforce
+    test: "tests/test_lessons_as_checks.py test_every_status_part_of_main_is_still_here"
+    applies_to: pr
+    tier: 4
+    source_hash: "845cad86f58ba26748a4cbf9085752d08c2ac8be74a18a7cc4e7379d5a52fe40"
+    review_by: "2027-02-22"
+  - id: lesson-a7
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#7"
+    text: "Merge main before every push, and into every open branch right after any merge."
+    kind: enforce
+    test: "tests/test_lessons_as_checks.py test_a7_a_branch_that_is_behind_main_is_refused"
+    applies_to: pr
+    tier: 4
+    source_hash: "c542a0e37fec53ec4e792bb4d04e352adb670161e12f50e1b2530659373532db"
+    review_by: "2027-02-22"
+  - id: lesson-a8
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#8"
+    text: "Run the tests that read a file you changed, not only the new test."
+    kind: enforce
+    test: "tests/test_lessons_as_checks.py test_a_test_that_names_a_moved_file_is_found_even_when_the_path_is_written_in_pieces"
+    applies_to: pr
+    tier: 4
+    source_hash: "4e663ed1dbbdab09ccf88722028e8cbba33f986d148c6ca8dd77bdfecf804edd"
+    review_by: "2027-02-22"
+  - id: lesson-a9
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#9"
+    text: "Every number in a logbook entry needs a test that makes it nonzero from a real event."
+    kind: advise
+    prompt_line: "Every number in a logbook entry needs a test that makes it nonzero from a real event."
+    applies_to: pr
+    tier: 4
+    source_hash: "1318c69621c289b15ae62b75f2bad2aa72343864e959828833a88fb33a2719bc"
+    review_by: "2027-02-22"
+  - id: lesson-a10
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#10"
+    text: "A tested-with line says only what was run; a fake is a fake; say no real run where there was none."
+    kind: advise
+    prompt_line: "A tested-with line says only what was run; a fake is a fake; say no real run where there was none."
+    applies_to: pr
+    tier: 4
+    source_hash: "fc3832ac701cd6d8113193b30dbd4fa7b628cd2d62054f312e69465a2d8d83f6"
+    review_by: "2027-02-22"
+  - id: lesson-a11
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#11"
+    text: "Before reading an empty result from a Docker run, check that the Docker daemon is up."
+    kind: advise
+    prompt_line: "Before reading an empty result from a Docker run, check that the Docker daemon is up."
+    applies_to: pr
+    tier: 4
+    source_hash: "4b0497370d81b1eca5de636a20c378c767a680bf8687f7b6dbeb2625f3b8f804"
+    review_by: "2027-02-22"
+  - id: lesson-a12
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#12"
+    text: "Clear conflicts in generated files with the merge helper, not by running fewer sessions."
+    kind: enforce
+    test: "tests/test_merge_main.py test_a_conflict_in_the_status_log_is_cleared_by_the_build"
+    applies_to: pr
+    tier: 4
+    source_hash: "d05ea15fde3321f378ce745e60e4dc8124510832aa679c7e225fd93efacc3f03"
+    review_by: "2027-02-22"
+  - id: lesson-a13
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#13"
+    text: "Before designing on a kernel or OS feature, probe the machine; split the task if it lacks it."
+    kind: advise
+    prompt_line: "Before designing on a kernel or OS feature, probe the machine; split the task if it lacks it."
+    applies_to: pr
+    tier: 4
+    source_hash: "0f2a5df56d20462755569f3e573f2e288bc2a684db6b7f4b51d1edd8b2f69f52"
+    review_by: "2027-02-22"
+  - id: lesson-a14
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons A#14"
+    text: "Never claim a result from a skipped test; CI must show whether kernel tests ran."
+    kind: enforce
+    test: "tests/test_confine.py test_on_the_ci_runner_the_kernel_tests_run_and_do_not_skip"
+    applies_to: pr
+    tier: 4
+    source_hash: "5919264776f016ffc5f551ff6bed7da9420597cc4732f49f3db16004a5a4c508"
+    review_by: "2027-02-22"
+  - id: lesson-b1
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons B#1"
+    text: "CI runs only on the PR that is next to merge: drafts, a ready trigger, cancel in progress."
+    kind: owner
+    applies_to: pr
+    tier: 2
+    source_hash: "5ce85f92ee0f3ae366e5df836ec7604b11a2a47b6141ee1b2d5d1d76c7d01564"
+    review_by: "2027-02-22"
+  - id: lesson-b2
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons B#2"
+    text: "At most two PRs run CI at once; open the next PR as a draft until the one ahead has merged."
+    kind: advise
+    prompt_line: "At most two PRs run CI at once; open the next PR as a draft until the one ahead has merged."
+    applies_to: pr
+    tier: 4
+    source_hash: "893ee17ebfb5f84bdac38143a820345d055dc0b7e055c4ff9d353261a6eb705d"
+    review_by: "2027-02-22"
+  - id: lesson-b3
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons B#3"
+    text: "If four PRs wait for the owner, stop starting owner-stop tasks and report."
+    kind: advise
+    prompt_line: "If four PRs wait for the owner, stop starting owner-stop tasks and report."
+    applies_to: pr
+    tier: 4
+    source_hash: "bdc027f7f223dc10b9c50995154e68f80225491b27d061aa1e0ec000e66f388f"
+    review_by: "2027-02-22"
+  - id: lesson-b4
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons B#4"
+    text: "Merge order: docs-only first, then the smallest owner-stop PR, so later conflicts are fewest."
+    kind: advise
+    prompt_line: "Merge order: docs-only first, then the smallest owner-stop PR, so later conflicts are fewest."
+    applies_to: pr
+    tier: 4
+    source_hash: "447fda7eab6d6318627f1e30b671aa41a4af18eed7b5313c524823d7a1a6077b"
+    review_by: "2027-02-22"
+  - id: lesson-c1
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#1"
+    text: "No Generated with Claude lines and no Co-Authored-By trailers; commits use the owner's identity."
+    kind: advise
+    prompt_line: "No Generated with Claude lines and no Co-Authored-By trailers; commits use the owner's identity."
+    applies_to: task
+    tier: 2
+    source_hash: "44107773a58b0240cde9e728511f55e5f5e8330d2c1f3cf5c2d576055bc5fc69"
+    review_by: "2027-02-22"
+  - id: lesson-c2
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#2"
+    text: "Protect main: feature branches, pull requests, never push to main; one task, one branch."
+    kind: advise
+    prompt_line: "Protect main: feature branches, pull requests, never push to main; one task, one branch."
+    applies_to: task
+    tier: 2
+    source_hash: "c56d68b5ed593f5a408c051bc04cf49e2a1ec3d4fc2ab8b74087d10d4defe7ab"
+    review_by: "2027-02-22"
+  - id: lesson-c3
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#3"
+    text: "Every question to the owner carries a recommendation, as a broad band when data is missing."
+    kind: advise
+    prompt_line: "Every question to the owner carries a recommendation, as a broad band when data is missing."
+    applies_to: task
+    tier: 2
+    source_hash: "0af4c1516d2dd82140792304ad466b537bfd42efd4821593a2b8eb396f0a9c31"
+    review_by: "2027-02-22"
+  - id: lesson-c4
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#4"
+    text: "Timelines are guidelines; start early if the queue allows; restate a two way clarification first."
+    kind: advise
+    prompt_line: "Timelines are guidelines; start early if the queue allows; restate a two way clarification first."
+    applies_to: task
+    tier: 2
+    source_hash: "a619505e6afe25f685fab01730463b08f17adb93498b2866325b02a5a9eac700"
+    review_by: "2027-02-22"
+  - id: lesson-c5
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#5"
+    text: "The queue runs by itself; what needs the owner goes on an open questions list with a recommendation."
+    kind: advise
+    prompt_line: "The queue runs by itself; what needs the owner goes on an open questions list with a recommendation."
+    applies_to: task
+    tier: 2
+    source_hash: "24e4af93032de381fbd71e7b539226bf01b1241ddb1862109f1586e29083bccb"
+    review_by: "2027-02-22"
+  - id: lesson-c6
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#6"
+    text: "No idle helper sessions: give a free helper the next queue task."
+    kind: advise
+    prompt_line: "No idle helper sessions: give a free helper the next queue task."
+    applies_to: task
+    tier: 2
+    source_hash: "3aa7e9955ab9c0e998cb49ec9b262b0a19975cac0777393fbbcca13012150f57"
+    review_by: "2027-02-22"
+  - id: lesson-c7
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#7"
+    text: "Find stalled sessions with deterministic rules and the helper's own CLI; never assume the outside guide."
+    kind: advise
+    prompt_line: "Find stalled sessions with deterministic rules and the helper's own CLI; never assume the outside guide."
+    applies_to: task
+    tier: 2
+    source_hash: "ca3a8cc218a9959088f7dd703782e1ff9d0298d73501439ff5c0af80f7b2c9eb"
+    review_by: "2027-02-22"
+  - id: lesson-c8
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#8"
+    text: "After every task and stop, write a feedback entry: branch, head, PR, CI, owner stops, limits, surprises."
+    kind: advise
+    prompt_line: "After every task and stop, write a feedback entry: branch, head, PR, CI, owner stops, limits, surprises."
+    applies_to: task
+    tier: 2
+    source_hash: "f0c908252a798d165ac96138333c0b642a2de881e81eeef90a0dcdfd491d2d5c"
+    review_by: "2027-02-22"
+  - id: lesson-c9
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#9"
+    text: "Do it yourself first: ask the owner for a screenshot or check only if the system cannot do it."
+    kind: advise
+    prompt_line: "Do it yourself first: ask the owner for a screenshot or check only if the system cannot do it."
+    applies_to: task
+    tier: 2
+    source_hash: "e61035f51d2a41119218d932e15574c0c19140af7ea9d6413388ad9f4515e5ae"
+    review_by: "2027-02-22"
+  - id: lesson-c10
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#10"
+    text: "Do not be preemptive: no extra drafts, audits or reproductions until asked."
+    kind: advise
+    prompt_line: "Do not be preemptive: no extra drafts, audits or reproductions until asked."
+    applies_to: task
+    tier: 2
+    source_hash: "bf71b6b432db61a8cb93e24abba2ae49a705ce79eb812a2ca05fb51b51e1a271"
+    review_by: "2027-02-22"
+  - id: lesson-c11
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#11"
+    text: "Reuse each tool's strengths and build on what is provided; ask are we doing that in every feature."
+    kind: advise
+    prompt_line: "Reuse each tool's strengths and build on what is provided; ask are we doing that in every feature."
+    applies_to: task
+    tier: 2
+    source_hash: "3071819ba1316d7130e3a845ddfec3618de2f5cb026448845e830c5838815c3f"
+    review_by: "2027-02-22"
+  - id: lesson-c12
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#12"
+    text: "Free tier and subscription first; pay-as-you-go billing is only a later option."
+    kind: advise
+    prompt_line: "Free tier and subscription first; pay-as-you-go billing is only a later option."
+    applies_to: task
+    tier: 2
+    source_hash: "e5ffa48093cddba83b47e07491a3fe7f6692903067d973a67f26366c2d429bdd"
+    review_by: "2027-02-22"
+  - id: lesson-c13
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#13"
+    text: "Decisions go to the council or an LLM board with different models; the record names the result."
+    kind: advise
+    prompt_line: "Decisions go to the council or an LLM board with different models; the record names the result."
+    applies_to: task
+    tier: 2
+    source_hash: "03eb3da24b0fceca80cf88fb6ed154eac4a6ca6b6dcb48b3624f84bf3a3b225d"
+    review_by: "2027-02-22"
+  - id: lesson-c14
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#14"
+    text: "Update Notion and the hub alongside the work so a change can be reverted."
+    kind: advise
+    prompt_line: "Update Notion and the hub alongside the work so a change can be reverted."
+    applies_to: task
+    tier: 2
+    source_hash: "bf39389cee1dea31a7ecda373fa4e92420577cd35c66eb59b14959ada97044f8"
+    review_by: "2027-02-22"
+  - id: lesson-c15
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#15"
+    text: "Before any project goes live, ask whether we are really going live, then run security scans."
+    kind: advise
+    prompt_line: "Before any project goes live, ask whether we are really going live, then run security scans."
+    applies_to: task
+    tier: 2
+    source_hash: "5374b42b7f31b63881e25f8c70de9c72cb0cf6e899c91d0d5be4e5e684c196f9"
+    review_by: "2027-02-22"
+  - id: lesson-c16
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#16"
+    text: "Record every test run and keep an index saying which recording and script go together."
+    kind: advise
+    prompt_line: "Record every test run and keep an index saying which recording and script go together."
+    applies_to: task
+    tier: 2
+    source_hash: "6c9ae01f9d4dfc38d1a477f5d46b85d45f3991e22d55925b41cec9d46eb0dc72"
+    review_by: "2027-02-22"
+  - id: lesson-c17
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#17"
+    text: "Read a page that fetch tools cannot read in the browser before judging it."
+    kind: advise
+    prompt_line: "Read a page that fetch tools cannot read in the browser before judging it."
+    applies_to: task
+    tier: 2
+    source_hash: "b21b9abc21c02e5525430094a89a28c71aa99be4dd1f4eb5be6283afa0381984"
+    review_by: "2027-02-22"
+  - id: lesson-c18
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#18"
+    text: "Public content never names companies the owner applied to; private items stay out of the repo."
+    kind: owner
+    applies_to: task
+    tier: 2
+    source_hash: "f79d93f830ac527d62735344a7979ee7e25d3931953172d9ba2131e76400ab93"
+    review_by: "2027-02-22"
+  - id: lesson-c19
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#19"
+    text: "Credentials, tokens, purchases, accounts, publishing, sign-ins: stop and report; never type one."
+    kind: owner
+    applies_to: task
+    tier: 2
+    source_hash: "b8fc101f18e0038711f611f2dda8698b3cfda80fff933f06cd0b0ee132b33c67"
+    review_by: "2027-02-22"
+  - id: lesson-c20
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#20"
+    text: "No doc, post or video says enforced or sandboxed until one real enforced run has finished a goal."
+    kind: advise
+    prompt_line: "No doc, post or video says enforced or sandboxed until one real enforced run has finished a goal."
+    applies_to: task
+    tier: 2
+    source_hash: "68b9a80c7565ed9ffd7abcbabacab542de092e3679e892e1de9781eb938c9344"
+    review_by: "2027-02-22"
+  - id: lesson-d1
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons D#1"
+    text: "A merge button stuck on checking may hide real conflicts; reload the PR page before waiting."
+    kind: advise
+    prompt_line: "A merge button stuck on checking may hide real conflicts; reload the PR page before waiting."
+    applies_to: pr
+    tier: 6
+    source_hash: "ce2f8b49523d5f956e9524dda0632237a946aea86c3a20054538e0e7c499cb63"
+    review_by: "2027-02-22"
+  - id: lesson-d2
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons D#2"
+    text: "Read the diff of every PR; merge only on green CI and no conflicts, and owner-stop PRs on the owner's word."
+    kind: advise
+    prompt_line: "Read the diff of every PR; merge only on green CI and no conflicts, and owner-stop PRs on the owner's word."
+    applies_to: pr
+    tier: 6
+    source_hash: "7a411218c973bdb04d704f1b4bbdb08c24d49cbd3ba3e3be92a4f5ea76362f1d"
+    review_by: "2027-02-22"
+  - id: lesson-d3
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons D#3"
+    text: "After any merge, check the other open PRs for conflicts and run merge_main."
+    kind: advise
+    prompt_line: "After any merge, check the other open PRs for conflicts and run merge_main."
+    applies_to: pr
+    tier: 6
+    source_hash: "165a15bdb38f9c413aa8ff95f29efd49537a37b3fbb7da21dd26bf4c123183a1"
+    review_by: "2027-02-22"
+  - id: lesson-d4
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons D#4"
+    text: "When CI is slow, check the runner queue before blaming the tests."
+    kind: advise
+    prompt_line: "When CI is slow, check the runner queue before blaming the tests."
+    applies_to: pr
+    tier: 6
+    source_hash: "385b4522b943411640749440e7c1a8f79c1e09bef02bce7ec6d333b5b282e9c8"
+    review_by: "2027-02-22"
+  - id: lesson-d5
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons D#5"
+    text: "A rule learned from a mistake becomes a rule only after it is vetted; the same mistake twice means flag both records."
+    kind: advise
+    prompt_line: "A rule learned from a mistake becomes a rule only after it is vetted; the same mistake twice means flag both records."
+    applies_to: pr
+    tier: 4
+    source_hash: "d8b6da76fce83e22bede501a81d53b28f6b34a3c6ea608c9faab7e6a57c63bec"
+    review_by: "2027-02-22"
+  - id: lesson-d6
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons D#6"
+    text: "Rules only tighten: no learned rule makes the system more permissive."
+    kind: advise
+    prompt_line: "Rules only tighten: no learned rule makes the system more permissive."
+    applies_to: pr
+    tier: 4
+    source_hash: "b9558cd0ada25d211e36ccdde59e33ecaa03c7771683233f09db4f062c0987ab"
+    review_by: "2027-02-22"
