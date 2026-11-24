@@ -69,7 +69,7 @@ New here? Start with the [tester quickstart](docs/quickstart.md): install, a fir
 | 11 scheduled runs | systemd user timers for jobs and workflows | [scheduled-runs.md](docs/scheduled-runs.md) |
 | budget governor | a budget per run and per day, the telemetry receiver | [budget-governor.md](docs/budget-governor.md) |
 | feedback channel | the folder the guide and the builder both write and read: the entry format and the rules; `umwayi feedback inbox` and `ack` read and acknowledge it (read only, one logbook line) | [feedback-channel.md](docs/feedback-channel.md) |
-| bypass resistance | planned, design note only: the six paths to try from inside a confined run, what should refuse each and what is proven | [bypass-resistance-design.md](docs/bypass-resistance-design.md) |
+| bypass resistance | design note and a planted-bypass test of the six paths from inside a confined run (the kernel parts run where Landlock exists, today the CI runner); the network path is open and said so | [bypass-resistance-design.md](docs/bypass-resistance-design.md) |
 | stories in the GUI | design note and four story files; `python -m tools.story_video ID` writes the script of a concept video from one; no panel and no export command yet | [stories-in-the-gui.md](docs/stories-in-the-gui.md) |
 | PR queue | built, read only: `pr-queue.md`, `umwayi pr queue list` and `next` (what to push, or to wait, and when the queue is low); not built: `add`, the conflict table and the watch | [pr-queue-design.md](docs/pr-queue-design.md) |
 | 12 view | a calm, realistic 3D scene of eleven natural features and the home page, that will show counts from a read only snapshot (the snapshot command, the scene, the home page and the public site are built) | [interface.md](docs/interface.md) |
