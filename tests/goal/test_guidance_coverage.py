@@ -138,13 +138,15 @@ class Tiers(unittest.TestCase):
                 self.assertEqual(e.tier, 4, e.id)
             elif path == PRODUCT:
                 self.assertEqual(e.tier, 2 if n in (5, 10) else 1, e.id)
-            if e.id != "one-open-pr-per-task":
+            if e.id.startswith("lesson-"):  # N8: a lesson is enforce only with a test that fails the build, else advise or owner
+                self.assertEqual(e.kind == "enforce", e.test is not None, e.id)
+            elif e.id != "one-open-pr-per-task":
                 self.assertNotEqual(e.kind, "enforce", e.id)
 
     def test_only_the_four_checks_exist(self):
         self.assertEqual(sorted(guidance.CHECKS), ["acceptance_checks_present", "consequences_and_undo_present",
                                                    "goal_sentence_present", "one_open_pr"])
-        enforced = sorted(e.check for e in guidance.load(REPO) if e.kind == "enforce")
+        enforced = sorted(e.check for e in guidance.load(REPO) if e.kind == "enforce" and e.check)  # a lesson entry has a test, not a check
         self.assertEqual(enforced, sorted(guidance.CHECKS))
 
     def test_texts_are_ours_and_short(self):
