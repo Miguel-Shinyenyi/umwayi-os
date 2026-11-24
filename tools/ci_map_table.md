@@ -81,6 +81,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/goal/test_guard_files.py` | `umwayi.json` |
 | `tests/goal/test_guidance.py` | `.kiro`, `guidance.yaml` |
 | `tests/goal/test_guidance_coverage.py` | `.kiro`, `guidance.yaml` |
+| `tests/goal/test_guidance_lessons.py` | `docs` |
 | `tests/goal/test_idle.py` | `umwayi.json` |
 | `tests/goal/test_log.py` | `umwayi.json` |
 | `tests/goal/test_opencode_roles.py` | `umwayi.json` |

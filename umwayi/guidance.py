@@ -26,6 +26,12 @@ the whole hub file, as the owner recorded it. `umwayi guidance verify --hub PATH
 (Ask me first on a mismatch), and `umwayi guidance list` shows a hub entry as unverified unless it was verified in
 that same run.
 
+Two optional keys carry a lesson (N8, L1). `review_by` (YYYY-MM-DD, a real date): when it has passed, `umwayi guidance list` marks the
+entry as due; nothing is refused. `test` (only on an `enforce` entry that has no `check`): `tests/FILE.py` or `tests/FILE.py NAME`, a test
+file of this repo and optionally a name that must appear in it. An `enforce` entry has exactly one of `check` (a function over a task
+record) and `test` (a test that fails the build). A `test` that cannot be found is Ask me first: the lesson would no longer be enforced and
+nothing would say so. An entry with a `test` is not run against a task record.
+
 Source and source_hash for `umwayi-os`. `source` is `PATH#N` or `PATH#HEADING#N`: the repo relative file, optionally the section
 whose heading starts with HEADING, and the numbered rule `N. ...` in it. The rule must be on exactly one line
 (lines inside a code fence do not count). Spaces before the number are allowed (an indented rule); the hash keeps them. `source_hash` is the SHA-256 of that line, trailing spaces removed, in
@@ -42,6 +48,7 @@ import dataclasses
 import hashlib
 import json
 import re
+from datetime import date
 from pathlib import Path
 from typing import Callable
 
@@ -64,7 +71,9 @@ _NUMBER = re.compile(r"^[1-9][0-9]{0,2}$")
 _COMMON = ("id", "source", "text", "kind", "applies_to", "source_hash", "tier", "source_repo")
 SOURCE_REPOS = ("umwayi-os", "hub")
 _HUB_SOURCE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]{0,63}\.md)#([1-9][0-9]{0,2}|[a-z][a-z0-9-]{1,47})$")
-OPTIONAL = ("overrides",)
+OPTIONAL = ("overrides", "review_by", "test")
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TEST = re.compile(r"^(tests/[A-Za-z0-9_][A-Za-z0-9_./-]*\.py)(?: ([A-Za-z_][A-Za-z0-9_.]*))?$")
 TIER_MIN, TIER_MAX = 1, 6
 MAX_OVERRIDES = 20
 
@@ -94,6 +103,8 @@ class Entry:
     check: str | None = None
     prompt_line: str | None = None
     overrides: tuple = ()
+    review_by: str | None = None
+    test: str | None = None
 
 
 # ---------------------------------------------------------------- the checks
@@ -224,6 +235,17 @@ def _text_ok(v, lo: int = 10, hi: int = 200) -> bool:
             and all(c.isprintable() for c in v))
 
 
+def _check_test(root: Path, test: str) -> None:
+    m = _TEST.match(test)
+    path, name = m.group(1), m.group(2)
+    try:
+        body = _read_source(root, path)
+    except SourceChanged:
+        raise SourceChanged("a test named by guidance.yaml cannot be read: stop and ask the owner") from None
+    if name is not None and not any(re.search(rf"\b{re.escape(name.split('.')[-1])}\b", ln) for ln in body):
+        raise SourceChanged("a test named by guidance.yaml is not in its file: stop and ask the owner")
+
+
 def parse(text: str, root: Path, registry: dict | None = None) -> list[Entry]:
     """The entries of a guidance.yaml text, checked against the sources under `root`."""
     registry = CHECKS if registry is None else registry
@@ -248,6 +270,9 @@ def parse(text: str, root: Path, registry: dict | None = None) -> list[Entry]:
     for it in items:
         entries.append(_entry(it, registry, seen))
     _check_overrides(entries)
+    for e in entries:  # a test that is named must exist, or the lesson is no longer enforced and nothing says so
+        if e.test is not None:
+            _check_test(root, e.test)
     hub_hash: dict[str, str] = {}
     for e in entries:  # one hub file has one hash, whatever rule of it an entry names
         if e.source_repo == "hub":
@@ -268,13 +293,26 @@ def _entry(it, registry: dict, seen: set) -> Entry:
         raise GuidanceError("guidance.yaml: an entry has an unknown kind")
     extra = {"enforce": "check", "advise": "prompt_line", "owner": None}[kind]
     allowed = set(_COMMON) | ({extra} if extra else set())
-    if set(it) - allowed - set(OPTIONAL):
+    if kind == "enforce":  # exactly one of check and test (N8)
+        if ("check" in it) == ("test" in it):
+            raise GuidanceError("guidance.yaml: an enforce entry needs exactly one of check and test")
+        allowed = set(_COMMON) | {"check" if "check" in it else "test"}
+    if set(it) - allowed - {"overrides", "review_by"}:
         raise GuidanceError("guidance.yaml: an entry has a key that its kind does not allow")
     if allowed - set(it):
         raise GuidanceError("guidance.yaml: an entry is missing a key")
-    for k in allowed - {"tier"}:
+    for k in (allowed | {"review_by"} & set(it)) - {"tier"}:
         if not isinstance(it[k], str):
             raise GuidanceError("guidance.yaml: every value of an entry must be a string")
+    if "review_by" in it:
+        try:
+            date.fromisoformat(it["review_by"])
+        except ValueError:
+            raise GuidanceError("guidance.yaml: a review_by is not a real date YYYY-MM-DD") from None
+        if not _DATE.match(it["review_by"]):
+            raise GuidanceError("guidance.yaml: a review_by is not a real date YYYY-MM-DD")
+    if "test" in it and (not _TEST.match(it["test"]) or ".." in it["test"]):
+        raise GuidanceError("guidance.yaml: a test is not tests/FILE.py or tests/FILE.py NAME")
     tier = it["tier"]
     if isinstance(tier, bool) or not isinstance(tier, int):
         raise GuidanceError("guidance.yaml: a tier is not a whole number")
@@ -295,7 +333,7 @@ def _entry(it, registry: dict, seen: set) -> Entry:
         raise GuidanceError("guidance.yaml: a text is not one printable line of 10 to 200 characters")
     if extra == "prompt_line" and not _text_ok(it["prompt_line"]):
         raise GuidanceError("guidance.yaml: a prompt_line is not one printable line of 10 to 200 characters")
-    if extra == "check" and it["check"] not in registry:
+    if extra == "check" and "check" in it and it["check"] not in registry:
         raise GuidanceError("guidance.yaml: an enforce entry names a check that is not registered")
     if it["source_repo"] not in SOURCE_REPOS:
         raise GuidanceError("guidance.yaml: source_repo is not umwayi-os or hub")
@@ -308,7 +346,7 @@ def _entry(it, registry: dict, seen: set) -> Entry:
         _parse_source(it["source"])
     return Entry(id=it["id"], source=it["source"], text=it["text"], kind=kind, applies_to=it["applies_to"],
                  source_hash=it["source_hash"], tier=tier, source_repo=it["source_repo"], check=it.get("check"),
-                 prompt_line=it.get("prompt_line"), overrides=tuple(overrides))
+                 prompt_line=it.get("prompt_line"), overrides=tuple(overrides), review_by=it.get("review_by"), test=it.get("test"))
 
 
 def _check_overrides(entries: list) -> None:
@@ -354,8 +392,8 @@ def check_task(entries: list[Entry], record) -> list[tuple[str, str]]:
     file order. A check that raises counts as broken. advise and owner entries never refuse anything."""
     out: list[tuple[str, str]] = []
     for e in entries:
-        if e.kind != "enforce" or e.applies_to not in RUN_FOR_TASK:
-            continue
+        if e.kind != "enforce" or e.check is None or e.applies_to not in RUN_FOR_TASK:
+            continue  # an entry with a test is checked by that test, not against a task record
         try:
             reason = CHECKS[e.check](record)
         except Exception:
@@ -462,7 +500,7 @@ def verify_hub(root: Path, hub_path: str) -> Result:
     return Result(0, [f"Yes: all {len(hub_ids)} hub entries match the hub files."])
 
 
-def listing(root: Path, hub_path: str | None = None) -> Result:
+def listing(root: Path, hub_path: str | None = None, today=None) -> Result:
     """`umwayi guidance list [--hub PATH]`: one line per entry with kind, tier, source repo and status. A hub entry is
     unverified unless the hub checkout was given and its file matches; it is never shown as verified otherwise."""
     entries = load(root)
@@ -472,7 +510,9 @@ def listing(root: Path, hub_path: str | None = None) -> Result:
         if not hub.is_dir():
             raise UsageError("--hub must be the folder of a hub checkout")
     status = hub_status(entries, hub)
-    lines = [f"{e.id}  {e.kind}  tier {e.tier}  {e.source_repo}  {status[e.id]}" for e in entries]
+    today = (today or date.today()).isoformat()
+    lines = [f"{e.id}  {e.kind}  tier {e.tier}  {e.source_repo}  {status[e.id]}"
+             + (f"  review by {e.review_by}" + ("  DUE" if e.review_by < today else "") if e.review_by else "") for e in entries]
     n_un = sum(1 for e in entries if status[e.id] == "unverified")
     n_bad = sum(1 for e in entries if status[e.id] == "mismatch")
     lines.append(f"{len(entries)} entries, {n_un} unverified, {n_bad} mismatch.")

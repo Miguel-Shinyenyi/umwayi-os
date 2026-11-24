@@ -27,7 +27,7 @@ Ten of the fourteen are checks. Four are text only, with the reason. Each cell i
 | A13 | probe the machine before designing on a kernel feature | text only: the probe is a judgement about a design; the PR states the split. A14 checks the outcome in CI |
 | A14 | never claim a result from a skipped test | check: `tests/test_confine.py` `test_on_the_ci_runner_the_kernel_tests_run_and_do_not_skip` (fails on GitHub Actions when Landlock is missing) |
 
-What I found already there: A1 (PR 196), A2, A3, A4, A5 (PR 197), A6 and A8 (PR 202), A12 (W21). What I built for this page: A7 (the stale branch stop in `tools/pre_push.py`) and A14 (the CI test). The guidance entries that point at these checks (task L1, `guidance.yaml`) are a separate owner stop.
+What I found already there: A1 (PR 196), A2, A3, A4, A5 (PR 197), A6 and A8 (PR 202), A12 (W21). What I built for this page: A7 (the stale branch stop in `tools/pre_push.py`) and A14 (the CI test). The lessons themselves, numbered, are in [supervisor-lessons.md](supervisor-lessons.md); the guidance entries that point at them and at these checks (task L1, `guidance.yaml`) are a separate owner stop.
 
 ## Decisions log
 
