@@ -11,6 +11,7 @@
 Each rule has a planted fault.
 """
 import hashlib
+from datetime import datetime, timezone
 import json
 import os
 import stat
@@ -20,6 +21,10 @@ import unittest
 from pathlib import Path
 
 from tests.goal import cmdsupport as cs
+
+# The goal commands date their logbook entries with the UTC day of the real clock, and the logbook refuses a date that goes backwards.
+# A fixed day in the test therefore fails the day after it was written (PR 205 failed so after midnight UTC on 2026-11-24).
+TODAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 from tests.goal import runsupport as rs
 from umwayi import config as cfg
 from umwayi import goalstate as gs
@@ -124,7 +129,7 @@ class StoreTests(BuildCase):
 class EntryTests(BuildCase):
     def entry(self):
         r = self.build([("A", "umwayi/a.py"), ("A", "notes.md"), ("D", "old/gone.py")])
-        return provenance.written_entry("2026-11-23", "G-0007", "T-02", r, provenance.canonical(r))
+        return provenance.written_entry(TODAY, "G-0007", "T-02", r, provenance.canonical(r))
 
     def test_the_shape_reads_back_with_its_counts(self):
         got = provenance.parse_written(self.entry())
@@ -134,7 +139,7 @@ class EntryTests(BuildCase):
     def test_no_path_and_no_content_is_in_the_entry(self):
         (self.wt / "notes.md").write_text(SENTINEL, encoding="utf-8")
         r = self.build([("A", "notes.md"), ("D", f"{SENTINEL}/x.py")])
-        e = provenance.written_entry("2026-11-23", "G-0007", "T-02", r, provenance.canonical(r))
+        e = provenance.written_entry(TODAY, "G-0007", "T-02", r, provenance.canonical(r))
         self.assertNotIn(SENTINEL, e.added + e.checked + e.not_done)
 
     def test_a_hand_edited_entry_and_another_source_do_not_parse(self):
@@ -147,7 +152,7 @@ class EntryTests(BuildCase):
 
     def test_no_chain_gets_no_record(self):
         with self.assertRaises(provenance.ProvenanceError) as cm:
-            provenance.make(self.root, "G-0007", "T-02", "b" * 40, "t" * 40, "p" * 64, [("A", "notes.md")], str(self.wt), "2026-11-23")
+            provenance.make(self.root, "G-0007", "T-02", "b" * 40, "t" * 40, "p" * 64, [("A", "notes.md")], str(self.wt), TODAY)
         self.assertEqual(cm.exception.reason, "no_chain")
         self.assertFalse((self.root / provenance.FOLDER).exists())
 
@@ -197,7 +202,7 @@ class GoalCase(cs.CmdCase):
         p.write_text(json.dumps(data), encoding="utf-8")
 
     def chain(self):
-        logbook.seal(self.root, "2026-11-23", "test", start_chain=True)
+        logbook.seal(self.root, TODAY, "test", start_chain=True)
 
     def go(self, chain=False):
         goal = self.g_approved()
