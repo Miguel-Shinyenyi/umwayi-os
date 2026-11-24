@@ -1,4 +1,4 @@
 date: 2026-11-24
-pr: none
+pr: 211
 what: N8, L1, first of two pull requests (the owner chose option A on 2026-11-24). `docs/supervisor-lessons.md` holds the 44 supervisor lessons (A1 to A14, B1 to B4, C1 to C20, D1 to D6) as numbered lines with their id, kind and tier, so each is a source a guidance entry can hash. `umwayi/guidance.py` takes two optional keys: `review_by` (a real date; a passed one marks the entry as DUE in `umwayi guidance list`, nothing is refused) and `test` (`tests/FILE.py` or `tests/FILE.py NAME`, on an enforce entry that has no `check`; an enforce entry now has exactly one of `check` and `test`; a test that cannot be found is Ask me first). An entry with a test is checked by that test, not against a task record. No entry is added yet: `guidance.yaml` is unchanged, so nothing in a prompt or a task check changes. The second pull request adds the entries. A change to the guidance loader: owner stop.
 tests: `tests/goal/test_guidance_lessons.py` (planted faults for the test key, review_by and the page), `tests/goal/test_guidance.py` and `tests/goal/test_guidance_coverage.py` unchanged and passing.
