@@ -1,20 +1,22 @@
 """W78 step 6 (5b): confine a process with Landlock (Linux), in a small program that runs before the helper.
 
-`python umwayi/confine.py --read PATH ... --write PATH ... [--no-network] -- COMMAND ARG ...` builds a Landlock ruleset, restricts
+`python umwayi/confine.py --read PATH ... --write PATH ... [--no-tcp] -- COMMAND ARG ...` builds a Landlock ruleset, restricts
 itself, and then runs COMMAND as its only child and gives its exit code. The command and every process it starts inherit the
-restriction. Landlock is
-the kernel's own: a refused write fails in the helper with the kernel's EACCES, not with a message of umwayi.
+restriction. Landlock is the kernel's own: a refused write fails in the helper with the kernel's EACCES, not with a message of umwayi.
 
   * Everything that Landlock can handle on this kernel is handled. Reads, executes and writes are allowed only below the listed paths:
-    `--read` gives read and execute, `--write` gives read, write, create, remove, rename and truncate. A path that is not listed is
-    refused, so the allow list must hold what the command needs (its interpreter, its libraries, its work folder).
-  * `--no-network` handles TCP bind and connect with no rule, so no TCP connection is made. That needs ABI 4 (kernel 6.7); on an older
-    kernel the start is refused, reason `kernel`. UDP and abstract Unix sockets are not covered by what this module sets.
+    `--read` gives read and execute; `--write` gives read, execute, write, create, remove, rename and truncate (a write tree is also
+    readable and executable). A path that is not listed is refused, so the allow list must hold what the command needs (its
+    interpreter, its libraries, its work folder).
+  * `--no-tcp` handles TCP bind and connect with no rule, so no TCP connection is made. It blocks TCP only: not UDP, not abstract Unix
+    sockets, not raw sockets. That needs ABI 4 (kernel 6.7); on an older kernel the start is refused, reason `kernel`.
   * Fails closed. If the kernel has no Landlock, it is off at boot, a rule cannot be added or the restriction fails, the command is
-    NOT run: exit 2 and one line, `refused: not confined (REASON). Allowed next: ...`, REASON from the fixed list of enforce.REASONS.
-    It never falls back to running the command unconfined.
-  * Exit codes: 2 refused, 64 bad arguments; otherwise the command's own code (128 plus the signal number when a signal ended it).
-    SIGTERM and SIGINT sent to this program are passed on to the command.
+    NOT run: one line on standard error, `refused: not confined (REASON). Allowed next: ...`, REASON from the fixed list of
+    enforce.REASONS (the caller reads that line, `read_refusal`, not the exit code), and the exit code 125. A bad argument list is
+    124. These two are chosen so that they are not the ordinary codes of a program (0, 1, 2, 64, 126, 127, 130, 143); a command that
+    itself exits 124 or 125 is told apart by the line. Otherwise the exit code is the command's own (128 plus the signal number when
+    a signal ended it). SIGTERM and SIGINT sent to this program are passed on to the command, also when they arrive while it starts.
+  * Every file descriptor above 2 that was inherited is closed before the ruleset is built, so the command gets none.
 
 Not built here: the start of a helper through this program (`umwayi agent run` does not use it yet), the paths a real Claude Code, Kiro
 or OpenCode needs, the broker socket, or macOS (Seatbelt is step 7). The tests run where Landlock is there (the CI runner reports
@@ -47,7 +49,7 @@ NET_BIND_TCP, NET_CONNECT_TCP = 1 << 0, 1 << 1  # ABI 4
 NET_ABI = 4
 
 READ_RIGHTS = FS_EXECUTE | FS_READ_FILE | FS_READ_DIR
-EXIT_REFUSED, EXIT_USAGE = 2, 64
+EXIT_REFUSED, EXIT_USAGE = 125, 124  # F1e: not the ordinary codes of a program; the fixed line says which
 REASONS = ("unavailable", "kernel", "profile", "platform")  # a subset of enforce.REASONS, the fixed list
 
 
@@ -79,13 +81,23 @@ def attr_size(abi: int) -> int:
     return 8 if abi < 4 else 16 if abi < 6 else 24
 
 
-def plan(abi: int | None, no_network: bool) -> tuple:
+# F1h: the ABI this table was reviewed against. The CI runner prints ABI 8 (PR 187). The kernel documentation lists newer ABIs (9 adds
+# LANDLOCK_ACCESS_FS_RESOLVE_UNIX, 10 adds UDP rights, and more): this module handles none of them, so on such a kernel they stay allowed.
+# A kernel that reports a higher ABI than this fails `tests/test_confine.py` with "table needs review".
+TABLE_REVIEWED_ABI = 8
+
+
+def table_needs_review(abi: int | None) -> bool:
+    return abi is not None and abi > TABLE_REVIEWED_ABI
+
+
+def plan(abi: int | None, no_tcp: bool) -> tuple:
     """(handled fs mask, handled net mask) or ConfineRefused. `unavailable`: no Landlock here. `kernel`: no network rule on this ABI."""
     if abi is None or abi < 1:
         raise ConfineRefused("unavailable")
-    if no_network and abi < NET_ABI:
+    if no_tcp and abi < NET_ABI:
         raise ConfineRefused("kernel")
-    return handled_fs(abi), (NET_BIND_TCP | NET_CONNECT_TCP if no_network else 0)
+    return handled_fs(abi), (NET_BIND_TCP | NET_CONNECT_TCP if no_tcp else 0)
 
 
 def _libc():
@@ -114,11 +126,11 @@ def rule_bytes(access: int, fd: int) -> bytes:
     return struct.pack("=Qi", access, fd)
 
 
-def apply(read_paths, write_paths, no_network: bool = False, abi: int | None = None) -> int:
+def apply(read_paths, write_paths, no_tcp: bool = False, abi: int | None = None) -> int:
     """Restrict this process. Returns the ABI used. Raises ConfineRefused; then no restriction is in force. A path that does not
     exist is `profile`: the allow list is wrong, and a start with a wrong list is refused rather than made wider or narrower."""
     abi = abi_version() if abi is None else abi
-    fs, net = plan(abi, no_network)
+    fs, net = plan(abi, no_tcp)
     libc = _libc()
     attr = attr_bytes(abi, fs, net)
     ruleset = libc.syscall(SYS_CREATE, attr, len(attr), 0)
@@ -149,23 +161,24 @@ def apply(read_paths, write_paths, no_network: bool = False, abi: int | None = N
     return abi
 
 
-def argv(read_paths, write_paths, command, no_network: bool = False) -> list:
+def argv(read_paths, write_paths, command, no_tcp: bool = False) -> list:
     """The one argument list that runs `command` confined. The supervisor runs it with its own process start, never a shell."""
     out = [sys.executable, os.path.abspath(__file__)]  # by path, not `-m`: it imports only the standard library, so it needs no PYTHONPATH
     for p in read_paths:
         out += ["--read", str(p)]
     for p in write_paths:
         out += ["--write", str(p)]
-    if no_network:
-        out.append("--no-network")
+    if no_tcp:
+        out.append("--no-tcp")
     return out + ["--"] + [str(c) for c in command]
 
 
+# F1i: a step never suggests a way round the refusal. The mode of an agent is the owner's, chosen by hand.
 STEPS = {
-    "unavailable": "set `enforcement: cooperative` for this agent with an `until` date, at your terminal, or run on a Linux kernel with Landlock",
-    "kernel": "run on a kernel with Landlock network rules (6.7 or later), or allow the network by setting cooperative at your terminal",
-    "profile": "fix the allow list: every listed path must exist, and the work folder must not hold the umwayi root",
-    "platform": "run on Linux, or set `enforcement: cooperative` for this agent with an `until` date, at your terminal",
+    "unavailable": "this machine has no Landlock; the owner chooses the mode of this agent by hand",
+    "kernel": "this kernel has no Landlock network rules (6.7 or later); the owner chooses the mode of this agent by hand",
+    "profile": "fix the allow list: every listed path must exist, and no folder that can be written may hold the umwayi root or lie inside it",
+    "platform": "this machine is not Linux; the owner chooses the mode of this agent by hand",
 }
 
 SYSTEM_READ = ("/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc", "/opt", "/proc", "/dev", "/sys")
@@ -192,16 +205,21 @@ def run_paths(command: str, workdir: str, root: str, tmp: str, home: str | None,
     work, rt = _real(workdir), _real(root)
     if _inside(rt, work):
         raise ConfineRefused("profile")
+    # F1a: no folder that can be written may hold the umwayi root or lie inside it, whichever of them it is
     reads = set(SYSTEM_READ)
+    # F1b: the install folder of the command and of Python only. The folder above them is not listed: a command at ~/bin/x would
+    # have granted read and execute on all of ~. Measured need: a Claude Code install is one folder (versions/); widen only after
+    # a real run shows a path it needs.
     for exe in (command, python):
-        real = _real(exe)
-        reads |= {os.path.dirname(real), os.path.dirname(os.path.dirname(real))}
+        reads.add(os.path.dirname(_real(exe)))
     reads |= {_real(sys.prefix), _real(sys.base_prefix), _real(source)}
     writes = {work, _real(tmp)}
     if home:
         writes |= {_real(os.path.join(home, ".claude")), _real(os.path.join(home, ".claude.json"))}
     if config_dir:
         writes.add(_real(config_dir))
+    if any(_inside(rt, w) or _inside(w, rt) for w in writes):
+        raise ConfineRefused("profile")
     # a read path that holds the root is dropped (the command's folders can reach up to a test or install folder that does): the helper
     # then fails where it needs it, which is loud, and the root is not readable
     reads = {p for p in reads if p != "/" and os.path.exists(p) and not _inside(rt, p)}
@@ -218,11 +236,11 @@ def refusal(reason: str) -> str:
 
 
 def parse(args: list):
-    """(read paths, write paths, no_network, command) from the fixed shape, or None."""
+    """(read paths, write paths, no_tcp, command) from the fixed shape, or None."""
     read, write, no_net, i = [], [], False, 0
     while i < len(args) and args[i] != "--":
         flag = args[i]
-        if flag == "--no-network":
+        if flag == "--no-tcp":
             no_net, i = True, i + 1
         elif flag in ("--read", "--write") and i + 1 < len(args) and args[i + 1] != "--" and os.path.isabs(args[i + 1]):
             (read if flag == "--read" else write).append(args[i + 1])
@@ -235,34 +253,68 @@ def parse(args: list):
     return read, write, no_net, command
 
 
+REFUSAL_LINE = "refused: not confined ("
+
+
+def read_refusal(stderr_text: str) -> str | None:
+    """F1e: the reason of a refusal by this program, read from the fixed line it writes, or None. The caller reads the line, not the exit
+    code: a command can itself exit with any code."""
+    for line in str(stderr_text).split("\n"):
+        if line.startswith(REFUSAL_LINE):
+            reason = line[len(REFUSAL_LINE):].split(")", 1)[0]
+            if reason in REASONS:
+                return reason
+    return None
+
+
+def close_inherited() -> None:
+    """F1c: close every file descriptor above 2 that was inherited, so the command gets none of the parent's open files."""
+    try:
+        top = os.sysconf("SC_OPEN_MAX")
+    except (ValueError, OSError):
+        top = 4096
+    os.closerange(3, min(top, 65536) if top > 0 else 4096)
+
+
 def main(args=None) -> int:
     parsed = parse(list(sys.argv[1:] if args is None else args))
     if parsed is None:
-        sys.stderr.write("umwayi.confine: usage: --read PATH ... --write PATH ... [--no-network] -- /absolute/command args\n")
+        sys.stderr.write("umwayi.confine: usage: --read PATH ... --write PATH ... [--no-tcp] -- /absolute/command args "
+                         "(--no-tcp blocks TCP only: not UDP, not abstract Unix sockets)\n")
         return EXIT_USAGE
-    read, write, no_net, command = parsed
+    read, write, no_tcp, command = parsed
     if not os.path.isfile(command[0]) or not os.access(command[0], os.X_OK):
         sys.stderr.write(refusal("profile") + "\n")
         return EXIT_REFUSED
+    close_inherited()
     try:
-        apply(read, write, no_net)
+        apply(read, write, no_tcp)
     except ConfineRefused as e:
         sys.stderr.write(refusal(e.reason) + "\n")
         return EXIT_REFUSED
+    # F1d: SIGTERM and SIGINT are held while the child starts, then forwarded: one that arrives during the start is not lost
+    held = {signal.SIGTERM, signal.SIGINT}
+    old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, held)
+    child = {"pid": None}
     try:
-        pid = os.posix_spawn(command[0], command, dict(os.environ))  # the child inherits the restriction; this program stays as its parent
-    except OSError:
-        sys.stderr.write(refusal("profile") + "\n")
-        return EXIT_REFUSED
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        signal.signal(sig, lambda s, _f, pid=pid: _forward(pid, s))
+        try:
+            child["pid"] = os.posix_spawn(command[0], command, dict(os.environ), setsigmask=old_mask, setsigdef=held)
+            # the child inherits the restriction; it does not inherit the held signals (a child that kept them blocked could not be stopped)
+        except OSError:
+            sys.stderr.write(refusal("profile") + "\n")
+            return EXIT_REFUSED
+        for sig in held:
+            signal.signal(sig, lambda s, _f: _forward(child["pid"], s))
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)  # a signal that waited is delivered now, to the handler
     while True:
         try:
-            _, status = os.waitpid(pid, 0)
+            _, status = os.waitpid(child["pid"], 0)
             break
         except InterruptedError:
             continue
-    return os.waitstatus_to_exitcode(status) if os.waitstatus_to_exitcode(status) >= 0 else 128 - os.waitstatus_to_exitcode(status)
+    code = os.waitstatus_to_exitcode(status)
+    return code if code >= 0 else 128 - code
 
 
 def _forward(pid: int, sig: int) -> None:

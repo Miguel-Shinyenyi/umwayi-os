@@ -4,6 +4,8 @@
 
 The budget governor gives every agent run one unit of cost (UU, one US cent of estimated list price), reserves a per-run cap before a start, checks it while the run goes on, and settles every run in the logbook. It exists so a runaway agent cannot spend without the owner knowing, measured where it can be and counted at the worst case where it cannot.
 
+Planned, not built: the governor's first job is to keep a user inside the limits of their plan or free credits, with pacing, heads ups, a stop line and per-goal shares. The design is in [the Muse route note](muse-route-design.md) (task M4).
+
 ## Current state
 
 Every agent start reserves a budget first, and every run is settled in the logbook when it ends. The unit is UU: one US cent of estimated list price. On a subscription nothing is billed per token; UU then says what the same use would cost at list price, so a limit means the same on every platform. It is an estimate, not a bill.
