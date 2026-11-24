@@ -46,6 +46,7 @@ For each pair of queued branches, the files both touch, found with a trial merge
 - The next branch is merged with main first, using `tools/merge_main`.
 - The tests of `pre_push` run before a push.
 - The pull request body says what stops for the owner.
+- **The report is not the end of the turn (owner, 2026-11-24).** A session that has reported a pull request with a free task still pending and fewer than `keep_ready` branches ready has not finished: it builds the next task, in the same turn, and only then ends. Ending there is a stop that was not allowed. The report closes with one line, `next: TASK, started: yes or no`; a `no` while a free task is pending is the thing to look for. When every pending task is blocked, or the kill switch is on, or the owner has said stop, ending is allowed.
 - A pull request that stops for the owner is not merged by the queue, and the queue does not skip it silently: it stays `open` until the owner acts.
 
 ## Build order
@@ -59,6 +60,7 @@ For each pair of queued branches, the files both touch, found with a trial merge
 - 2026-11-23 (owner): accepted. Design note first, after the Muse design note; then 1, 2 and 4 read only; then 3.
 - 2026-11-24 (this note): the queue records and advises. It never pushes or merges.
 - 2026-11-24 (owner): the queue is never left empty while tasks are pending, so `next` reports `queue low` against `keep_ready`.
+- 2026-11-24 (owner): a session does not end after a report while a free task is pending and the queue is low. The report ends with `next: TASK, started: yes or no`. The checks that would help a hook (`umwayi pr queue next --check`, exit 3 when the queue is low and a free task exists) and a Stop hook for the Claude Code adapter are PLANNED, each a separate owner stop pull request; nothing here is built, and nothing forces a session to follow it today (cooperative).
 - 2026-11-24 (this note): `watch` reads the check runs of the head commit (the `pr_green` rule) and treats an empty list as "not yet", never as success.
 
 ## Open questions
