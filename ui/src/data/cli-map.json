@@ -127,6 +127,36 @@
       ]
     },
     {
+      "name": "stories",
+      "path": [
+        "stories"
+      ],
+      "help": "U1: the story files of docs/stories, read only",
+      "line": "U1: the story files of docs/stories, read only",
+      "children": [
+        {
+          "name": "list",
+          "path": [
+            "stories",
+            "list"
+          ],
+          "help": "list the stories and whether each is built, partly built or planned",
+          "line": "list the stories and whether each is built, partly built or planned",
+          "children": []
+        },
+        {
+          "name": "export",
+          "path": [
+            "stories",
+            "export"
+          ],
+          "help": "print all the stories as one JSON document for a page in the GUI; writes nothing",
+          "line": "print all the stories as one JSON document for a page in the GUI",
+          "children": []
+        }
+      ]
+    },
+    {
       "name": "decision",
       "path": [
         "decision"
