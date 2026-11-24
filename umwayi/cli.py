@@ -7,7 +7,7 @@ Exit codes:
   other errors:  1
   umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
   umwayi budget: 0, 2, 3 or 64 only, never 1 (budget governor)
-  umwayi pr queue: 0, or 64 for a pr-queue.md that is not well formed (G7, read only)
+  umwayi pr queue: 0, or 64 for a pr-queue.md that is not well formed; `next --check` also 3 when the queue is low (G7, read only)
   umwayi view:   0, 1 (the tamper check failed), 2 or 64 only, never 3 (layer 12)
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
@@ -201,7 +201,10 @@ def build_parser() -> argparse.ArgumentParser:
     pq = prsub.add_parser("queue", help="the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)")
     pqsub = pq.add_subparsers(dest="pr_queue_command", parser_class=_Parser)
     pqsub.add_parser("list", help="list the rows of pr-queue.md")
-    pqsub.add_parser("next", help="say what to push now, or to wait for the open pull request, and when the queue is low")
+    pqn = pqsub.add_parser("next", help="say what to push now, or to wait for the open pull request, and when the queue is low")
+    pqn.add_argument("--check", action="store_true",
+                     help="also exit 3 (Ask me first) when fewer than keep_ready branches are ready and a free task is pending, "
+                          "so a hook can tell that the session has not finished; still read only")
 
     dc = sub.add_parser("decision", help="decision commands (layer 13): reopen a closed decision as a new question")
     dcsub = dc.add_subparsers(dest="decision_command", parser_class=_Parser)
@@ -764,11 +767,15 @@ def _owner_terminal() -> bool:
 
 
 def _cmd_pr_queue(args, out) -> int:
-    """G7, read only: `umwayi pr queue list` and `next`. Exit 0, or 64 for a pr-queue.md that is not well formed."""
+    """G7, read only: `umwayi pr queue list` and `next`. Exit 0, or 64 for a pr-queue.md that is not well formed. With `next --check`
+    also 3 (Ask me first) when the queue is low and a free task is pending: the session has not finished (B-0012)."""
     root = Path(args.root)
     doc = prqueue.read(root)
-    lines = prqueue.list_lines(doc) if args.pr_queue_command == "list" else prqueue.next_lines(doc, prqueue.pending_titles(root))
+    pending = prqueue.pending_titles(root) if args.pr_queue_command == "next" else []
+    lines = prqueue.list_lines(doc) if args.pr_queue_command == "list" else prqueue.next_lines(doc, pending)
     out.write("\n".join(lines) + "\n")
+    if args.pr_queue_command == "next" and getattr(args, "check", False) and prqueue.needs_build(doc, pending):
+        return 3
     return 0
 
 
