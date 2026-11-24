@@ -23,7 +23,7 @@ What exists, checked on 2026-11-24 in the code and the tests:
 | 3 | A write outside the allowed folders | the confinement | `test_writes_inside_the_work_folder_work_and_every_other_path_is_refused_by_the_kernel` (kernel, CI) | the kernel refuses with EACCES in the wrapper, and the same child unconfined is not refused | the same in a real enforced goal run |
 | 4 | A read of a credential file | the confinement (read paths) | the same test (`read_unlisted`) | an unlisted file is refused in the wrapper | what a real run lists to read (its home and tool folders) |
 | 5 | A second process that drops the confinement | the kernel (an inherited Landlock domain cannot be lifted) | `test_the_restriction_is_inherited_by_what_the_command_starts` (kernel, CI) | a grandchild is refused too | a process started before the run and kept outside it is out of scope |
-| 6 | A shell command that never goes through the hook | the confinement (it is on the process, not on the hook) | the tests of paths 3 and 5 | the same refusals apply to a shell | the logbook line that says WHICH layer refused: not built |
+| 6 | A shell command that never goes through the hook | the confinement (it is on the process, not on the hook) | the tests of paths 3 and 5 | the same refusals apply to a shell | the logbook line that says WHICH layer refused: the test writes it in a checked logbook (`test_every_path_leaves_one_logbook_line...`); a real run writing it is not built |
 
 ## Decisions log
 
