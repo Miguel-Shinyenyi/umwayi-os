@@ -1,7 +1,7 @@
 name: tests
 
 # W20: faster CI without losing coverage. Four jobs.
-#   plan   always runs. It first checks that a pull request's base is main (F4b: one PR at a time, tools/pr_base.py). It reads the diff and decides which test jobs run (python -m tools.ci_plan). A push to main, an
+#   plan   always runs. It first checks that a pull request's base is main (F4b: one PR at a time, tools/pr_base.py), and that an owner-stop pull request has a story and no overclaim (L7, tools/pr_story.py). It reads the diff and decides which test jobs run (python -m tools.ci_plan). A push to main, an
 #          unreadable or empty diff, a changed workflow, filter, map or shard file, and any path it does not know run
 #          everything.
 #   test   the Python suite, split into shards by test file (tools/ci_shards.json) on each Python version the plan names.
@@ -46,6 +46,8 @@ jobs:
           python-version: "3.12"
       - name: Check that the base of the pull request is main
         run: python -m tools.pr_base --event-file "$GITHUB_EVENT_PATH"
+      - name: Check the story and the honesty of the pull request text
+        run: python -m tools.pr_story --event-file "$GITHUB_EVENT_PATH"
       - name: Decide which tests run
         id: plan
         env:
