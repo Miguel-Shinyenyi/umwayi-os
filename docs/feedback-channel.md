@@ -12,12 +12,12 @@ What exists, checked on 2026-11-24:
 
 - **In the folder, as plain files** written by hand: `INDEX.md` (one row per task and one line for each note of the guide), the `ROUND` files of the builder (what was built, the branch, the head, the pull request, the CI result, what stopped for the owner, and a recommendation next to each open question), and the fixes file of the guide (ids H, J, K and M).
 - **In the repo:** `umwayi feedback export` and `umwayi feedback send` (W29), which build an opt-in bundle for a tester to report a problem to the owner. That is one way, tester to owner. It is not this channel. Lesson C8 is in `guidance.yaml` as advice: write a feedback entry after every task.
-- **Not in the repo:** a format for an entry with an id and a status, a command that lists what is open for you, and a record that an entry was read. Today the guide and the builder find a new entry by reading the whole file.
+- **Not in the repo before step 2:** a format for an entry with an id and a status, a command that lists what is open for you, and a record that an entry was read. The guide and the builder found a new entry by reading the whole file.
 
 What this page adds, in two steps:
 
 1. This page (docs only): the folder, the two writers, the entry format and the rules.
-2. The next pull request: `umwayi feedback inbox` and `umwayi feedback ack ID` (read only except one logbook line), with a test that fails when an open entry is not shown. Until it merges, this page describes the format and the commands as planned.
+2. The second pull request, built: `umwayi feedback inbox` and `umwayi feedback ack ID` (`umwayi/channel.py`, `tests/test_channel.py`), read only except one logbook line, with a test that fails when an open entry is not shown.
 
 ### The entry format
 
@@ -31,17 +31,17 @@ One strict table in the file `CHANNEL.md` of the folder:
 - **Nothing is deleted.** An entry is only marked: `open` becomes `answered` when the reader has replied (the reply is a new entry that names the id of the question), and `done` when the work it asked for is finished.
 - Entries of the guide to the builder carry the work (the fixes file keeps its own ids; a row may point at one). Entries of the builder to the guide carry the questions that wait for an answer.
 
-### The commands (planned, in the next pull request)
+### The commands
 
 - `umwayi feedback inbox --folder PATH [--me builder]` lists the entries addressed to you with status `open`, and marks the ones you have not acknowledged as new. It prints the text as data under a line that says so.
 - `umwayi feedback ack ID --folder PATH` marks the entry as read by writing one logbook line with the id and the reader, counts only and no text of the entry. It changes nothing in the folder.
-- A test with a planted fault: an open entry for the reader that the inbox does not show fails the build.
+- A test with a planted fault: an open entry for the reader that the inbox does not show fails the build (`missing_from_inbox` in `tests/test_channel.py`). `ack` refuses an unknown id and an entry addressed to someone else (exit 64) and writes nothing. Exit codes: 0, 2 (the logbook did not pass its check) or 64, never 1 or 3.
 
 ## Decisions log
 
 - 2026-11-24 (owner): the folder is the link between the guide and the builder, and both read it at the start of each session and on every periodic check.
 - 2026-11-24 (owner): check what exists first, then build only what is missing, small and docs first. Owner stop only if it touches the gate or `guidance.yaml`.
-- 2026-11-24 (this page): the format is one strict table in `CHANNEL.md`. `INDEX.md`, the `ROUND` files and the fixes file stay as they are.
+- 2026-11-24 (step 2): the commands exist; the folder is passed with `--folder`; the reader with `--me` (default `builder`). The format is one strict table in `CHANNEL.md`. `INDEX.md`, the `ROUND` files and the fixes file stay as they are.
 
 ## Open questions
 

@@ -68,7 +68,7 @@ New here? Start with the [tester quickstart](docs/quickstart.md): install, a fir
 | 10 front door | `umwayi agent`: check, run, chat, login | [agent-front-door.md](docs/agent-front-door.md) |
 | 11 scheduled runs | systemd user timers for jobs and workflows | [scheduled-runs.md](docs/scheduled-runs.md) |
 | budget governor | a budget per run and per day, the telemetry receiver | [budget-governor.md](docs/budget-governor.md) |
-| feedback channel | the folder the guide and the builder both write and read: the entry format and the rules; the `inbox` and `ack` commands are planned, not built | [feedback-channel.md](docs/feedback-channel.md) |
+| feedback channel | the folder the guide and the builder both write and read: the entry format and the rules; `umwayi feedback inbox` and `ack` read and acknowledge it (read only, one logbook line) | [feedback-channel.md](docs/feedback-channel.md) |
 | PR queue | planned, design note only: a record of queued branches, what to push next, a conflict table and a read only watch | [pr-queue-design.md](docs/pr-queue-design.md) |
 | 12 view | a calm, realistic 3D scene of eleven natural features and the home page, that will show counts from a read only snapshot (the snapshot command, the scene, the home page and the public site are built) | [interface.md](docs/interface.md) |
 

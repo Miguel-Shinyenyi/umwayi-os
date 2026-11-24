@@ -31,7 +31,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
+from umwayi import (__version__, agents, archive, autonomy, budget, channel, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
                     loginwizard, petition, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import ConfigError, UmwayiError, UsageError
@@ -410,6 +410,13 @@ def build_parser() -> argparse.ArgumentParser:
     fbsub.add_parser("export", help="print a summary of the logbook for a feedback issue: counts per kind and per verdict, "
                                     "the date range, the chain status and the budget spent in UU; no paths, commands, "
                                     "rules or file contents; writes nothing")
+    fbi = fbsub.add_parser("inbox", help="M1g: the open entries of the feedback channel addressed to you; reads only")
+    fba = fbsub.add_parser("ack", help="M1g: mark an entry of the feedback channel as read: one logbook line, no text")
+    for sp in (fbi, fba):
+        sp.add_argument("--folder", required=True, help="the feedback channel folder (it holds CHANNEL.md); outside the repository")
+        sp.add_argument("--me", choices=channel.PEOPLE, default="builder", help="who is reading (default: builder)")
+    fba.add_argument("id", help="the entry id, for example B-0001")
+    fba.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
     fbs = fbsub.add_parser("send", help="opt in: build the export and your note, hide secrets, emails and home paths, show "
                                          "every line, and after a typed yes in a terminal write it to a file you send by "
                                          "hand; sends nothing over a network; exit 0, 2 or 64, never 1 or 3")
@@ -943,6 +950,23 @@ def _cmd_feedback_send(args, out) -> int:
         return _crashed(e)
 
 
+def _cmd_feedback_channel(args, out) -> int:
+    """M1g. `umwayi feedback inbox` and `ack`. Exit 0, 2 (the logbook did not pass its check) or 64, never 1 or 3."""
+    try:
+        if args.feedback_command == "inbox":
+            lines = channel.inbox_lines(channel.read(args.folder), args.me, channel.acked(args.root, args.me))
+        else:
+            lines = channel.ack(args.root, args.folder, args.id, args.me, args.date or _today())
+        out.write("\n".join(lines) + "\n")
+        return 0
+    except (UsageError, ConfigError) as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError:
+        sys.stderr.write(feedback.REFUSED + "\n")
+        return EXIT_CRASH
+
+
 def _cmd_feedback(args, out) -> int:
     """W33. `umwayi feedback export`. Its own error handling: 0, 2 or 64, never 1 or 3. A logbook that does not pass its
     check is 2 and no summary."""
@@ -1220,6 +1244,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_budget(args, out)
         if args.command == "view" and getattr(args, "view_command", None) == "snapshot":
             return _cmd_view(args, out)
+        if args.command == "feedback" and getattr(args, "feedback_command", None) in ("inbox", "ack"):
+            return _cmd_feedback_channel(args, out)
         if args.command == "feedback" and getattr(args, "feedback_command", None) == "export":
             return _cmd_feedback(args, out)
         if args.command == "feedback" and getattr(args, "feedback_command", None) == "send":

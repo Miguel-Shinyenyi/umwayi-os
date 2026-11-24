@@ -614,6 +614,26 @@
           "children": []
         },
         {
+          "name": "inbox",
+          "path": [
+            "feedback",
+            "inbox"
+          ],
+          "help": "M1g: the open entries of the feedback channel addressed to you; reads only",
+          "line": "M1g: the open entries of the feedback channel addressed to you",
+          "children": []
+        },
+        {
+          "name": "ack",
+          "path": [
+            "feedback",
+            "ack"
+          ],
+          "help": "M1g: mark an entry of the feedback channel as read: one logbook line, no text",
+          "line": "M1g: mark an entry of the feedback channel as read: one logbook line, no text",
+          "children": []
+        },
+        {
           "name": "send",
           "path": [
             "feedback",
