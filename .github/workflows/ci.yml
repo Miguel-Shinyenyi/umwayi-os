@@ -25,8 +25,11 @@ permissions:
 
 # A newer push to a pull request cancels the older run of that pull request (CI.1). A push to main has its own group
 # (the commit) and is never cancelled: every push to main runs the full suite.
+# The draft state is part of the group (B-0005): a skipped run of a draft must never cancel the real run of a pull request that was
+# marked ready a moment after the push, which happened on pull request 217. A draft run and a ready run of the same pull request are
+# in different groups; two ready runs still share one, so a newer push still cancels the older run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.event.pull_request.draft }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # N9: a draft pull request runs nothing. Every job is skipped while the pull request is a draft, so a branch that is not next in line
