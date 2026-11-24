@@ -32,6 +32,21 @@ def setUpModule():
     sys.stderr.flush()
 
 
+class CiKernelTests(unittest.TestCase):
+    """A14: a result is never claimed from a skipped test. On GitHub Actions the kernel tests must run, not skip."""
+
+    def test_on_the_ci_runner_the_kernel_tests_run_and_do_not_skip(self):
+        if os.environ.get("GITHUB_ACTIONS") != "true" or not sys.platform.startswith("linux"):
+            self.skipTest("only the Linux runner of GitHub Actions has to run the kernel tests")
+        self.assertTrue(ABI, "Landlock is not available on the CI runner, so the kernel tests were skipped: that is not a pass")
+
+    def test_planted_fault_a_ci_runner_without_landlock_fails_the_test_instead_of_skipping(self):
+        with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), mock.patch.object(sys, "platform", "linux"), \
+                mock.patch.dict(globals(), {"ABI": 0}):
+            with self.assertRaises(AssertionError):
+                self.test_on_the_ci_runner_the_kernel_tests_run_and_do_not_skip()
+
+
 def need_landlock(fn):
     return unittest.skipUnless(ABI, SKIP)(fn)
 

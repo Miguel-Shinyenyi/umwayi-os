@@ -49,6 +49,8 @@ Newest first. Each row names where it was decided.
 | 2026-11-10 | One doc per component under `docs/`, a short README and `PROJECT.md` (D.1) | The owner's documentation pattern; the README had grown to 447 lines. |
 | 2026-11-08 | Adapters and layer 10 adapter packages live outside the core package; the core stays standard library only | design.md, layer 9: third party code stays pinned and outside `umwayi/`. |
 
+The CI and merge lessons and the check behind each: [lessons-as-checks.md](lessons-as-checks.md).
+
 ## Open questions
 
 - A sandbox for agents and helpers is deferred to its own spec (L11-Q13). The date is a guideline; the design is `docs/enforced-default-design.md`.
