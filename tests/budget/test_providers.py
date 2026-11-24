@@ -140,7 +140,7 @@ class RepoAcceptanceTests(unittest.TestCase):
         self.assertEqual(sorted(u.providers), ["muse"])
         m = u.providers["muse"]
         self.assertEqual((m.cost_kind, m.limit, m.acceptance["source"], m.acceptance["date"]),
-                         ("free_credits", {"credits_uu": 14000}, "owner", "2026-11-24"))
+                         ("free_credits", {"credits_uu": 10000}, "owner", "2026-11-24"))
         self.assertEqual(units.provider_gate(u, "muse"), ("yes", "accepted"))
         self.assertEqual(units.provider_gate(u, "another"), ("ask", "provider_unknown"))
         self.assertEqual(u.platforms, {})  # no reading or rate of a platform is changed by this file
