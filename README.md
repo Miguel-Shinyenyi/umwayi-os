@@ -12,7 +12,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | --- | --- | --- |
 | Layers 1 to 8 (memory, rules, queue, archive, logbook, automation, helpers, workflows) | built | [architecture](docs/architecture.md) |
 | Layer 9 adapters (Claude Code, Kiro, stdin and stdout) and the OpenCode plugin (layer 10 part 8) | built | [adapters](docs/adapters.md) |
-| Layer 10 front door for agents | built, with Claude Code, Kiro (paused by the owner, account problem, AWS case open) and OpenCode (part 8: a chat and, since W9.13, a run for a goal role; tested with a fake `opencode acp` and the 10.51 check; no real goal run with an OpenCode role); the owner's real runs (10.21, 10.31, and 10.51 for OpenCode) not done | [agent front door](docs/agent-front-door.md) |
+| Layer 10 front door for agents | built, with Claude Code, Kiro (paused by the owner) and OpenCode (part 8: a chat and, since W9.13, a run for a goal role; tested with a fake `opencode acp` and the 10.51 check; no real goal run with an OpenCode role); the owner's real runs (10.21, 10.31, and 10.51 for OpenCode) not done | [agent front door](docs/agent-front-door.md) |
 | Layer 11 scheduled runs | built; the owner's real check (11.6) not done | [scheduled runs](docs/scheduled-runs.md) |
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
