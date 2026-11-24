@@ -1,0 +1,4 @@
+date: 2026-11-24
+pr: none
+what: L9, part 1. `units.yaml` takes an optional `video` line, the owner's cap on concept videos: `mode` (on or off), `per_video` and `per_day` in UU. Without the line, videos are off. `units.video_gate(units, estimate, spent_today, pr_off)` says Yes (`within_cap`) or No with a fixed reason: `owner_off` (the owner turned videos off for this pull request, which wins over everything), `video_off` (mode off, no video line, or a cap of 0), `over_per_video` or `over_per_day`. A free local render has an estimate of 0 and still needs the owner to turn videos on. It is a pure function: nothing calls it yet, so no video is made, no logbook entry is written and no waiting list exists; those are the later parts of L9. A change to the units.yaml format: owner stop.
+tests: `tests/budget/test_video_gate.py` (the line parses, six planted file faults, the gate at and over each cap, mode off, a zero cap, the owner's off, nothing is spent).
