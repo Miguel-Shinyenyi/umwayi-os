@@ -31,6 +31,16 @@
           <li data-path="queue migrate"><span class="row"><span class="name">migrate</span><span class="what">convert an old six column queue.md to the current layout (once)</span></span></li>
         </ul>
       </details></li>
+      <li data-path="pr"><details><summary class="row"><span class="name">pr</span><span class="what">pull request commands (G7): the queue of built branches, read only</span></summary>
+        <ul>
+          <li data-path="pr queue"><details><summary class="row"><span class="name">queue</span><span class="what">the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)</span></summary>
+            <ul>
+              <li data-path="pr queue list"><span class="row"><span class="name">list</span><span class="what">list the rows of pr-queue.md</span></span></li>
+              <li data-path="pr queue next"><span class="row"><span class="name">next</span><span class="what">say what to push now, or to wait for the open pull request, and when the queue is low</span></span></li>
+            </ul>
+          </details></li>
+        </ul>
+      </details></li>
       <li data-path="decision"><details><summary class="row"><span class="name">decision</span><span class="what">decision commands (layer 13): reopen a closed decision as a new question</span></summary>
         <ul>
           <li data-path="decision reopen"><span class="row"><span class="name">reopen</span><span class="what">reopen an answered or closed decision: one new logbook entry that links the old entry by its hash, and one new open decision in the queue</span></span></li>
@@ -198,7 +208,7 @@
     </ul>
   </nav>
   <footer>
-    <p>25 groups and 78 commands.</p>
+    <p>27 groups and 80 commands.</p>
     <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
   </footer>
 </main>

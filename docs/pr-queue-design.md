@@ -16,7 +16,7 @@ What exists and is reused:
 - **The watcher.** A shell script in a job folder (not in the repo) polls `gh pr view` and exits on a merge, a closed pull request, the first failed check of the newest head, or all checks green. It is the first piece of the queue, but it is not product code and it does not write the logbook.
 - **The queue file format.** `queue.md` has one strict table that a person can edit and a parser (`umwayi/taskqueue.py`) that rewrites only the row a command touches and logs every change. The PR queue can follow that model.
 
-What does not exist: a record of the queued branches, a command that says what to push next, a conflict table, and a watcher that writes the logbook.
+Built since (G7, read only part): `pr-queue.md` with its strict parser, `umwayi pr queue list` and `umwayi pr queue next` (`umwayi/prqueue.py`, `tests/test_prqueue.py`). They only read: no push, no merge, no `gh`, no network and no logbook entry. `next` counts the open tasks of `queue.md` as pending work; a task whose title ends with ` [blocked: REASON]` is named on a `blocked:` line and skipped, so the next task is named. Not built: `add` (it reads git), the conflict table and the watch. You edit `pr-queue.md` by hand until `add` exists.
 
 ## The design
 
@@ -30,10 +30,11 @@ One strict table, like `queue.md`. Columns: `branch`, `title`, `order`, `stops` 
 - `list` prints the table.
 - `next` is read only. It says what to push now: the first `local` branch in order, when no row is `open`, and only after it has been merged with main and the generated files are current. It prints the exact steps (merge, regenerate, `pre_push`, push, open, `pr_number`). When a row is `open` it says to wait and names the pull request. When the first `local` branch stops for the owner, it says so.
 - `conflicts` prints the conflict table (item 4).
+- **The queue is never left empty (owner, 2026-11-24).** A setting `keep_ready` in `pr-queue.md` (the owner sets it, recommended 2) is the number of built, tested, unpushed branches to hold while the task list has open items. When fewer are ready, `next` adds a line: `queue low: 1 of 2 branches ready, 5 tasks pending: build TASK next`, naming the next pending task whose inputs exist. When that task needs an owner answer or a file, `next` prints `blocked: TASK needs ANSWER` and names the following task, so one open question does not empty the queue. `next` never starts the work. The final report of a session says `ready branches: N of keep_ready` with their head SHAs.
 
 ### 3. The watch (`umwayi pr queue watch`)
 
-Read only polling of the open pull request through `gh` (the owner's own login; no token is read or printed). It uses the `pr_green` rule, so a check of an older commit is never green. On a merge it writes one logbook entry and prints the next step; on a failed check it prints which check failed; it never pushes, merges, comments or closes. It stops after a time limit and says why.
+Read only polling of the open pull request through `gh`, asked as `tools/pr_green.py` asks it: the check runs of the exact head commit, never the list the pull request page shows (a watcher that read "no pending line" as "all finished" said green while the runs had not started) (the owner's own login; no token is read or printed). It uses the `pr_green` rule, so a check of an older commit is never green. On a merge it writes one logbook entry and prints the next step; on a failed check it prints which check failed; it never pushes, merges, comments or closes. It stops after a time limit and says why.
 
 ### 4. The conflict table
 
@@ -57,6 +58,8 @@ For each pair of queued branches, the files both touch, found with a trial merge
 
 - 2026-11-23 (owner): accepted. Design note first, after the Muse design note; then 1, 2 and 4 read only; then 3.
 - 2026-11-24 (this note): the queue records and advises. It never pushes or merges.
+- 2026-11-24 (owner): the queue is never left empty while tasks are pending, so `next` reports `queue low` against `keep_ready`.
+- 2026-11-24 (this note): `watch` reads the check runs of the head commit (the `pr_green` rule) and treats an empty list as "not yet", never as success.
 
 ## Open questions
 

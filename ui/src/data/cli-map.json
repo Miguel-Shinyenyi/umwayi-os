@@ -84,6 +84,49 @@
       ]
     },
     {
+      "name": "pr",
+      "path": [
+        "pr"
+      ],
+      "help": "pull request commands (G7): the queue of built branches, read only",
+      "line": "pull request commands (G7): the queue of built branches, read only",
+      "children": [
+        {
+          "name": "queue",
+          "path": [
+            "pr",
+            "queue"
+          ],
+          "help": "the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)",
+          "line": "the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)",
+          "children": [
+            {
+              "name": "list",
+              "path": [
+                "pr",
+                "queue",
+                "list"
+              ],
+              "help": "list the rows of pr-queue.md",
+              "line": "list the rows of pr-queue.md",
+              "children": []
+            },
+            {
+              "name": "next",
+              "path": [
+                "pr",
+                "queue",
+                "next"
+              ],
+              "help": "say what to push now, or to wait for the open pull request, and when the queue is low",
+              "line": "say what to push now, or to wait for the open pull request, and when the queue is low",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "decision",
       "path": [
         "decision"

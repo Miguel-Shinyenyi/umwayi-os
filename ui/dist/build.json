@@ -9,7 +9,7 @@
     "src/cli-map.css": "fc0bd7559dc2ce068eda1b8b71148fadf65ee06f17f46ac68fca8617696c3d6c",
     "src/cli-map.html": "4b9c5118993af58d85195f4ad969f2da78fe0b48e0fba0e43072f4f8492ccf31",
     "src/data/checks.js": "53ac4f145740baf00144ce4097b660a1101959b2976f9ba33eec7df4291f5321",
-    "src/data/cli-map.json": "ce264a14398215093f475150d4fa4bb802886e696e03ad5e44a37e4cba351cc1",
+    "src/data/cli-map.json": "a7b4d41d8396e7c2bc4aec479bffece9e0041d83517934335e2a712ef69febea",
     "src/data/counts.js": "f76b331dd5957d53a0dafc05cd8a29ffd5128804286c49c86d40998c7cd9a6fb",
     "src/data/home.js": "ecd32380a6108b7648174e24dd339912df071d2e68d3f0ff372897951756c622",
     "src/data/notes.js": "78cd0bf540a5062660651fbdf9d2ddaf88e480729ef3519be7bf6e0790b22fc6",
@@ -94,6 +94,6 @@
     "src/world/water.js": "f07ccc53e245ae33f076bf0ce8198f2f7dee4b5194197c5bbdc896d2f01380da"
   },
   "page": "69f8708cb85b4cad5e7e257ad10798bf922c79a9b981be28023b591748839a45",
-  "cliMapPage": "c1c4c4771f15749aeb370ba3995e24744b9072cec8284c4057977ee5b1847b1a",
+  "cliMapPage": "e8e9b7ea545b4017b1dc946cdeae0c268ba73990480bf1b537f472e25cff6d45",
   "goalMapPage": "f46894f4f30a7c2653b9e1c992c231dda516b262b45f0981768e09538c471f77"
 }

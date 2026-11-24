@@ -7,6 +7,7 @@ Exit codes:
   other errors:  1
   umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
   umwayi budget: 0, 2, 3 or 64 only, never 1 (budget governor)
+  umwayi pr queue: 0, or 64 for a pr-queue.md that is not well formed (G7, read only)
   umwayi view:   0, 1 (the tamper check failed), 2 or 64 only, never 3 (layer 12)
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
@@ -32,7 +33,7 @@ from datetime import date
 from pathlib import Path
 
 from umwayi import (__version__, agents, archive, autonomy, budget, channel, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
-                    loginwizard, petition, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
+                    loginwizard, petition, prqueue, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -194,6 +195,13 @@ def build_parser() -> argparse.ArgumentParser:
     qm = qsub.add_parser("migrate", help="convert an old six column queue.md to the current layout (once)")
     for sp in (qa, qn, qc, qm):
         sp.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    pr = sub.add_parser("pr", help="pull request commands (G7): the queue of built branches, read only")
+    prsub = pr.add_subparsers(dest="pr_command", parser_class=_Parser)
+    pq = prsub.add_parser("queue", help="the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)")
+    pqsub = pq.add_subparsers(dest="pr_queue_command", parser_class=_Parser)
+    pqsub.add_parser("list", help="list the rows of pr-queue.md")
+    pqsub.add_parser("next", help="say what to push now, or to wait for the open pull request, and when the queue is low")
 
     dc = sub.add_parser("decision", help="decision commands (layer 13): reopen a closed decision as a new question")
     dcsub = dc.add_subparsers(dest="decision_command", parser_class=_Parser)
@@ -755,6 +763,15 @@ def _owner_terminal() -> bool:
     return goal._is_terminal()
 
 
+def _cmd_pr_queue(args, out) -> int:
+    """G7, read only: `umwayi pr queue list` and `next`. Exit 0, or 64 for a pr-queue.md that is not well formed."""
+    root = Path(args.root)
+    doc = prqueue.read(root)
+    lines = prqueue.list_lines(doc) if args.pr_queue_command == "list" else prqueue.next_lines(doc, prqueue.pending_titles(root))
+    out.write("\n".join(lines) + "\n")
+    return 0
+
+
 def _cmd_queue(args, out) -> int:
     root = Path(args.root)
     cmd = args.queue_command
@@ -1252,6 +1269,8 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_feedback_send(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "pr" and getattr(args, "pr_command", None) == "queue" and getattr(args, "pr_queue_command", None):
+            return _cmd_pr_queue(args, out)
         if args.command == "provenance" and getattr(args, "provenance_command", None) == "sign":
             return _cmd_provenance_sign(args, out)
         if args.command == "verify":

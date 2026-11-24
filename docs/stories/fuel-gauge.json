@@ -1,0 +1,63 @@
+{
+  "id": "fuel-gauge",
+  "title": "Learn the size of the tank first",
+  "command": "units.provider_gate (a module function in umwayi/units.py; nothing calls it yet)",
+  "prs": [
+    215,
+    221
+  ],
+  "built": "partly",
+  "honesty": "Partly built. The gate and the pacing exist and are tested, but nothing calls them yet, so nothing is started, stopped or spent. Cooperative today.",
+  "analogy": "A fuel gauge needs to know the size of the tank. Before it can say how far you can drive, someone has to tell it how big the tank is and that you accept the fuel.",
+  "analogy_stops": "A gauge reads the real tank. Here umwayi only knows the number the owner writes in units.yaml, and it does not read the real balance.",
+  "does_not": [
+    "It does not start or stop any run: nothing calls the gate yet.",
+    "It does not read a credit balance from any provider.",
+    "It holds no key, token or sign-in."
+  ],
+  "owner_check": [
+    "Check the figure of 10000 units in units.yaml and that the acceptance covers the public repository only.",
+    "Say when the gate should start being called."
+  ],
+  "words": [
+    "provider_unknown",
+    "no_acceptance",
+    "paid_asks_every_goal",
+    "accepted"
+  ],
+  "code": [
+    "umwayi/units.py"
+  ],
+  "scenes": [
+    {
+      "label": "Write down the tank",
+      "chip": "Info",
+      "tone": "info",
+      "caption": "units.yaml names a provider, its kind, the limit it sets and the owner's acceptance."
+    },
+    {
+      "label": "A provider it does not know",
+      "chip": "Ask me first",
+      "tone": "ask",
+      "caption": "Any provider not in the file gets Ask me first, with the word provider_unknown."
+    },
+    {
+      "label": "No acceptance yet",
+      "chip": "Ask me first",
+      "tone": "ask",
+      "caption": "A free credit provider without the owner's acceptance asks first, with the word no_acceptance."
+    },
+    {
+      "label": "Pay as you go",
+      "chip": "Ask me first",
+      "tone": "ask",
+      "caption": "A paid provider asks on every goal, with the word paid_asks_every_goal."
+    },
+    {
+      "label": "The owner accepted",
+      "chip": "Yes",
+      "tone": "yes",
+      "caption": "The owner accepted free credits for the public repository only, so the answer is accepted."
+    }
+  ]
+}
