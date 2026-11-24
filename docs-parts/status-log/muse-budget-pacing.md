@@ -1,4 +1,4 @@
 date: 2026-11-24
-pr: none
+pr: 221
 what: M4 part b, pacing. A provider in `units.yaml` takes two optional keys, `until` (the next date its allowance renews or ends) and `horizon_days` (1 to 366, default 30). `units.pace` is a pure function that returns today's share in UU and the days it is spread over: for free credits what is left over the days to a future `until`, else over `horizon_days`; for a subscription with a weekly allowance what is left over the days left in the week (7 when unknown); nothing for a five hour only subscription or a paid provider. `units.pacing_line` gives the line for a goal whose estimate is above the share. It takes the date as an argument, so no clock decides a result. Nothing calls them yet and nothing is spent or stopped; this builds on part a (PR 215). A change to the units.yaml format: owner stop.
 tests: `tests/budget/test_pacing.py` (shares, rounding down, the horizon, a past until, the last day, a weekly allowance, the planted over-share line).
