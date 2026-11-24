@@ -1,0 +1,63 @@
+{
+  "id": "broker",
+  "title": "The gate in its own process",
+  "command": "umwayi/broker.py: started by the supervisor for an enforced Claude Code run; it has no command of its own",
+  "prs": [
+    185,
+    186
+  ],
+  "built": "built",
+  "honesty": "Built and tested with fakes. No real enforced goal run has finished yet (W40), so this is cooperative today and enforced where built.",
+  "analogy": "A bank teller behind glass. The customer, the helper, can ask for anything, but only the teller can open the till, which is the logbook, and write the receipt.",
+  "analogy_stops": "A teller is at the counter every day. The broker exists only for an enforced run, and no real goal has run that way to the end yet.",
+  "does_not": [
+    "It does not start by itself: the supervisor starts one broker for each enforced run.",
+    "It does not confine the helper: confinement is a separate piece.",
+    "It never sends file content or rule text back, only a verdict word and a rule id."
+  ],
+  "owner_check": [
+    "Read the words it answers with and see that nothing else comes back.",
+    "Check that no page says enforced for a real run before W40."
+  ],
+  "words": [
+    "unknown_run",
+    "run_ended",
+    "kill_switch",
+    "log_failed"
+  ],
+  "code": [
+    "umwayi/broker.py"
+  ],
+  "scenes": [
+    {
+      "label": "A helper asks",
+      "chip": "Info",
+      "tone": "info",
+      "caption": "The hook of the helper sends one short request to the broker over a private socket."
+    },
+    {
+      "label": "A run it does not know",
+      "chip": "No",
+      "tone": "no",
+      "caption": "A request from a run that is not in the broker's own table is refused with the word unknown_run."
+    },
+    {
+      "label": "A rule says ask",
+      "chip": "Ask me first",
+      "tone": "ask",
+      "caption": "When the rules say Ask me first, the call is refused and one row goes to the owner's queue."
+    },
+    {
+      "label": "The switch is on",
+      "chip": "No",
+      "tone": "no",
+      "caption": "With the kill switch on, every check is answered No, with the word kill_switch."
+    },
+    {
+      "label": "The log cannot be written",
+      "chip": "No",
+      "tone": "no",
+      "caption": "If the logbook cannot be written, the answer is No, with the word log_failed."
+    }
+  ]
+}

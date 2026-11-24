@@ -1,0 +1,62 @@
+{
+  "id": "provenance",
+  "title": "What changed since the record",
+  "command": "umwayi verify PATH",
+  "prs": [
+    184
+  ],
+  "built": "built",
+  "honesty": "Built and tested with throwaway keys. The owner's own key has not signed anything yet, so the record proves origin only after the owner signs. Cooperative today.",
+  "analogy": "A wax seal on a letter. A broken seal tells you someone opened it, and an intact one tells you it is as it was sent.",
+  "analogy_stops": "A seal says nothing about who wrote the letter. A record proves origin only once it is signed with the owner's own key, which has not happened yet.",
+  "does_not": [
+    "It does not sign anything: signing is the owner's step, at the owner's own terminal.",
+    "It does not prove that a file is correct, only that it is the same bytes or the same structure.",
+    "It writes nothing."
+  ],
+  "owner_check": [
+    "Run umwayi verify on a file a goal made and read the line.",
+    "Do the first real signing yourself, with your own key."
+  ],
+  "words": [
+    "unchanged",
+    "structure",
+    "changed",
+    "unnamed"
+  ],
+  "code": [
+    "umwayi/provenance.py"
+  ],
+  "scenes": [
+    {
+      "label": "Ask about a file",
+      "chip": "Info",
+      "tone": "info",
+      "caption": "umwayi verify PATH asks whether a file was made by a umwayi task and is unchanged."
+    },
+    {
+      "label": "Same bytes",
+      "chip": "Yes",
+      "tone": "yes",
+      "caption": "The record names the file and the bytes match: unchanged, exit 0."
+    },
+    {
+      "label": "Same shape",
+      "chip": "Yes",
+      "tone": "yes",
+      "caption": "Only comments or formatting changed in a Python file: structure, and it still says so."
+    },
+    {
+      "label": "Edited since",
+      "chip": "Ask me first",
+      "tone": "ask",
+      "caption": "The bytes differ: changed, exit 3. A person should look before relying on it."
+    },
+    {
+      "label": "Not in the record",
+      "chip": "No",
+      "tone": "no",
+      "caption": "The record does not name the file: unnamed, and there is no claim of origin."
+    }
+  ]
+}
