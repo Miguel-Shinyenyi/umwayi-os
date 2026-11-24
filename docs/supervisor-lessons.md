@@ -62,6 +62,7 @@ The lessons, word for word from the owner's Project note of 2026-11-23, with the
 18. [C18, O, tier 2] Public content never names companies the owner applied to or interviewed with. Private items stay out of the public repo. A deny list of names is kept outside the repo. Employer data is never copied into the repo, docs or memory.
 19. [C19, O, tier 2] Credentials, tokens, purchases, accounts, publishing, sign-ins: stop and report. Never type or store one. The owner submits to Devpost, nobody else.
 20. [C20, E, tier 2] The honesty rule: no doc, post or video says "enforced" or "sandboxed" until one real enforced run (W40) has finished a goal. The text says "cooperative today, enforced where built". Only the owner sets REAL_ENFORCED_RUN_DONE to True.
+21. [C21, E, tier 2] Do not end a turn after a report while a task is pending and the queue is low: build the next task first, then end (owner, 2026-11-24). Check: `umwayi pr queue next --check`.
 
 ### Lessons D (supervisor working lessons)
 
