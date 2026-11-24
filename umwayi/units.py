@@ -24,6 +24,23 @@ is shown (B.R1.2). units.yaml in the root says how each platform's reading becom
     limits:                        # UU; a limit that is not given keeps its placeholder
       per_run: 100
 
+A provider is a source of limits (M4 a, the Muse route). It is optional and does not change any reading above:
+
+    providers:
+      muse:
+        cost_kind: free_credits    # free_credits, subscription or paid
+        limit:                     # what the provider sets, in UU (one UU is one cent)
+          credits_uu: 14000        # free_credits: credits_uu; subscription: five_hour_uu and or weekly_uu; paid: cap_uu
+        acceptance:                # written by the owner: they accept this provider for the work named in the source
+          accepted_free: true
+          date: 2026-11-24
+          amount_uu: 14000
+          source: owner
+
+Without an acceptance a free credit or subscription provider is Ask me first; a paid provider is Ask me first on every goal, so an
+acceptance does not apply to it (`provider_gate`). Nothing here starts, stops or spends anything yet: the pacing, the heads up, the stop
+line and the goal shares are later parts of M4.
+
 Readings are tagged measured (the agent's own report), declared (rates in units.yaml) or unknown. An unknown
 reading counts at limits.unknown_worst_case, never zero (B.R1.4). Every problem has a line number and never the
 text of a line; a problem is a config error (exit 64).
@@ -55,6 +72,10 @@ PLACEHOLDERS = {"per_run": 100, "per_day": 500, "per_agent_per_day": 300, "per_p
 READINGS = ("usd_micros", "tokens", "credits", "runs")
 TOKEN_TYPES = ("input", "output", "cache_read", "cache_creation")
 PLATFORM_KEYS = ("reading", "fallback", "run_micros", "credit_micros", "credits_per_run")
+COST_KINDS = ("free_credits", "subscription", "paid")
+# the limit keys a cost kind takes; a subscription needs at least one allowance
+LIMIT_KEYS = {"free_credits": ("credits_uu",), "subscription": ("five_hour_uu", "weekly_uu"), "paid": ("cap_uu",)}
+ACCEPTANCE_KEYS = ("accepted_free", "date", "amount_uu", "source")
 RATE_KEYS = ("value", "date", "source")
 
 _PLATFORM = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
@@ -93,6 +114,13 @@ class PlatformUnits:
 
 
 @dataclass(frozen=True)
+class ProviderUnits:
+    cost_kind: str
+    limit: dict  # key -> UU
+    acceptance: dict | None = None  # accepted_free, date, amount_uu, source
+
+
+@dataclass(frozen=True)
 class Units:
     """A valid units.yaml (or none: present False, every reading unknown under the placeholders)."""
     present: bool
@@ -101,6 +129,7 @@ class Units:
     models: dict = field(default_factory=dict)  # name -> {type: Rate}
     limits: dict = field(default_factory=lambda: dict(PLACEHOLDERS))  # name -> UU
     given_limits: dict = field(default_factory=dict)  # only the limits the file names
+    providers: dict = field(default_factory=dict)  # name -> ProviderUnits
 
     def state(self) -> dict:
         """Every rate, limit and reading word the file states, as name -> shown value (for the change entry)."""
@@ -120,6 +149,13 @@ class Units:
         for name in LIMIT_NAMES:
             if name in self.given_limits:
                 out[f"limits.{name}"] = str(self.given_limits[name])
+        for name, p in sorted(self.providers.items()):
+            out[f"providers.{name}.cost_kind"] = p.cost_kind
+            for key, value in sorted(p.limit.items()):
+                out[f"providers.{name}.limit.{key}"] = str(value)
+            if p.acceptance is not None:
+                a = p.acceptance
+                out[f"providers.{name}.acceptance"] = f"{a['amount_uu']} UU ({a['date']}, {a['source']})"
         return out
 
 
@@ -227,8 +263,8 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
     if not isinstance(data, dict):
         return None, [Problem(1, "the file must be a mapping with version, platforms, models and limits")]
     for key in data:
-        if key not in ("version", "platforms", "models", "limits"):
-            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models and limits", key)
+        if key not in ("version", "platforms", "models", "limits", "providers"):
+            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits and providers", key)
     if data.get("version") != 1 or isinstance(data.get("version"), bool):
         problem("version must be 1", "version")
 
@@ -344,9 +380,90 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
             continue
         limits[key] = given[key] = value
 
+    providers: dict = {}
+    raw = data.get("providers")
+    if "providers" in data and not isinstance(raw, dict):
+        problem("providers must be a mapping of provider names", "providers")
+        raw = {}
+    for name, p in (raw or {}).items():
+        if not (isinstance(name, str) and _PLATFORM.match(name)):
+            problem("a provider name must be a lowercase letter, then lowercase letters, digits and '-'", "providers", name)
+            continue
+        label = f"providers.{name}"
+        if not isinstance(p, dict):
+            problem(f"{label} must be a mapping with cost_kind and limit", "providers", name)
+            continue
+        before = len(problems)
+        for key in p:
+            if key not in ("cost_kind", "limit", "acceptance"):
+                problem(f"{label}: {_name(key)} is not allowed, only cost_kind, limit and acceptance", "providers", name, key)
+        kind = p.get("cost_kind")
+        if kind not in COST_KINDS:
+            problem(f"{label}: cost_kind must be one of: {', '.join(COST_KINDS)}", "providers", name, "cost_kind")
+        found: dict = {}
+        lim = p.get("limit")
+        if not isinstance(lim, dict) or not lim:
+            problem(f"{label} needs limit, a mapping of the limits the provider sets (in UU)", "providers", name, "limit")
+        else:
+            allowed = LIMIT_KEYS.get(kind, ())
+            for key, value in lim.items():
+                if key not in allowed:
+                    problem(f"{label}.limit: {_name(key)} is not a limit of cost_kind {kind}"
+                            + (f", only {', '.join(allowed)}" if allowed else ""), "providers", name, "limit", key)
+                    continue
+                wrong = _number_problem(value, f"{label}.limit.{key}")
+                if wrong:
+                    problem(wrong + " (UU)", "providers", name, "limit", key)
+                else:
+                    found[key] = value
+            if allowed and not any(k in lim for k in allowed):
+                problem(f"{label}.limit needs {' or '.join(allowed)}", "providers", name, "limit")
+        acc = p.get("acceptance")
+        accepted = None
+        if "acceptance" in p:
+            if kind == "paid":
+                problem(f"{label}: a paid provider asks on every goal, so it takes no acceptance", "providers", name, "acceptance")
+            elif not isinstance(acc, dict):
+                problem(f"{label}.acceptance must be a mapping with accepted_free, date, amount_uu and source",
+                        "providers", name, "acceptance")
+            else:
+                ok = True
+                for key in acc:
+                    if key not in ACCEPTANCE_KEYS:
+                        problem(f"{label}.acceptance: {_name(key)} is not allowed, only {', '.join(ACCEPTANCE_KEYS)}",
+                                "providers", name, "acceptance", key)
+                        ok = False
+                for key in ACCEPTANCE_KEYS:
+                    if key not in acc:
+                        problem(f"{label}.acceptance needs {key}", "providers", name, "acceptance")
+                        ok = False
+                if ok:
+                    if acc["accepted_free"] is not True:
+                        problem(f"{label}.acceptance: accepted_free must be true (remove the acceptance to withdraw it)",
+                                "providers", name, "acceptance", "accepted_free")
+                        ok = False
+                    if not _real_date(acc["date"]):
+                        problem(f"{label}.acceptance: date must be a real date YYYY-MM-DD", "providers", name, "acceptance", "date")
+                        ok = False
+                    elif acc["date"] > today:
+                        problem(f"{label}.acceptance: date must not be in the future", "providers", name, "acceptance", "date")
+                        ok = False
+                    wrong = _number_problem(acc["amount_uu"], f"{label}.acceptance.amount_uu")
+                    if wrong:
+                        problem(wrong + " (UU)", "providers", name, "acceptance", "amount_uu")
+                        ok = False
+                    if not isinstance(acc["source"], str) or not _SOURCE.match(acc["source"]):
+                        problem(f"{label}.acceptance: source must be owner or an https URL without spaces, commas, semicolons or "
+                                "brackets", "providers", name, "acceptance", "source")
+                        ok = False
+                if ok:
+                    accepted = dict(acc)
+        if len(problems) == before:
+            providers[name] = ProviderUnits(kind, found, accepted)
+
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
-    return Units(True, sha256, platforms, models, limits, given), []
+    return Units(True, sha256, platforms, models, limits, given, providers), []
 
 
 def load(root: Path, today: str) -> Units:
@@ -379,7 +496,22 @@ def validate(root: Path, today: str) -> tuple:
     if problems:
         return 64, [f"problem: {p.render()}" for p in problems] + [f"{len(problems)} problem(s) found in {UNITS_FILE}"]
     return 0, [f"ok: {UNITS_FILE} is valid: {len(units.platforms)} platform(s), {len(units.models)} model(s); limits "
-               + ", ".join(f"{k} {v} UU" for k, v in units.limits.items())]
+               + ", ".join(f"{k} {v} UU" for k, v in units.limits.items())
+               + (f"; {len(units.providers)} provider(s)" if units.providers else "")]
+
+
+def provider_gate(units: Units, provider: str) -> tuple:
+    """(decision, reason) for a provider before a goal starts. decision is "yes" or "ask" (Ask me first). The reasons are fixed words:
+    provider_unknown (not in units.yaml), no_acceptance (a free credit or subscription provider the owner has not accepted) and
+    paid_asks_every_goal (a paid provider is never accepted once). This is the whole of M4 a: it spends and stops nothing."""
+    p = units.providers.get(provider)
+    if p is None:
+        return "ask", "provider_unknown"
+    if p.cost_kind == "paid":
+        return "ask", "paid_asks_every_goal"
+    if p.acceptance is None:
+        return "ask", "no_acceptance"
+    return "yes", "accepted"
 
 
 # ------------------------------------------------------------ readings (B.2)
