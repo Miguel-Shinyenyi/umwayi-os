@@ -1,4 +1,4 @@
 date: 2026-11-24
-pr: none
+pr: 233
 what: U1 step 3. `umwayi stories list` lists the story files of `docs/stories` with their built, partly or planned state, and `umwayi stories export` prints all of them as one JSON document (a note, the count and the stories as written) for a page in the GUI. Both only read: no write, no network, no logbook entry. Every file is checked for its structure first (the exact keys, a built state, five scenes with a tone and its chip, an id equal to the file name); a file that is not well formed refuses the whole export with exit 64, naming the file and a fixed problem, so a page never shows half a folder. The deeper rules stay the tests of `tools/stories.py`. The UI command map was rebuilt (`npm ci --ignore-scripts`, the standing yes). A new command: owner stop. The panels and the list view in the GUI are step 4, also an owner stop.
 tests: `tests/test_stories_command.py` (the real stories come back as written, ten planted structure faults, a bad story is exit 64 with nothing on stdout, nothing is written).
