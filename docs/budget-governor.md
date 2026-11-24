@@ -4,7 +4,7 @@
 
 The budget governor gives every agent run one unit of cost (UU, one US cent of estimated list price), reserves a per-run cap before a start, checks it while the run goes on, and settles every run in the logbook. It exists so a runaway agent cannot spend without the owner knowing, measured where it can be and counted at the worst case where it cannot.
 
-The governor's first job, planned, is to keep a user inside the limits of their plan or free credits, with pacing, heads ups, a stop line and per-goal shares; the design is in [the Muse route note](muse-route-design.md) (task M4). Built so far (M4 a): an optional `providers` section of `units.yaml` (a cost kind, the limit the provider sets, and the owner's written acceptance) and `provider_gate`, which says Yes or Ask me first with a fixed reason. It spends and stops nothing yet; pacing, heads ups, the stop line, goal shares and reading the credits are not built.
+The governor's first job, planned, is to keep a user inside the limits of their plan or free credits, with pacing, heads ups, a stop line and per-goal shares; the design is in [the Muse route note](muse-route-design.md) (task M4). Built so far (M4 a): an optional `providers` section of `units.yaml` (a cost kind, the limit the provider sets, and the owner's written acceptance) and `provider_gate`, which says Yes or Ask me first with a fixed reason. Pacing (M4 b) is a pure function, `pace`, that spreads what is left over the days to `until` (or `horizon_days`, default 30), with `pacing_line` for a goal above today's share. All of it spends and stops nothing yet; heads ups, the stop line, goal shares, the Nairobi windows and reading the credits are not built.
 
 ## Current state
 

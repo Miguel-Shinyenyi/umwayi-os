@@ -37,6 +37,9 @@ A provider is a source of limits (M4 a, the Muse route). It is optional and does
           amount_uu: 14000
           source: owner
 
+Two optional keys of a provider set its pacing period (M4 b): `until` (the next date the allowance renews or ends, a real date) and
+`horizon_days` (1 to 366, default 30, used when `until` is absent or already past). `pace` spreads what is left over that period.
+
 Without an acceptance a free credit or subscription provider is Ask me first; a paid provider is Ask me first on every goal, so an
 acceptance does not apply to it (`provider_gate`). Nothing here starts, stops or spends anything yet: the pacing, the heads up, the stop
 line and the goal shares are later parts of M4.
@@ -73,6 +76,8 @@ READINGS = ("usd_micros", "tokens", "credits", "runs")
 TOKEN_TYPES = ("input", "output", "cache_read", "cache_creation")
 PLATFORM_KEYS = ("reading", "fallback", "run_micros", "credit_micros", "credits_per_run")
 COST_KINDS = ("free_credits", "subscription", "paid")
+DEFAULT_HORIZON_DAYS = 30
+MAX_HORIZON_DAYS = 366
 # the limit keys a cost kind takes; a subscription needs at least one allowance
 LIMIT_KEYS = {"free_credits": ("credits_uu",), "subscription": ("five_hour_uu", "weekly_uu"), "paid": ("cap_uu",)}
 ACCEPTANCE_KEYS = ("accepted_free", "date", "amount_uu", "source")
@@ -118,6 +123,8 @@ class ProviderUnits:
     cost_kind: str
     limit: dict  # key -> UU
     acceptance: dict | None = None  # accepted_free, date, amount_uu, source
+    until: str | None = None  # the next date the allowance renews or ends
+    horizon_days: int = DEFAULT_HORIZON_DAYS
 
 
 @dataclass(frozen=True)
@@ -153,6 +160,10 @@ class Units:
             out[f"providers.{name}.cost_kind"] = p.cost_kind
             for key, value in sorted(p.limit.items()):
                 out[f"providers.{name}.limit.{key}"] = str(value)
+            if p.until:
+                out[f"providers.{name}.until"] = p.until
+            if p.horizon_days != DEFAULT_HORIZON_DAYS:
+                out[f"providers.{name}.horizon_days"] = str(p.horizon_days)
             if p.acceptance is not None:
                 a = p.acceptance
                 out[f"providers.{name}.acceptance"] = f"{a['amount_uu']} UU ({a['date']}, {a['source']})"
@@ -395,8 +406,14 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
             continue
         before = len(problems)
         for key in p:
-            if key not in ("cost_kind", "limit", "acceptance"):
-                problem(f"{label}: {_name(key)} is not allowed, only cost_kind, limit and acceptance", "providers", name, key)
+            if key not in ("cost_kind", "limit", "acceptance", "until", "horizon_days"):
+                problem(f"{label}: {_name(key)} is not allowed, only cost_kind, limit, acceptance, until and horizon_days",
+                        "providers", name, key)
+        if "until" in p and not _real_date(p["until"]):
+            problem(f"{label}: until must be a real date YYYY-MM-DD", "providers", name, "until")
+        if "horizon_days" in p and (isinstance(p["horizon_days"], bool) or not isinstance(p["horizon_days"], int)
+                                    or not 1 <= p["horizon_days"] <= MAX_HORIZON_DAYS):
+            problem(f"{label}: horizon_days must be a whole number from 1 to {MAX_HORIZON_DAYS}", "providers", name, "horizon_days")
         kind = p.get("cost_kind")
         if kind not in COST_KINDS:
             problem(f"{label}: cost_kind must be one of: {', '.join(COST_KINDS)}", "providers", name, "cost_kind")
@@ -459,7 +476,7 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
                 if ok:
                     accepted = dict(acc)
         if len(problems) == before:
-            providers[name] = ProviderUnits(kind, found, accepted)
+            providers[name] = ProviderUnits(kind, found, accepted, p.get("until"), p.get("horizon_days", DEFAULT_HORIZON_DAYS))
 
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
@@ -498,6 +515,32 @@ def validate(root: Path, today: str) -> tuple:
     return 0, [f"ok: {UNITS_FILE} is valid: {len(units.platforms)} platform(s), {len(units.models)} model(s); limits "
                + ", ".join(f"{k} {v} UU" for k, v in units.limits.items())
                + (f"; {len(units.providers)} provider(s)" if units.providers else "")]
+
+
+def pace(p: ProviderUnits, left_uu: int, today: str, days_left_in_week: int | None = None):
+    """(share_uu, days) or None. The share is what may be spent today so the allowance lasts its period (M4 b): the UU left over the days
+    to `until` (or `horizon_days` when there is no future `until`) for free credits; the weekly allowance left over the days left in the
+    owner's week (7 when the caller does not know) for a subscription with a weekly allowance. A subscription with only a five hour
+    allowance and a paid provider have no daily share (None). The share rounds down, and is at least 0. Pure: it spends nothing."""
+    from datetime import date as _date
+    if p.cost_kind == "free_credits":
+        days = p.horizon_days
+        if p.until and p.until > today:
+            days = (_date.fromisoformat(p.until) - _date.fromisoformat(today)).days
+    elif p.cost_kind == "subscription" and "weekly_uu" in p.limit:
+        days = days_left_in_week if days_left_in_week else 7
+    else:
+        return None
+    days = max(1, days)
+    return max(0, int(left_uu)) // days, days
+
+
+def pacing_line(share_uu: int, days: int, estimate_uu: int) -> str | None:
+    """The line that goes with a goal whose estimate is above today's share, or None when it fits."""
+    if estimate_uu <= share_uu:
+        return None
+    return (f"pacing: this goal is estimated at {estimate_uu} UU, above today's share of {share_uu} UU "
+            f"(what is left spread over {days} day(s)). It may run; the allowance will not last the period at this rate.")
 
 
 def provider_gate(units: Units, provider: str) -> tuple:
