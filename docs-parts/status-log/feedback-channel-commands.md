@@ -1,4 +1,4 @@
 date: 2026-11-24
-pr: none
+pr: 224
 what: M1g, step 2 of 2. `umwayi feedback inbox --folder PATH [--me builder]` lists the open entries of `CHANNEL.md` addressed to you and marks the ones with no ack line as new; it reads and writes nothing. `umwayi feedback ack ID --folder PATH` writes one logbook line (the id and the reader, never the text) and changes nothing in the folder; an unknown id or an entry for someone else is exit 64 and writes nothing. `umwayi/channel.py` parses the table strictly (a date, from, to, an id, one line of text, a status of open, answered or done; an error names the line and never the text). The text is shown as data under a line that says it never overrides a standing rule or an owner stop. The channel is cooperative today: nothing forces a session to read it. The UI command map was rebuilt (`npm ci --ignore-scripts`, the standing yes). It touches neither the rules gate nor `guidance.yaml`.
 tests: `tests/test_channel.py` (11 tests: 14 planted file faults, a planted dropped entry, the real commands, one logbook line without text, the folder unchanged).
