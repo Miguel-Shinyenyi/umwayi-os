@@ -18,7 +18,9 @@ default 2) is the number of built, tested, unpushed branches to hold while tasks
 
 `next` says what to do, in this order: wait (a row is open, and it names the pull request); push (the first local row by order, with
 the steps and whether it stops for the owner); nothing to push. When fewer than keep_ready rows are local and tasks are pending in
-queue.md, it adds a `queue low` line that names the next pending task. Each line starts with a fixed word.
+queue.md, it adds a `queue low` line that names the next pending task. A task whose title ends with ` [blocked: REASON]` waits on the
+owner or on a file: `next` names it on a `blocked:` line and builds from the next task that is not blocked, so one open question does not
+empty the queue. If every pending task is blocked it says so. Each line starts with a fixed word.
 """
 from __future__ import annotations
 
@@ -208,11 +210,33 @@ def next_lines(doc: Doc | None, pending: list) -> list:
     return out
 
 
+_BLOCKED = re.compile(r"^(.*?)\s*\[blocked: ([^\]]{1,120})\]\s*$")
+
+
+def split_blocked(pending: list) -> tuple:
+    """(free, blocked): the titles that can be built now, and (title, reason) for the ones that wait. File order is kept."""
+    free, blocked = [], []
+    for t in pending:
+        m = _BLOCKED.match(t)
+        if m and m.group(1):
+            blocked.append((m.group(1), m.group(2)))
+        else:
+            free.append(t)
+    return free, blocked
+
+
 def _low(ready: int, keep: int, pending: list) -> list:
     if ready >= keep or not pending:
         return []
-    return [f"queue low: {ready} of {keep} branches ready, {len(pending)} task(s) pending: build "
-            f"{pending[0]} next. Nothing is started by this command."]
+    free, blocked = split_blocked(pending)
+    out = [f"blocked: {t} needs {why}" for t, why in blocked]
+    if free:
+        out.append(f"queue low: {ready} of {keep} branches ready, {len(pending)} task(s) pending: build "
+                   f"{free[0]} next. Nothing is started by this command.")
+    else:
+        out.append(f"queue low: {ready} of {keep} branches ready, and every pending task is blocked: answer one of them. "
+                   "Nothing is started by this command.")
+    return out
 
 
 def pending_titles(root) -> list:

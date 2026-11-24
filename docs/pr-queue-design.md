@@ -16,7 +16,7 @@ What exists and is reused:
 - **The watcher.** A shell script in a job folder (not in the repo) polls `gh pr view` and exits on a merge, a closed pull request, the first failed check of the newest head, or all checks green. It is the first piece of the queue, but it is not product code and it does not write the logbook.
 - **The queue file format.** `queue.md` has one strict table that a person can edit and a parser (`umwayi/taskqueue.py`) that rewrites only the row a command touches and logs every change. The PR queue can follow that model.
 
-Built since (G7, read only part): `pr-queue.md` with its strict parser, `umwayi pr queue list` and `umwayi pr queue next` (`umwayi/prqueue.py`, `tests/test_prqueue.py`). They only read: no push, no merge, no `gh`, no network and no logbook entry. `next` counts the open tasks of `queue.md` as pending work. Not built: `add` (it reads git), the conflict table and the watch. You edit `pr-queue.md` by hand until `add` exists.
+Built since (G7, read only part): `pr-queue.md` with its strict parser, `umwayi pr queue list` and `umwayi pr queue next` (`umwayi/prqueue.py`, `tests/test_prqueue.py`). They only read: no push, no merge, no `gh`, no network and no logbook entry. `next` counts the open tasks of `queue.md` as pending work; a task whose title ends with ` [blocked: REASON]` is named on a `blocked:` line and skipped, so the next task is named. Not built: `add` (it reads git), the conflict table and the watch. You edit `pr-queue.md` by hand until `add` exists.
 
 ## The design
 

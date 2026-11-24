@@ -98,6 +98,27 @@ class NextTests(unittest.TestCase):
         lines = pq.next_lines(pq.parse(doc(A, keep=2)), ["Only task"])
         self.assertTrue(lines[-1].startswith("queue low: 1 of 2 branches ready, 1 task(s) pending"))
 
+    def test_planted_fault_two_pending_tasks_and_no_ready_branch_name_the_first_task(self):
+        lines = pq.next_lines(pq.parse(doc(keep=2)), ["First pending task", "Second pending task"])
+        self.assertEqual(lines[-1], "queue low: 0 of 2 branches ready, 2 task(s) pending: build First pending task next. "
+                                    "Nothing is started by this command.")
+
+    def test_a_blocked_task_is_named_and_skipped_and_the_next_free_one_is_built(self):
+        pending = ["Needs an answer [blocked: the owner's choice of option A, B or C]", "Free one", "Another free one"]
+        lines = pq.next_lines(pq.parse(doc(A, keep=2)), pending)
+        self.assertEqual(lines[-2], "blocked: Needs an answer needs the owner's choice of option A, B or C")
+        self.assertTrue(lines[-1].startswith("queue low: 1 of 2 branches ready, 3 task(s) pending: build Free one next"))
+        self.assertEqual(pq.split_blocked(pending)[0], ["Free one", "Another free one"])
+
+    def test_when_every_pending_task_is_blocked_it_says_so_and_asks_for_an_answer(self):
+        lines = pq.next_lines(pq.parse(doc(keep=2)), ["One [blocked: text]", "Two [blocked: a file]"])
+        self.assertEqual(lines[0], "nothing: no row is local and none is open.")
+        self.assertEqual(lines[1:3], ["blocked: One needs text", "blocked: Two needs a file"])
+        self.assertIn("every pending task is blocked: answer one of them", lines[-1])
+
+    def test_a_title_that_only_looks_blocked_is_not(self):
+        self.assertEqual(pq.split_blocked(["[blocked: x]", "Free [blocked:]", "Free blocked: x", "Mid [blocked: x] more"])[1], [])
+
     def test_no_queue_low_line_when_enough_are_ready_or_no_task_is_pending_or_keep_ready_is_zero(self):
         self.assertFalse(any("queue low" in l for l in pq.next_lines(pq.parse(doc(A, B, keep=2)), ["T"])))
         self.assertFalse(any("queue low" in l for l in pq.next_lines(pq.parse(doc(A, keep=2)), [])))
