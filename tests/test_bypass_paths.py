@@ -25,7 +25,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from umwayi import confine
+from umwayi import confine, logbook
 
 REPO = Path(__file__).resolve().parent.parent
 ABI = confine.abi_version()
@@ -92,7 +92,7 @@ class DesignNoteTests(unittest.TestCase):
         import ast
         tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
         umwayi = [(n.module, [a.name for a in n.names]) for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and (n.module or "").startswith("umwayi")]
-        self.assertEqual(umwayi, [("umwayi", ["confine"])])
+        self.assertEqual(umwayi, [("umwayi", ["confine", "logbook"])])  # the logbook is a record, not a gate
         self.assertEqual([n.names[0].name for n in ast.walk(tree) if isinstance(n, ast.Import) and n.names[0].name.startswith("umwayi")], [])
 
 
@@ -160,6 +160,45 @@ class KernelTests(unittest.TestCase):
         self.assertEqual(r["shell_write_outside"], EACCES)  # no gate and no hook is involved: the refusal is the kernel's
         self.assertFalse((self.other / "c.txt").exists())
         self.assertEqual(self.run_child(confined=False)["shell_write_outside"], 0)  # planted fault
+
+    def test_every_path_leaves_one_logbook_line_that_names_the_layer_that_refused_or_says_none(self):
+        """Q2 of the note: the test records the layer it expects next to the refusal it observed, in a real, checked logbook."""
+        r = self.run_child()
+        observed = [
+            (1, "none", r["tcp_connect"] == 0),  # a finding (limit 344): nothing refused it
+            (2, "kernel (landlock)", r["read_credential"] == EACCES),  # the stored token cannot be read; the push itself is not tried
+            (3, "kernel (landlock)", r["write_outside"] == EACCES),
+            (4, "kernel (landlock)", r["read_credential"] == EACCES),
+            (5, "kernel (landlock)", r["second_interpreter_write_outside"] == EACCES),
+            (6, "kernel (landlock)", r["shell_write_outside"] == EACCES),
+        ]
+        root = self.base / "logroot"
+        root.mkdir()
+        for n, layer, as_expected in observed:
+            self.assertTrue(as_expected, f"path {n} did not behave as the note says")
+            logbook.append(root, logbook.Entry(
+                "2026-11-25", "tests/test_bypass_paths.py", layer_line(n, layer),
+                "the observed result matched the layer the test expected",
+                "no real enforced run happened; the run path as built writes no such line (W40)"))
+        text = (root / "LOGBOOK.md").read_text(encoding="utf-8")
+        self.assertEqual(len(re.findall(r"(?m)^## ", text)), 6)
+        self.assertEqual(len(re.findall(r"layer: kernel \(landlock\)", text)), 5)
+        self.assertEqual(len(re.findall(r"layer: none", text)), 1)  # path 1 is a finding and says so
+        self.assertEqual(logbook.read_checked(root)[0].source, "tests/test_bypass_paths.py")  # the chain checks out
+        self.assertNotIn("planted-token", text)  # the planted credential is never copied into a line
+
+
+def layer_line(path_no: int, layer: str) -> str:
+    return f"bypass path {path_no} tried from a confined run; layer: {layer}"
+
+
+class LayerLineTests(unittest.TestCase):
+    """Run everywhere: the line names a layer, and a path nobody refused says `none`, never a layer."""
+
+    def test_the_line_names_the_layer_and_a_finding_says_none(self):
+        self.assertEqual(layer_line(3, "kernel (landlock)"), "bypass path 3 tried from a confined run; layer: kernel (landlock)")
+        self.assertIn("layer: none", layer_line(1, "none"))
+        self.assertNotIn("\u2014", layer_line(1, "none"))
 
 
 class NotTriedTests(unittest.TestCase):
