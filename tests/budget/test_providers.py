@@ -126,6 +126,40 @@ class DocExampleTests(unittest.TestCase):
         self.assertTrue(self.looks_real(old))  # the check above fails on exactly this
 
 
+class RepoAcceptanceTests(unittest.TestCase):
+    """M1i: the owner's acceptance of free credits for the public repository is in the units.yaml at the root of this repo."""
+    PATH = Path(__file__).resolve().parent.parent.parent / "units.yaml"
+
+    def load(self):
+        u, p = units.check_text(self.PATH.read_text(encoding="utf-8"), "2026-11-24")
+        self.assertEqual([x.message for x in p], [])
+        return u
+
+    def test_the_file_is_valid_and_accepts_muse_free_credits_and_nothing_else(self):
+        u = self.load()
+        self.assertEqual(sorted(u.providers), ["muse"])
+        m = u.providers["muse"]
+        self.assertEqual((m.cost_kind, m.limit, m.acceptance["source"], m.acceptance["date"]),
+                         ("free_credits", {"credits_uu": 14000}, "owner", "2026-11-24"))
+        self.assertEqual(units.provider_gate(u, "muse"), ("yes", "accepted"))
+        self.assertEqual(units.provider_gate(u, "another"), ("ask", "provider_unknown"))
+        self.assertEqual(u.platforms, {})  # no reading or rate of a platform is changed by this file
+
+    def test_the_acceptance_never_exceeds_the_limit_and_the_file_says_public_only(self):
+        u = self.load()
+        self.assertLessEqual(u.providers["muse"].acceptance["amount_uu"], u.providers["muse"].limit["credits_uu"])
+        text = self.PATH.read_text(encoding="utf-8")
+        self.assertIn("PUBLIC umwayi-os repository only", text)
+        self.assertIn("never private or employer code", text)
+
+    def test_planted_fault_without_the_acceptance_block_the_gate_asks(self):
+        text = self.PATH.read_text(encoding="utf-8")
+        cut = text[:text.index("    acceptance:")]
+        u, p = units.check_text(cut, "2026-11-24")
+        self.assertEqual(p, [])
+        self.assertEqual(units.provider_gate(u, "muse"), ("ask", "no_acceptance"))
+
+
 class GateTests(unittest.TestCase):
     def gate(self, text, name="muse"):
         u, p = parse(text)
