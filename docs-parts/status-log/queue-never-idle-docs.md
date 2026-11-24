@@ -1,4 +1,4 @@
 date: 2026-11-24
-pr: none
+pr: 228
 what: The owner's rule that a session does not end its turn after a report while a free task is pending and the queue is low (B-0012, accepted by the guide in G-0022), written into the PR queue design note. The report is not the end of the turn: the session builds the next task in the same turn and only then ends, and the report closes with one line, `next: TASK, started: yes or no`. Ending is allowed when every pending task is blocked, the kill switch is on or the owner has said stop. The `--check` exit code of `umwayi pr queue next` and a Stop hook for the Claude Code adapter are described as planned, each its own owner stop pull request. Docs only: nothing is built and nothing forces a session to follow the rule today.
 tests: the docs tests (headings, links, no em dashes, stale statements).
