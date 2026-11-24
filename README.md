@@ -89,4 +89,4 @@ How they fit together: [docs/architecture.md](docs/architecture.md). Requirement
 
 ## Licence
 
-See [LICENSE](LICENSE).
+See [LICENSE](LICENSE). What umwayi-os uses from other people, and that it ships and hosts no model: [third-party.md](docs/third-party.md).
