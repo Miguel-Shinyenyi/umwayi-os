@@ -190,6 +190,7 @@
   "tests/test_provenance.py": ["umwayi.json"],
   "tests/test_provenance_rehearsal.py": [],
   "tests/test_provsign.py": [],
+  "tests/test_prqueue.py": [],
   "tests/test_ptysupport.py": [],
   "tests/test_queue.py": [],
   "tests/test_quickstart.py": ["README.md", "docs", "rules.yaml"],
