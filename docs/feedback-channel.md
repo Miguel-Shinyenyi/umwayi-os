@@ -27,7 +27,7 @@ One strict table in the file `CHANNEL.md` of the folder:
 |---|---|---|---|---|---|
 | 2026-11-24 | builder | guide | B-0001 | Which option do you choose for the Kiro refusal, a, b or c? Recommendation: c. | open |
 
-- **date** is YYYY-MM-DD. **from** and **to** are `guide`, `builder` or `owner`. **id** is a letter, a dash and a number, unique, never reused. **text** is one line without a pipe, up to 400 characters, with the recommendation next to a question. **status** is `open`, `answered` or `done`.
+- **date** is YYYY-MM-DD. **from** and **to** are `guide`, `builder` or `owner`. **id** is a letter, a dash and a number, unique, never reused. **text** is one line without a pipe, up to 1000 characters, with the recommendation next to a question. **status** is `open`, `answered` or `done`.
 - **Nothing is deleted.** An entry is only marked: `open` becomes `answered` when the reader has replied (the reply is a new entry that names the id of the question), and `done` when the work it asked for is finished.
 - Entries of the guide to the builder carry the work (the fixes file keeps its own ids; a row may point at one). Entries of the builder to the guide carry the questions that wait for an answer.
 
