@@ -52,9 +52,13 @@ Tests planned with the files, each with a planted fault: the five scenes exist; 
 
 The video scripts hold the scenes for these four and are reused for the story files.
 
+### The video script (L8, the script part)
+
+`python -m tools.story_video ID [--out FILE] [--filename NAME.mp4]` turns a story file into the plain SCRIPT of a concept video (the format of the scripts in the owner's video pack): the source story and real code, "Made with AI" on every frame, the honesty line, five scenes of four seconds each with a chip and a caption, the tones, the cost and that posting is the owner's act. `--manifest` prints the manifest row. It is refused (exit 2, one fixed reason) when the story breaks a rule of `tools/stories.py`, or when a scene says enforced, sandboxed or confined. It does NOT render: rendering needs Pillow, numpy, ffmpeg and fonts that are not dependencies of this repository, and it stays in the video pack. Cost is 0 units for a local render; the video budget (L9) is not built, so the tool never writes a figure above 0. A video is made when the owner asks, and posting is the owner's act.
+
 ### What this does not prove
 
-It does not prove that a story is good (the owner and the guide read it), that a panel shows live state (a later step: counts only, never content, through a read only snapshot), or that anything is enforced. A panel is a way to read what the terminal already says.
+A video script shows what a feature does; it does not show that the feature is safe. It does not prove that a story is good (the owner and the guide read it), that a panel shows live state (a later step: counts only, never content, through a read only snapshot), or that anything is enforced. A panel is a way to read what the terminal already says.
 
 ## Decisions log
 
