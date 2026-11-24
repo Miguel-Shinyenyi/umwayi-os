@@ -12,7 +12,7 @@ Start with [PROJECT.md](PROJECT.md): what to read first, and where everything is
 | --- | --- | --- |
 | Layers 1 to 8 (memory, rules, queue, archive, logbook, automation, helpers, workflows) | built | [architecture](docs/architecture.md) |
 | Layer 9 adapters (Claude Code, Kiro, stdin and stdout) and the OpenCode plugin (layer 10 part 8) | built | [adapters](docs/adapters.md) |
-| Layer 10 front door for agents | built, with Claude Code, Kiro (paused by the owner, account problem, AWS case open) and OpenCode (part 8: a chat and, since W9.13, a run for a goal role; tested with a fake `opencode acp` and the 10.51 check; no real goal run with an OpenCode role); the owner's real runs (10.21, 10.31, and 10.51 for OpenCode) not done | [agent front door](docs/agent-front-door.md) |
+| Layer 10 front door for agents | built, with Claude Code, Kiro (paused by the owner) and OpenCode (part 8: a chat and, since W9.13, a run for a goal role; tested with a fake `opencode acp` and the 10.51 check; no real goal run with an OpenCode role); the owner's real runs (10.21, 10.31, and 10.51 for OpenCode) not done | [agent front door](docs/agent-front-door.md) |
 | Layer 11 scheduled runs | built; the owner's real check (11.6) not done | [scheduled runs](docs/scheduled-runs.md) |
 | Logbook crash safety and hash chain | built | [logbook](docs/logbook.md) |
 | Budget governor | built; the owner's capture (B.10) not done | [budget governor](docs/budget-governor.md) |
@@ -68,6 +68,8 @@ New here? Start with the [tester quickstart](docs/quickstart.md): install, a fir
 | 10 front door | `umwayi agent`: check, run, chat, login | [agent-front-door.md](docs/agent-front-door.md) |
 | 11 scheduled runs | systemd user timers for jobs and workflows | [scheduled-runs.md](docs/scheduled-runs.md) |
 | budget governor | a budget per run and per day, the telemetry receiver | [budget-governor.md](docs/budget-governor.md) |
+| feedback channel | the folder the guide and the builder both write and read: the entry format and the rules; the `inbox` and `ack` commands are planned, not built | [feedback-channel.md](docs/feedback-channel.md) |
+| stories in the GUI | planned, design note only: one story per feature used in the PR text, a video and a panel in the browser layer on top of the terminal | [stories-in-the-gui.md](docs/stories-in-the-gui.md) |
 | PR queue | built, read only: `pr-queue.md`, `umwayi pr queue list` and `next` (what to push, or to wait, and when the queue is low); not built: `add`, the conflict table and the watch | [pr-queue-design.md](docs/pr-queue-design.md) |
 | 12 view | a calm, realistic 3D scene of eleven natural features and the home page, that will show counts from a read only snapshot (the snapshot command, the scene, the home page and the public site are built) | [interface.md](docs/interface.md) |
 

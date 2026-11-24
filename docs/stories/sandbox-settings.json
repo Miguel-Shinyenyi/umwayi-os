@@ -1,0 +1,63 @@
+{
+  "id": "sandbox-settings",
+  "title": "No sandbox, no start",
+  "command": "umwayi agent check NAME",
+  "prs": [
+    182
+  ],
+  "built": "built",
+  "honesty": "Built and tested. The check runs before an enforced Claude Code start and starts no agent. It is cooperative today and enforced where built.",
+  "analogy": "A pilot's checklist before take off. The plane does not leave the gate until every item is ticked, and an item that cannot be ticked is named.",
+  "analogy_stops": "A pilot reads the list and may skip it. This list runs in code before the helper starts, but only for an enforced Claude Code agent.",
+  "does_not": [
+    "It does not start an agent: umwayi agent check only asks.",
+    "It does not check the sandbox of other platforms.",
+    "It does not prove that confinement works on a real run."
+  ],
+  "owner_check": [
+    "Run umwayi agent check on your own enforced agent and read each line.",
+    "Check that a refusal names one word from the fixed list."
+  ],
+  "words": [
+    "sandbox settings",
+    "platform",
+    "dependency",
+    "profile"
+  ],
+  "code": [
+    "umwayi/agents.py",
+    "umwayi/enforce.py"
+  ],
+  "scenes": [
+    {
+      "label": "Ask the question",
+      "chip": "Info",
+      "tone": "info",
+      "caption": "umwayi agent check NAME runs every gate check and starts nothing."
+    },
+    {
+      "label": "The block is not the fixed one",
+      "chip": "No",
+      "tone": "no",
+      "caption": "refused (profile): the Claude Code sandbox settings are missing or not the fixed ones."
+    },
+    {
+      "label": "This machine cannot host it",
+      "chip": "No",
+      "tone": "no",
+      "caption": "A refusal names one word from a fixed list, for example platform or dependency."
+    },
+    {
+      "label": "Everything is in place",
+      "chip": "Yes",
+      "tone": "yes",
+      "caption": "The fixed sandbox block is in the settings and this machine can host it."
+    },
+    {
+      "label": "What is shown",
+      "chip": "Info",
+      "tone": "info",
+      "caption": "The check is listed as sandbox settings, with Yes or the refusal and its word."
+    }
+  ]
+}
