@@ -32,6 +32,21 @@ def setUpModule():
     sys.stderr.flush()
 
 
+class CiKernelTests(unittest.TestCase):
+    """A14: a result is never claimed from a skipped test. On GitHub Actions the kernel tests must run, not skip."""
+
+    def test_on_the_ci_runner_the_kernel_tests_run_and_do_not_skip(self):
+        if os.environ.get("GITHUB_ACTIONS") != "true" or not sys.platform.startswith("linux"):
+            self.skipTest("only the Linux runner of GitHub Actions has to run the kernel tests")
+        self.assertTrue(ABI, "Landlock is not available on the CI runner, so the kernel tests were skipped: that is not a pass")
+
+    def test_planted_fault_a_ci_runner_without_landlock_fails_the_test_instead_of_skipping(self):
+        with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), mock.patch.object(sys, "platform", "linux"), \
+                mock.patch.dict(globals(), {"ABI": 0}):
+            with self.assertRaises(AssertionError):
+                self.test_on_the_ci_runner_the_kernel_tests_run_and_do_not_skip()
+
+
 def need_landlock(fn):
     return unittest.skipUnless(ABI, SKIP)(fn)
 
@@ -58,7 +73,7 @@ class MaskTests(unittest.TestCase):
 
 
 class PlanTests(unittest.TestCase):
-    def test_no_landlock_is_unavailable_and_no_network_on_an_old_abi_is_kernel(self):
+    def test_no_landlock_is_unavailable_and_no_tcp_on_an_old_abi_is_kernel(self):
         for abi in (None, 0):
             with self.assertRaises(confine.ConfineRefused) as cm:
                 confine.plan(abi, False)
@@ -79,7 +94,7 @@ class PlanTests(unittest.TestCase):
 
 class ParseTests(unittest.TestCase):
     def test_the_fixed_shape(self):
-        argv = confine.argv(["/usr"], ["/w"], ["/bin/true", "a"], no_network=True)
+        argv = confine.argv(["/usr"], ["/w"], ["/bin/true", "a"], no_tcp=True)
         self.assertEqual(argv[1], str(REPO / "umwayi" / "confine.py"))
         self.assertEqual(confine.parse(argv[2:]), (["/usr"], ["/w"], True, ["/bin/true", "a"]))
 
@@ -110,7 +125,136 @@ class NoLandlockTests(unittest.TestCase):
         src = (REPO / "umwayi" / "confine.py").read_text(encoding="utf-8")
         self.assertEqual(src.count("os.posix_spawn("), 1)
         self.assertNotIn("subprocess", src)
-        self.assertLess(src.index("apply(read, write, no_net)"), src.index("os.posix_spawn(command[0]"))
+        self.assertLess(src.index("apply(read, write, no_tcp)"), src.index("os.posix_spawn(command[0]"))
+
+
+class F1Tests(unittest.TestCase):
+    """F1 (a to i): the hardening of the confinement. Each has a planted fault; the ones that need the kernel are in KernelF1Tests."""
+
+    def test_f1h_a_kernel_that_reports_a_newer_abi_than_the_table_knows_fails_with_the_words_table_needs_review(self):
+        self.assertFalse(confine.table_needs_review(None))
+        self.assertFalse(confine.table_needs_review(confine.TABLE_REVIEWED_ABI))
+        self.assertTrue(confine.table_needs_review(confine.TABLE_REVIEWED_ABI + 1))
+        self.assertFalse(confine.table_needs_review(ABI), f"table needs review: this kernel reports Landlock ABI {ABI}, the table of "
+                                                          f"umwayi/confine.py was reviewed for ABI {confine.TABLE_REVIEWED_ABI}")
+
+    def test_f1i_no_step_suggests_a_way_round_the_refusal(self):
+        for reason, step in confine.STEPS.items():
+            with self.subTest(reason=reason):
+                self.assertNotIn("cooperative", step.lower())
+                self.assertNotIn("enforcement:", step)
+        for reason in ("unavailable", "kernel", "platform"):
+            self.assertIn("the owner chooses the mode of this agent by hand", confine.STEPS[reason])
+        agents_src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
+        self.assertNotIn("enforce set cooperative --agent", agents_src)  # the broker refusal does not suggest it either
+
+    def test_f1g_the_flag_says_tcp_and_the_help_and_the_docstring_say_what_it_does_not_block(self):
+        self.assertEqual(confine.parse(["--no-tcp", "--", "/bin/true"])[2], True)
+        self.assertIsNone(confine.parse(["--no-network", "--", "/bin/true"]))
+        self.assertIn("--no-tcp", confine.argv([], [], ["/bin/true"], no_tcp=True))
+        self.assertIn("blocks TCP only", confine.__doc__)
+        err = subprocess.run([sys.executable, str(REPO / "umwayi" / "confine.py"), "--bogus"], capture_output=True, text=True)
+        self.assertEqual(err.returncode, confine.EXIT_USAGE)
+        self.assertIn("blocks TCP only: not UDP, not abstract Unix sockets", err.stderr)
+
+    def test_f1f_the_docstring_says_a_write_tree_is_also_readable_and_executable(self):
+        self.assertIn("a write tree is also readable and executable", " ".join(confine.__doc__.split()))
+
+    def test_f1e_the_wrappers_own_codes_are_not_the_ordinary_codes_of_a_program_and_the_line_names_the_reason(self):
+        self.assertEqual((confine.EXIT_REFUSED, confine.EXIT_USAGE), (125, 124))
+        self.assertTrue({0, 1, 2, 64, 126, 127, 130, 143}.isdisjoint({confine.EXIT_REFUSED, confine.EXIT_USAGE}))
+        p = subprocess.run([sys.executable, str(REPO / "umwayi" / "confine.py"), "--read", "/usr", "--", "/nonexistent/prog"],
+                           capture_output=True, text=True)
+        self.assertEqual(p.returncode, confine.EXIT_REFUSED)
+        self.assertEqual(confine.read_refusal(p.stderr), "profile")
+        self.assertIsNone(confine.read_refusal("hello\nrefused: not confined (made-up). Allowed next: x.\n"))
+        self.assertIsNone(confine.read_refusal(""))
+
+    def run_wrapper(self, command, slow_start=0.0):
+        """The wrapper with the restriction call replaced by one that does nothing, so these tests need no Landlock. It prints `ready` before
+        main starts. slow_start holds the process start for that many seconds, so a signal can arrive while the child starts."""
+        code = ("import os, sys, time; sys.path.insert(0, %r); from umwayi import confine; confine.apply = lambda *a, **k: 8\n"
+                "real = os.posix_spawn\n"
+                "os.posix_spawn = lambda *a, **k: (time.sleep(%r), real(*a, **k))[1]\n"
+                "print('ready', flush=True)\n"
+                "sys.exit(confine.main(['--read', '/usr', '--'] + %r))\n" % (str(REPO), slow_start, command))
+        p = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertEqual(p.stdout.readline().strip(), "ready")
+        return p
+
+    def test_f1e_a_command_that_exits_2_64_124_or_125_is_its_own_code_and_not_a_refusal(self):
+        for code in (2, 64, 124, 125):
+            with self.subTest(code=code):
+                p = self.run_wrapper([sys.executable, "-c", f"import sys; sys.exit({code})"])
+                err = p.communicate(timeout=30)[1]
+                self.assertEqual(p.returncode, code)
+                self.assertIsNone(confine.read_refusal(err))  # so a caller that reads the line is not fooled by the code
+
+    def test_f1d_a_sigterm_that_arrives_while_the_child_starts_or_after_is_passed_on(self):
+        import signal
+        import time
+        sleep = shutil.which("sleep")
+        for slow, delay in ((0.8, 0.3), (0.0, 0.5)):  # in the middle of the start (held), and while the child runs
+            with self.subTest(during_the_start=bool(slow)):
+                p = self.run_wrapper([sleep, "30"], slow_start=slow)
+                time.sleep(delay)
+                p.send_signal(signal.SIGTERM)
+                p.communicate(timeout=30)
+                self.assertEqual(p.returncode, 143)  # the child was ended by the signal, 128 + 15, not left running
+
+    def test_f1c_close_inherited_closes_every_descriptor_above_2(self):
+        script = Path(tempfile.mkdtemp(prefix="uf1c")) / "t.py"
+        script.write_text("import os, sys\nsys.path.insert(0, %r)\nfrom umwayi import confine\n"
+                          "fd = os.open('/dev/null', os.O_RDONLY)\nos.set_inheritable(fd, True)\nconfine.close_inherited()\n"
+                          "try:\n    os.fstat(fd)\nexcept OSError:\n    print('closed')\nelse:\n    print('open')\n" % str(REPO), encoding="utf-8")
+        self.addCleanup(shutil.rmtree, script.parent, True)
+        p = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+        self.assertEqual(p.stdout.strip(), "closed", p.stderr)
+
+    def test_f1c_every_process_start_of_the_agents_module_closes_inherited_files(self):
+        src = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("subprocess.Popen("), 2)
+        self.assertEqual(src.count("close_fds=True, pass_fds=()"), 3)  # the two starts and the short programs of _run_child
+
+
+class RunPathsF1Tests(unittest.TestCase):
+    def setUp(self):
+        self._t = tempfile.TemporaryDirectory(prefix="uf1")
+        self.addCleanup(self._t.cleanup)
+        self.base = Path(self._t.name).resolve()
+        for d in ("root", "work", "tmp", "home/.claude", "bin", "deep/install/bin"):
+            (self.base / d).mkdir(parents=True)
+        (self.base / "bin" / "x").write_text("#!/bin/sh\n", encoding="utf-8")
+        (self.base / "deep" / "install" / "bin" / "y").write_text("#!/bin/sh\n", encoding="utf-8")
+        self.kw = dict(command=str(self.base / "bin" / "x"), workdir=str(self.base / "work"), root=str(self.base / "root"),
+                       tmp=str(self.base / "tmp"), home=str(self.base / "home"), python=sys.executable, source=str(REPO))
+
+    def run_paths(self, **over):
+        return confine.run_paths(**dict(self.kw, **over))
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "the lists are Linux paths")
+    def test_f1a_a_write_root_that_holds_or_lies_inside_the_umwayi_root_is_refused_with_profile(self):
+        (self.base / "root" / "inside").mkdir()
+        (self.base / "root" / "inside" / ".claude").mkdir()
+        cases = {"work folder holds the root": dict(workdir=str(self.base)), "work folder inside the root": dict(workdir=str(self.base / "root" / "inside")),
+                 "temp folder inside the root": dict(tmp=str(self.base / "root" / "inside")),
+                 "home config inside the root": dict(home=str(self.base / "root" / "inside")),
+                 "config dir holds the root": dict(config_dir=str(self.base)), "config dir inside the root": dict(config_dir=str(self.base / "root" / "inside"))}
+        for name, over in cases.items():
+            with self.subTest(case=name), self.assertRaises(confine.ConfineRefused) as cm:
+                self.run_paths(**over)
+            self.assertEqual(cm.exception.reason, "profile")
+        self.run_paths()  # planted fault: the same call without any of them is fine
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "the lists are Linux paths")
+    def test_f1b_only_the_install_folder_of_the_command_is_listed_not_the_folder_above_it(self):
+        read, _ = self.run_paths()
+        self.assertIn(str(self.base / "bin"), read)
+        self.assertNotIn(str(self.base), read)  # the folder above `bin` would have granted everything below it
+        read2, _ = self.run_paths(command=str(self.base / "deep" / "install" / "bin" / "y"))
+        self.assertIn(str(self.base / "deep" / "install" / "bin"), read2)
+        self.assertNotIn(str(self.base / "deep" / "install"), read2)
+        self.assertNotIn(str(self.base / "deep"), read2)
 
 
 CHILD = r"""
@@ -164,10 +308,10 @@ class KernelCase(unittest.TestCase):
                 out.append(p)
         return out
 
-    def run_child(self, confined=True, no_network=False, read=None, write=None, extra_cmd=None):
+    def run_child(self, confined=True, no_tcp=False, read=None, write=None, extra_cmd=None):
         cmd = [sys.executable, "-c", CHILD, str(self.work), str(self.other), str(self.port)]
         argv = confine.argv(self.reads() if read is None else read, [str(self.work)] if write is None else write, cmd,
-                            no_network=no_network) if confined else cmd
+                            no_tcp=no_tcp) if confined else cmd
         env = {"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(REPO)}
         return subprocess.run(argv, capture_output=True, text=True, timeout=60, env=env, cwd=str(self.work))
 
@@ -197,6 +341,25 @@ class KernelTests(KernelCase):
         r = self.result(confined=False)
         self.assertEqual((r["write_outside"], r["read_unlisted"]), (0, 0))  # so the refusals above are the kernel's, not ours
         self.assertTrue((self.other / "b.txt").exists())
+
+    def test_f1c_the_confined_command_inherits_no_open_file(self):
+        f = os.open("/dev/null", os.O_RDONLY)
+        fd = os.dup2(f, 9, inheritable=True)
+        os.close(f)
+        self.addCleanup(os.close, fd)
+        script = "import os, json; print(json.dumps(sorted(int(x) for x in os.listdir('/proc/self/fd'))))"
+        argv = confine.argv(self.reads(), [str(self.work)], [sys.executable, "-c", script])
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=60, env={"PATH": os.environ.get("PATH", "")}, cwd=str(self.work),
+                           pass_fds=(fd,))
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertNotIn(9, json.loads(p.stdout.strip().splitlines()[-1]))  # the descriptor the parent passed on is closed
+
+    def test_f1_a_refusal_at_runtime_has_the_wrappers_own_code_and_the_fixed_line(self):
+        argv = confine.argv(self.reads() + [str(self.base / "nope")], [str(self.work)], [sys.executable, "-c", "print(1)"])
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=60, env={"PATH": os.environ.get("PATH", "")})
+        self.assertEqual(p.returncode, confine.EXIT_REFUSED)
+        self.assertEqual(confine.read_refusal(p.stderr), "profile")
+        self.assertEqual(p.stdout, "")
 
     def test_the_exit_code_of_the_command_is_the_exit_code_of_the_program(self):
         for code in (0, 3):
@@ -239,17 +402,17 @@ class KernelTests(KernelCase):
 
 @unittest.skipUnless(ABI and ABI >= confine.NET_ABI, "landlock network rules need ABI 4 (kernel 6.7): the network tests are skipped")
 class NetworkTests(KernelCase):
-    def test_no_network_refuses_tcp_connect_with_the_kernels_error(self):
-        self.assertEqual(self.result(no_network=True)["tcp_connect"], EACCES)
+    def test_no_tcp_refuses_tcp_connect_with_the_kernels_error(self):
+        self.assertEqual(self.result(no_tcp=True)["tcp_connect"], EACCES)
 
     def test_planted_fault_the_same_connect_without_the_option_works(self):
-        self.assertEqual(self.result(no_network=False)["tcp_connect"], 0)
+        self.assertEqual(self.result(no_tcp=False)["tcp_connect"], 0)
 
 
 @unittest.skipUnless(ABI and ABI < confine.NET_ABI, "this kernel has the network ABI: the old-kernel refusal is tested by plan() only")
 class OldKernelTests(KernelCase):
-    def test_no_network_on_an_old_kernel_is_refused_with_kernel_and_the_command_is_not_run(self):
-        p = self.run_child(no_network=True)
+    def test_no_tcp_on_an_old_kernel_is_refused_with_kernel_and_the_command_is_not_run(self):
+        p = self.run_child(no_tcp=True)
         self.assertEqual(p.returncode, confine.EXIT_REFUSED)
         self.assertIn("(kernel)", p.stderr)
 

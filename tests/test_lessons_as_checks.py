@@ -114,6 +114,28 @@ class PrePushTests(unittest.TestCase):
     def test_the_command_refuses_other_words(self):
         self.assertEqual(pre_push.main(["--frobnicate"]), 64)
 
+    def git_repo(self):
+        root = self.tree({"a.txt": "1"})
+        run = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=root, check=True, capture_output=True)
+        run("init", "-q", "-b", "main")
+        run("add", "-A")
+        run("commit", "-q", "-m", "one")
+        return root, run
+
+    def test_a7_a_branch_that_is_behind_main_is_refused(self):
+        root, run = self.git_repo()
+        run("branch", "feature")
+        run("checkout", "-q", "feature")
+        run("checkout", "-q", "main")
+        (root / "b.txt").write_text("2")
+        run("add", "-A")
+        run("commit", "-q", "-m", "two")
+        run("update-ref", "refs/remotes/origin/main", "main")
+        run("checkout", "-q", "feature")
+        self.assertTrue(pre_push.behind_main("origin/main", root))  # main has a commit that the feature branch lacks
+        run("merge", "-q", "--no-edit", "origin/main")
+        self.assertFalse(pre_push.behind_main("origin/main", root))
+
 
 class PrGreenTests(unittest.TestCase):
     HEAD = "a" * 40

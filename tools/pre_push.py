@@ -9,7 +9,9 @@ branch changes:
   * every test file that mentions the NAME of a file the branch changes, moves or deletes (the base name, so a path written in pieces such as
     `REPO / "docs" / "testing.md"` is found too). That is the search I did too late by hand.
 
-and runs them. Exit codes: 0 every test passed (or `--list`), 1 a test failed (the push stops), 64 usage. It never pushes.
+and runs them. A branch that is behind origin/main stops first (A7: merge main before every push): exit 1, and the line names `tools.merge_main`.
+
+Exit codes: 0 every test passed (or `--list`), 1 a test failed or the branch is behind main (the push stops), 64 usage. It never pushes.
 
     python -m tools.pre_push            run them against origin/main
     python -m tools.pre_push --list     only name them
@@ -58,6 +60,12 @@ def changed_paths(base: str = "origin/main", cwd: Path = REPO) -> list:
             out.update(p for p in parts[1:] if p)
     out.update(l for l in _git("ls-files", "--others", "--exclude-standard", cwd=cwd).splitlines() if l)
     return sorted(out)
+
+
+def behind_main(base: str = "origin/main", cwd: Path = REPO) -> bool:
+    """A7: True when `base` has commits that HEAD does not contain, so the branch must be merged with main before a push."""
+    r = subprocess.run(["git", "merge-base", "--is-ancestor", base, "HEAD"], cwd=cwd, capture_output=True, check=False)
+    return r.returncode == 1
 
 
 def _module(path: Path, root: Path) -> str:
@@ -113,6 +121,9 @@ def main(argv, root: Path = REPO) -> int:
     if argv not in ([], ["--list"]):
         print("usage: python -m tools.pre_push [--list | --install]", file=sys.stderr)
         return 64
+    if behind_main(cwd=root):
+        print("pre_push: this branch is behind origin/main: run `python -m tools.merge_main` first, then push", file=sys.stderr)
+        return 1
     mods = modules_for(changed_paths(cwd=root), root)
     print("pre_push: " + str(len(mods)) + " test module(s) for this change:")
     for m in mods:
