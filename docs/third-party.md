@@ -22,7 +22,7 @@ What umwayi-os uses:
 Helpers the owner installs and signs in to (umwayi ships none of them):
 
 - **Claude Code** and **OpenCode**: built, with their own checks.
-- **Kiro**: paused by the owner (account problem, AWS case open). Code and design stay.
+- **Kiro**: paused by the owner. Code and design stay.
 - **Muse Code**: designed (`docs/muse-route-design.md`), not built. No run of Muse has been made by umwayi yet.
 
 What umwayi-os does not do: it does not ship, host, fine tune or resell a model, and it does not train one.
