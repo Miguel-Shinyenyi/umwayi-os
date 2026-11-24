@@ -129,6 +129,25 @@ class NextTests(unittest.TestCase):
         self.assertTrue(pq.next_lines(None, ["T"])[-1].startswith("queue low: 0 of 2"))
 
 
+class NeedsBuildTests(unittest.TestCase):
+    """B-0012: `next --check` says that the session has not finished: the queue is low and a free task is pending."""
+
+    def test_planted_fault_two_pending_free_tasks_and_no_ready_branch_need_a_build(self):
+        self.assertTrue(pq.needs_build(pq.parse(doc(keep=2)), ["First", "Second"]))
+        self.assertTrue(pq.needs_build(pq.parse(doc(O, A, keep=2)), ["First"]))  # one ready of two
+        self.assertTrue(pq.needs_build(None, ["First"]))
+
+    def test_enough_ready_no_task_only_blocked_tasks_or_keep_ready_zero_need_nothing(self):
+        self.assertFalse(pq.needs_build(pq.parse(doc(A, B, keep=2)), ["First"]))
+        self.assertFalse(pq.needs_build(pq.parse(doc(keep=2)), []))
+        self.assertFalse(pq.needs_build(pq.parse(doc(keep=2)), ["One [blocked: an answer]", "Two [blocked: a file]"]))
+        self.assertFalse(pq.needs_build(pq.parse(doc(keep=0)), ["First"]))
+        self.assertFalse(pq.needs_build(None, []))
+
+    def test_one_free_task_among_blocked_ones_needs_a_build(self):
+        self.assertTrue(pq.needs_build(pq.parse(doc(keep=1)), ["One [blocked: an answer]", "Free one"]))
+
+
 class ListTests(unittest.TestCase):
     def test_list_puts_the_open_row_first_then_local_rows_by_order(self):
         lines = pq.list_lines(pq.parse(doc(B, A, O.replace("| 1 |", "| 4 |"))))
@@ -162,6 +181,22 @@ class CommandTests(unittest.TestCase):
             self.assertIn("a-branch", p.stdout)
             self.assertEqual((root / "pr-queue.md").read_bytes(), before)
             self.assertEqual(sorted(x.name for x in root.iterdir()), ["pr-queue.md"])  # no logbook entry, no other file
+
+    def test_next_check_is_exit_3_when_the_queue_is_low_and_still_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "pr-queue.md").write_text(doc(O, keep=2), encoding="utf-8")
+            subprocess.run([sys.executable, "-m", "umwayi", "--root", str(root), "queue", "add", "--kind", "task", "Build the next piece"],
+                           cwd=REPO, capture_output=True, text=True, timeout=60, check=True)
+            before = sorted((x.name, x.read_bytes()) for x in root.iterdir() if x.name == "pr-queue.md")
+            plain = self.run_cmd(root, "next")
+            checked = self.run_cmd(root, "next", "--check")
+            self.assertEqual((plain.returncode, checked.returncode), (0, 3))
+            self.assertEqual(plain.stdout, checked.stdout)  # the same lines; only the exit code differs
+            self.assertIn("queue low: 0 of 2 branches ready", checked.stdout)
+            self.assertEqual(sorted((x.name, x.read_bytes()) for x in root.iterdir() if x.name == "pr-queue.md"), before)
+            (root / "pr-queue.md").write_text(doc(A, B, keep=2), encoding="utf-8")
+            self.assertEqual(self.run_cmd(root, "next", "--check").returncode, 0)
 
     def test_a_bad_file_is_exit_64_and_a_missing_file_is_exit_0(self):
         with tempfile.TemporaryDirectory() as d:
