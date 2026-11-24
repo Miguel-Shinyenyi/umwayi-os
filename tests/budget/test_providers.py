@@ -109,7 +109,7 @@ class DocExampleTests(unittest.TestCase):
     def block(self):
         doc = units.__doc__
         start = doc.index("    providers:\n")
-        end = doc.index("\n\nWithout an acceptance") if "\n\nWithout an acceptance" in doc[start:] else doc.index("\n\nTwo optional keys", start)
+        end = doc.index("\n\n", start)  # the example ends at the first blank line
         return "\n".join(l[4:] for l in doc[start:end].split("\n"))
 
     def test_the_example_is_valid_and_is_marked_as_an_example_with_small_numbers(self):
