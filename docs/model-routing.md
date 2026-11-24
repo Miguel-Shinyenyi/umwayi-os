@@ -6,7 +6,7 @@ This page lists the models that Kiro and OpenCode offer, what their own docs say
 task each one suits. It only proposes options. The owner always chooses the model. Nothing in umwayi reads this table to
 pick a model, and `umwayi routing check` never suggests one.
 
-**Kiro is paused by the owner (2026-11-23): an account problem, no model access, an AWS case is open.** The Kiro rows stay as the record of
+**Kiro is paused by the owner (2026-11-23).** The Kiro rows stay as the record of
 what was read on 2026-11-13, and the code, tests and design for Kiro stay. A run needs the Kiro account to work again, so no row here is a
 promise that a Kiro model can be used today. Nothing in umwayi refuses a Kiro role yet: a goal that names one is not refused by umwayi before the
 Kiro start, so it fails there if the account has no model access. A fixed refusal `kiro_paused`, and one setting that lifts the pause, are designed in `docs/muse-route-design.md` and are

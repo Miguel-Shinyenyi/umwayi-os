@@ -64,7 +64,7 @@ This applies to every provider, not only Muse. It is checked by the umwayi gover
 
 - **Roles.** After M2 is merged and M3 is ticked: tester and guide first. A builder only after five clean tester runs in the logbook, and then the owner is asked. Tests use the fake. A real goal runs with the owner's Yes rules and permission.
 - **Licence lines.** `docs/third-party.md` says what umwayi-os uses and that it ships and hosts no model. The credit line "Built with Muse Spark Open" appears only where a doc, UI or video shows a Spark Open run. No Meta logo. The data-use sentence above goes with it.
-- **Kiro paused, not removed.** "Paused by the owner, account problem (no model access), AWS case open." Code, tests and design stay. A goal that names a Kiro role gets the fixed refusal `kiro_paused`, never a silent switch to another helper. The owner lifts the pause with one setting (Q6).
+- **Kiro paused, not removed.** "Paused by the owner." Code, tests and design stay. A goal that names a Kiro role gets the fixed refusal `kiro_paused`, never a silent switch to another helper. The owner lifts the pause with one setting (Q6).
 
 ### Fixed refusal words
 
