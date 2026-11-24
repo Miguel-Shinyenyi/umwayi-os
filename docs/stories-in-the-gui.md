@@ -1,10 +1,12 @@
-# Stories in the UI (U1, step 1: design note)
+# Stories in the GUI (U1, step 1: design note)
 
 ## Purpose
 
-Each feature of umwayi-os has a story: what was missing, one analogy and where it stops being true, what the feature does and does not do, and what the owner checks by hand. Today a story is written for a pull request (the template asks for it, `tools/pr_story.py` checks that it exists) and, when the owner asks, for a video. This note designs one more use of the SAME story: a panel in the browser layer that sits on top of the terminal. One story per feature, written once, used three times: in the pull request text, in a video, and in the UI.
+The GUI here is the browser layer that sits on top of the umwayi commands (item 16 of the promoted queue). It is NOT the 3D scene page.
 
-The terminal stays the source of truth. The UI calls the same commands and reads the same files. It decides nothing the terminal does not decide and has no new power. Videos do not wait for the UI: both are made from the same story file in parallel, and posting a video is the owner's act. This note is docs only and builds nothing.
+Each feature of umwayi-os has a story: what was missing, one analogy and where it stops being true, what the feature does and does not do, and what the owner checks by hand. Today a story is written for a pull request (the template asks for it, `tools/pr_story.py` checks that it exists) and, when the owner asks, for a video. This note designs one more use of the SAME story: a panel in the browser layer that sits on top of the terminal. One story per feature, written once, used three times: in the pull request text, in a video, and in the GUI.
+
+The terminal stays the source of truth. The GUI calls the same commands and reads the same files. It decides nothing the terminal does not decide and has no new power. Videos do not wait for the GUI: both are made from the same story file in parallel, and posting a video is the owner's act. This note is docs only and builds nothing.
 
 ## Current state
 
@@ -15,9 +17,9 @@ What exists, checked on 2026-11-24:
 - **Stories as text.** The pull request template has a Story and a Record part and `tools/pr_story.py` fails an owner-stop pull request whose story is too short. `docs/story-guide.md` is the guide for articles and videos. The first concept video of this kind (the fuel gauge, PR 215) and its script live outside the repository, in the owner's video pack.
 - **Not in the repository:** a story file format, a folder of stories, a panel, a list view of stories, and a command that exports stories for a page. The brief also names a base rules library with toggles that the panels sit after; I did not find it in the repository, so this note does not rely on it.
 
-### The rules the UI keeps
+### The rules the GUI keeps
 
-1. **The terminal is the source of truth.** A panel shows the real output of the command it explains and the exact command to type ("show me in the terminal"), so the UI teaches the terminal and never replaces it.
+1. **The terminal is the source of truth.** A panel shows the real output of the command it explains and the exact command to type ("show me in the terminal"), so the GUI teaches the terminal and never replaces it.
 2. **The words on screen are the words the command prints.** A story names its fixed words (for example `provider_unknown`, `no_acceptance`, `unchanged`, `changed`). A test checks that each word appears in the code the story names.
 3. **Built or planned is always shown.** A story says `built`, `partly` or `planned`, and "cooperative today" is shown wherever it is true. No story, caption or panel says enforced, sandboxed or confined until one real enforced run (W40) has finished a goal. The honesty scan runs on every story.
 4. **Local only.** `umwayi serve` stays local. There is no hosted or multi user claim.
@@ -56,7 +58,7 @@ It does not prove that a story is good (the owner and the guide read it), that a
 
 ## Decisions log
 
-- 2026-11-24 (owner): the stories that make a video also build the UI on top of the terminal. The videos do not wait. Posting stays the owner's act.
+- 2026-11-24 (owner): the stories that make a video also build the GUI on top of the terminal. The videos do not wait. Posting stays the owner's act.
 - 2026-11-24 (this note): the order of work, one pull request open at a time. (1) This note, docs only. (2) The four story files and their tests. (3) A read only command that exports the stories for the page (a new command: owner stop). (4) The list view and the panels (owner stop). (5) Later, live state through a read only snapshot.
 
 ## Open questions
