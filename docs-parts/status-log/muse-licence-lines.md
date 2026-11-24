@@ -1,0 +1,4 @@
+date: 2026-11-24
+pr: 212
+what: M5, docs only. `docs/third-party.md` says what umwayi-os uses (Python standard library only, `three` and `esbuild` in `ui/`, `next`, `react`, `react-dom` and `three` in `site/`, `git`, `gh` (only in two tools) and `ssh-keygen` with the owner's own login and key, and the Landlock and Seatbelt operating system features), that the helpers (Claude Code, OpenCode, Muse Code, and the paused Kiro) are installed by the owner and not shipped, and that umwayi ships, hosts and trains no model. The credit line "Built with Muse Spark Open" is for a page, screen or video that shows a Spark Open run; there is none yet, so it is not used anywhere. No Meta logo. On free credits, content sent to Muse may be used by Meta for product improvement, so only public umwayi-os work is sent. The README licence section links the page.
+tests: the docs tests (headings, links, no em dashes, stale statements).
