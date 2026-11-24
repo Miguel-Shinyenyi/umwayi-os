@@ -365,7 +365,7 @@ class CommandTests(unittest.TestCase):
         self.assertTrue(goal.status_lines(ctx)[-1].startswith("enforcement: enforced. Enforcement is cooperative today and enforced where built."))
         text = goalrun.tester_prompt(types.SimpleNamespace(goal="g", checks=("c",)), "b", "0" * 40, "N", mode="enforcement: enforced")
         # W78 5(a): the mode is in the task card at the start of the prompt, before the task itself
-        self.assertIn("Mode: enforcement: enforced\n", text)
+        self.assertIn("Mode: enforcement: enforced. Enforcement is cooperative today and enforced where built.\n", text)
         self.assertLess(text.index("Mode: enforcement: enforced"), text.index("Task that was built"))
         source = (REPO / "umwayi" / "agents.py").read_text(encoding="utf-8")
         self.assertIn("enforce.mode_text(root, a.name, today=self.clock())", source)
