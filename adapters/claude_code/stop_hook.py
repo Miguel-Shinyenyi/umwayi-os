@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Claude Code Stop hook for umwayi-os (B-0012, item 3): a session does not end its turn while the queue is low and a free task is pending.
 
-Claude Code runs this when it is about to stop, with the hook input as JSON on stdin. The script reads the PR queue of the umwayi root, as
-`umwayi pr queue next --check` does, and answers:
+Claude Code runs this when it is about to stop, with the hook input as JSON on stdin. The script asks umwayi, as a separate process (an adapter
+never imports umwayi), `umwayi kill status` and `umwayi pr queue next --check` (exit 3: the queue is low and a free task is pending), and answers:
 
   * nothing on stdout and exit 0: let the session stop;
   * exit 0 and one JSON object {"decision": "block", "reason": "..."} on stdout: do not stop, here is why (the documented way for a
@@ -60,15 +60,31 @@ def _count(path) -> int:
         return 0
 
 
+def _umwayi(root, src, args, timeout=10):
+    """(exit code, stdout) of `python -m umwayi --root ROOT ARGS`, a separate process (an adapter never imports umwayi). (None, "") on any problem."""
+    import os
+    import subprocess
+    env = dict(os.environ)
+    if src is not None:
+        env["PYTHONPATH"] = os.pathsep.join([str(src)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+    try:
+        p = subprocess.run([sys.executable, "-m", "umwayi", "--root", str(root), *args], capture_output=True, text=True, timeout=timeout,
+                           env=env, cwd=str(root), shell=False, check=False, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return None, ""
+    return p.returncode, p.stdout[:20000]
+
+
 def main(argv, stdin, stdout, stderr) -> int:
     import json
     from pathlib import Path
 
     here = Path(__file__).resolve()
-    sys.path.insert(0, str(here.parents[2]))  # the folder that holds the umwayi package
+    sys.path.insert(0, str(here.parents[2]))  # the folder that holds the adapters package
     try:
+        from adapters.common import umwayi_gate as gate
         root, mx = _args(argv)
-        if root is None:
+        if root is None or not Path(root).is_dir():
             stderr.write("usage: stop_hook.py --root ROOT [--max-blocks N]\n")
             return 0
         try:
@@ -77,16 +93,17 @@ def main(argv, stdin, stdout, stderr) -> int:
             return 0
         if not isinstance(data, dict) or data.get("hook_event_name") != "Stop":
             return 0
-        from umwayi import kill, prqueue
-        if kill.state(Path(root)) != kill.OFF:
-            return 0
-        doc = prqueue.read(root)
-        pending = prqueue.pending_titles(root)
+        src = gate.find_umwayi_src(here.parent)
+        code, out = _umwayi(root, src, ["kill", "status"])
+        if code != 0 or out.strip() != "off":
+            return 0  # the kill switch is on or unknown, or umwayi could not be run: let the session stop
         state = Path(root).joinpath(*STATE_REL)
         counter = state / _session(data)
-        if not prqueue.needs_build(doc, pending):
+        code, out = _umwayi(root, src, ["pr", "queue", "next", "--check"])
+        if code != 3:  # 0: the queue is not low (or nothing free is pending); 64 or anything else: unreadable, so do not block
             try:
-                counter.unlink()
+                if code == 0:
+                    counter.unlink()
             except OSError:
                 pass
             return 0
@@ -99,7 +116,7 @@ def main(argv, stdin, stdout, stderr) -> int:
             counter.write_text(str(n + 1), encoding="utf-8")
         except OSError:
             return 0  # cannot count: cannot promise to stop blocking, so do not block
-        low = next((l for l in prqueue.next_lines(doc, pending) if l.startswith("queue low")), "queue low")
+        low = next((l for l in out.splitlines() if l.startswith("queue low")), "queue low")
         low = low.split(" Nothing is started")[0]  # the sentence about the command is not for the session
         stdout.write(json.dumps({"decision": "block", "reason": f"umwayi: {low} Do not end the turn: build the next task first, then end "
                                                                f"(block {n + 1} of {mx})."}) + "\n")
