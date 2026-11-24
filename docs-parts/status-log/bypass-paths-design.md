@@ -1,0 +1,4 @@
+date: 2026-11-24
+pr: none
+what: J1, step 1, a design note and a finding, docs only. `docs/bypass-resistance-design.md` lists the six paths to try from inside a confined run (a network call that skips the broker, a git push with a stored login, a write outside the allowed folders, a read of a credential file, a second process that drops the confinement, a shell command that never goes through the hook), the layer that should refuse each, the test that exists today, what works today and what needs proof, with four open questions and recommendations. Writing it found that `agents.py` builds the confined command without `no_tcp`, so a confined run has the network open: KNOWN-LIMITS 344. Nothing is built; nothing says enforced for a real run.
+tests: the docs tests (headings, links, no em dashes, stale statements) and the KNOWN-LIMITS numbers.
