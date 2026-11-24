@@ -49,7 +49,7 @@ class ParseTests(unittest.TestCase):
             "an id used twice": table(row("G-0001"), row("G-0001")),
             "a status that is not one": table(row(status="pending")),
             "an empty text": table(row(text=" ")),
-            "a text over 400 characters": table(row(text="x" * 401)),
+            "a text over the limit": table(row(text="x" * (ch.MAX_TEXT + 1))),
             "a row with too few columns": HEAD + "| 2026-11-24 | guide | builder | G-0001 | text |\n",
             "an em dash": table(row(text="A note—here")),
             "a tab": table(row(text="A\tnote")),
@@ -61,6 +61,12 @@ class ParseTests(unittest.TestCase):
                     ch.parse(text)
                 self.assertNotIn("Recommendation", str(cm.exception))
                 self.assertRegex(str(cm.exception), r"line \d+|no table|no separator|id is used twice|em dash")
+
+    def test_rows_of_the_real_folder_that_were_400_to_713_characters_long_parse(self):
+        """The first real CHANNEL.md had eight rows between 429 and 713 characters, written by both writers; the old limit of 400 made the whole inbox fail."""
+        for n in (429, 541, 713, 1000):
+            with self.subTest(n=n):
+                self.assertEqual(len(ch.parse(table(row(text="Re B-0001: " + "a" * (n - 11))))), 1)
 
     def test_the_error_names_the_line(self):
         with self.assertRaises(ch.ChannelError) as cm:
@@ -98,9 +104,10 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(ch.inbox_lines([], "builder", set()), ["Inbox of the builder: no open entries."])
 
     def test_the_text_is_cut_and_has_no_control_characters(self):
-        long = ch.parse(table(row(text="a" * 400)))
-        self.assertLessEqual(len(ch.inbox_lines(long, "builder", set())[1]), 300 + 40)
-        self.assertTrue(ch.inbox_lines(long, "builder", set())[1].endswith("..."))
+        longest = ch.parse(table(row(text="a" * ch.MAX_TEXT)))
+        self.assertIn("a" * ch.MAX_TEXT, ch.inbox_lines(longest, "builder", set())[1])  # a valid row is shown whole
+        cut = ch._show("a" * (ch.SHOW_CHARS + 500))
+        self.assertEqual((len(cut), cut.endswith("...")), (ch.SHOW_CHARS, True))
         self.assertEqual(ch._show("a\x1b[31mred\x07"), "a [31mred ")
 
 
