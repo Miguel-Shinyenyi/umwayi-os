@@ -1,4 +1,4 @@
 date: 2026-11-24
 pr: none
 what: U1 step 2. `docs/stories/` holds the four story files (broker, sandbox-settings, provenance, fuel-gauge), each with the keys of the note plus `code` (the files that must hold the fixed words), five scenes with a tone, an honesty line and a built state. The fuel gauge is `partly` and says that nothing calls the gate yet. The broker, sandbox and provenance stories name their real commands and words (`umwayi agent check`, `umwayi verify PATH`, the broker refusal words). `tests/test_stories.py` checks the keys, the five scenes, the tones and chips, that every fixed word is in the code the story names, at least 100 words of prose, no em dash and the honesty scan of `tools/pr_story.py`, with a planted fault for each. Docs and tests only; no command and no page reads the files yet (step 3 is a read only export command, an owner stop).
-tests: `tests/test_stories.py` (4 real stories, 8 planted faults).
+tests: `tests/test_stories.py` (the 4 real stories and a planted fault for each rule).
