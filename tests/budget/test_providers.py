@@ -98,6 +98,68 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(st["providers.muse.acceptance"], "14000 UU (2026-11-23, owner)")
 
 
+class DocExampleTests(unittest.TestCase):
+    """The example in the units module text is a placeholder and it is a valid file (Q1 of QUEUE.md: it must not read like a real record)."""
+
+    @staticmethod
+    def looks_real(text):
+        """A real looking record: it is not marked as an example, or it names no placeholder provider, or it has the real amount."""
+        return "EXAMPLE ONLY" not in text or "example-provider" not in text or "14000" in text
+
+    def block(self):
+        doc = units.__doc__
+        start = doc.index("    providers:\n")
+        end = doc.index("\n\n", start)  # the example ends at the first blank line
+        return "\n".join(l[4:] for l in doc[start:end].split("\n"))
+
+    def test_the_example_is_valid_and_is_marked_as_an_example_with_small_numbers(self):
+        text = self.block()
+        u, p = units.check_text("version: 1\n" + text, "2026-11-24")
+        self.assertEqual([x.message for x in p], [])
+        self.assertIn("example-provider", u.providers)
+        self.assertFalse(self.looks_real(text))
+        self.assertEqual(u.providers["example-provider"].limit["credits_uu"], 1000)
+        self.assertEqual(u.providers["example-provider"].acceptance["date"], "2026-01-01")
+
+    def test_planted_fault_the_old_real_looking_example_would_be_caught(self):
+        old = self.block().replace("example-provider", "muse").replace("1000", "14000").replace("2026-01-01", "2026-11-24").replace("EXAMPLE ONLY", "x")
+        self.assertTrue(self.looks_real(old))  # the check above fails on exactly this
+
+
+class RepoAcceptanceTests(unittest.TestCase):
+    """M1i: the owner's acceptance of free credits for the public repository is in the units.yaml at the root of this repo."""
+    PATH = Path(__file__).resolve().parent.parent.parent / "units.yaml"
+
+    def load(self):
+        u, p = units.check_text(self.PATH.read_text(encoding="utf-8"), "2026-11-24")
+        self.assertEqual([x.message for x in p], [])
+        return u
+
+    def test_the_file_is_valid_and_accepts_muse_free_credits_and_nothing_else(self):
+        u = self.load()
+        self.assertEqual(sorted(u.providers), ["muse"])
+        m = u.providers["muse"]
+        self.assertEqual((m.cost_kind, m.limit, m.acceptance["source"], m.acceptance["date"]),
+                         ("free_credits", {"credits_uu": 10000}, "owner", "2026-11-24"))
+        self.assertEqual(units.provider_gate(u, "muse"), ("yes", "accepted"))
+        self.assertEqual(units.provider_gate(u, "another"), ("ask", "provider_unknown"))
+        self.assertEqual(u.platforms, {})  # no reading or rate of a platform is changed by this file
+
+    def test_the_acceptance_never_exceeds_the_limit_and_the_file_says_public_only(self):
+        u = self.load()
+        self.assertLessEqual(u.providers["muse"].acceptance["amount_uu"], u.providers["muse"].limit["credits_uu"])
+        text = self.PATH.read_text(encoding="utf-8")
+        self.assertIn("PUBLIC umwayi-os repository only", text)
+        self.assertIn("never private or employer code", text)
+
+    def test_planted_fault_without_the_acceptance_block_the_gate_asks(self):
+        text = self.PATH.read_text(encoding="utf-8")
+        cut = text[:text.index("    acceptance:")]
+        u, p = units.check_text(cut, "2026-11-24")
+        self.assertEqual(p, [])
+        self.assertEqual(units.provider_gate(u, "muse"), ("ask", "no_acceptance"))
+
+
 class GateTests(unittest.TestCase):
     def gate(self, text, name="muse"):
         u, p = parse(text)

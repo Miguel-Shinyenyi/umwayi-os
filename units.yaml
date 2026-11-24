@@ -1,0 +1,15 @@
+version: 1
+# The owner's acceptance of free credits for the PUBLIC umwayi-os repository only (D-93, 2026-11-24). Content sent to Muse on free
+# credits may be used by Meta for product improvement: never private or employer code, never a secret. The amount is the owner's own
+# figure (W1, 2026-11-24), below what the billing page showed, so that a stop line taken as a share of it errs on the safe side. Withdraw the acceptance by removing
+# the acceptance block. The owner approves this file at the merge of the pull request that adds it (an owner stop).
+providers:
+  muse:
+    cost_kind: free_credits
+    limit:
+      credits_uu: 10000
+    acceptance:
+      accepted_free: true
+      date: 2026-11-24
+      amount_uu: 10000
+      source: owner
