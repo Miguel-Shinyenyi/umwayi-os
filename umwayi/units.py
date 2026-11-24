@@ -27,14 +27,14 @@ is shown (B.R1.2). units.yaml in the root says how each platform's reading becom
 A provider is a source of limits (M4 a, the Muse route). It is optional and does not change any reading above:
 
     providers:
-      muse:
+      example-provider:          # EXAMPLE ONLY, not a record: no file of this repository holds an acceptance
         cost_kind: free_credits    # free_credits, subscription or paid
         limit:                     # what the provider sets, in UU (one UU is one cent)
-          credits_uu: 14000        # free_credits: credits_uu; subscription: five_hour_uu and or weekly_uu; paid: cap_uu
-        acceptance:                # written by the owner: they accept this provider for the work named in the source
-          accepted_free: true
-          date: 2026-11-24
-          amount_uu: 14000
+          credits_uu: 1000         # free_credits: credits_uu; subscription: five_hour_uu and or weekly_uu; paid: cap_uu
+        acceptance:                # the owner writes this, only after accepting; leave it out to withdraw or not give it
+          accepted_free: true      # only true is allowed: to say no, remove the whole acceptance block
+          date: 2026-01-01
+          amount_uu: 1000
           source: owner
 
 Without an acceptance a free credit or subscription provider is Ask me first; a paid provider is Ask me first on every goal, so an

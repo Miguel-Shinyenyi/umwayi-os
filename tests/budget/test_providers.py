@@ -98,6 +98,34 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(st["providers.muse.acceptance"], "14000 UU (2026-11-23, owner)")
 
 
+class DocExampleTests(unittest.TestCase):
+    """The example in the units module text is a placeholder and it is a valid file (Q1 of QUEUE.md: it must not read like a real record)."""
+
+    @staticmethod
+    def looks_real(text):
+        """A real looking record: it is not marked as an example, or it names no placeholder provider, or it has the real amount."""
+        return "EXAMPLE ONLY" not in text or "example-provider" not in text or "14000" in text
+
+    def block(self):
+        doc = units.__doc__
+        start = doc.index("    providers:\n")
+        end = doc.index("\n\nWithout an acceptance") if "\n\nWithout an acceptance" in doc[start:] else doc.index("\n\nTwo optional keys", start)
+        return "\n".join(l[4:] for l in doc[start:end].split("\n"))
+
+    def test_the_example_is_valid_and_is_marked_as_an_example_with_small_numbers(self):
+        text = self.block()
+        u, p = units.check_text("version: 1\n" + text, "2026-11-24")
+        self.assertEqual([x.message for x in p], [])
+        self.assertIn("example-provider", u.providers)
+        self.assertFalse(self.looks_real(text))
+        self.assertEqual(u.providers["example-provider"].limit["credits_uu"], 1000)
+        self.assertEqual(u.providers["example-provider"].acceptance["date"], "2026-01-01")
+
+    def test_planted_fault_the_old_real_looking_example_would_be_caught(self):
+        old = self.block().replace("example-provider", "muse").replace("1000", "14000").replace("2026-01-01", "2026-11-24").replace("EXAMPLE ONLY", "x")
+        self.assertTrue(self.looks_real(old))  # the check above fails on exactly this
+
+
 class GateTests(unittest.TestCase):
     def gate(self, text, name="muse"):
         u, p = parse(text)
