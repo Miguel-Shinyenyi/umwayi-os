@@ -665,6 +665,16 @@ guidance:
     tier: 2
     source_hash: "68b9a80c7565ed9ffd7abcbabacab542de092e3679e892e1de9781eb938c9344"
     review_by: "2027-02-22"
+  - id: lesson-c21
+    source_repo: umwayi-os
+    source: "docs/supervisor-lessons.md#Lessons C#21"
+    text: "Do not end a turn after a report while a task is pending and the queue is low: build the next task first."
+    kind: enforce
+    test: "tests/test_prqueue.py test_planted_fault_two_pending_free_tasks_and_no_ready_branch_need_a_build"
+    applies_to: task
+    tier: 2
+    source_hash: "06d2bc03417b81e61db53eef605f1e1ae47dd156806f1fe39a02a2142586fb9d"
+    review_by: "2027-02-22"
   - id: lesson-d1
     source_repo: umwayi-os
     source: "docs/supervisor-lessons.md#Lessons D#1"
