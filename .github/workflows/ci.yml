@@ -16,6 +16,7 @@ name: tests
 # The checks (names) are listed in docs/testing.md and in the pull request that introduced this file.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -28,9 +29,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# N9: a draft pull request runs nothing. Every job is skipped while the pull request is a draft, so a branch that is not next in line
+# does not use the runners (a free account runs about 20 jobs at once and one pull request runs about 10). `ready_for_review` starts the
+# run when the draft is marked ready. `result` is skipped too, so a draft has no required check and cannot be merged by mistake.
+# A push to main has no pull_request, so `github.event.pull_request.draft` is empty there and the full suite still runs.
 jobs:
   plan:
     name: plan
+    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     outputs:
       plan: ${{ steps.plan.outputs.plan }}
@@ -115,7 +121,7 @@ jobs:
   result:
     name: result
     needs: [plan, test, node]
-    if: always()
+    if: always() && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

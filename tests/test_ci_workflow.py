@@ -43,7 +43,7 @@ class JobTests(unittest.TestCase):
 
     def test_plan_always_runs_and_reads_the_diff_with_full_history(self):
         j = job("plan")
-        self.assertNotIn("\n    if:", "\n" + j)
+        self.assertEqual(re.findall(r"\n    if: (.*)", "\n" + j), ["github.event.pull_request.draft != true"])  # N9: only the draft guard
         self.assertIn("fetch-depth: 0", j)
         self.assertIn("python -m tools.ci_plan", j)
         self.assertIn("EVENT: ${{ github.event_name }}", j)
