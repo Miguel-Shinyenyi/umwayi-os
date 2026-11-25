@@ -72,6 +72,7 @@
   "tests/agents/test_proc_fallback.py": ["adapters"],
   "tests/agents/test_sandbox_settings.py": ["adapters"],
   "tests/agents/test_seatbelt_wiring.py": [],
+  "tests/agents/test_token_env.py": ["adapters"],
   "tests/agents/test_unchecked_tool_calls.py": ["adapters"],
   "tests/autonomy/test_gates.py": ["rules.yaml"],
   "tests/autonomy/test_guards.py": ["adapters", "rules.yaml"],
