@@ -1,0 +1,4 @@
+date: 2026-11-25
+pr: 266
+what: M3, a docs note first (G-0085, the owner's yes at 22:12): `docs/muse-real-check.md`. What ONE real `muse exec` run proves (the start through the gates, the exit code and output shape, whether a terminal is needed, whether the stored sign-in alone works, about what a tiny run costs) and what it does not (the sandbox, the hook format unless a tool is called, a long goal, private work); the steps (credits before, a scratch root with a COPY of the owner's `units.yaml`, one read only prompt capped at three steps, credits at once and an hour later, a report); the stops; three open questions with a recommendation. Nothing was run and nothing is built. The design note of the Muse start links it.
+tests: none new; the docs tests (the four parts, the links, the line count).
