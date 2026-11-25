@@ -122,7 +122,7 @@ The rule of the owner's acceptance (D-93) is that work sent over a free route ma
   marked public. The line says the next step ("only a root the owner marked public may go over a free route") and nothing is started. A local provider is never refused for this.
 - **The mark:** the owner writes `public: true` by hand and the code reads it and never writes it (G-0046 for Muse). It is never inferred from a repository name or a remote.
 - **Tests to write first:** a free route with no mark is refused and starts nothing; the same with the mark runs; a local provider with no mark runs; a mark that is `"true"` as text or `1` is no mark.
-- **Built (G-0076, 2026-11-25).** `agent run` of an OpenCode agent on the free tier is refused with `private_repo_named` (exit 2, before the budget reservation, nothing started) unless `units.yaml` has the top level key `public: true`, written by the owner. Not covered: `agent chat` over the free route (a chat has no budget step), and Muse (its own refusal is Muse step 3). The repository's own `units.yaml` is not marked.
+- **Built (G-0076, 2026-11-25).** `agent run` of an OpenCode agent on the free tier is refused with `private_repo_named` (exit 2, before the budget reservation, nothing started) unless `units.yaml` has the top level key `public: true`, written by the owner. It covers `agent run` and `agent chat` alike: both go through the budget step where the check sits. Not covered: Muse (its own refusal is Muse step 3). The repository's own `units.yaml` is not marked.
 
 ## What it does not prove
 

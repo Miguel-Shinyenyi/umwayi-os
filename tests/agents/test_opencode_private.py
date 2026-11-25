@@ -1,4 +1,4 @@
-"""G-0076: an OpenCode run over the free route needs the owner's public mark (`public: true` in units.yaml), else `private_repo_named` and nothing starts.
+"""G-0076: an OpenCode run or chat over the free route needs the owner's public mark (`public: true` in units.yaml), else `private_repo_named` and nothing starts.
 A local provider (the default of these tests, ollama) is never refused for this. Real child processes with the fake `opencode acp`; no real OpenCode is run."""
 import unittest
 
@@ -31,6 +31,12 @@ class FreeRouteRunTests(RunCase):
         self.assertIn("public: true", r.stdout)
         self.assertEqual(self.prompts(), [])  # no prompt was sent
         self.assertEqual(self.new_sessions(), [])  # and no session was opened
+
+    def test_a_chat_over_the_free_route_is_refused_too(self):
+        r = self.run_chat("hi\n:quit\n")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn(WORD, r.stdout)
+        self.assertEqual(self.new_sessions(), [])  # no session was opened
 
     def test_the_refusal_is_in_the_logbook_with_the_word(self):
         self.run_run("Say hello.")
