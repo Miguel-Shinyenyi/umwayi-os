@@ -102,6 +102,7 @@ One fixed reason each, so a test can pin them and a person can search them. Ever
 - 2026-11-23 (owner, 16:22): goal shares, and the caps derived from them.
 - 2026-11-23 (this note): the sandbox is treated as unconfirmed until M3; `--disable-approval` is refused until then.
 - 2026-11-23 (this note): the account amounts are not written in this public repo; the owner writes them in `units.yaml`.
+- 2026-11-25 (M2, first part): `umwayi/muse.py` builds the command, scrubs the key variables, writes the hook text and checks the facts, with a fake only; it starts nothing. Two reason words are new: `sandbox_unconfirmed` (for `--disable-approval`) and `step_cap_missing`. The format of `.muse/hooks.json` is assumed to match Claude Code's and is unconfirmed until M3. The start through `agents.py` is the next part (an owner stop).
 
 ## Open questions
 
