@@ -81,7 +81,8 @@ class AgentStartTests(unittest.TestCase):
         text = Path(agents.__file__).read_text(encoding="utf-8")
         src = text.split("def _confine_argv", 1)[1].split("def _confine_end", 1)[0]
         self.assertLess(src.index("seatbelt.start_allowed()"), src.index("seatbelt.confined_argv("))
-        self.assertIn("if ok:", src)  # a refusal falls through to the old path, which refuses off Linux
+        self.assertIn("if seat:", src)  # a refusal leaves `seat` False, and the old path runs and refuses off Linux
+        self.assertEqual(src.count("mkdtemp"), 1)  # one temporary folder per confined run, as the guard test of agents.py wants
 
 
 if __name__ == "__main__":

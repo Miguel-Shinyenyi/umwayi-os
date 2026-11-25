@@ -2363,19 +2363,17 @@ class _Run:
         fixed reason; the caller refuses the start. Not wanted: the argument list as it is."""
         if not self._broker_wanted() or not self.agent.confine:
             return argv
-        if confine.platform_is_not_linux():  # macOS: Seatbelt, which refuses (as before) until the owner's check has set CHECKED_ON_MAC
-            ok, _why = seatbelt.start_allowed()
-            if ok:
-                tmp = tempfile.mkdtemp(prefix="umwayi-t", dir="/tmp" if os.path.isdir("/tmp") else None)
-                self.confine_tmp = tmp
-                return seatbelt.confined_argv(argv, self.agent.workdir, str(self.root), tmp, os.environ.get("HOME"), sys.executable,
-                                              str(Path(__file__).resolve().parent.parent), os.environ.get("CLAUDE_CONFIG_DIR"))
-        abi = confine.abi_version()
-        confine.plan(abi, False)  # unavailable: no Landlock here
+        # macOS: Seatbelt, which refuses (as before) until the owner's check has set seatbelt.CHECKED_ON_MAC
+        seat = confine.platform_is_not_linux() and seatbelt.start_allowed()[0]
+        if not seat:
+            abi = confine.abi_version()
+            confine.plan(abi, False)  # unavailable: no Landlock here
         tmp = tempfile.mkdtemp(prefix="umwayi-t", dir="/tmp" if os.path.isdir("/tmp") else None)
         self.confine_tmp = tmp
-        read, write = confine.run_paths(argv[0], self.agent.workdir, str(self.root), tmp, os.environ.get("HOME"), sys.executable,
-                                        str(Path(__file__).resolve().parent.parent), os.environ.get("CLAUDE_CONFIG_DIR"))
+        source, config = str(Path(__file__).resolve().parent.parent), os.environ.get("CLAUDE_CONFIG_DIR")
+        if seat:
+            return seatbelt.confined_argv(argv, self.agent.workdir, str(self.root), tmp, os.environ.get("HOME"), sys.executable, source, config)
+        read, write = confine.run_paths(argv[0], self.agent.workdir, str(self.root), tmp, os.environ.get("HOME"), sys.executable, source, config)
         return confine.argv(read, write, argv)
 
     def _confine_end(self) -> None:
