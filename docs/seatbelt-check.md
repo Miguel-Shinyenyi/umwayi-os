@@ -14,6 +14,8 @@ The steps, from a fresh checkout of main (`git pull` in the umwayi-os folder):
 3. In a scratch folder with a throwaway git repo (never your own repo), run the claude version command under the profile. Add the folder of the claude install to the read list (`python3 -c "import os,shutil;print(os.path.dirname(os.path.realpath(shutil.which('claude'))))"`):
    `python3 /PATH/TO/umwayi-os/umwayi/seatbelt.py run --read /usr --read /bin --read /System --read /Library --read /private/etc --read /dev --read /opt --read "$HOME/.claude" --read CLAUDE_INSTALL_FOLDER --write "$PWD" --i-am-testing -- "$(which claude)" --version`. Expect a version line. Do not start a Claude Code session, do not touch the Keychain, and do not paste any token, key or sign-in.
 
+Sign-in under Seatbelt (G-0059, not built yet): the design is in [the sign-in note](seatbelt-signin-design.md). When it is built, you create the token yourself, with `claude setup-token` in your own terminal, and set `CLAUDE_CODE_OAUTH_TOKEN` in the shell you run the check from. Never paste it anywhere; nobody asks for the value.
+
 What to send back: the exact output lines of steps 1 and 2 (shorten any path that holds a user name), pass or fail for each expectation, the macOS version (`sw_vers -productVersion`), and whether step 3 needed any read path beyond the list above.
 
 ## Decisions log
