@@ -61,7 +61,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, budget, confine, kill, logbook, miniyaml, muse, rules, runlock, seatbelt, taskqueue, telemetry, toolcheck, units, watched
+from umwayi import __version__, acp, budget, confine, credits, kill, logbook, miniyaml, muse, rules, runlock, seatbelt, taskqueue, telemetry, toolcheck, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -2281,6 +2281,17 @@ class _Run:
                            "owner's public mark before a free route", "Nothing was started.")
             return self.result(2, [f"agent: {PRIVATE_REPO_NAMED}: only a root the owner marked public (public: true in units.yaml) may go over a "
                                    f"free route. {not_started} (exit 2)"], why)
+        if a.platform == "muse":  # M2 part 2, step 3: the public mark, the acceptance and the stop line, before anything is reserved or started
+            try:
+                readings = credits.read(root)
+            except ConfigError:
+                readings = {}  # a broken credits.yaml is no reading: the stop line then asks
+            blocked = muse.gates(u, readings, self.clock())
+            if blocked is not None:
+                code, reason, text = blocked
+                why = self.log(f"Refused agent {a.name}: {reason}", "the gate checks passed, then the public mark, the acceptance and the stop "
+                               "line of the provider were checked", "Nothing was started.")
+                return self.result(code, [f"agent: {text} {not_started} (exit {code})"], why)
         cap_uu = self.options.cap_uu
         if cap_uu is not None:  # units.yaml may have changed since run_agent read it: the cap is checked again
             problem = budget.cap_problem(u, cap_uu)

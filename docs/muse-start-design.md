@@ -49,6 +49,7 @@ Each step says in its pull request that the label stays cooperative, plus Muse's
 - 2026-11-25 (G-0046, earlier): the `public: true` mark is a key on the `muse` provider in `units.yaml`, written by the owner.
 
 - 2026-11-25 (step 2 built): a run is `muse exec` with the prompt as the LAST argument (Q-m1, as recommended), the step cap is the agent's `max_turns` (a Muse agent without one is not started, `step_cap_missing`), the child environment is the whole environment minus the Muse and Meta key variables (names only are logged), and a chat, a login, `--model` and `--effort` are refused. `--yolo` and `--disable-sandbox` stay out of `FORBIDDEN_FLAGS` for now: `muse.exec_argv` never builds them and nine tests loop over that tuple.
+- 2026-11-25 (step 3 built, G-0079): before anything is reserved or started, a Muse run passes three gates in this order: the owner's `public: true` mark of `units.yaml` (the same key as the OpenCode free route, `private_repo_named`, exit 2), the acceptance of the provider `muse` (`provider_unknown` or `no_acceptance`, Ask me first, exit 3), and the stop line with the reading of `credits.yaml` (`credits_low`, exit 2; a missing or stale reading is `use_unknown`, exit 3). The key is NOT on the muse provider as G-0046 first said: the owner's merge word of 261 made it one top level key for both routes.
 
 ## Open questions
 
