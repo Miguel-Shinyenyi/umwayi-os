@@ -61,7 +61,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, budget, confine, kill, logbook, miniyaml, rules, runlock, taskqueue, telemetry, toolcheck, units, watched
+from umwayi import __version__, acp, budget, confine, kill, logbook, miniyaml, rules, runlock, seatbelt, taskqueue, telemetry, toolcheck, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -2363,6 +2363,13 @@ class _Run:
         fixed reason; the caller refuses the start. Not wanted: the argument list as it is."""
         if not self._broker_wanted() or not self.agent.confine:
             return argv
+        if confine.platform_is_not_linux():  # macOS: Seatbelt, which refuses (as before) until the owner's check has set CHECKED_ON_MAC
+            ok, _why = seatbelt.start_allowed()
+            if ok:
+                tmp = tempfile.mkdtemp(prefix="umwayi-t", dir="/tmp" if os.path.isdir("/tmp") else None)
+                self.confine_tmp = tmp
+                return seatbelt.confined_argv(argv, self.agent.workdir, str(self.root), tmp, os.environ.get("HOME"), sys.executable,
+                                              str(Path(__file__).resolve().parent.parent), os.environ.get("CLAUDE_CONFIG_DIR"))
         abi = confine.abi_version()
         confine.plan(abi, False)  # unavailable: no Landlock here
         tmp = tempfile.mkdtemp(prefix="umwayi-t", dir="/tmp" if os.path.isdir("/tmp") else None)
