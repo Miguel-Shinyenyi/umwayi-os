@@ -47,6 +47,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/agents/test_login_wizard.py` | `adapters` |
 | `tests/agents/test_muse_platform.py` | `adapters` |
 | `tests/agents/test_opencode_mutants.py` | `adapters`, `rules.yaml` |
+| `tests/agents/test_opencode_private.py` | `adapters` |
 | `tests/agents/test_proc_fallback.py` | `adapters` |
 | `tests/agents/test_sandbox_settings.py` | `adapters` |
 | `tests/agents/test_token_env.py` | `adapters` |

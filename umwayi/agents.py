@@ -252,6 +252,8 @@ OPENCODE_ROUTES = {
     "openai": ("openai#*", None),
     "github-copilot": ("github-copilot#*", None),
 }
+FREE_OPENCODE_ROUTES = ("opencode",)  # the signed-out free tier: what is sent over it may be used by the provider (D-93). A local provider is not listed.
+PRIVATE_REPO_NAMED = "private_repo_named"  # the fixed word of the refusal, the same as the Muse route (docs/muse-route-design.md)
 OPENCODE_GO = "opencode-go"  # refused (OC13): its billing could not be told apart from Console credits (10.42)
 OPENCODE_GO_TEXT = ("agent: provider opencode-go (OpenCode Go) is not offered yet: 10.42 could not tell its billing "
                     "apart from Console credits (design.md, OC13). Nothing was started.")
@@ -798,6 +800,11 @@ class OpenCodeRefused(RuntimeError):
 
 def _refuse(why: str):
     raise OpenCodeRefused(f"agent: {why} Nothing was started.")
+
+
+def opencode_route_is_free(provider) -> bool:
+    """True for a route over which the provider may use what is sent (the signed-out free tier). A local provider, an unknown name and a non-string are False."""
+    return isinstance(provider, str) and provider in FREE_OPENCODE_ROUTES
 
 
 def opencode_route(provider) -> tuple:
@@ -2269,6 +2276,11 @@ class _Run:
             why = self.log(f"Refused agent {a.name}: units.yaml is not valid", "the gate checks passed, then units.yaml "
                            "was validated", "Nothing was started.")
             return self.result(64, [str(e)], why)
+        if a.platform == "opencode" and opencode_route_is_free(a.provider) and not u.public:
+            why = self.log(f"Refused agent {a.name}: {PRIVATE_REPO_NAMED}", "the gate checks passed, then the root was checked for the "
+                           "owner's public mark before a free route", "Nothing was started.")
+            return self.result(2, [f"agent: {PRIVATE_REPO_NAMED}: only a root the owner marked public (public: true in units.yaml) may go over a "
+                                   f"free route. {not_started} (exit 2)"], why)
         cap_uu = self.options.cap_uu
         if cap_uu is not None:  # units.yaml may have changed since run_agent read it: the cap is checked again
             problem = budget.cap_problem(u, cap_uu)

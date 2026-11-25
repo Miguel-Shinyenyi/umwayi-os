@@ -60,6 +60,8 @@ A video line (L9, the PR video rule) is the owner's cap on concept videos, in UU
 
 `video_gate` answers Yes (`within_cap`) or No with a fixed reason: `video_off` (mode off, no video line, or a cap of 0), `owner_off` (the owner turned videos off for this pull request), `over_per_video` or `over_per_day`. A free local render has an estimate of 0 UU and still needs the owner to turn videos on. Nothing calls the gate yet, so no video is made, written to the logbook or put on a waiting list by it.
 
+A top level `public: true` is the owner's mark that this root holds nothing private, so it may go over a free route (a free credit provider or a free model). It is written by hand, never inferred from a name or a remote, and never by code. Without it a run over a free route is refused (`private_repo_named`).
+
 Without an acceptance a free credit or subscription provider is Ask me first; a paid provider is Ask me first on every goal, so an
 acceptance does not apply to it (`provider_gate`). Nothing here starts, stops or spends anything yet: the pacing, the heads up, the stop
 line and the goal shares are later parts of M4.
@@ -181,6 +183,7 @@ class Units:
     providers: dict = field(default_factory=dict)  # name -> ProviderUnits
     video: VideoUnits | None = None  # None: no video line, so videos are off
     goals: dict = field(default_factory=dict)  # name -> GoalShare (M4 h)
+    public: bool = False  # the owner's mark that this root may go over a free route (G-0046, G-0076); never inferred, never written by code
 
     def state(self) -> dict:
         """Every rate, limit and reading word the file states, as name -> shown value (for the change entry)."""
@@ -218,6 +221,8 @@ class Units:
         for name, g in sorted(self.goals.items()):
             out[f"goals.{name}.provider"] = g.provider
             out[f"goals.{name}.share"] = str(g.share)
+        if self.public:
+            out["public"] = "true"
         return out
 
 
@@ -325,8 +330,8 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
     if not isinstance(data, dict):
         return None, [Problem(1, "the file must be a mapping with version, platforms, models and limits")]
     for key in data:
-        if key not in ("version", "platforms", "models", "limits", "providers", "video", "goals"):
-            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits, providers, video and goals", key)
+        if key not in ("version", "platforms", "models", "limits", "providers", "video", "goals", "public"):
+            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits, providers, video, goals and public", key)
     if data.get("version") != 1 or isinstance(data.get("version"), bool):
         problem("version must be 1", "version")
 
@@ -589,7 +594,15 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
 
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
-    return Units(True, sha256, platforms, models, limits, given, providers, video, goals), []
+    public = False
+    if "public" in data:
+        if data["public"] is True:
+            public = True
+        else:
+            problem("public must be true (the owner's mark that this root may go over a free route); leave the key out for a private root", "public")
+    if problems:
+        return None, sorted(problems, key=lambda p: p.line)
+    return Units(True, sha256, platforms, models, limits, given, providers, video, goals, public), []
 
 
 def load(root: Path, today: str) -> Units:
