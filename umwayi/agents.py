@@ -112,8 +112,7 @@ PLATFORMS = {
     "muse": Platform("muse", ("muse",), ("cli",), "adapters/stdio/hook.py", (0, 0, 0), "--version",
                      "no minimum version is pinned until the real check (M3)"),
 }
-MUSE_NOT_STARTED = ("agent: a Muse run is not built yet (M2 part 2, step 2): `agent check` works, `agent run` and `agent chat` are refused. "
-                    "Nothing was started.")
+MUSE_NO_CHAT = "agent: a Muse chat is not built: `agent run` starts `muse exec` (M2 part 2, step 2); `agent chat` is refused. Nothing was started."
 MUSE_VERSION_TIMEOUT = 15.0  # seconds for `muse --version`
 
 # Part 7: Claude Code over ACP (10.R11). The adapter is a pinned npm package in adapters/claude_acp/,
@@ -1088,8 +1087,16 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
     model and effort (W9.6) are for `agent run` of Claude Code and Kiro only; None adds nothing."""
     if mode not in (RUN, CHAT, LOGIN):
         raise UsageError("agent: the mode must be run, chat or login")
-    if agent.platform == "muse":
-        raise UsageError(MUSE_NOT_STARTED)
+    if agent.platform == "muse":  # M2 part 2, step 2: a run is `muse exec`, the prompt last; never a chat, a login or a flag of the owner's
+        if mode != RUN or model is not None or effort is not None:
+            raise UsageError(MUSE_NO_CHAT if mode == CHAT else "agent: Muse takes no login, model or effort option here. Nothing was started.")
+        try:
+            argv = muse.exec_argv(agent.max_turns, prompt if prompt is not None else "", command_path)
+        except muse.MuseRefused as e:
+            raise UsageError(f"agent: {e}. Nothing was started.") from None
+        except ValueError as e:
+            raise UsageError(f"agent: {e}. Nothing was started.") from None
+        return _assert_allowed(argv, skip=len(argv) - 1), None
     if (model is not None or effort is not None) and (mode != RUN or agent.platform not in ("claude-code", "kiro")):
         raise UsageError("agent: --model and --effort are only for agent run of a Claude Code or Kiro agent")
     extra = []
@@ -1799,7 +1806,9 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
         lines.append(f"Not gated: agent {agent.name} would be refused (exit 2). Nothing was started.")
         return Result(2, lines)
     if agent.platform == "muse":
-        lines.append(f"Gated: the checks of Muse agent {agent.name} passed. {MUSE_NOT_STARTED.removeprefix('agent: ')}")
+        argv, _ = build_argv(agent, RUN, gate.command_path, root, python_path(), prompt="PROMPT")
+        lines.append(f"run would start: {json.dumps(argv)} with the environment minus the Muse and Meta key variables")
+        lines.append(f"Gated: the checks of Muse agent {agent.name} passed. {MUSE_NO_CHAT.removeprefix('agent: ')}")
         return Result(0, lines)
     if agent.platform == "opencode":  # the six checks of 10.R13.8; the chat itself is 10.R13.10 to 10.R13.12
         argv, _ = build_argv(agent, CHAT, gate.command_path, root, python_path())
@@ -2668,6 +2677,8 @@ class _Run:
             env = enforced_env(os.environ, self.agent)  # W78 step 2: the allow list and env_keep, no deny list
         elif self.agent.platform == "claude-code":
             env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
+        elif self.agent.platform == "muse":
+            env = muse.child_env(os.environ)[0]  # umwayi's environment minus the Muse and Meta key variables (names only are ever logged)
         else:
             env = kiro_env(os.environ)  # umwayi's environment minus KIRO_API_KEY (10.R12.13)
         if getattr(self, "confine_tmp", None):  # W78 step 6: the helper's temporary files go to its own folder, not /tmp
