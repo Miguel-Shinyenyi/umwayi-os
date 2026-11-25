@@ -150,7 +150,7 @@
   },
   "tests/agents/test_muse_platform.py": {
    "seconds": 19.5,
-   "shard": 1
+   "shard": 2
   },
   "tests/agents/test_opencode_mutants.py": {
    "seconds": 11.2,
@@ -158,19 +158,19 @@
   },
   "tests/agents/test_proc_fallback.py": {
    "seconds": 19.5,
-   "shard": 2
+   "shard": 1
   },
   "tests/agents/test_sandbox_settings.py": {
    "seconds": 19.5,
-   "shard": 3
+   "shard": 2
   },
   "tests/agents/test_seatbelt_wiring.py": {
    "seconds": 19.5,
-   "shard": 1
+   "shard": 3
   },
   "tests/agents/test_unchecked_tool_calls.py": {
    "seconds": 19.5,
-   "shard": 2
+   "shard": 1
   },
   "tests/autonomy/test_gates.py": {
    "seconds": 53.3,
@@ -207,6 +207,10 @@
   "tests/budget/test_capture.py": {
    "seconds": 1.8,
    "shard": 1
+  },
+  "tests/budget/test_credits.py": {
+   "seconds": 19.5,
+   "shard": 2
   },
   "tests/budget/test_end_to_end.py": {
    "seconds": 12.4,
