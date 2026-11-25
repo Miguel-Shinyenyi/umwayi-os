@@ -561,7 +561,7 @@ def apply_edit(text: str, edit: Edit) -> str:
     head, tail, rest = "", text, ""
     if edit.after:
         if text.count(edit.after) != 1:
-            raise ValueError(f"{edit.path}: the 'after' anchor is not there exactly once: {edit.after[:70]!r}")
+            raise ValueError(f"{edit.path}: the 'after' anchor is not there exactly once: {edit.after[:400]!r}")
         cut = text.index(edit.after)
         head, tail = text[:cut], text[cut:]
         if edit.until:
@@ -569,10 +569,12 @@ def apply_edit(text: str, edit: Edit) -> str:
             tail, rest = tail[:end], tail[end:]
     found = tail.count(edit.old)
     if found != edit.count:
-        raise ValueError(f"{edit.path}: the anchor is there {found} time(s), not {edit.count}: {edit.old[:70]!r}")
+        scope = (f"counted from the 'after' anchor {edit.after[:60]!r} to " + (f"the 'until' anchor {edit.until[:60]!r}" if edit.until else "the END of the file")) if edit.after else "counted in the whole file"
+        raise ValueError(f"{edit.path}: the anchor is there {found} time(s), not {edit.count} ({scope}; a function added after the 'after' anchor "
+                         f"that repeats these lines counts too): {edit.old[:400]!r}")
     new = head + tail.replace(edit.old, edit.new) + rest
     if new == text:
-        raise ValueError(f"{edit.path}: the edit changes nothing: {edit.old[:70]!r}")
+        raise ValueError(f"{edit.path}: the edit changes nothing: {edit.old[:400]!r}")
     return new
 
 

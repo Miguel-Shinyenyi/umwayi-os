@@ -162,6 +162,16 @@ class RunnerTests(unittest.TestCase):
         f = m.fault("T4", "test", "no such text", m.py("this text is nowhere in the source", "x"), [m.CONFIG])
         self.assertEqual(m.run_fault(f).status, "invalid")
 
+    def test_a_repeated_anchor_is_named_in_full_with_where_the_count_runs(self):
+        edit = m.Edit("x.py", "def f():\n    return 1\n", "def f():\n    return 2\n", after="# start\n")
+        text = "def f():\n    return 1\n# start\ndef f():\n    return 1\ndef f():\n    return 1\n"
+        with self.assertRaises(ValueError) as cm:
+            m.apply_edit(text, edit)
+        msg = str(cm.exception)
+        self.assertIn("2 time(s), not 1", msg)
+        self.assertIn("END of the file", msg)  # the count runs from the 'after' anchor to the end, so a later function counts too
+        self.assertIn("def f():\\n    return 1\\n", msg)  # the whole anchor, not its first 70 characters
+
     def test_a_fault_is_never_applied_to_the_real_tree(self):
         f = m.all_faults()[0]
         with self.assertRaises(ValueError):
