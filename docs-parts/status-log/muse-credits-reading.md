@@ -1,4 +1,4 @@
 date: 2026-11-25
 pr: none
 what: M4 f, the first part. The new `credits.yaml` holds a rounded number of UU left and the date of the read, for a provider of `units.yaml` (and nothing else: no card, no account, no page text). `umwayi/credits.py` parses it strictly, and `umwayi budget status` shows a line per reading: its age, STALE when it is older than two days or dated in the future, that billing can lag by up to an hour, and that the spend since the read is not counted per provider yet. The file in the root holds muse 14000 UU, read on 2026-11-25 from the billing page with the owner's yes (the page said about 144 dollars in free credits, unchanged within a cent since 2026-11-23, so no Muse run has used any). Nothing gates on it. Code: owner stop.
-tests: `tests/budget/test_credits.py` (the strict shape, bad numbers and dates, no text of the file in an error, a link or a big file refused, the stale boundary, the lines, the committed file is rounded and holds only a number and a date, nothing gates on it).
+tests: `tests/budget/test_credits.py` (strict shape, bad values, stale boundary, the status lines, the committed file is rounded, nothing gates on it).
