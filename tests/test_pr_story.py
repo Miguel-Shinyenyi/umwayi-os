@@ -5,6 +5,7 @@ overclaim phrase fails in any pull request; the cooperative sentence and negatio
 story; and the real template and workflow carry the lines the check reads.
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -79,6 +80,109 @@ class HonestyTests(unittest.TestCase):
 
     def test_a_comment_is_not_scanned(self):
         self.assertEqual(pr_story.check("pull_request", body(extra="<!-- is sandboxed -->"))[0], [])
+
+
+class OwnerStopFromFilesTests(unittest.TestCase):
+    """K1: the owner stop is derived from the changed files, so the body cannot claim no for a pull request that touches code."""
+
+    def test_planted_fault_a_workflow_edit_with_owner_stop_no_fails(self):
+        fails, _ = pr_story.check("pull_request", body(stop="no"), [".github/workflows/ci.yml"])
+        self.assertEqual(len(fails), 1)
+        self.assertIn(".github/workflows/ci.yml", fails[0])
+        self.assertIn("says `Owner stop: no`", fails[0])
+
+    def test_a_body_with_no_owner_stop_line_fails_when_a_code_file_changed(self):
+        fails, _ = pr_story.check("pull_request", "## Story\n\nno line here\n", ["umwayi/cli.py"])
+        self.assertTrue(any("has no `Owner stop: yes` line" in f for f in fails))
+
+    def test_every_kind_of_non_doc_file_makes_an_owner_stop(self):
+        for f in ("umwayi/cli.py", "tools/pr_green.py", "adapters/claude_code/hook.py", "guidance.yaml", "units.yaml", "rules.yaml",
+                  ".github/pull_request_template.md", "ui/src/app.js", "site/app/page.js", "pyproject.toml", "umwayi.json"):
+            with self.subTest(f=f):
+                self.assertEqual(pr_story.owner_stop_files([f]), [f])
+                self.assertTrue(pr_story.check("pull_request", body(stop="no"), [f])[0])
+
+    def test_docs_tests_and_the_generated_files_of_the_test_map_need_no_owner_stop(self):
+        files = ["docs/a.md", "docs-parts/status-log/x.md", "tests/test_x.py", "tests/data/x.txt", "README.md", "PROJECT.md",
+                 ".kiro/specs/umwayi-os/tasks.md", "tools/ci_map.json", "tools/ci_map_table.md", "tools/ci_shards.json"]
+        self.assertEqual(pr_story.owner_stop_files(files), [])
+        self.assertEqual(pr_story.check("pull_request", body(stop="no"), files), ([], []))
+
+    def test_one_code_file_among_docs_makes_it_an_owner_stop_and_the_message_names_it(self):
+        fails, _ = pr_story.check("pull_request", body(stop="no"), ["docs/a.md", "tests/test_x.py", "tools/story_video.py"])
+        self.assertIn("tools/story_video.py", fails[0])
+        self.assertNotIn("docs/a.md", fails[0])
+
+    def test_a_body_that_says_yes_is_fine_for_a_docs_only_pull_request_and_for_a_code_one(self):
+        self.assertEqual(pr_story.check("pull_request", body(stop="yes"), ["docs/a.md"]), ([], []))
+        self.assertEqual(pr_story.check("pull_request", body(stop="yes"), ["umwayi/cli.py"]), ([], []))
+
+    def test_a_long_list_is_cut_and_counted(self):
+        fails, _ = pr_story.check("pull_request", body(stop="no"), [f"umwayi/m{i}.py" for i in range(8)])
+        self.assertIn("and 3 more", fails[0])
+
+    def test_files_that_could_not_be_read_only_warn_and_only_for_a_body_that_says_no(self):
+        fails, warns = pr_story.check("pull_request", body(stop="no"), None)
+        self.assertEqual(fails, [])
+        self.assertTrue(any("could not be read" in w for w in warns))
+        self.assertFalse(any("could not be read" in w for w in pr_story.check("pull_request", body(stop="yes"), None)[1]))
+
+    def test_without_the_files_the_old_behaviour_is_unchanged(self):
+        self.assertEqual(pr_story.check("pull_request", body(stop="no")), ([], []))
+
+    def test_k3_the_first_text_of_pr_209_failed_the_scan_and_the_corrected_text_passed(self):
+        """PR 209 quoted the two example phrases it scans for and failed its own check; rewording them passed. Keep that case."""
+        first = body(extra='It fails text such as "is enforced" or "is sandboxed", unless it is negated.')
+        fails, _ = pr_story.check("pull_request", first, ["tools/pr_story.py"])
+        self.assertTrue(any("claims more" in f for f in fails))
+        fixed = body(stop="yes", extra="It fails text that uses the words as a plain claim about a feature.")
+        self.assertEqual([f for f in pr_story.check("pull_request", fixed, ["tools/pr_story.py"])[0] if "claims more" in f], [])
+
+
+class GitTests(unittest.TestCase):
+    """The changed files are read with git from the two commits of the event."""
+
+    def repo(self):
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        root = Path(d.name)
+        run = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=root, check=True, capture_output=True, text=True)
+        run("init", "-q", "-b", "main")
+        (root / "docs").mkdir()
+        (root / "docs" / "a.md").write_text("a", encoding="utf-8")
+        run("add", "-A")
+        run("commit", "-q", "-m", "base")
+        base = run("rev-parse", "HEAD").stdout.strip()
+        run("checkout", "-q", "-b", "feature")
+        (root / "docs" / "b.md").write_text("b", encoding="utf-8")
+        (root / "tool.py").write_text("x = 1\n", encoding="utf-8")
+        run("add", "-A")
+        run("commit", "-q", "-m", "feature")
+        return root, base, run("rev-parse", "HEAD").stdout.strip()
+
+    def test_changed_files_come_from_the_three_dot_diff(self):
+        root, base, head = self.repo()
+        self.assertEqual(sorted(pr_story.changed_files(base, head, root)), ["docs/b.md", "tool.py"])
+
+    def test_a_bad_sha_an_unknown_commit_or_a_missing_one_is_none(self):
+        root, base, head = self.repo()
+        for b, h in ((None, head), (base, None), ("x" * 40, head), ("0" * 40, "1" * 40), ("main", "feature")):
+            with self.subTest(b=b, h=h):
+                self.assertIsNone(pr_story.changed_files(b, h, root))
+
+    def test_the_real_command_fails_a_body_that_says_no_for_a_pull_request_that_changed_code(self):
+        root, base, head = self.repo()
+        event = {"pull_request": {"body": body(stop="no"), "base": {"sha": base}, "head": {"sha": head}}}
+        f = root / "event.json"
+        f.write_text(json.dumps(event), encoding="utf-8")
+        env = dict(os.environ, PYTHONPATH=str(REPO))
+        p = subprocess.run([sys.executable, "-m", "tools.pr_story", "--event-file", str(f)], cwd=root, capture_output=True, text=True, timeout=60, env=env)
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("tool.py", p.stdout)
+        event["pull_request"]["body"] = body(stop="yes")
+        f.write_text(json.dumps(event), encoding="utf-8")
+        p = subprocess.run([sys.executable, "-m", "tools.pr_story", "--event-file", str(f)], cwd=root, capture_output=True, text=True, timeout=60, env=env)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
 
 class CommandTests(unittest.TestCase):

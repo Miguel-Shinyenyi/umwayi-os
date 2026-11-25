@@ -10,7 +10,13 @@ not prove the story is good: the owner and the guide read it.
 It reads the body only from the event file (never from a shell expression, so a body cannot run anything). Print format: one line per
 finding, `::error::` for a failure and `::warning::` for a warning, so the Actions page shows them.
 
-An owner-stop pull request is one whose body has the line `Owner stop: yes`. A body with no such line is a warning, not a failure
+An owner-stop pull request is one whose body has the line `Owner stop: yes`, or (K1) one that changes any file that is not docs or tests:
+the owner stop is DERIVED from the changed files (`git diff base...head`, the commits named in the event file), so a body cannot claim
+`Owner stop: no`, or leave the line out, for a pull request that touches code, a command, a guard file or a workflow (the rule of G-0020: only
+docs only and test only pull requests merge on green). Docs and tests are the paths in DOCS_AND_TESTS below; the generated files of the
+test map are allowed too. If the changed files cannot be read, a body that says no only gets a warning.
+
+An owner-stop pull request, by the body, is one whose body has the line `Owner stop: yes`. A body with no such line is a warning, not a failure
 (the pull request may not use the template), and so is a push (not checked at all). A draft pull request is checked like any other.
 Exit codes: 0 no failure (warnings may print), 2 a failure, 64 usage.
 """
@@ -18,9 +24,15 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
+from pathlib import Path
 
 MIN_STORY_WORDS = 100
+# K1: a pull request whose changed files are ALL in here is docs only or test only and merges on green; any other file makes it an owner stop
+DOCS_AND_TESTS_PREFIXES = ("docs/", "docs-parts/", "tests/", ".kiro/")
+DOCS_AND_TESTS_FILES = ("README.md", "PROJECT.md", "tools/ci_map.json", "tools/ci_map_table.md", "tools/ci_shards.json")
+REPO = Path(__file__).resolve().parents[1]
 STORY_HEADING = re.compile(r"(?mi)^##\s+story\s*$")
 HEADING = re.compile(r"(?m)^##\s+\S")
 OWNER_STOP = re.compile(r"(?mi)^\s*owner stop:\s*(yes|no)\b")
@@ -53,8 +65,29 @@ def words(text: str) -> int:
     return len(re.findall(r"\S+", text))
 
 
-def check(event: str, body) -> tuple:
-    """(failures, warnings), two lists of lines. A push or another event passes with nothing."""
+def owner_stop_files(files) -> list:
+    """The changed files that make a pull request an owner stop: every one that is not docs, a test or a generated file of the test map."""
+    return sorted(f for f in files if not (f.startswith(DOCS_AND_TESTS_PREFIXES) or f in DOCS_AND_TESTS_FILES))
+
+
+def changed_files(base, head, cwd=REPO):
+    """The files `git diff --name-only base...head` lists, or None when they cannot be read (git missing, an unknown commit, a bad sha)."""
+    if not (isinstance(base, str) and isinstance(head, str) and re.fullmatch(r"[0-9a-f]{40}", base) and re.fullmatch(r"[0-9a-f]{40}", head)):
+        return None
+    try:
+        r = subprocess.run(["git", "diff", "--name-only", f"{base}...{head}"], cwd=cwd, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return [l for l in r.stdout.split("\n") if l] if r.returncode == 0 else None
+
+
+_NOT_ASKED = object()
+
+
+def check(event: str, body, changed=_NOT_ASKED) -> tuple:
+    """(failures, warnings), two lists of lines. A push or another event passes with nothing. `changed` is the list of changed files, or None
+    when they were asked for and could not be read (left out: the files are not looked at); with the list, a body that says `Owner stop: no` (or has no line) for a pull request that changes anything beyond docs and
+    tests fails (K1)."""
     if event != "pull_request":
         return [], []
     if not isinstance(body, str):
@@ -63,6 +96,18 @@ def check(event: str, body) -> tuple:
     story = story_of(body)
     n = words(story)
     stop = OWNER_STOP.search(COMMENT.sub("", body))
+    says_yes = stop is not None and stop.group(1).lower() == "yes"
+    if changed is _NOT_ASKED:
+        pass
+    elif changed is None:
+        if not says_yes:
+            warns.append("the changed files could not be read, so the owner stop was not derived from them: the body says no or has no line")
+    else:
+        needed = owner_stop_files(changed)
+        if needed and not says_yes:
+            shown = ", ".join(needed[:5]) + (f" and {len(needed) - 5} more" if len(needed) > 5 else "")
+            fails.append(f"the pull request changes files that are not docs or tests ({shown}), so it is an owner stop, but the body "
+                         + ("says `Owner stop: no`" if stop is not None else "has no `Owner stop: yes` line"))
     if stop is None:
         warns.append("the body has no `Owner stop: yes` or `Owner stop: no` line, so the story rule was not applied")
     short = f"the story (the text under `## Story`) has {n} words; an owner-stop pull request needs at least {MIN_STORY_WORDS}"
@@ -82,24 +127,28 @@ def check(event: str, body) -> tuple:
 
 
 def read_event_file(path: str) -> tuple:
-    """(event name, body). An unreadable file is a pull request with no body, which fails the story rule only when it says owner stop."""
+    """(event name, body, base sha, head sha). An unreadable file is a pull request with no body and no commits, which fails the story rule
+    only when it says owner stop."""
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, ValueError):
-        return "pull_request", None
+        return "pull_request", None, None, None
     if not isinstance(data, dict) or "pull_request" not in data:
-        return "push", None
+        return "push", None, None, None
     pr = data["pull_request"]
-    return "pull_request", pr.get("body") if isinstance(pr, dict) else None
+    if not isinstance(pr, dict):
+        return "pull_request", None, None, None
+    sha = lambda k: (pr.get(k) or {}).get("sha") if isinstance(pr.get(k), dict) else None
+    return "pull_request", pr.get("body"), sha("base"), sha("head")
 
 
 def main(argv) -> int:
     if len(argv) != 2 or argv[0] != "--event-file":
         print("usage: python -m tools.pr_story --event-file FILE", file=sys.stderr)
         return 64
-    event, body = read_event_file(argv[1])
-    fails, warns = check(event, body)
+    event, body, base, head = read_event_file(argv[1])
+    fails, warns = check(event, body, changed_files(base, head, Path.cwd()) if event == "pull_request" else None)
     for w in warns:
         print("::warning::" + w)
     for f in fails:
