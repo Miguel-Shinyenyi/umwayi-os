@@ -84,6 +84,79 @@
       ]
     },
     {
+      "name": "pr",
+      "path": [
+        "pr"
+      ],
+      "help": "pull request commands (G7): the queue of built branches, read only",
+      "line": "pull request commands (G7): the queue of built branches, read only",
+      "children": [
+        {
+          "name": "queue",
+          "path": [
+            "pr",
+            "queue"
+          ],
+          "help": "the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)",
+          "line": "the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)",
+          "children": [
+            {
+              "name": "list",
+              "path": [
+                "pr",
+                "queue",
+                "list"
+              ],
+              "help": "list the rows of pr-queue.md",
+              "line": "list the rows of pr-queue.md",
+              "children": []
+            },
+            {
+              "name": "next",
+              "path": [
+                "pr",
+                "queue",
+                "next"
+              ],
+              "help": "say what to push now, or to wait for the open pull request, and when the queue is low",
+              "line": "say what to push now, or to wait for the open pull request, and when the queue is low",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "stories",
+      "path": [
+        "stories"
+      ],
+      "help": "U1: the story files of docs/stories, read only",
+      "line": "U1: the story files of docs/stories, read only",
+      "children": [
+        {
+          "name": "list",
+          "path": [
+            "stories",
+            "list"
+          ],
+          "help": "list the stories and whether each is built, partly built or planned",
+          "line": "list the stories and whether each is built, partly built or planned",
+          "children": []
+        },
+        {
+          "name": "export",
+          "path": [
+            "stories",
+            "export"
+          ],
+          "help": "print all the stories as one JSON document for a page in the GUI; writes nothing",
+          "line": "print all the stories as one JSON document for a page in the GUI",
+          "children": []
+        }
+      ]
+    },
+    {
       "name": "decision",
       "path": [
         "decision"
@@ -611,6 +684,26 @@
           ],
           "help": "print a summary of the logbook for a feedback issue: counts per kind and per verdict, the date range, the chain status and the budget spent in UU; no paths, commands, rules or file contents; writes nothing",
           "line": "print a summary of the logbook for a feedback issue: counts per kind and per verdict, the date range, the chain status and the budget spent in UU",
+          "children": []
+        },
+        {
+          "name": "inbox",
+          "path": [
+            "feedback",
+            "inbox"
+          ],
+          "help": "M1g: the open entries of the feedback channel addressed to you; reads only",
+          "line": "M1g: the open entries of the feedback channel addressed to you",
+          "children": []
+        },
+        {
+          "name": "ack",
+          "path": [
+            "feedback",
+            "ack"
+          ],
+          "help": "M1g: mark an entry of the feedback channel as read: one logbook line, no text",
+          "line": "M1g: mark an entry of the feedback channel as read: one logbook line, no text",
           "children": []
         },
         {

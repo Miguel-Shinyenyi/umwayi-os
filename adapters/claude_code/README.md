@@ -13,6 +13,10 @@ A Claude Code `PreToolUse` hook that asks `umwayi check` before every tool call 
 
 The script never exits 1: on Claude Code exit 1 lets the tool call run. What Claude Code documents, with links: [../NOTES.md](../NOTES.md).
 
+## The Stop hook (B-0012)
+
+`stop_hook.py` is a second, separate hook: a Claude Code `Stop` hook that keeps a session from ending its turn while the PR queue is low and a free task is pending (`umwayi pr queue next --check` says the same). It prints `{"decision": "block", "reason": "..."}` (the documented way to keep Claude working, [hooks reference](https://code.claude.com/docs/en/hooks)) at most three times in a row for one session, then lets it stop. It lets the session stop at once when the kill switch is on or unreadable, when every pending task is `[blocked: ...]`, when the queue is not low, on a bad input or a broken `pr-queue.md`: it only nudges and fails open, where the PreToolUse hook fails closed. It writes only a count in `.umwayi/stop-hook/SESSION_ID`. It is cooperative: a helper that ignores its hooks is not stopped, and nothing installs it for you. `stop-hook.example.json` shows the settings entry to copy into your own Claude Code settings file; this repo does not edit it.
+
 ## Packages
 
 None. The adapter is Python standard library only (Python 3.10 or newer), like the core `umwayi` package. It runs `umwayi check` as a separate process and does not import the `umwayi` package.

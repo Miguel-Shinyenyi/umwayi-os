@@ -7,6 +7,8 @@ Exit codes:
   other errors:  1
   umwayi agent:  0, 2, 3 or 64 only, never 1 (layer 10)
   umwayi budget: 0, 2, 3 or 64 only, never 1 (budget governor)
+  umwayi stories: 0, or 64 for a story file that is not well formed (U1, read only)
+  umwayi pr queue: 0, or 64 for a pr-queue.md that is not well formed; `next --check` also 3 when the queue is low (G7, read only)
   umwayi view:   0, 1 (the tamper check failed), 2 or 64 only, never 3 (layer 12)
   umwayi decision reopen: 0 done, 1 refused (nothing changed), 2 a crash, 64 usage (layer 13)
   umwayi petition: 0 added or already open, 1 refused (nothing written), 2 a crash, 64 usage (layer 13)
@@ -31,8 +33,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from umwayi import (__version__, agents, archive, autonomy, budget, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
-                    loginwizard, petition, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, taskqueue, units, view, workflow)
+from umwayi import (__version__, agents, archive, autonomy, budget, channel, concerns, decisions, elections, feedback, goaldocs, guidance, jobs, kill, logbook,
+                    loginwizard, petition, prqueue, publish, report, routing, rules, rulesvalidate, schedule, servegate, servetoken, stalls, stories, taskqueue, units, view, workflow)
 from umwayi.config import load_config
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 from umwayi.helpers import social, steward
@@ -194,6 +196,21 @@ def build_parser() -> argparse.ArgumentParser:
     qm = qsub.add_parser("migrate", help="convert an old six column queue.md to the current layout (once)")
     for sp in (qa, qn, qc, qm):
         sp.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
+
+    pr = sub.add_parser("pr", help="pull request commands (G7): the queue of built branches, read only")
+    prsub = pr.add_subparsers(dest="pr_command", parser_class=_Parser)
+    pq = prsub.add_parser("queue", help="the PR queue in pr-queue.md: list it, or say what to do next (never pushes or merges)")
+    pqsub = pq.add_subparsers(dest="pr_queue_command", parser_class=_Parser)
+    pqsub.add_parser("list", help="list the rows of pr-queue.md")
+    pqn = pqsub.add_parser("next", help="say what to push now, or to wait for the open pull request, and when the queue is low")
+    pqn.add_argument("--check", action="store_true",
+                     help="also exit 3 (Ask me first) when fewer than keep_ready branches are ready and a free task is pending, "
+                          "so a hook can tell that the session has not finished; still read only")
+
+    st = sub.add_parser("stories", help="U1: the story files of docs/stories, read only")
+    stsub = st.add_subparsers(dest="stories_command", parser_class=_Parser)
+    stsub.add_parser("list", help="list the stories and whether each is built, partly built or planned")
+    stsub.add_parser("export", help="print all the stories as one JSON document for a page in the GUI; writes nothing")
 
     dc = sub.add_parser("decision", help="decision commands (layer 13): reopen a closed decision as a new question")
     dcsub = dc.add_subparsers(dest="decision_command", parser_class=_Parser)
@@ -410,6 +427,13 @@ def build_parser() -> argparse.ArgumentParser:
     fbsub.add_parser("export", help="print a summary of the logbook for a feedback issue: counts per kind and per verdict, "
                                     "the date range, the chain status and the budget spent in UU; no paths, commands, "
                                     "rules or file contents; writes nothing")
+    fbi = fbsub.add_parser("inbox", help="M1g: the open entries of the feedback channel addressed to you; reads only")
+    fba = fbsub.add_parser("ack", help="M1g: mark an entry of the feedback channel as read: one logbook line, no text")
+    for sp in (fbi, fba):
+        sp.add_argument("--folder", required=True, help="the feedback channel folder (it holds CHANNEL.md); outside the repository")
+        sp.add_argument("--me", choices=channel.PEOPLE, default="builder", help="who is reading (default: builder)")
+    fba.add_argument("id", help="the entry id, for example B-0001")
+    fba.add_argument("--date", type=_date_arg, help="date YYYY-MM-DD (default: today, from the system clock)")
     fbs = fbsub.add_parser("send", help="opt in: build the export and your note, hide secrets, emails and home paths, show "
                                          "every line, and after a typed yes in a terminal write it to a file you send by "
                                          "hand; sends nothing over a network; exit 0, 2 or 64, never 1 or 3")
@@ -748,6 +772,29 @@ def _owner_terminal() -> bool:
     return goal._is_terminal()
 
 
+def _cmd_stories(args, out) -> int:
+    """U1 step 3, read only: `umwayi stories list` and `export`. Exit 0, or 64 for a story file that is not well formed."""
+    found = stories.story_files(Path(args.root))
+    if args.stories_command == "list":
+        out.write("\n".join(stories.list_lines(found)) + "\n")
+    else:
+        out.write(stories.export_document(found))
+    return 0
+
+
+def _cmd_pr_queue(args, out) -> int:
+    """G7, read only: `umwayi pr queue list` and `next`. Exit 0, or 64 for a pr-queue.md that is not well formed. With `next --check`
+    also 3 (Ask me first) when the queue is low and a free task is pending: the session has not finished (B-0012)."""
+    root = Path(args.root)
+    doc = prqueue.read(root)
+    pending = prqueue.pending_titles(root) if args.pr_queue_command == "next" else []
+    lines = prqueue.list_lines(doc) if args.pr_queue_command == "list" else prqueue.next_lines(doc, pending)
+    out.write("\n".join(lines) + "\n")
+    if args.pr_queue_command == "next" and getattr(args, "check", False) and prqueue.needs_build(doc, pending):
+        return 3
+    return 0
+
+
 def _cmd_queue(args, out) -> int:
     root = Path(args.root)
     cmd = args.queue_command
@@ -941,6 +988,23 @@ def _cmd_feedback_send(args, out) -> int:
         return EXIT_CRASH
     except (Exception, KeyboardInterrupt) as e:
         return _crashed(e)
+
+
+def _cmd_feedback_channel(args, out) -> int:
+    """M1g. `umwayi feedback inbox` and `ack`. Exit 0, 2 (the logbook did not pass its check) or 64, never 1 or 3."""
+    try:
+        if args.feedback_command == "inbox":
+            lines = channel.inbox_lines(channel.read(args.folder), args.me, channel.acked(args.root, args.me))
+        else:
+            lines = channel.ack(args.root, args.folder, args.id, args.me, args.date or _today())
+        out.write("\n".join(lines) + "\n")
+        return 0
+    except (UsageError, ConfigError) as e:
+        sys.stderr.write(f"umwayi: error: {e}\n")
+        return EXIT_USAGE
+    except UmwayiError:
+        sys.stderr.write(feedback.REFUSED + "\n")
+        return EXIT_CRASH
 
 
 def _cmd_feedback(args, out) -> int:
@@ -1220,12 +1284,18 @@ def main(argv: list[str] | None = None, out=None) -> int:
             return _cmd_budget(args, out)
         if args.command == "view" and getattr(args, "view_command", None) == "snapshot":
             return _cmd_view(args, out)
+        if args.command == "feedback" and getattr(args, "feedback_command", None) in ("inbox", "ack"):
+            return _cmd_feedback_channel(args, out)
         if args.command == "feedback" and getattr(args, "feedback_command", None) == "export":
             return _cmd_feedback(args, out)
         if args.command == "feedback" and getattr(args, "feedback_command", None) == "send":
             return _cmd_feedback_send(args, out)
         if args.command == "queue" and getattr(args, "queue_command", None):
             return _cmd_queue(args, out)
+        if args.command == "stories" and getattr(args, "stories_command", None):
+            return _cmd_stories(args, out)
+        if args.command == "pr" and getattr(args, "pr_command", None) == "queue" and getattr(args, "pr_queue_command", None):
+            return _cmd_pr_queue(args, out)
         if args.command == "provenance" and getattr(args, "provenance_command", None) == "sign":
             return _cmd_provenance_sign(args, out)
         if args.command == "verify":

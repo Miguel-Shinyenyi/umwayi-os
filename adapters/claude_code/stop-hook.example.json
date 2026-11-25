@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /path/to/umwayi-os/adapters/claude_code/stop_hook.py --root /path/to/umwayi/root"
+          }
+        ]
+      }
+    ]
+  }
+}

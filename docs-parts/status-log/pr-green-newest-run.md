@@ -1,0 +1,4 @@
+date: 2026-11-24
+pr: 241
+what: G-0004, a hardening of `tools/pr_green.py`. A draft run leaves skipped checks on the same commit as the real run, and a run cancelled by a newer one stays in the list, so the list of check runs of a head can hold two runs of one name. `pr_green` now keeps only the newest run of each name, by its id, before it decides: a skipped `result` older than the real one does not hide it, an older cancelled shard does not make a newer passing one red, a newer failure does, and the race of PR 217 (the real run cancelled by a newer skipped draft run) is read as not green because the newest `result` is the skipped one. A list with no ids keeps the old behaviour. The fetch now asks the id of each run. A tools change: owner stop under the rule of G-0020 (anything beyond docs and tests).
+tests: `tests/test_lessons_as_checks.py` PrGreenTests (four new cases, one a planted fault of the PR 217 race).
