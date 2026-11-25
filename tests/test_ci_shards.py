@@ -665,3 +665,57 @@ class TimesTests(unittest.TestCase):
             totals[v["shard"]] = totals.get(v["shard"], 0.0) + v["seconds"]
         self.assertLessEqual(max(totals.values()) - min(totals.values()), 0.1 * max(totals.values()), totals)
         self.assertGreater(ASSIGN["files"]["tests/test_merge_main.py"]["seconds"], 100.0)
+
+
+class RebalanceTests(unittest.TestCase):
+    """`check-balance` and `rebalance`: the fixed point that tests/test_ci_shards.py pins, as two commands, so a merge that leaves the shards uneven is
+    caught and repaired before CI. They read and write only the assignment file they are given."""
+
+    def make(self, entries, shards=3):
+        tmp = tempfile.TemporaryDirectory(prefix="umwayi-rebalance-")
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        data = {"shards": shards, "files": {f"tests/{n}": {"shard": s, "seconds": sec} for n, (s, sec) in entries.items()}}
+        (root / "assign.json").write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
+        return root
+
+    def run_on(self, root, command):
+        return run_cli(root, command, "--assignments", str(root / "assign.json"))
+
+    def test_an_uneven_file_fails_the_check_and_the_hint_names_rebalance(self):
+        root = self.make({"test_a.py": (1, 10.0), "test_b.py": (1, 9.0), "test_c.py": (1, 8.0)})
+        r = self.run_on(root, "check-balance")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("not balanced", r.stderr)
+        self.assertEqual(r.stderr.strip().split("\n")[-1], "ci_shards: To fix it, run: python -m tools.ci_shards rebalance")
+
+    def test_rebalance_makes_the_file_pass_and_a_second_run_changes_nothing(self):
+        root = self.make({"test_a.py": (1, 10.0), "test_b.py": (1, 9.0), "test_c.py": (1, 8.0)})
+        self.assertEqual(self.run_on(root, "rebalance").stdout.strip(), "ci_shards: rebalanced")
+        self.assertEqual(self.run_on(root, "check-balance").returncode, 0)
+        before = (root / "assign.json").read_bytes()
+        self.assertEqual(self.run_on(root, "rebalance").stdout.strip(), "ci_shards: nothing to rebalance")
+        self.assertEqual((root / "assign.json").read_bytes(), before)
+
+    def test_rebalance_keeps_every_file_and_every_number_of_seconds(self):
+        root = self.make({"test_a.py": (1, 10.0), "test_b.py": (1, 9.5), "test_c.py": (2, 8.0)})
+        self.run_on(root, "rebalance")
+        files = json.loads((root / "assign.json").read_text())["files"]
+        self.assertEqual({f: v["seconds"] for f, v in files.items()}, {"tests/test_a.py": 10.0, "tests/test_b.py": 9.5, "tests/test_c.py": 8.0})
+        self.assertEqual(sorted(v["shard"] for v in files.values()), [1, 2, 3])  # three files on three shards
+
+    def test_a_missing_number_of_seconds_is_a_usage_error_and_nothing_is_written(self):
+        root = self.make({"test_a.py": (1, 10.0)})
+        (root / "assign.json").write_text(json.dumps({"shards": 2, "files": {"tests/test_a.py": {"shard": 1}}}))
+        before = (root / "assign.json").read_bytes()
+        self.assertEqual(self.run_on(root, "rebalance").returncode, 64)
+        self.assertEqual(self.run_on(root, "check-balance").returncode, 64)
+        self.assertEqual((root / "assign.json").read_bytes(), before)
+
+    def test_a_bad_option_is_a_usage_error(self):
+        root = self.make({"test_a.py": (1, 10.0)})
+        self.assertEqual(run_cli(root, "check-balance", "--nope", "x").returncode, 64)
+
+    def test_the_real_file_passes_the_check(self):
+        r = subprocess.run([sys.executable, "-m", "tools.ci_shards", "check-balance"], cwd=REPO, capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
