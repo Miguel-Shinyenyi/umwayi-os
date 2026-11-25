@@ -31,7 +31,8 @@ class WindowTests(unittest.TestCase):
 
     def test_days_left_in_the_nairobi_week(self):
         self.assertEqual(g.days_left_in_week(datetime(2026, 11, 23, 5, 0, tzinfo=UTC)), 7)  # Monday 08:00 Nairobi
-        self.assertEqual(g.days_left_in_week(datetime(2026, 11, 29, 20, 0, tzinfo=UTC)), 7)  # Sunday 20:00 UTC is Monday 23:00 Nairobi
+        self.assertEqual(g.days_left_in_week(datetime(2026, 11, 29, 20, 59, tzinfo=UTC)), 1)  # Sunday 23:59 Nairobi: the last minute of the week
+        self.assertEqual(g.days_left_in_week(datetime(2026, 11, 29, 21, 0, tzinfo=UTC)), 7)  # Monday 00:00 Nairobi: a new week
         self.assertEqual(g.days_left_in_week(datetime(2026, 11, 29, 12, 0, tzinfo=UTC)), 1)  # Sunday noon
 
 
