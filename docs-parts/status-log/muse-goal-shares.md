@@ -1,4 +1,4 @@
 date: 2026-11-25
-pr: none
+pr: 238
 what: M4 g and h, first part, as pure functions in the new `umwayi/goalshare.py`. `caps` derives the monthly, weekly and daily cap of a goal's share (free credits use the horizon as the month); `cap_gate` says Yes, wait with the widest window the task does not fit (daily, weekly or monthly cap) or refuse with `task_larger_than_cap` when it is larger than an empty day; `shares_ok` refuses a goal whose share would push the sum past 100 minus a 20 percent reserve (`share_over_allocated`); `nairobi_day` and `days_left_in_week` use UTC+3, never UTC. Nothing calls it, `units.yaml` has no share key yet and `umwayi budget status` does not list shares. Owner stop (the governor).
 tests: `tests/budget/test_goal_shares.py` (the caps, each wait, the refusal, the sum of shares, a window across UTC midnight, and that nothing calls the module yet).
