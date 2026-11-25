@@ -15,7 +15,7 @@ goal and window: what the goal has used.
   (`umwayi/budget.py`). Anything else with that source is a ledger problem, exit 2.
 - A `reserve` line names the run, the agent, the platform and the micros. It does not name a goal. A `settle` line gives the real micros.
 - A day is the logbook date of the reservation. The CLI takes it from `date.today()`, the clock of the machine: Nairobi on the owner's Mac,
-  UTC on a CI runner. `goalshare.nairobi_day` takes an aware time and is not wired in. The two must agree before a daily cap is enforced.
+  UTC on a CI runner. `goalshare.nairobi_day` takes an aware time and is not wired in. The two must agree before a daily cap can stop a task.
 - A run does not know its goal: the agent start (`umwayi/agents.py`) gets an agent name, not a goal name.
 
 ## Options
