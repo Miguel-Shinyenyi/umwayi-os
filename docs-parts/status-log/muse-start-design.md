@@ -1,0 +1,4 @@
+date: 2026-11-25
+pr: none
+what: M2 part 2, a design note, docs only: `docs/muse-start-design.md`. It reads `umwayi/agents.py` and names the places a Muse start must touch (the `PLATFORMS` table, `build_argv` and `_assert_allowed`, `check_agent`, the child environment, the budget, `_start`, and the guard tests that list process starts and temporary folders), says what is not known until the real check (Muse's hook format, a sign-in check that makes no model call, how a run reports its cost), and orders four small pull requests: a row and the checks that start nothing, the start tested with a fake `muse` script through `_start`, the gates before a run, then the real check with the owner's yes. Two open questions with a recommendation. Nothing is built.
+tests: none new; the docs tests (the four parts, the links, the line count).
