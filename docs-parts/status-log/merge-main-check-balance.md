@@ -1,4 +1,4 @@
 date: 2026-11-25
-pr: none
+pr: 264
 what: G-0082 (1), `merge_main` calls the balance check. The registry `tools/generated_files.json` now lists, for `tools/ci_shards.json`, `assign-missing` then `rebalance` to regenerate and `check` then `check-balance` to verify, so a merge that leaves the shard file uneven is REPAIRED by `merge_main` and no longer reported as passed while CI fails (it happened four times). The hint of a failed check is now the two commands joined with `&&`. `assign-missing` is unchanged. The limit text moved to the part `docs-parts/known-limits/W21.md`: my earlier edit of `docs/KNOWN-LIMITS.md` itself in PR 263 was lost, because that file is generated from the parts (a correction I owe). Tools: owner stop.
 tests: `tests/test_generated_files.py` and `tests/test_ci_shards.py` (the commands and the hint); `tests/test_merge_main.py` (the seeds now rebalance, as a developer must).
