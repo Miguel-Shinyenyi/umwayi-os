@@ -51,5 +51,47 @@ class DraftTests(unittest.TestCase):
         self.assertIn("a draft pull request runs nothing", CODE)
 
 
+def group_of(workflow, number, sha, draft):
+    """The concurrency group, evaluated from the text of the workflow the way Actions does for the three forms it uses: a bare name, an
+    `a || b` (the first that is not empty), and a boolean that prints as true or false (and as nothing on a push, which has no pull request)."""
+    line = next(l for l in CODE.split("\n") if l.startswith("  group:"))
+    ctx = {"github.workflow": workflow, "github.event.pull_request.number": str(number or ""), "github.sha": sha,
+           "github.event.pull_request.draft": "" if draft is None else ("true" if draft else "false")}
+
+    def value(expr):
+        parts = [e.strip() for e in expr.split("||")]
+        for e in parts:
+            if ctx[e]:
+                return ctx[e]
+        return ""
+    out = line.split("group:", 1)[1].strip()
+    return re.sub(r"\$\{\{(.*?)\}\}", lambda m: value(m.group(1)), out)
+
+
+class ConcurrencyGroupTests(unittest.TestCase):
+    """B-0005: a skipped draft run cancelled the real run of a pull request marked ready a second later (PR 217)."""
+
+    def test_planted_fault_a_draft_run_and_a_ready_run_of_the_same_pull_request_are_in_different_groups(self):
+        draft = group_of("tests", 217, "aaa", True)
+        ready = group_of("tests", 217, "aaa", False)
+        self.assertNotEqual(draft, ready)  # with the old group they were equal, and the skipped run cancelled the real one
+
+    def test_two_ready_runs_of_one_pull_request_share_a_group_so_a_newer_push_still_cancels_the_older(self):
+        self.assertEqual(group_of("tests", 217, "aaa", False), group_of("tests", 217, "bbb", False))
+        self.assertEqual(group_of("tests", 217, "aaa", True), group_of("tests", 217, "bbb", True))
+
+    def test_pull_requests_do_not_share_a_group_and_a_push_to_main_has_its_own_group_per_commit(self):
+        self.assertNotEqual(group_of("tests", 217, "a", False), group_of("tests", 218, "a", False))
+        self.assertNotEqual(group_of("tests", None, "sha1", None), group_of("tests", None, "sha2", None))
+        self.assertTrue(group_of("tests", None, "sha1", None).startswith("tests-sha1"))
+
+    def test_the_group_text_ends_with_the_draft_state_and_the_cancel_rule_is_unchanged(self):
+        self.assertIn("-${{ github.event.pull_request.draft }}", CODE)
+        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", CODE)
+
+    def test_the_header_comment_names_the_reason(self):
+        self.assertIn("a skipped run of a draft must never cancel the real run", CODE)
+
+
 if __name__ == "__main__":
     unittest.main()

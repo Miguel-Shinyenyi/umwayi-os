@@ -15,7 +15,7 @@ What exists, checked on 2026-11-24:
 - **The local backend.** `umwayi serve` (W6, `docs/serve.md`) answers the owner's page on `127.0.0.1` only, with a token and the rules gate. The page never writes to the repository or runs a command by itself.
 - **Pages.** `ui/src` holds the 3D scene (`index.html`), the command map (`cli-map.html`, built from the real command parser), the goal map (`goal-map.html`) and the progress page. All are built with `node build.mjs` into `ui/dist`.
 - **Stories as text.** The pull request template has a Story and a Record part and `tools/pr_story.py` fails an owner-stop pull request whose story is too short. `docs/story-guide.md` is the guide for articles and videos. The first concept video of this kind (the fuel gauge, PR 215) and its script live outside the repository, in the owner's video pack.
-- **Not in the repository:** a story file format, a folder of stories, a panel, a list view of stories, and a command that exports stories for a page. The brief also names a base rules library with toggles that the panels sit after; I did not find it in the repository, so this note does not rely on it.
+- **Not in the repository:** a panel, and a list view of stories in the GUI. Built since: the story file format and the folder `docs/stories` (step 2), and the read only commands `umwayi stories list` and `umwayi stories export` (step 3), which print the stories as one JSON document for a page and write nothing. The brief also names a base rules library with toggles that the panels sit after. It is in the repository as a design note and a task, not as built code: the design note is `docs/rules-library.md` (W76: five ready sets and the builder set, each in the `rules.yaml` format, with open owner questions), and the task "the base rules library with toggles" (D-54) in `.kiro/specs/umwayi-os/tasks.md` is open until after Dec 3. This note does not rely on it.
 
 ### The rules the GUI keeps
 
@@ -64,6 +64,7 @@ A video script shows what a feature does; it does not show that the feature is s
 
 - 2026-11-24 (owner): the stories that make a video also build the GUI on top of the terminal. The videos do not wait. Posting stays the owner's act.
 - 2026-11-24 (step 2, built): the four files are in `docs/stories/` (broker, sandbox-settings, provenance, fuel-gauge) with `tests/test_stories.py`. The fuel gauge says that nothing calls the gate yet (G-0014).
+- 2026-11-24 (step 3, built): `umwayi stories list` and `export` (`umwayi/stories.py`, `tests/test_stories_command.py`): read only, a structure check of every file before anything is printed, exit 64 for a bad file. The panels are step 4 (owner stop, in the GUI layer).
 - 2026-11-24 (this note): the order of work, one pull request open at a time. (1) This note, docs only. (2) The four story files and their tests. (3) A read only command that exports the stories for the page (a new command: owner stop). (4) The list view and the panels (owner stop). (5) Later, live state through a read only snapshot.
 
 ## Open questions
@@ -71,5 +72,5 @@ A video script shows what a feature does; it does not show that the feature is s
 - **Q1.** Where do the stories live? Recommendation: `docs/stories/ID.json`, one file per story, so a story is reviewed like any other file and the export command reads one folder.
 - **Q2.** The brief says `provenance compare`. The command is `umwayi verify PATH`. Recommendation: the panel uses `umwayi verify`; the story names the module function only in its prose.
 - **Q3.** Is JSON right, since a story has prose? Recommendation: yes for step 2, because the standard library reads it and a test can check each field; if the prose is hard to edit in JSON, add a Markdown front end later that compiles to the same JSON.
-- **Q4.** The base rules library with toggles. Recommendation: do not wait for it. The list view and panels need only the stories and the command output, and the library can add a panel later.
+- **Q4.** The base rules library with toggles (the design note `docs/rules-library.md`, W76; the task D-54 is open until after Dec 3). Recommendation: do not wait for it. The list view and panels need only the stories and the command output, and the library can add a panel later.
 - **Q5.** One story or one per audience (owner, a judge, a tester)? Recommendation: one story, three views of it (the pull request, the video, the panel), as the owner asked.

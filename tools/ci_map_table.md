@@ -15,6 +15,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/adapters/test_opencode_rules.py` | `adapters` |
 | `tests/adapters/test_refusal_shape.py` | `adapters` |
 | `tests/adapters/test_stdio.py` | `adapters` |
+| `tests/adapters/test_stop_hook.py` | `adapters` |
 | `tests/agents/test_agent_socket_env.py` | `adapters` |
 | `tests/agents/test_agents_acp.py` | `adapters` |
 | `tests/agents/test_agents_chain.py` | `adapters` |
@@ -108,6 +109,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_automation.py` | `jobs.yaml`, `rules.yaml` |
 | `tests/test_builder_rules.py` | `*`, `adapters`, `rules.yaml` |
 | `tests/test_builder_workflow.py` | `.kiro`, `tools` |
+| `tests/test_bypass_paths.py` | `docs` |
 | `tests/test_checks.py` | `.kiro`, `adapters`, `ui` |
 | `tests/test_ci_draft.py` | `.github` |
 | `tests/test_ci_map.py` | `.github`, `docs`, `tools` |
@@ -154,6 +156,7 @@ Python test files that read a path outside `tests/` and `umwayi/` (every other P
 | `tests/test_stalls.py` | `jobs.yaml`, `schedule.example.yaml`, `workflows` |
 | `tests/test_starter_rules.py` | `adapters`, `rules.yaml` |
 | `tests/test_stories.py` | `docs` |
+| `tests/test_stories_command.py` | `docs` |
 | `tests/test_system.py` | `articles`, `umwayi.json`, `workflows` |
 | `tests/test_ui_package.py` | `.gitignore`, `ui`, `ui/dist` |
 | `tests/test_up.py` | `rules.yaml`, `umwayi.json` |

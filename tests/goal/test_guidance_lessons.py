@@ -107,7 +107,7 @@ class LessonsPageTests(unittest.TestCase):
 
     def test_every_lesson_is_a_numbered_line_in_its_section_with_its_id_and_the_counts_are_right(self):
         text = self.PAGE.read_text(encoding="utf-8")
-        for section, prefix, count in (("Lessons A", "A", 14), ("Lessons B", "B", 4), ("Lessons C", "C", 20), ("Lessons D", "D", 6)):
+        for section, prefix, count in (("Lessons A", "A", 14), ("Lessons B", "B", 4), ("Lessons C", "C", 21), ("Lessons D", "D", 6)):
             for n in range(1, count + 1):
                 line = g._rule_line(REPO, f"docs/supervisor-lessons.md#{section}#{n}")
                 self.assertTrue(line.startswith(f"{n}. [{prefix}{n}, "), line[:30])
@@ -120,7 +120,7 @@ class LessonsPageTests(unittest.TestCase):
 
 
 class RealLessonEntriesTests(unittest.TestCase):
-    """The entries of guidance.yaml for the 44 lessons (the second pull request of L1)."""
+    """The entries of guidance.yaml for the 45 lessons (the second pull request of L1, and C21 added with `next --check`)."""
 
     @classmethod
     def setUpClass(cls):
@@ -130,7 +130,7 @@ class RealLessonEntriesTests(unittest.TestCase):
         page = (REPO / "docs" / "supervisor-lessons.md").read_text(encoding="utf-8")
         import re
         ids = re.findall(r"(?m)^\d+\. \[([ABCD]\d+), [EAO], tier \d\]", page)
-        self.assertEqual(len(ids), 44)
+        self.assertEqual(len(ids), 45)
         self.assertEqual(sorted(self.lessons), sorted("lesson-" + i.lower() for i in ids))
         for e in self.lessons.values():
             self.assertRegex(e.source, r"^docs/supervisor-lessons\.md#Lessons [ABCD]#\d+$")
@@ -144,7 +144,7 @@ class RealLessonEntriesTests(unittest.TestCase):
                 self.assertIn(e.kind, ("advise", "owner"), e.id)
                 self.assertIsNone(e.test, e.id)
         self.assertEqual(sorted(e.id for e in self.lessons.values() if e.kind == "enforce"),
-                         sorted("lesson-" + i for i in ("a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a12", "a14")))
+                         sorted("lesson-" + i for i in ("a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a12", "a14", "c21")))
 
     def test_the_owner_only_lessons_are_the_three_the_note_marks_o(self):
         self.assertEqual(sorted(e.id for e in self.lessons.values() if e.kind == "owner"), ["lesson-b1", "lesson-c18", "lesson-c19"])
@@ -152,7 +152,7 @@ class RealLessonEntriesTests(unittest.TestCase):
     def test_the_enforce_entries_use_the_same_tests_as_the_lessons_map(self):
         text = (REPO / "docs" / "lessons-as-checks.md").read_text(encoding="utf-8")
         for e in self.lessons.values():
-            if e.kind == "enforce":
+            if e.kind == "enforce" and e.id.startswith("lesson-a"):  # the map of docs/lessons-as-checks.md is for A1 to A14
                 file, _, name = e.test.partition(" ")
                 self.assertIn(f"`{file}`", text.split(f"| {e.id[7:].upper()} |")[1].split("\n")[0], e.id)
                 self.assertIn(name, text.split(f"| {e.id[7:].upper()} |")[1].split("\n")[0], e.id)
@@ -178,7 +178,7 @@ class RealLessonEntriesTests(unittest.TestCase):
             for rel in {e.source.split("#")[0] for e in g.load(REPO) if e.source_repo == "umwayi-os"}:
                 (root / rel).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(REPO / rel, root / rel)
-            self.assertEqual(len([e for e in g.load(root) if e.id.startswith("lesson-")]), 44)
+            self.assertEqual(len([e for e in g.load(root) if e.id.startswith("lesson-")]), 45)
             page = root / "docs" / "supervisor-lessons.md"
             page.write_text(page.read_text(encoding="utf-8").replace("1. [A1, E, tier 4] docs/testing.md", "1. [A1, E, tier 4] docs/testing.md is a page that", 1), encoding="utf-8")
             with self.assertRaises(g.SourceChanged):
