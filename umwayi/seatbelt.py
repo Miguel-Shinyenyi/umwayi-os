@@ -1,9 +1,9 @@
 """W78 step 7 (Task 9): macOS confinement with Seatbelt (`sandbox-exec`), built behind a refusal.
 
 `sandbox-exec -p PROFILE COMMAND ...` runs COMMAND under a Seatbelt profile. This module makes the profile text and the argument list
-and has a self test for the owner to run on the Mac. It is NOT used to start a helper: `CHECKED_ON_MAC` is False, so `agent run` for an
-agent with `confine: true` on macOS is refused with reason `platform` (as before), and it stays so until the owner has run the steps in
-the pull request on a Mac and a later pull request sets the constant.
+and has a self test for the owner to run on the Mac. `agents.py` asks `start_allowed` and builds a start with `confined_argv` only when it says yes, and `CHECKED_ON_MAC` is False, so `agent run` for an
+agent with `confine: true` on macOS is refused with reason `platform` (as before), and it stays so until the owner has run a real Claude Code
+session under the profile on a Mac and a later pull request sets the constant.
 
 Why: CI has no macOS, so nothing here has run on a Mac in a test. Apple marks `sandbox-exec` deprecated and does not document the profile
 language. Whether a profile that allows a real Claude Code (its sign-in in the Keychain, its API, `node`) is right has not been checked.
@@ -15,7 +15,7 @@ language. Whether a profile that allows a real Claude Code (its sign-in in the K
     (`profile`): the profile text is never built from text that could close the string.
   * The program is the fixed path `/usr/bin/sandbox-exec`, run without a shell.
 
-Standard library only. No network import.
+Standard library only. No network import. (`confined_argv` imports `umwayi.confine` when it is called, so this file still runs as a plain script, as the owner's check on the Mac does.)
 """
 from __future__ import annotations
 
@@ -204,3 +204,22 @@ def main(args=None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def confined_argv(command: list, workdir: str, root: str, tmp: str, home: str | None, python: str, source: str,
+                  config_dir: str | None = None) -> list:
+    """The argument list that starts `command` (a run of an agent with `confine: true`) under Seatbelt, or a refusal.
+
+    Refuses with `confine.ConfineRefused` and the reason of `start_allowed` (`platform` or `unavailable`) while `CHECKED_ON_MAC` is False
+    or `sandbox-exec` is not there, so a Mac keeps being refused until a later pull request sets the constant after the owner's check. A path that
+    cannot be put in a profile is `profile`. The paths are the ones of a Landlock run, with the macOS system folders. No network rule:
+    Claude Code needs its API (limit 344 is the same here). Never a shell."""
+    from umwayi import confine  # here and not at the top: `python3 umwayi/seatbelt.py` (the owner's check) has no package to import from
+    ok, why = start_allowed()
+    if not ok:
+        raise confine.ConfineRefused(why)
+    read, write = confine.run_paths(command[0], workdir, root, tmp, home, python, source, config_dir, system_read=SYSTEM_READ)
+    try:
+        return argv(read, write, command)
+    except SeatbeltRefused as e:
+        raise confine.ConfineRefused(e.reason) from None
