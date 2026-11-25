@@ -1,4 +1,4 @@
 date: 2026-11-25
-pr: none
+pr: 261
 what: G-0076, the fixed refusal `private_repo_named` for a private repository on a FREE OpenCode route, as one owner stop. `units.yaml` takes a top level `public: true`, the owner's mark by hand (only the exact boolean true counts; nothing infers it; no code writes it). `agent run` of an OpenCode agent whose provider is the signed-out free tier (`opencode`) is refused with exit 2 and that word, before the budget reservation and before anything starts, unless the root has the mark. A local provider (ollama, lmstudio, vllm) is never refused for this. The roles of W9.13 were already built (2026-11-22). Not covered: `agent chat` over the free route (a chat has no budget step), and Muse (its own refusal is Muse step 3). The repository units.yaml is not marked: the owner writes it. Code, `agents.py` and the `units.yaml` format: owner stop.
 tests: `tests/budget/test_public_mark.py` (the key and its refusals); `tests/agents/test_opencode_private.py` (free route refused, local provider not, logbook word, a text that only looks like the mark).
