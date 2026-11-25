@@ -4,7 +4,7 @@
 
 The rules gate decides what an agent may do when it asks. A review asked the harder question: what stops an agent that uses a path that never asks? Today the answers are the confinement of a run (Landlock on Linux, Seatbelt on a Mac that has been checked), the broker, and GitHub. The confinement has not been tried against a planted bypass in a real enforced run. This note lists the paths to try, what should block each, which test exists today, and what is proven and what is not. The test is `tests/test_bypass_paths.py` (J1 step 2: a test and docs only; no code of the confinement or the run path changes). Its kernel parts run only where Landlock exists, which today is the CI runner; on a Mac or a container without it they are skipped, and a skip is never a pass.
 
-A path that is NOT blocked is a finding, not a failure to hide: it goes in `docs/KNOWN-LIMITS.md` with a number, and in the report with a recommendation. Nothing here says enforced for a real run: no real enforced goal run has finished yet (W40). Cooperative today, enforced where built.
+The table of what is proven today, path by path, is [the bypass paths table](bypass-paths.md). A path that is NOT blocked is a finding, not a failure to hide: it goes in `docs/KNOWN-LIMITS.md` with a number, and in the report with a recommendation. Nothing here says enforced for a real run: no real enforced goal run has finished yet (W40). Cooperative today, enforced where built.
 
 ## Current state
 
