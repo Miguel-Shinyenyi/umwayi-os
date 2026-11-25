@@ -1,4 +1,4 @@
 date: 2026-11-24
-pr: none
+pr: 242
 what: M1b. `tools/ci_map.py` matched a call to a test function by name across all test files, so a call into code outside the tests, such as `g.listing(REPO)` of the guidance module, made another test file's own `listing(path)` look as if it read everything (the map entry `*`, which makes CI run the full suite for a small change). A call whose target is imported from outside `tests/` (`os`, `Path`, `from umwayi import guidance as g`, `import umwayi.guidance`) is no longer matched to a test function of the same name. A call to a test function through a `tests` import, or in the same file, still leaks, so the scan is not blinded. Tools and tests only; no workflow change.
 tests: `tests/test_ci_map.py` NameClashTests (three planted clashes that fail without the fix, two cases that must still leak, the real scenarios test), and the existing map tests.
