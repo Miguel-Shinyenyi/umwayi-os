@@ -9,7 +9,7 @@ A goal has a share of a provider's allowance. Today `umwayi budget status` lists
 is not recorded. To make a task wait ("waiting, daily cap") or be refused ("task_larger_than_cap"), the governor needs one number per
 goal and window: what the goal has used.
 
-## Current state (read from the code, 2026-11-25)
+## Current state
 
 - The ledger is the chained logbook, entries with source `umwayi budget` only, in three fixed shapes: `reserve`, `settle` and `change`
   (`umwayi/budget.py`). Anything else with that source is a ledger problem, exit 2.
@@ -18,7 +18,7 @@ goal and window: what the goal has used.
   UTC on a CI runner. `goalshare.nairobi_day` takes an aware time and is not wired in. The two must agree before a daily cap can stop a task.
 - A run does not know its goal: the agent start (`umwayi/agents.py`) gets an agent name, not a goal name.
 
-## Options
+### Options
 
 1. **A fourth fixed shape**, written next to the reserve: `Run R counted for goal G on provider P`. The reserve and settle shapes do not
    change, so every old logbook still parses. The reader adds the settled micros of run R (or the reserved micros while it is unsettled,
@@ -27,13 +27,13 @@ goal and window: what the goal has used.
    and a reader of the old shape must be updated at the same time.
 3. **A second file** of goal use. Rejected: the approved answer B-Q1 is that there is no second ledger file.
 
-## Recommendation
+### Recommendation
 
 Option 1. It is additive: a logbook written before the change has no such lines and every goal reads as 0 used, which is true. A run
 with no goal writes no such line. The new shape needs its own planted-fault test (a malformed line is a ledger problem, a line for an
 unknown run is a ledger problem, a goal not in units.yaml is a ledger problem).
 
-## What would be built, in order
+### What would be built, in order
 
 1. The new shape and its reader: `used_by_goal(ledger, goal, window)` as a pure function (a ledger change: owner stop).
 2. The start passes a goal name and the governor writes the line with the reserve (a start in `agents.py`: owner stop, and a guard file).
@@ -42,7 +42,11 @@ unknown run is a ledger problem, a goal not in units.yaml is a ledger problem).
 
 Each is its own pull request. Step 2 is where a share first stops anything, so its story must say so.
 
-## Open questions, each with a recommendation
+## Decisions log
+
+- 2026-11-25 (this note): option 1, a fourth fixed shape; no change to the reserve and settle shapes.
+
+## Open questions
 
 - **Q-g1.** Where does a run get its goal name? Recommendation: the goal supervisor passes it to the start as an argument; an agent that
   is started by hand has no goal and counts only against the provider.
@@ -51,7 +55,3 @@ Each is its own pull request. Step 2 is where a share first stops anything, so i
 - **Q-g3.** Does a goal's use count the reserve or the settle? Recommendation: the settle once it exists, the reserve in full before
   that, the same as the daily limits (B-Q4).
 - **Q-g4.** Does a run that spans two windows count in the window of its reservation? Recommendation: yes, the same as a day today.
-
-## Decisions log
-
-- 2026-11-25 (this note): option 1, a fourth fixed shape; no change to the reserve and settle shapes.
