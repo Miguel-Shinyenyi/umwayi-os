@@ -3,6 +3,9 @@ version: 1
 # credits may be used by Meta for product improvement: never private or employer code, never a secret. The amount is the owner's own
 # figure (W1, 2026-11-24), below what the billing page showed, so that a stop line taken as a share of it errs on the safe side. Withdraw the acceptance by removing
 # the acceptance block. The owner approves this file at the merge of the pull request that adds it (an owner stop).
+# The owner wrote the word public at 22:12 on 2026-11-25 for the public umwayi-os repo only (the guide's row G-0085): nothing private is in this
+# repository, so a free route (Muse on free credits, OpenCode on its free tier) may take its work. Remove the line to make this root private again.
+public: true
 providers:
   muse:
     cost_kind: free_credits
