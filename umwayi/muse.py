@@ -17,7 +17,7 @@ import json
 import re
 from pathlib import Path
 
-from umwayi import fsutil
+from umwayi import credits, fsutil, units
 
 MUSE_MISSING = "muse_missing"
 HOOK_FILE_MISSING = "hook_file_missing"
@@ -136,3 +136,36 @@ def check_on_path(which) -> None:
     """Refuse with MUSE_MISSING when `which("muse")` finds nothing. `which` is `shutil.which` or a fake."""
     if not which("muse"):
         raise MuseRefused(MUSE_MISSING)
+
+
+PROVIDER = "muse"  # the provider of units.yaml that a Muse agent draws on
+GATE_NEXT_STEP = {
+    "provider_unknown": "Write a `muse` provider in units.yaml (docs/budget-governor.md); only the owner decides the numbers.",
+    "no_acceptance": "Only the owner writes the acceptance of the free credits in units.yaml; nothing is sent to Muse until then.",
+    "paid_asks_every_goal": "A paid provider asks on every goal; the owner says Yes for this one.",
+    "use_unknown": "The credit reading is missing or stale: read the billing page (with the owner's yes) and write credits.yaml, then try again.",
+    "credits_low": "The free credits are at or under the stop line (5 percent of the amount at acceptance by default): the owner decides.",
+}
+
+
+def gates(u, readings: dict, today: str):
+    """None when a Muse run may go on, else `(exit code, reason, text)`: the three gates before a run (M2 part 2, step 3), in order.
+
+    1. the owner's `public: true` mark (`private_repo_named`, exit 2: the free credits may be used by the provider, so a free route takes public work only);
+    2. the acceptance of the provider (`units.provider_gate`: `provider_unknown`, `no_acceptance`, `paid_asks_every_goal`, exit 3 Ask me first);
+    3. the stop line (`units.stop_gate`: `credits_low` exit 2, `use_unknown` exit 3), with the reading of `credits.yaml` and NEVER a stale one: a reading older
+       than `credits.STALE_DAYS` counts as unknown, so the run asks.
+    Pure: it starts nothing, writes nothing and reads no file (the caller gives the readings)."""
+    if not u.public:
+        return 2, PRIVATE_REPO_NAMED, f"{PRIVATE_REPO_NAMED}: {NEXT_STEP[PRIVATE_REPO_NAMED]} (units.yaml: public: true)"
+    decision, reason = units.provider_gate(u, PROVIDER)
+    if decision != "yes":
+        return 3, reason, f"{reason}: {GATE_NEXT_STEP[reason]}"
+    reading = readings.get(PROVIDER)
+    left = None if reading is None or credits.is_stale(reading, today) else reading.left_uu
+    decision, reason = units.stop_gate(u.providers[PROVIDER], left_uu=left)
+    if decision == "no":
+        return 2, reason, f"{reason}: {GATE_NEXT_STEP[reason]}"
+    if decision == "ask":
+        return 3, reason, f"{reason}: {GATE_NEXT_STEP[reason]}"
+    return None

@@ -50,6 +50,22 @@ class MuseCase(AgentCase):
         return {m.group(2): (m.group(1), m.group(3)) for m in
                 (re.match(r"^(ok|no|not run): ([a-z ]+): (.*)$", ln) for ln in r.stdout.splitlines()) if m}
 
+    def muse_units(self, public=True, accepted=True, provider=True):
+        """units.yaml with the roomy limits and, as asked, the owner's public mark, the provider `muse` and its acceptance (all written by the TEST, as the owner would)."""
+        text = "version: 1\nlimits:\n  per_day: 1000000\n  per_agent_per_day: 1000000\n  per_platform_per_day: 1000000\n"
+        if public:
+            text += "public: true\n"
+        if provider:
+            text += "providers:\n  muse:\n    cost_kind: free_credits\n    limit:\n      credits_uu: 10000\n"
+            if accepted:
+                text += "    acceptance:\n      accepted_free: true\n      date: 2026-11-23\n      amount_uu: 10000\n      source: owner\n"
+        (self.root / "units.yaml").write_text(text, encoding="utf-8")
+
+    def muse_credits(self, left=9000, days_old=0):
+        import datetime
+        when = (datetime.date.today() - datetime.timedelta(days=days_old)).isoformat()
+        (self.root / "credits.yaml").write_text(f"version: 1\ncredits:\n  muse:\n    left_uu: {left}\n    read: {when}\n", encoding="utf-8")
+
     def write_hook_file(self, command):
         (self.work / ".muse").mkdir(parents=True, exist_ok=True)
         (self.work / ".muse" / "hooks.json").write_text(muse.muse_hooks_text(command), encoding="utf-8")
@@ -131,11 +147,12 @@ class CheckTests(MuseCase):
         self.assertEqual(self.lines_of(r)["hook file"][0], "no")
 
 
-class RunTests(MuseCase):
+class RunBase(MuseCase):
     def setUp(self):
         super().setUp()
         self.write_rules(RULE)
-        self.roomy_budget()
+        self.muse_units()
+        self.muse_credits()
         self.log = self.tmp / "muse-calls.jsonl"
         r = self.umwayi("check", "m")
         self.write_hook_file(re.search(r"PreToolUse command `([^`]+)`", r.stdout).group(1))
@@ -147,6 +164,8 @@ class RunTests(MuseCase):
         import json
         return [json.loads(l) for l in self.log.read_text(encoding="utf-8").splitlines()] if self.log.exists() else []
 
+
+class RunTests(RunBase):
     def test_a_run_starts_muse_exec_with_the_step_cap_and_the_contributor_flag_off(self):
         r = self.run_muse("exit=0 summarise")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -182,6 +201,44 @@ class RunTests(MuseCase):
         r = self.umwayi("chat", "m", extra={"FAKE_MUSE_LOG": str(self.log)})
         self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.calls(), [])
+
+
+class GateRunTests(RunBase):
+    """M2 part 2, step 3: the public mark, the acceptance and the stop line, before anything is reserved or started. Each refusal names its fixed word and the fake is never run."""
+
+    def refused(self, code, word):
+        r = self.run_muse("exit=0 work")
+        self.assertEqual(r.returncode, code, r.stdout + r.stderr)
+        self.assertIn(word, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), [])
+        self.assertIn(f"Refused agent m: {word}", "".join(e.added for e in self.entries()))
+
+    def test_without_the_public_mark_the_run_is_refused_with_private_repo_named(self):
+        self.muse_units(public=False)
+        self.refused(2, "private_repo_named")
+
+    def test_without_the_provider_or_the_acceptance_the_run_asks(self):
+        self.muse_units(provider=False)
+        self.refused(3, "provider_unknown")
+        self.muse_units(accepted=False)
+        self.refused(3, "no_acceptance")
+
+    def test_without_a_reading_or_with_a_stale_one_the_run_asks(self):
+        (self.root / "credits.yaml").unlink()
+        self.refused(3, "use_unknown")
+        self.muse_credits(days_old=5)
+        self.refused(3, "use_unknown")
+
+    def test_at_the_stop_line_the_run_is_refused_and_one_above_it_goes(self):
+        self.muse_credits(left=500)  # 5 percent of the 10000 UU of the acceptance
+        self.refused(2, "credits_low")
+        self.muse_credits(left=501)
+        r = self.run_muse("exit=0 work")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_the_mark_comes_first_when_everything_is_missing(self):
+        self.muse_units(public=False, provider=False)
+        self.refused(2, "private_repo_named")
 
 
 if __name__ == "__main__":
