@@ -23,6 +23,11 @@ Standard library only.
       usage error (64) and nothing is written. The file is written in sorted order, the same bytes for the same reports.
   python -m tools.ci_shards check [--assignments FILE] [--root DIR]
       Fails (exit 2) when a test file is in no shard or a listed file is gone.
+  python -m tools.ci_shards check-balance [--assignments FILE]
+      Fails (exit 2) when the assignment is not the fixed point of `balance` run on its own seconds (what tests/test_ci_shards.py pins):
+      the state after `assign-missing` or a merge that left the shards uneven. Reads only.
+  python -m tools.ci_shards rebalance [--assignments FILE]
+      Rebalances the assignment file from its own seconds, in place, only when its bytes change. After it, `check-balance` passes.
   python -m tools.ci_shards assign-missing [--assignments FILE] [--root DIR]
       W21. The small repair: each test file under tests/ that is in no shard goes to the shard with the least total
       seconds (a file with no seconds counts as the average of the others, ties go to the lowest shard, files in name
@@ -576,14 +581,55 @@ def cmd_check(argv):
     return 2 if problems else 0
 
 
+def _own_seconds(assign):
+    """{file: seconds} of an assignment, or a usage error when an entry has no number of seconds."""
+    out = {}
+    for f, v in assign["files"].items():
+        sec = v.get("seconds") if isinstance(v, dict) else None
+        if isinstance(sec, bool) or not isinstance(sec, (int, float)) or sec < 0:
+            raise UsageError(f"{f} has no seconds of 0 or more")
+        out[f] = float(sec)
+    if assign["shards"] < 1:
+        raise UsageError("the assignment has no shards")
+    return out
+
+
+def cmd_check_balance(argv):
+    o = parse_opts(argv, ("--assignments",))
+    assign = load_assignments(o.get("--assignments", ASSIGN_PATH))
+    want = balance(_own_seconds(assign), assign["shards"])
+    wrong = sorted(f for f, v in assign["files"].items() if v.get("shard") != want[f])
+    if wrong:
+        print(f"ci_shards: the assignment is not balanced: {len(wrong)} file(s) would move, for example {wrong[0]}", file=sys.stderr)
+        print("ci_shards: To fix it, run: python -m tools.ci_shards rebalance", file=sys.stderr)
+        return 2
+    print("ci_shards: the assignment is the fixed point of balance")
+    return 0
+
+
+def cmd_rebalance(argv):
+    o = parse_opts(argv, ("--assignments",))
+    path = Path(o.get("--assignments", ASSIGN_PATH))
+    assign = load_assignments(path)
+    want = balance(_own_seconds(assign), assign["shards"])
+    new = {"shards": assign["shards"], "files": {f: {"shard": want[f], "seconds": v["seconds"]} for f, v in assign["files"].items()}}
+    text = json.dumps(new, indent=1, sort_keys=True) + "\n"
+    if path.read_text(encoding="utf-8") != text:
+        path.write_text(text, encoding="utf-8")
+        print("ci_shards: rebalanced")
+    else:
+        print("ci_shards: nothing to rebalance")
+    return 0
+
+
 COMMANDS = {"run": cmd_run, "verify": cmd_verify, "balance": cmd_balance, "check": cmd_check,
-            "assign-missing": cmd_assign_missing, "times": cmd_times}
+            "assign-missing": cmd_assign_missing, "times": cmd_times, "check-balance": cmd_check_balance, "rebalance": cmd_rebalance}
 
 
 def main(argv):
     try:
         if not argv or argv[0] not in COMMANDS:
-            raise UsageError("usage: python -m tools.ci_shards run | verify | balance | check | assign-missing | times")
+            raise UsageError("usage: python -m tools.ci_shards run | verify | balance | check | assign-missing | times | check-balance | rebalance")
         return COMMANDS[argv[0]](argv[1:])
     except UsageError as e:
         print(f"ci_shards: {e}", file=sys.stderr)

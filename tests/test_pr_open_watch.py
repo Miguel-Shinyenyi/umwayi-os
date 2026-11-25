@@ -16,9 +16,9 @@ GOOD = f"Owner stop: yes. This changes a tools script.\n\n## Story\n\n{STORY}\n\
 class Fake:
     """A stand-in for `sh`: answers by the first words of the command and records every command."""
 
-    def __init__(self, branch="feature", dirty="", open_prs="0", ancestor=0, push=0, create=("https://github.com/o/r/pull/250", 0), after_dirty="x", docs=0):
+    def __init__(self, branch="feature", dirty="", open_prs="0", ancestor=0, push=0, create=("https://github.com/o/r/pull/250", 0), after_dirty="x", docs=0, balance=0):
         self.calls, self.branch, self.dirty, self.open_prs, self.ancestor, self.push = [], branch, dirty, open_prs, ancestor, push
-        self.create, self.after_dirty, self.status_calls, self.docs = create, after_dirty, 0, docs
+        self.create, self.after_dirty, self.status_calls, self.docs, self.balance = create, after_dirty, 0, docs, balance
 
     def __call__(self, args, cwd=None):
         self.calls.append(list(args))
@@ -34,6 +34,8 @@ class Fake:
             return self.ancestor, "", ""
         if a[:2] == ["git", "rev-parse"]:
             return 0, SHA, ""
+        if "check-balance" in a:
+            return self.balance, "", "not balanced" if self.balance else ""
         if "docs" in a and "build" in a:
             return self.docs, "", "refused" if self.docs else ""
         if a[:2] == ["git", "push"]:
@@ -90,6 +92,11 @@ class OpenStopsBeforeAnythingIsPushedTests(unittest.TestCase):
         fake = Fake(docs=1)
         rc, _, err = run_open(fake)
         self.assert_stopped(fake, rc, err, "docs build was refused")
+
+    def test_an_unbalanced_shard_file_stops_before_the_pull_request_exists(self):
+        fake = Fake(balance=2)
+        rc, _, err = run_open(fake)
+        self.assert_stopped(fake, rc, err, "shard assignment is not balanced")
 
     def test_the_branch_does_not_hold_main(self):
         fake = Fake(ancestor=1)

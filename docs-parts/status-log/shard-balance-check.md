@@ -1,0 +1,4 @@
+date: 2026-11-25
+pr: 263
+what: The shard file was left uneven after a merge four times, because `merge_main` verifies only that every test file is in one shard, while `tests/test_ci_shards.py` pins the file as the fixed point of `balance`. Two commands: `python -m tools.ci_shards check-balance` (exit 2 and the hint `rebalance` when the file is not that fixed point) and `python -m tools.ci_shards rebalance` (rewrites the file from its own seconds, only when its bytes change, and keeps every file and every number of seconds). `tools.pr_open` runs the check before it pushes anything and stops with "nothing was pushed or opened". `merge_main` and the registry of generated files are NOT changed, so no pinned hint or table changes. A tools change: owner stop.
+tests: `tests/test_ci_shards.py` RebalanceTests (fails when uneven, repairs, idempotent, usage errors); `tests/test_pr_open_watch.py` (stops before a push).
