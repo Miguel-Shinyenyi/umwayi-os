@@ -33,11 +33,16 @@ class PublicMarkTests(unittest.TestCase):
         u, _ = check(BASE)
         self.assertNotIn("public", u.state())
 
-    def test_the_repository_file_is_not_marked_by_this_change(self):
+    def test_the_repository_file_carries_the_owners_mark_and_says_who_wrote_it_when_and_for_what(self):
         from pathlib import Path
         text = (Path(__file__).resolve().parents[2] / "units.yaml").read_text(encoding="utf-8")
-        self.assertNotIn("public:", text)  # the owner writes the mark by hand; nobody else does
-
+        u, p = units.check_text(text, "2026-11-25")
+        self.assertEqual([x.message for x in p], [])
+        self.assertTrue(u.public)
+        self.assertEqual([l for l in text.split("\n") if l.startswith("public:")], ["public: true"])  # one mark, the exact word
+        head = text[:text.index("public: true")]
+        for words in ("The owner wrote the word public", "22:12 on 2026-11-25", "public umwayi-os repo only"):
+            self.assertIn(words, head)  # the comment above the mark says who wrote it, when, and for what
 
 if __name__ == "__main__":
     unittest.main()
