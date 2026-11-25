@@ -61,7 +61,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, budget, confine, kill, logbook, miniyaml, rules, runlock, seatbelt, taskqueue, telemetry, toolcheck, units, watched
+from umwayi import __version__, acp, budget, confine, credits, kill, logbook, miniyaml, muse, rules, runlock, seatbelt, taskqueue, telemetry, toolcheck, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -107,7 +107,13 @@ PLATFORMS = {
     # runs for every tool call (design.md part 8). 2.2.3 is the first release that honours every policy used.
     "opencode": Platform("opencode", ("opencode",), ("acp",), "adapters/stdio/hook.py",
                          (2, 2, 3), "--version", "integration.use, mcp.use and plugin.use need OpenCode 2.2.3 or later"),
+    # M2 part 2, step 1 (docs/muse-start-design.md): Muse Code, checks only. `agent check` works; `agent run` and `agent chat` are refused until the
+    # start is built (step 2). No minimum version is pinned until the real check (M3), and the hook is the generic adapter, as an assumption.
+    "muse": Platform("muse", ("muse",), ("cli",), "adapters/stdio/hook.py", (0, 0, 0), "--version",
+                     "no minimum version is pinned until the real check (M3)"),
 }
+MUSE_NO_CHAT = "agent: a Muse chat is not built: `agent run` starts `muse exec` (M2 part 2, step 2); `agent chat` is refused. Nothing was started."
+MUSE_VERSION_TIMEOUT = 15.0  # seconds for `muse --version`
 
 # Part 7: Claude Code over ACP (10.R11). The adapter is a pinned npm package in adapters/claude_acp/,
 # installed by the owner (`npm ci --ignore-scripts`); umwayi never runs npm. An ACP chat runs
@@ -246,6 +252,8 @@ OPENCODE_ROUTES = {
     "openai": ("openai#*", None),
     "github-copilot": ("github-copilot#*", None),
 }
+FREE_OPENCODE_ROUTES = ("opencode",)  # the signed-out free tier: what is sent over it may be used by the provider (D-93). A local provider is not listed.
+PRIVATE_REPO_NAMED = "private_repo_named"  # the fixed word of the refusal, the same as the Muse route (docs/muse-route-design.md)
 OPENCODE_GO = "opencode-go"  # refused (OC13): its billing could not be told apart from Console credits (10.42)
 OPENCODE_GO_TEXT = ("agent: provider opencode-go (OpenCode Go) is not offered yet: 10.42 could not tell its billing "
                     "apart from Console credits (design.md, OC13). Nothing was started.")
@@ -271,8 +279,20 @@ _OPENCODE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 # OpenCode replaces {env:NAME} and {file:PATH} in the inline config before it reads it (NOTES, Nov 11).
 _OPENCODE_SUBSTITUTION = re.compile(r"\{(?:env|file):", re.IGNORECASE)
 
+# G-0059 build 2 (docs/seatbelt-signin-design.md): the one variable name an agent may list in `token_env`. The key is checked and recorded and
+# NOTHING passes the variable yet (the Seatbelt start is a later build and CHECKED_ON_MAC stays False); `env_keep` still refuses this name.
+TOKEN_ENV_NAMES = ("CLAUDE_CODE_OAUTH_TOKEN",)
+
+
+def token_line(name: str) -> str:
+    """The one fixed logbook line for a token variable passed to a helper: the NAME only, never a value, a length, a prefix or a hash."""
+    if name not in TOKEN_ENV_NAMES:
+        raise ValueError("not a token variable name")
+    return f"token variable {name} passed to the helper (the name only; the value was not read)"
+
+
 KEYS = ("name", "platform", "command", "transport", "workdir", "kiro_agent", "trust_tools",
-        "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine")
+        "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine", "token_env")
 REQUIRED = ("name", "platform", "command", "workdir")
 RUN, CHAT, LOGIN = "run", "chat", "login"  # LOGIN: `umwayi agent login NAME` (10.R12.9, part 7c-2)
 CLI, ACP = "cli", "acp"
@@ -300,6 +320,7 @@ class Agent:
     model: str | None = None  # platform opencode only: provider/model-id
     env_keep: tuple = ()  # W78 step 2: names (never values) an enforced start passes on besides the allow list
     confine: bool = False  # W78 step 6: an enforced `claude -p` run of this agent starts through Landlock (off by default)
+    token_env: str | None = None  # G-0059 build 2: the NAME of the owner's token variable (docs/seatbelt-signin-design.md); nothing passes it yet
 
 
 @dataclass(frozen=True)
@@ -533,7 +554,7 @@ def check_text(text: str, root: Path) -> tuple:
                     problem(f"{label}: trust_tools names a tool twice", "agents", i, "trust_tools")
         max_turns = item.get("max_turns")
         if "max_turns" in item:
-            if pname != "claude-code":
+            if pname not in ("claude-code", "muse"):  # for Muse it is the step cap, `--max-model-steps` (M2 part 2, step 2)
                 problem(f"{label}: max_turns is only for platform claude-code", "agents", i, "max_turns")
             elif not _whole(max_turns, 1, 200):
                 problem(f"{label}: max_turns must be a whole number from 1 to 200", "agents", i, "max_turns")
@@ -558,6 +579,14 @@ def check_text(text: str, root: Path) -> tuple:
                         problem(f"{label}: env_keep entry {n if isinstance(n, str) and _ENV_NAME.match(n) else '(not a name)'} {why}",
                                 "agents", i, "env_keep")
                         break
+        token_env = item.get("token_env")
+        if "token_env" in item:
+            if pname != "claude-code":
+                problem(f"{label}: token_env is only for platform claude-code", "agents", i, "token_env")
+            elif token_env not in TOKEN_ENV_NAMES:
+                problem(f"{label}: token_env must be exactly {' or '.join(TOKEN_ENV_NAMES)}: a name, never a value", "agents", i, "token_env")
+            elif confine is not True:
+                problem(f"{label}: token_env needs confine: true (the token is for a confined Seatbelt start)", "agents", i, "token_env")
         provider, model = item.get("provider"), item.get("model")
         for key in ("provider", "model"):
             if pname == "opencode" and key not in item:
@@ -581,7 +610,8 @@ def check_text(text: str, root: Path) -> tuple:
             parsed.append(Agent(name, pname, cmd, transport, item["workdir"], kiro_agent,
                                 tuple(tools) if isinstance(tools, list) else (), max_turns, timeout, line("agents", i),
                                 provider if pname == "opencode" else None, model if pname == "opencode" else None,
-                                tuple(env_keep) if isinstance(env_keep, list) else (), confine is True))
+                                tuple(env_keep) if isinstance(env_keep, list) else (), confine is True,
+                                token_env if isinstance(token_env, str) and pname == "claude-code" else None))
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
     return parsed, []
@@ -770,6 +800,11 @@ class OpenCodeRefused(RuntimeError):
 
 def _refuse(why: str):
     raise OpenCodeRefused(f"agent: {why} Nothing was started.")
+
+
+def opencode_route_is_free(provider) -> bool:
+    """True for a route over which the provider may use what is sent (the signed-out free tier). A local provider, an unknown name and a non-string are False."""
+    return isinstance(provider, str) and provider in FREE_OPENCODE_ROUTES
 
 
 def opencode_route(provider) -> tuple:
@@ -1059,6 +1094,16 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
     model and effort (W9.6) are for `agent run` of Claude Code and Kiro only; None adds nothing."""
     if mode not in (RUN, CHAT, LOGIN):
         raise UsageError("agent: the mode must be run, chat or login")
+    if agent.platform == "muse":  # M2 part 2, step 2: a run is `muse exec`, the prompt last; never a chat, a login or a flag of the owner's
+        if mode != RUN or model is not None or effort is not None:
+            raise UsageError(MUSE_NO_CHAT if mode == CHAT else "agent: Muse takes no login, model or effort option here. Nothing was started.")
+        try:
+            argv = muse.exec_argv(agent.max_turns, prompt if prompt is not None else "", command_path)
+        except muse.MuseRefused as e:
+            raise UsageError(f"agent: {e}. Nothing was started.") from None
+        except ValueError as e:
+            raise UsageError(f"agent: {e}. Nothing was started.") from None
+        return _assert_allowed(argv, skip=len(argv) - 1), None
     if (model is not None or effort is not None) and (mode != RUN or agent.platform not in ("claude-code", "kiro")):
         raise UsageError("agent: --model and --effort are only for agent run of a Claude Code or Kiro agent")
     extra = []
@@ -1535,6 +1580,59 @@ def _opencode_other_config(workdir: str, home: str) -> str | None:
     return None
 
 
+def muse_env(environ) -> dict:
+    """The environment of a Muse start: `environ` minus every Muse and Meta variable whose name says it holds a key, a token or a secret. `environ` is not
+    changed and no value is read into a line; the removed NAMES are what `agent check` shows."""
+    return muse.child_env(environ)[0]
+
+
+def muse_gate_command(root, src: Path | None = None) -> str:
+    """The command the `.muse/hooks.json` of a Muse run must call: the generic adapter of layer 9, with the umwayi root. An assumption until the real
+    check (M3) shows what Muse's hook sends and expects."""
+    return f"{python_path()} {hook_path('muse', src)} --root {os.path.realpath(str(root))}"
+
+
+def _muse_version_line(code, out, plat: Platform, command: str) -> tuple:
+    """(ok, detail, version) of `muse --version`: no answer in time, a failing exit, or an answer. No minimum is pinned, and the sign-in is not checked
+    (no command for it is known yet, M3), and the line says so. Written apart from the OpenCode checks on purpose: their mutation tests need
+    their own lines to stay unique in this file."""
+    flag = plat.version_flag
+    if code is None:
+        return False, f"{command} {flag} did not answer within {MUSE_VERSION_TIMEOUT:.0f} s", None
+    if code:
+        return False, f"{command} {flag} exited {code}", None
+    version = parse_version(out)
+    shown = f"{_show(version)} (no minimum is pinned)" if version else "answered (no version number found; no minimum is pinned)"
+    return True, shown + "; the sign-in is not checked: no command for it is known yet", version
+
+
+def _muse_checks(agent: Agent, plat: Platform, gate: Gate, root: Path, src: Path | None) -> Gate:
+    """The checks of a Muse agent, in order, the first failure ends it: command, version, hook file, key variables. Reads only; starts no model.
+    `muse --version` runs in the workdir with the allow-listed environment of `enforced_env`, so no key variable reaches it."""
+    done = _recorder(gate, ["command", "version", "hook file", "key variables"])
+    found = shutil.which(agent.command)
+    if not (found and os.path.isabs(found)):
+        done("command", False, f"{agent.command} was not found on PATH")
+        return gate
+    gate.command_path = found
+    done("command", True, f"{agent.command} found at {found}")
+    _, removed = muse.child_env(os.environ)  # the key variables a start would remove (names only)
+    code, out = _run_child([found, plat.version_flag], b"", MUSE_VERSION_TIMEOUT, agent.workdir, env=enforced_env(os.environ, agent))
+    version_ok, detail, gate.version = _muse_version_line(code, out, plat, agent.command)
+    if not done("version", version_ok, detail):
+        return gate
+    command = muse_gate_command(root, src)
+    try:
+        muse.check_hook_file(agent.workdir, command)
+        hook_ok, detail = True, ".muse/hooks.json calls the gate"
+    except muse.MuseRefused as e:
+        hook_ok, detail = False, f"{e}; the file must have a PreToolUse command `{command}`"
+    if not done("hook file", hook_ok, detail):
+        return gate
+    done("key variables", True, ("removed from the child, names only: " + ", ".join(removed)) if removed else "none set")
+    return gate
+
+
 def _opencode_checks(agent: Agent, plat: Platform, gate: Gate, src: Path | None, home: Path | None) -> Gate:
     """The six checks of an OpenCode agent (10.R13.8), in order, the first failure ends it: command, version, files,
     managed config, other config, route. Reads only. `opencode --version` runs in the workdir with the allow-listed
@@ -1606,6 +1704,8 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
         gate.checks.append(Check("sandbox settings", False, "refused (profile): the Claude Code ACP adapter takes no sandbox "
                                  "settings; use transport cli for this agent, or set it cooperative at your terminal"))
         return gate
+    if agent.platform == "muse":  # M2 part 2, step 1: the checks, and no start
+        return _muse_checks(agent, plat, gate, root, src)
     if agent.platform == "opencode":  # the six checks of 10.R13.8
         return _opencode_checks(agent, plat, gate, src, home)
     if is_claude_acp(agent, mode):
@@ -1718,6 +1818,11 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
     if not gate.gated:
         lines.append(f"Not gated: agent {agent.name} would be refused (exit 2). Nothing was started.")
         return Result(2, lines)
+    if agent.platform == "muse":
+        argv, _ = build_argv(agent, RUN, gate.command_path, root, python_path(), prompt="PROMPT")
+        lines.append(f"run would start: {json.dumps(argv)} with the environment minus the Muse and Meta key variables")
+        lines.append(f"Gated: the checks of Muse agent {agent.name} passed. {MUSE_NO_CHAT.removeprefix('agent: ')}")
+        return Result(0, lines)
     if agent.platform == "opencode":  # the six checks of 10.R13.8; the chat itself is 10.R13.10 to 10.R13.12
         argv, _ = build_argv(agent, CHAT, gate.command_path, root, python_path())
         lines.append(f"chat would start: {json.dumps(argv)} with the allow-listed environment and the inline config; "
@@ -2171,6 +2276,22 @@ class _Run:
             why = self.log(f"Refused agent {a.name}: units.yaml is not valid", "the gate checks passed, then units.yaml "
                            "was validated", "Nothing was started.")
             return self.result(64, [str(e)], why)
+        if a.platform == "opencode" and opencode_route_is_free(a.provider) and not u.public:
+            why = self.log(f"Refused agent {a.name}: {PRIVATE_REPO_NAMED}", "the gate checks passed, then the root was checked for the "
+                           "owner's public mark before a free route", "Nothing was started.")
+            return self.result(2, [f"agent: {PRIVATE_REPO_NAMED}: only a root the owner marked public (public: true in units.yaml) may go over a "
+                                   f"free route. {not_started} (exit 2)"], why)
+        if a.platform == "muse":  # M2 part 2, step 3: the public mark, the acceptance and the stop line, before anything is reserved or started
+            try:
+                readings = credits.read(root)
+            except ConfigError:
+                readings = {}  # a broken credits.yaml is no reading: the stop line then asks
+            blocked = muse.gates(u, readings, self.clock())
+            if blocked is not None:
+                code, reason, text = blocked
+                why = self.log(f"Refused agent {a.name}: {reason}", "the gate checks passed, then the public mark, the acceptance and the stop "
+                               "line of the provider were checked", "Nothing was started.")
+                return self.result(code, [f"agent: {text} {not_started} (exit {code})"], why)
         cap_uu = self.options.cap_uu
         if cap_uu is not None:  # units.yaml may have changed since run_agent read it: the cap is checked again
             problem = budget.cap_problem(u, cap_uu)
@@ -2585,6 +2706,8 @@ class _Run:
             env = enforced_env(os.environ, self.agent)  # W78 step 2: the allow list and env_keep, no deny list
         elif self.agent.platform == "claude-code":
             env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
+        elif self.agent.platform == "muse":
+            env = muse_env(os.environ)  # umwayi's environment minus the Muse and Meta key variables (M2 part 2, step 2)
         else:
             env = kiro_env(os.environ)  # umwayi's environment minus KIRO_API_KEY (10.R12.13)
         if getattr(self, "confine_tmp", None):  # W78 step 6: the helper's temporary files go to its own folder, not /tmp

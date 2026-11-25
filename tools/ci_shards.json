@@ -148,19 +148,31 @@
    "seconds": 7.8,
    "shard": 3
   },
+  "tests/agents/test_muse_platform.py": {
+   "seconds": 19.5,
+   "shard": 1
+  },
   "tests/agents/test_opencode_mutants.py": {
    "seconds": 11.2,
    "shard": 2
   },
-  "tests/agents/test_proc_fallback.py": {
-   "seconds": 19.5,
-   "shard": 1
-  },
-  "tests/agents/test_sandbox_settings.py": {
+  "tests/agents/test_opencode_private.py": {
    "seconds": 19.5,
    "shard": 2
   },
+  "tests/agents/test_proc_fallback.py": {
+   "seconds": 19.5,
+   "shard": 3
+  },
+  "tests/agents/test_sandbox_settings.py": {
+   "seconds": 19.5,
+   "shard": 1
+  },
   "tests/agents/test_seatbelt_wiring.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
+  "tests/agents/test_token_env.py": {
    "seconds": 19.5,
    "shard": 3
   },
@@ -204,17 +216,25 @@
    "seconds": 1.8,
    "shard": 2
   },
+  "tests/budget/test_change_values.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
+  "tests/budget/test_credits.py": {
+   "seconds": 19.5,
+   "shard": 3
+  },
   "tests/budget/test_end_to_end.py": {
    "seconds": 12.4,
    "shard": 1
   },
   "tests/budget/test_goal_shares.py": {
    "seconds": 19.5,
-   "shard": 2
+   "shard": 1
   },
   "tests/budget/test_goal_shares_yaml.py": {
    "seconds": 19.5,
-   "shard": 3
+   "shard": 2
   },
   "tests/budget/test_ledger.py": {
    "seconds": 8.4,
@@ -226,9 +246,13 @@
   },
   "tests/budget/test_pacing.py": {
    "seconds": 19.5,
-   "shard": 1
+   "shard": 3
   },
   "tests/budget/test_providers.py": {
+   "seconds": 19.5,
+   "shard": 1
+  },
+  "tests/budget/test_public_mark.py": {
    "seconds": 19.5,
    "shard": 2
   },

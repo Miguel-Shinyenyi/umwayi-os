@@ -71,7 +71,7 @@ class PlatformTableTests(unittest.TestCase):
         self.assertEqual(p.hook, "adapters/stdio/hook.py")  # the plugin runs the layer 9 generic adapter
 
     def test_the_other_two_platforms_are_unchanged(self):
-        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro", "opencode"])
+        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro", "muse", "opencode"])
         self.assertEqual(agents.PLATFORMS["claude-code"].transports, ("cli", "acp"))
         self.assertEqual(agents.PLATFORMS["kiro"].transports, ("cli", "acp"))
         self.assertEqual(agents.PLATFORMS["claude-code"].commands, ("claude",))
@@ -79,7 +79,7 @@ class PlatformTableTests(unittest.TestCase):
 
     def test_the_keys_are_fixed(self):
         self.assertEqual(agents.KEYS, ("name", "platform", "command", "transport", "workdir", "kiro_agent",
-                                       "trust_tools", "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine"))
+                                       "trust_tools", "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine", "token_env"))
         self.assertEqual(agents.REQUIRED, ("name", "platform", "command", "workdir"))
 
     def test_the_agent_record_has_provider_and_model_with_no_default(self):

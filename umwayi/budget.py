@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from umwayi import logbook, runlock, units
+from umwayi import credits, logbook, runlock, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 SOURCE = "umwayi budget"
@@ -37,7 +37,10 @@ _SETTLE = re.compile(
     rf"models (none|{_MODEL}(?:, {_MODEL}){{0,9}}); tokens input {_N}, output {_N}, cache_read {_N}, "
     rf"cache_creation {_N}; requests {_N}; released {_N} micros$")
 _CHANGE = re.compile(r"^units\.yaml changed \((sha256 [0-9a-f]{64}|removed)\): (.+)$")
-_VAL = r"(none|[a-z_]{1,20}|[0-9]{1,13}(?: \([0-9]{4}-[0-9]{2}-[0-9]{2}, [^\s;,()]{1,210}\))?)"
+# A value of a units.yaml change item, exactly the shapes `units.Units.state` writes: none; a word (a cost kind, a mode, a provider name with digits or a
+# hyphen); a date (`until`); a number, with ` UU` and the owner's `(date, source)` for an acceptance (the shape `state` writes: `10000 UU (2026-11-23, owner)`).
+_VAL = (r"(none|[a-z][a-z0-9_-]{0,31}|[0-9]{4}-[0-9]{2}-[0-9]{2}"
+        r"|[0-9]{1,13}(?: UU)?(?: \([0-9]{4}-[0-9]{2}-[0-9]{2}, [^\s;,()]{1,210}\))?)")
 _ITEM = re.compile(rf"^([A-Za-z0-9._:/-]{{1,200}}) {_VAL} to {_VAL}$")
 NO_CHANGE = "no rate or limit changed"
 
@@ -322,6 +325,10 @@ def status(root: Path, day: str, today: str) -> tuple:
         lines.append(f"{len(lost)} reservation(s) of this day have no settle and count in full; if no agent runs now, "
                      "run umwayi budget settle-lost --by NAME")
     lines += units.goal_lines(u)
+    try:
+        lines += credits.lines(u, credits.read(root), today)
+    except ConfigError as e:
+        lines.append(f"{e}. The reading is ignored.")
     if pending_change(u, led) is not None:
         lines.append("units.yaml changed since the last logged change; the change is logged before the next start")
     if not u.present:

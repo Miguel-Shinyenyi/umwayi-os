@@ -126,17 +126,71 @@ class BoundaryTests(unittest.TestCase):
         for word in ("subprocess", "Popen", "os.system", "os.exec", "socket", "urllib", "requests"):
             self.assertNotIn(word, src, word)
 
-    def test_nothing_in_the_package_calls_it_yet(self):
+    def test_only_agents_py_calls_it_and_only_for_the_checks_yet(self):
         import re
         root = Path(__file__).resolve().parents[1]
         pat = re.compile(r"from umwayi import[^\n]*\bmuse\b|umwayi\.muse\b|import muse\b")
         callers = [p.name for p in (root / "umwayi").glob("*.py") if p.name != "muse.py" and pat.search(p.read_text(encoding="utf-8"))]
-        self.assertEqual(callers, [])  # the start in agents.py is a later part and an owner stop of its own
+        self.assertEqual(callers, ["agents.py"])  # step 1 of M2 part 2: agents.py checks a Muse agent; no start calls it (a later step)
 
     def test_a_built_command_never_carries_a_forbidden_flag(self):
         argv = muse.command(10, "p.txt")
         for flag in ("--yolo", "--disable-sandbox", "--disable-approval"):
             self.assertNotIn(flag, argv)
+
+
+class GatesTests(unittest.TestCase):
+    """`muse.gates`: the three gates before a run, in order, pure."""
+
+    TODAY = "2026-11-25"
+    BASE = "version: 1\n"
+    PROVIDER = "providers:\n  muse:\n    cost_kind: free_credits\n    limit:\n      credits_uu: 10000\n"
+    ACCEPT = "    acceptance:\n      accepted_free: true\n      date: 2026-11-23\n      amount_uu: 10000\n      source: owner\n"
+
+    def units(self, public=True, provider=True, accepted=True):
+        from umwayi import units
+        text = self.BASE + ("public: true\n" if public else "") + (self.PROVIDER + (self.ACCEPT if accepted else "") if provider else "")
+        u, problems = units.check_text(text, self.TODAY)
+        self.assertEqual(problems, [])
+        return u
+
+    def reading(self, left=9000, date="2026-11-25"):
+        from umwayi import credits
+        return {"muse": credits.Reading(left, date)}
+
+    def gate(self, u, readings):
+        r = muse.gates(u, readings, self.TODAY)
+        return None if r is None else r[:2]
+
+    def test_everything_in_place_means_no_refusal(self):
+        self.assertIsNone(self.gate(self.units(), self.reading()))
+
+    def test_no_mark_is_private_repo_named_with_exit_2(self):
+        self.assertEqual(self.gate(self.units(public=False), self.reading()), (2, "private_repo_named"))
+
+    def test_no_provider_or_no_acceptance_asks_with_exit_3(self):
+        self.assertEqual(self.gate(self.units(provider=False), self.reading()), (3, "provider_unknown"))
+        self.assertEqual(self.gate(self.units(accepted=False), self.reading()), (3, "no_acceptance"))
+
+    def test_no_reading_or_a_stale_one_asks_and_a_future_one_is_not_trusted(self):
+        self.assertEqual(self.gate(self.units(), {}), (3, "use_unknown"))
+        self.assertEqual(self.gate(self.units(), self.reading(date="2026-11-01")), (3, "use_unknown"))
+        self.assertEqual(self.gate(self.units(), self.reading(date="2026-12-31")), (3, "use_unknown"))
+
+    def test_the_stop_line_is_5_percent_of_the_amount_at_acceptance(self):
+        self.assertEqual(self.gate(self.units(), self.reading(left=500)), (2, "credits_low"))
+        self.assertIsNone(self.gate(self.units(), self.reading(left=501)))
+
+    def test_the_order_is_mark_then_acceptance_then_stop_line(self):
+        self.assertEqual(self.gate(self.units(public=False, provider=False), {}), (2, "private_repo_named"))
+        self.assertEqual(self.gate(self.units(accepted=False), self.reading(left=1)), (3, "no_acceptance"))
+
+    def test_every_refusal_has_a_text_with_its_word_and_a_next_step(self):
+        for u, readings in ((self.units(public=False), {}), (self.units(provider=False), {}), (self.units(accepted=False), {}),
+                            (self.units(), {}), (self.units(), self.reading(left=1))):
+            code, reason, text = muse.gates(u, readings, self.TODAY)
+            self.assertTrue(text.startswith(reason + ": "), text)
+            self.assertIn(code, (2, 3))
 
 
 if __name__ == "__main__":

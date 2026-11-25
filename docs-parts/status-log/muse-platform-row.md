@@ -1,0 +1,4 @@
+date: 2026-11-25
+pr: 254
+what: M2 part 2, step 1: Muse is a platform that can be CHECKED and not started. `PLATFORMS` has a `muse` row (command `muse`, transport cli, no minimum version until the real check M3, the generic adapter as the hook, as an assumption). `agent check` of a Muse agent runs four checks, the first failure ends them: command on PATH, `muse --version` in the allow listed environment (the sign-in is said not to be checked: no command for it is known), the `.muse/hooks.json` of the work folder calls the gate (the check names the command it must call), and the key variables a start would remove (names only, never a value). `build_argv` refuses Muse with a fixed text, so `agent run` and `agent chat` start nothing. No real Muse was run. Code, a guard list and `agents.py`: owner stop.
+tests: `tests/agents/test_muse_platform.py` (the row, each check's refusal, the gated line, names only, run refused); two platform table tests now list muse.
