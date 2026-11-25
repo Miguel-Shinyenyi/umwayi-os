@@ -1,4 +1,4 @@
 date: 2026-11-25
-pr: none
+pr: 256
 what: G-0059 build 2, the `token_env` key. An agent of platform claude-code with `confine: true` may name `token_env: CLAUDE_CODE_OAUTH_TOKEN`, the NAME of the owner's token variable (the owner creates the token and sets it in their own shell; a value is never accepted and never echoed in an error). Any other name, a missing `confine: true` or another platform is refused. The key is checked and recorded, and NOTHING passes the variable yet: `env_keep` still refuses the name, no child environment carries it, and the fixed logbook line `token variable NAME passed to the helper (the name only; the value was not read)` exists as a function that nothing calls. The login check exception and the Seatbelt start are builds 3 and 4; `CHECKED_ON_MAC` stays False. Code and `agents.yaml`: owner stop.
 tests: `tests/agents/test_token_env.py` (the key accepted, other names and values refused without echo, env_keep still refuses, no child env carries it, the line).
