@@ -40,6 +40,10 @@ A provider is a source of limits (M4 a, the Muse route). It is optional and does
 Two optional keys of a provider set its pacing period (M4 b): `until` (the next date the allowance renews or ends, a real date) and
 `horizon_days` (1 to 366, default 30, used when `until` is absent or already past). `pace` spreads what is left over that period.
 
+Three optional keys of a provider set its stop line (M4 d): `stop_left_pct` (free credits: stop new runs when this percent of the amount at
+acceptance is left; default 5; 0 removes the stop), `five_hour_stop_pct` (default 80) and `weekly_stop_pct` (default 90), the percent of a
+subscription allowance used at which new runs stop (100 removes the stop). `heads_up` and `stop_gate` are pure: nothing calls them yet.
+
 Without an acceptance a free credit or subscription provider is Ask me first; a paid provider is Ask me first on every goal, so an
 acceptance does not apply to it (`provider_gate`). Nothing here starts, stops or spends anything yet: the pacing, the heads up, the stop
 line and the goal shares are later parts of M4.
@@ -77,6 +81,8 @@ TOKEN_TYPES = ("input", "output", "cache_read", "cache_creation")
 PLATFORM_KEYS = ("reading", "fallback", "run_micros", "credit_micros", "credits_per_run")
 COST_KINDS = ("free_credits", "subscription", "paid")
 DEFAULT_HORIZON_DAYS = 30
+HEADS_UP_LEVELS = (50, 20, 10)  # percent left of the amount at acceptance that make a louder line
+DEFAULT_STOP_LEFT_PCT, DEFAULT_FIVE_HOUR_STOP_PCT, DEFAULT_WEEKLY_STOP_PCT = 5, 80, 90
 MAX_HORIZON_DAYS = 366
 # the limit keys a cost kind takes; a subscription needs at least one allowance
 LIMIT_KEYS = {"free_credits": ("credits_uu",), "subscription": ("five_hour_uu", "weekly_uu"), "paid": ("cap_uu",)}
@@ -125,6 +131,9 @@ class ProviderUnits:
     acceptance: dict | None = None  # accepted_free, date, amount_uu, source
     until: str | None = None  # the next date the allowance renews or ends
     horizon_days: int = DEFAULT_HORIZON_DAYS
+    stop_left_pct: int = DEFAULT_STOP_LEFT_PCT
+    five_hour_stop_pct: int = DEFAULT_FIVE_HOUR_STOP_PCT
+    weekly_stop_pct: int = DEFAULT_WEEKLY_STOP_PCT
 
 
 @dataclass(frozen=True)
@@ -406,9 +415,12 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
             continue
         before = len(problems)
         for key in p:
-            if key not in ("cost_kind", "limit", "acceptance", "until", "horizon_days"):
-                problem(f"{label}: {_name(key)} is not allowed, only cost_kind, limit, acceptance, until and horizon_days",
+            if key not in ("cost_kind", "limit", "acceptance", "until", "horizon_days", "stop_left_pct", "five_hour_stop_pct", "weekly_stop_pct"):
+                problem(f"{label}: {_name(key)} is not allowed, only cost_kind, limit, acceptance, until, horizon_days and the stop keys",
                         "providers", name, key)
+        for key in ("stop_left_pct", "five_hour_stop_pct", "weekly_stop_pct"):
+            if key in p and (isinstance(p[key], bool) or not isinstance(p[key], int) or not 0 <= p[key] <= 100):
+                problem(f"{label}: {key} must be a whole number from 0 to 100", "providers", name, key)
         if "until" in p and not _real_date(p["until"]):
             problem(f"{label}: until must be a real date YYYY-MM-DD", "providers", name, "until")
         if "horizon_days" in p and (isinstance(p["horizon_days"], bool) or not isinstance(p["horizon_days"], int)
@@ -476,7 +488,10 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
                 if ok:
                     accepted = dict(acc)
         if len(problems) == before:
-            providers[name] = ProviderUnits(kind, found, accepted, p.get("until"), p.get("horizon_days", DEFAULT_HORIZON_DAYS))
+            providers[name] = ProviderUnits(kind, found, accepted, p.get("until"), p.get("horizon_days", DEFAULT_HORIZON_DAYS),
+                                            p.get("stop_left_pct", DEFAULT_STOP_LEFT_PCT),
+                                            p.get("five_hour_stop_pct", DEFAULT_FIVE_HOUR_STOP_PCT),
+                                            p.get("weekly_stop_pct", DEFAULT_WEEKLY_STOP_PCT))
 
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
@@ -541,6 +556,71 @@ def pacing_line(share_uu: int, days: int, estimate_uu: int) -> str | None:
         return None
     return (f"pacing: this goal is estimated at {estimate_uu} UU, above today's share of {share_uu} UU "
             f"(what is left spread over {days} day(s)). It may run; the allowance will not last the period at this rate.")
+
+
+def percent_left(amount_uu: int, left_uu: int) -> int:
+    """Whole percent of the amount that is left, rounded down, from 0 to 100. An amount of 0 is 0."""
+    if amount_uu <= 0:
+        return 0
+    return max(0, min(100, int(left_uu) * 100 // int(amount_uu)))
+
+
+def heads_up_level(amount_uu: int, left_uu: int):
+    """The lowest of 50, 20 and 10 that the percent left is at or under, or None when more than half is left."""
+    if amount_uu <= 0:
+        return min(HEADS_UP_LEVELS)
+    hit = [lv for lv in HEADS_UP_LEVELS if int(left_uu) * 100 <= lv * int(amount_uu)]  # exact: 50.01 percent left has not crossed 50
+    return min(hit) if hit else None
+
+
+def heads_up(p: ProviderUnits, left_uu: int, today: str, estimate_uu: int | None = None, days_left_in_week: int | None = None) -> list:
+    """The lines at the start of a goal (M4 c): the limit left, today's share, the estimate and the pacing line when the goal is over the
+    share, and a louder line when the limit left has crossed 50, 20 or 10 percent of the amount at acceptance. [] for a provider with no
+    acceptance (the gate asks first) and for a paid one (it asks on every goal; a heads up is not enough). Pure: it prints and stops nothing."""
+    if p.acceptance is None or p.cost_kind == "paid":
+        return []
+    amount = p.acceptance["amount_uu"]
+    pct = percent_left(amount, left_uu)
+    line = f"heads up: {left_uu} of {amount} UU left ({pct} percent)"
+    pace_result = pace(p, left_uu, today, days_left_in_week)
+    share = pace_result[0] if pace_result else None
+    if pace_result:
+        line += f"; today's share is {share} UU over {pace_result[1]} day(s)"
+    if estimate_uu is not None:
+        line += f"; this goal is estimated at {estimate_uu} UU"
+    out = [line + "."]
+    if pace_result and estimate_uu is not None:
+        over = pacing_line(share, pace_result[1], estimate_uu)
+        if over:
+            out.append(over)
+    level = heads_up_level(amount, left_uu)
+    if level is not None:
+        out.append(f"HEADS UP: under {level} percent of the amount at acceptance is left ({left_uu} of {amount} UU).")
+    return out
+
+
+def stop_gate(p: ProviderUnits, left_uu=None, five_hour_used_pct=None, weekly_used_pct=None) -> tuple:
+    """(decision, reason) for a NEW run (M4 d). decision is "yes", "no" or "ask". Reasons: credits_low (a free credit provider at or under the
+    stop line of the amount at acceptance, 5 percent by default, so the card on file is never charged by accident), five_hour_stop and
+    weekly_stop (a subscription at or over 80 and 90 percent of its allowance by default), use_unknown (the reading the stop needs is not
+    known: ask), paid_asks_every_goal, and within_limits. The owner moves or removes a stop by hand with the stop keys. Pure."""
+    if p.cost_kind == "paid":
+        return "ask", "paid_asks_every_goal"
+    if p.cost_kind == "free_credits":
+        if p.acceptance is None or left_uu is None:
+            return "ask", "use_unknown"
+        if p.stop_left_pct > 0 and int(left_uu) * 100 <= p.stop_left_pct * int(p.acceptance["amount_uu"]):
+            return "no", "credits_low"
+        return "yes", "within_limits"
+    needs_five = "five_hour_uu" in p.limit and p.five_hour_stop_pct < 100
+    needs_week = "weekly_uu" in p.limit and p.weekly_stop_pct < 100
+    if (needs_five and five_hour_used_pct is None) or (needs_week and weekly_used_pct is None):
+        return "ask", "use_unknown"
+    if needs_five and five_hour_used_pct >= p.five_hour_stop_pct:
+        return "no", "five_hour_stop"
+    if needs_week and weekly_used_pct >= p.weekly_stop_pct:
+        return "no", "weekly_stop"
+    return "yes", "within_limits"
 
 
 def provider_gate(units: Units, provider: str) -> tuple:

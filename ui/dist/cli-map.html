@@ -41,6 +41,12 @@
           </details></li>
         </ul>
       </details></li>
+      <li data-path="stories"><details><summary class="row"><span class="name">stories</span><span class="what">U1: the story files of docs/stories, read only</span></summary>
+        <ul>
+          <li data-path="stories list"><span class="row"><span class="name">list</span><span class="what">list the stories and whether each is built, partly built or planned</span></span></li>
+          <li data-path="stories export"><span class="row"><span class="name">export</span><span class="what">print all the stories as one JSON document for a page in the GUI</span></span></li>
+        </ul>
+      </details></li>
       <li data-path="decision"><details><summary class="row"><span class="name">decision</span><span class="what">decision commands (layer 13): reopen a closed decision as a new question</span></summary>
         <ul>
           <li data-path="decision reopen"><span class="row"><span class="name">reopen</span><span class="what">reopen an answered or closed decision: one new logbook entry that links the old entry by its hash, and one new open decision in the queue</span></span></li>
@@ -208,7 +214,7 @@
     </ul>
   </nav>
   <footer>
-    <p>27 groups and 80 commands.</p>
+    <p>28 groups and 82 commands.</p>
     <p>Made from the command line when the page was built. To refresh it, run <code>python ui/tools/cli_map.py</code> and then <code>node build.mjs</code> in <code>ui</code>.</p>
   </footer>
 </main>
