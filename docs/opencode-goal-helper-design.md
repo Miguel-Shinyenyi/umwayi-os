@@ -71,6 +71,13 @@ OpenCode spend is **declared or unknown, never measured.** umwayi reads no usage
 - **Without the rate** the reading is `unknown` and counts at `unknown_worst_case`, never zero.
 - **After 10 real runs** the owner compares the band with what the provider's own bill says and changes the rate by hand. `budget calibrate` needs measured runs, so it never proposes an OpenCode rate.
 
+
+### Per role, as planning guesses (2026-11-25, G-0068)
+
+The guide's best guess of 2026-11-17, now named here: a reviewer run about **5 UU**, a tester run about **8 UU**, a builder run about **25 UU**. They are labelled guesses,
+not measurements. They sit inside the band above, so the cap of one run stays 40 UU and the declared rate stays 15 UU. No code reads the three numbers: they are for the
+estimate a person reads before approving a goal. After 10 real runs the owner replaces them with what the provider's own bill shows.
+
 ## The rules and their planted faults
 
 Each rule gets a test and a planted fault the test must catch. Real child processes, a fake `opencode` that speaks ACP, a temporary root, no network, standard library only.
@@ -105,6 +112,18 @@ Task 10.51, on the owner's Mac, is the real check. The build does not start unti
 7. **What it writes** in its private `HOME`, and whether anything reaches the owner's real config.
 8. **An effort flag:** whether a documented effort or reasoning option exists on that version. If none is confirmed, R9 stays.
 
+## Free routes and a private repository (design, 2026-11-25, G-0068)
+
+The rule of the owner's acceptance (D-93) is that work sent over a free route may be used by the provider, so a free route takes PUBLIC work only. For OpenCode today:
+
+- **Covered:** the signed-out free tier, the provider `opencode` of `agents.yaml` (`OPENCODE_ROUTES`). Its terms are not read here: treat it as a free route.
+- **Not covered:** a local provider (`ollama`, `lmstudio`, `vllm`): its content goes to the owner's own machine. A connected-account subscription sign-in is not offered today.
+- **The fixed refusal, proposed:** `private_repo_named`, the same word as the Muse route (`docs/muse-route-design.md`), exit 2, raised at `agent run` for a covered route when the root is not
+  marked public. The line says the next step ("only a root the owner marked public may go over a free route") and nothing is started. A local provider is never refused for this.
+- **The mark:** the owner writes `public: true` by hand and the code reads it and never writes it (G-0046 for Muse). It is never inferred from a repository name or a remote.
+- **Tests to write first:** a free route with no mark is refused and starts nothing; the same with the mark runs; a local provider with no mark runs; a mark that is `"true"` as text or `1` is no mark.
+- **Not built.** This is the design. The build is its own pull request and an owner stop (it changes the start of an agent).
+
 ## What it does not prove
 
 - It does not measure OpenCode's spend. The band is a guess until the owner compares it with a bill.
@@ -131,9 +150,12 @@ This would be the first code that lets OpenCode start as a goal helper, so each 
 | --- | --- | --- |
 | 2026-11-17 | Design note only; the six questions, the budget band and the stops wait for the owner. | W9.13 in tasks.md, after 10.48 (W9-Q8). |
 | 2026-11-22 | The owner accepted the recommendations of the six questions, the open questions below, the budget band, an effort refused for OpenCode, and tester and guide first, then a builder after five clean tester runs. W9.13 is built: `agent run` of an OpenCode agent (`acp.Run`, `agents.py` `_acp_run`), `goal approve` and `goal show` for an OpenCode role, a blank effort in a packet, the planted-fault tests, one whole-system scenario with a fake `opencode acp`. Not built: a rule that enforces "five clean runs"; that is advice. The owner still adds the Yes rules by hand (stop 6) and reviews the first real goal run (stop 7). | The owner's message of the same day, after the real check of 10.51 (PR 164). |
+| 2026-11-25 | W9.13 is already built (2026-11-22), so the guide's list of 2026-11-25 (a design note, then a build) is met except two things, written here as design: the per role planning guesses and the fixed refusal of a private repository on a free route. The tick of W9.13 in `tasks.md` was stale and is now ticked. | G-0068 asked for a note and a build; the note and the build exist. |
 
 ## Open questions
 
 1. **Is "the owner's figure for Kiro" 150000 micros?** `docs/budget-governor.md` shows 400000 micros for Kiro as an example. **Recommendation:** use 150000 for OpenCode as the owner said, and leave the Kiro example as it is.
 2. **Five clean tester runs before a builder:** is five the right number? **Recommendation:** five, counted from the logbook, and the owner can lower it by saying so.
 3. **A provider that is free:** a free tier still counts at the declared rate. **Recommendation:** keep the declared rate, so the day limits still hold, and let the owner set a lower `run_micros` with `source: owner` if wanted.
+4. **Where is the `public: true` mark kept for a root?** G-0046 puts it on the `muse` provider in `units.yaml`; the OpenCode free tier is not a `units.yaml` provider. **Recommendation:** one mark per root, a top level `public: true` in `units.yaml`, read by both routes, written only by the owner.
+5. **Is the signed-out OpenCode free tier a free route under D-93?** Its terms are not read in this repository. **Recommendation:** yes, treat it as one, until the owner reads its terms and says otherwise.
