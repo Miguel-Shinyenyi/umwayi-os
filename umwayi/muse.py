@@ -77,6 +77,17 @@ def command(max_steps, prompt_file: str, extra=()) -> list:
             *extra]
 
 
+def exec_argv(max_steps, prompt: str, command_path: str = "muse") -> list:
+    """The `muse exec` argument list of a run, with the prompt as the LAST argument (design note, Q-m1: as for Claude Code; a file would need a temporary
+    folder). The same flags as `command`: always `--max-model-steps N` and `--contributor-mode off`, `--json`, never `--yolo` or `--disable-sandbox` or
+    `--disable-approval`. `command_path` replaces the word `muse` (the caller gives the absolute path it found). A prompt that is empty, holds a NUL or
+    starts with `-` is a ValueError: it could be read as a flag."""
+    if not isinstance(prompt, str) or not prompt.strip() or "\x00" in prompt or prompt.lstrip().startswith("-") or len(prompt) > 100_000:
+        raise ValueError("the prompt must be text that does not start with '-', has no NUL and is at most 100000 characters")
+    argv = command(max_steps, "prompt.txt")[:-2]  # drop `--prompt-file prompt.txt`: the flags, validated once, in one place
+    return [command_path, *argv[1:], prompt]
+
+
 def is_key_variable(name: str) -> bool:
     """A MUSE or META variable whose name says it holds a key, a token or a secret."""
     up = name.upper()

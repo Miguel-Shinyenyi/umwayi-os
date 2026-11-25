@@ -48,6 +48,8 @@ Each step says in its pull request that the label stays cooperative, plus Muse's
   of process starts.
 - 2026-11-25 (G-0046, earlier): the `public: true` mark is a key on the `muse` provider in `units.yaml`, written by the owner.
 
+- 2026-11-25 (step 2 built): a run is `muse exec` with the prompt as the LAST argument (Q-m1, as recommended), the step cap is the agent's `max_turns` (a Muse agent without one is not started, `step_cap_missing`), the child environment is the whole environment minus the Muse and Meta key variables (names only are logged), and a chat, a login, `--model` and `--effort` are refused. `--yolo` and `--disable-sandbox` stay out of `FORBIDDEN_FLAGS` for now: `muse.exec_argv` never builds them and nine tests loop over that tuple.
+
 ## Open questions
 
 - **Q-m1.** How does the prompt reach `muse exec`: as an argument, or from a file in a private folder (`--prompt-file`)? An argument is visible to other

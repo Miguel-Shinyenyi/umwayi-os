@@ -1,7 +1,8 @@
-"""M2 part 2, step 1 (docs/muse-start-design.md): a Muse agent has a row and checks, and no start.
+"""M2 part 2, steps 1 and 2 (docs/muse-start-design.md): a Muse agent has a row, checks and a start through the one `_start`.
 
-Every test runs `python -m umwayi ... agent check|run ...` as a real child process, with a fake `muse` first on PATH that answers `--version` and
-does nothing else. No real Muse is run, and the fake never starts a model. A run and a chat are refused with a fixed text and nothing is started."""
+Every test runs `python -m umwayi ... agent check|run ...` as a real child process, with a fake `muse` first on PATH. The fake answers `--version`, logs
+its argument list and the NAMES of its environment to the file in FAKE_MUSE_LOG, prints one JSON line, and exits with the code named by `exit=N` in the
+prompt. No real Muse is run and no model is called. A chat is refused with a fixed text."""
 import re
 import sys
 import unittest
@@ -10,8 +11,25 @@ from umwayi import agents, muse
 
 from tests.agents.support import REPO, AgentCase
 
-AGENT = "agents:\n  - name: m\n    platform: muse\n    command: muse\n    workdir: {work}\n"
-FAKE = "#!{py}\nimport sys\nif sys.argv[1:] == ['--version']:\n    print('muse 0.3.1')\n    sys.exit(0)\nsys.exit(97)  # anything else is a start, and no test may start one\n"
+AGENT = "agents:\n  - name: m\n    platform: muse\n    command: muse\n    workdir: {work}\n    max_turns: 7\n  - name: nocap\n    platform: muse\n    command: muse\n    workdir: {work}\n"
+RULE = "rules:\n  - id: muse-start\n    title: the Muse agents may start\n    text: Allowed.\n    verdict: yes\n    matchers:\n      type: agent_run\n      agent: [m, nocap]\n"
+FAKE = """#!{py}
+import json, os, sys
+a = sys.argv[1:]
+if a == ['--version']:
+    print('muse 0.3.1')
+    sys.exit(0)
+log = os.environ.get('FAKE_MUSE_LOG')
+if log:
+    with open(log, 'a') as f:
+        f.write(json.dumps({{'argv': a, 'env': sorted(os.environ)}}) + '\\n')
+print(json.dumps({{'type': 'message', 'text': 'ok'}}))
+code = 0
+for word in a[-1].split():
+    if word.startswith('exit='):
+        code = int(word[5:])
+sys.exit(code)
+"""
 
 
 class MuseCase(AgentCase):
@@ -43,10 +61,24 @@ class TableTests(unittest.TestCase):
         self.assertEqual((p.commands, p.transports, p.min_version), (("muse",), ("cli",), (0, 0, 0)))
         self.assertTrue((REPO / p.hook).is_file())
 
-    def test_a_run_builds_no_command_line_while_the_start_is_not_built(self):
-        with self.assertRaises(Exception) as cm:
-            agents.build_argv(type("A", (), {"platform": "muse"})(), agents.RUN, "/usr/bin/muse", REPO, sys.executable, prompt="hello")
-        self.assertIn("not built yet", str(cm.exception))
+    def test_a_run_builds_the_exec_line_with_the_prompt_last(self):
+        agent = type("A", (), {"platform": "muse", "max_turns": 7})()
+        argv, stdin = agents.build_argv(agent, agents.RUN, "/usr/bin/muse", REPO, sys.executable, prompt="hello there")
+        self.assertEqual(argv, ["/usr/bin/muse", "exec", "--max-model-steps", "7", "--contributor-mode", "off", "--json", "hello there"])
+        self.assertIsNone(stdin)
+
+    def test_a_chat_a_login_and_a_missing_step_cap_build_nothing(self):
+        for mode, steps in ((agents.CHAT, 7), (agents.LOGIN, 7), (agents.RUN, None)):
+            agent = type("A", (), {"platform": "muse", "max_turns": steps})()
+            with self.assertRaises(Exception) as cm:
+                agents.build_argv(agent, mode, "/usr/bin/muse", REPO, sys.executable, prompt="hello")
+            self.assertIn("Nothing was started", str(cm.exception), mode)
+
+    def test_a_prompt_that_looks_like_a_flag_is_refused(self):
+        agent = type("A", (), {"platform": "muse", "max_turns": 7})()
+        for bad in ("--yolo", "-p x", "", "  "):
+            with self.assertRaises(Exception):
+                agents.build_argv(agent, agents.RUN, "/usr/bin/muse", REPO, sys.executable, prompt=bad)
 
 
 class CheckTests(MuseCase):
@@ -89,7 +121,8 @@ class CheckTests(MuseCase):
         self.assertIn("META_API_KEY", lines["key variables"][1])
         self.assertIn("MUSE_TOKEN", lines["key variables"][1])
         self.assertNotIn("SECRET-VALUE", r.stdout + r.stderr)  # names only, never a value
-        self.assertIn("a Muse run is not built yet", r.stdout)
+        self.assertIn("run would start:", r.stdout)
+        self.assertIn("a Muse chat is not built", r.stdout)
 
     def test_a_hook_file_that_calls_something_else_is_refused(self):
         self.write_hook_file("echo not-the-gate")
@@ -98,12 +131,57 @@ class CheckTests(MuseCase):
         self.assertEqual(self.lines_of(r)["hook file"][0], "no")
 
 
-class RunIsRefusedTests(MuseCase):
-    def test_a_run_is_not_started_and_the_fake_is_never_run_as_a_start(self):
-        r = self.umwayi("run", "m", "--prompt", "hello")
-        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)  # refused: by the rules, the hook file or the fixed text, never started
-        self.assertNotIn("exited with code 97", r.stdout + r.stderr)  # the fake exits 97 for anything but --version
-        self.assertNotIn("finished (exit", r.stdout + r.stderr)
+class RunTests(MuseCase):
+    def setUp(self):
+        super().setUp()
+        self.write_rules(RULE)
+        self.roomy_budget()
+        self.log = self.tmp / "muse-calls.jsonl"
+        r = self.umwayi("check", "m")
+        self.write_hook_file(re.search(r"PreToolUse command `([^`]+)`", r.stdout).group(1))
+
+    def run_muse(self, prompt, name="m", extra=None):
+        return self.umwayi("run", name, "--prompt", prompt, extra=dict({"FAKE_MUSE_LOG": str(self.log)}, **(extra or {})))
+
+    def calls(self):
+        import json
+        return [json.loads(l) for l in self.log.read_text(encoding="utf-8").splitlines()] if self.log.exists() else []
+
+    def test_a_run_starts_muse_exec_with_the_step_cap_and_the_contributor_flag_off(self):
+        r = self.run_muse("exit=0 summarise")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("finished (exit 0)", r.stdout)
+        (call,) = self.calls()
+        self.assertEqual(call["argv"][:6], ["exec", "--max-model-steps", "7", "--contributor-mode", "off", "--json"])
+        self.assertEqual(call["argv"][-1], "exit=0 summarise")
+        for bad in ("--yolo", "--disable-sandbox", "--disable-approval"):
+            self.assertNotIn(bad, call["argv"])
+
+    def test_each_exit_code_of_muse_is_reported_and_none_is_called_a_success_but_0(self):
+        for code in (1, 2, 130):
+            r = self.run_muse(f"exit={code} work")
+            self.assertEqual(r.returncode, 2, (code, r.stdout, r.stderr))
+            self.assertIn(f"exited with code {code}", r.stdout, code)
+
+    def test_the_key_variables_never_reach_muse_and_no_value_reaches_a_line(self):
+        r = self.run_muse("exit=0 x", extra={"META_API_KEY": "SECRET-VALUE-1", "MUSE_TOKEN": "SECRET-VALUE-2", "MUSE_HOME": "/m"})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        (call,) = self.calls()
+        self.assertNotIn("META_API_KEY", call["env"])
+        self.assertNotIn("MUSE_TOKEN", call["env"])
+        self.assertIn("MUSE_HOME", call["env"])  # only a name that holds a key, a token or a secret is removed
+        self.assertNotIn("SECRET-VALUE", r.stdout + r.stderr + "".join(e.added + e.checked + e.not_done for e in self.entries()))
+
+    def test_an_agent_without_a_step_cap_is_not_started(self):
+        r = self.run_muse("exit=0 x", name="nocap")
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("step_cap_missing", r.stdout + r.stderr)
+        self.assertEqual(self.calls(), [])  # the fake was never started
+
+    def test_a_chat_is_refused_and_the_fake_is_never_started(self):
+        r = self.umwayi("chat", "m", extra={"FAKE_MUSE_LOG": str(self.log)})
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), [])
 
 
 if __name__ == "__main__":
