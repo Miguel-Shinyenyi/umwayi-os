@@ -358,6 +358,10 @@ class ModelTests(ChatCase):
         for provider, model in ROUTES.items():
             with self.subTest(provider=provider):
                 self.write_agent(provider, model)
+                if provider == "opencode":  # the free tier needs the owner's public mark (G-0076); a local provider does not
+                    units = self.root / "units.yaml"
+                    if "public: true" not in units.read_text(encoding="utf-8"):
+                        units.write_text(units.read_text(encoding="utf-8") + "public: true\n", encoding="utf-8")
                 self.spec()
                 self.fake_log.unlink(missing_ok=True)
                 r = self.run_chat("hi\n:quit\n")
