@@ -101,7 +101,7 @@ class InventoryTests(unittest.TestCase):
     def test_every_env_builder_of_agents_py_is_listed(self):
         tree = ast.parse(Path(agents.__file__).read_text(encoding="utf-8"))
         found = sorted(n.name for n in tree.body if isinstance(n, ast.FunctionDef) and n.name.endswith("_env"))
-        self.assertEqual(found, ["child_env", "claude_env", "enforced_env", "kiro_env", "login_env", "opencode_env"])
+        self.assertEqual(found, ["child_env", "claude_env", "enforced_env", "kiro_env", "login_env", "muse_env", "opencode_env"])
 
     def test_no_start_passes_umwayis_own_environment(self):
         src = Path(agents.__file__).read_text(encoding="utf-8")
@@ -110,7 +110,7 @@ class InventoryTests(unittest.TestCase):
         start = inspect.getsource(agents._Run._start)
         sources = {line.split("=", 1)[1].split("(")[0].strip() for line in start.splitlines()
                    if line.strip().startswith("env = ")}
-        self.assertEqual(sources, {"login_env", "opencode_env", "child_env", "enforced_env", "claude_env", "kiro_env"})
+        self.assertEqual(sources, {"login_env", "opencode_env", "child_env", "enforced_env", "claude_env", "kiro_env", "muse_env"})
 
     def test_the_goal_supervisor_starts_only_umwayi_agent_run(self):
         """Its children are `umwayi agent run`, which builds the helper's environment with the builders above."""

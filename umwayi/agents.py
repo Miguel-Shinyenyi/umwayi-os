@@ -1573,6 +1573,12 @@ def _opencode_other_config(workdir: str, home: str) -> str | None:
     return None
 
 
+def muse_env(environ) -> dict:
+    """The environment of a Muse start: `environ` minus every Muse and Meta variable whose name says it holds a key, a token or a secret. `environ` is not
+    changed and no value is read into a line; the removed NAMES are what `agent check` shows."""
+    return muse.child_env(environ)[0]
+
+
 def muse_gate_command(root, src: Path | None = None) -> str:
     """The command the `.muse/hooks.json` of a Muse run must call: the generic adapter of layer 9, with the umwayi root. An assumption until the real
     check (M3) shows what Muse's hook sends and expects."""
@@ -2678,7 +2684,7 @@ class _Run:
         elif self.agent.platform == "claude-code":
             env = claude_env(os.environ)  # umwayi's environment minus the credential names (10.R12.6)
         elif self.agent.platform == "muse":
-            env = muse.child_env(os.environ)[0]  # umwayi's environment minus the Muse and Meta key variables (names only are ever logged)
+            env = muse_env(os.environ)  # umwayi's environment minus the Muse and Meta key variables (M2 part 2, step 2)
         else:
             env = kiro_env(os.environ)  # umwayi's environment minus KIRO_API_KEY (10.R12.13)
         if getattr(self, "confine_tmp", None):  # W78 step 6: the helper's temporary files go to its own folder, not /tmp
