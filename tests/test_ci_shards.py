@@ -590,7 +590,7 @@ class HintTests(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         lines = r.stderr.strip().split("\n")
         self.assertIn("tests/test_new.py is in no shard", lines[0])
-        self.assertEqual(lines[-1], "ci_shards: To fix it, run: python -m tools.ci_shards assign-missing")
+        self.assertEqual(lines[-1], "ci_shards: To fix it, run: python -m tools.ci_shards assign-missing && python -m tools.ci_shards rebalance")
 
     def test_the_hint_is_the_one_in_the_list(self):
         self.assertEqual(ci_shards.regenerate_hint(), generated_files.regenerate_hint("tools/ci_shards.json"))

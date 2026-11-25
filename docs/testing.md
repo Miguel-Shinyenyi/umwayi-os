@@ -63,7 +63,7 @@ The generated list, in the order the commands run (a file that feeds another com
 | --- | --- | --- |
 | `docs/status-log.md`, `docs/KNOWN-LIMITS.md` | `python -m umwayi goal docs build` | `python -m umwayi goal docs check` |
 | `tools/ci_map.json` | `python -m tools.ci_map update` | `python -m tools.ci_map check` |
-| `tools/ci_shards.json` | `python -m tools.ci_shards assign-missing` | `python -m tools.ci_shards check` |
+| `tools/ci_shards.json` | `python -m tools.ci_shards assign-missing`, then `python -m tools.ci_shards rebalance` | `python -m tools.ci_shards check`, then `python -m tools.ci_shards check-balance` |
 | the table block of `docs/testing.md` | `python -m tools.ci_map table --write` | `python -m tools.ci_map table --check` |
 | `ui/dist/build.json` | `npm ci --ignore-scripts` then `node build.mjs`, both in `ui/` | `python -m unittest tests.test_ui_package` |
 

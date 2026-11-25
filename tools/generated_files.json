@@ -20,8 +20,8 @@
   },
   {
    "path": "tools/ci_shards.json",
-   "regenerate": [{"argv": ["python", "-m", "tools.ci_shards", "assign-missing"]}],
-   "verify": [{"argv": ["python", "-m", "tools.ci_shards", "check"]}]
+   "regenerate": [{"argv": ["python", "-m", "tools.ci_shards", "assign-missing"]}, {"argv": ["python", "-m", "tools.ci_shards", "rebalance"]}],
+   "verify": [{"argv": ["python", "-m", "tools.ci_shards", "check"]}, {"argv": ["python", "-m", "tools.ci_shards", "check-balance"]}]
   },
   {
    "path": "tools/ci_map_table.md",
