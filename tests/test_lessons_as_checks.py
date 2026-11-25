@@ -166,6 +166,38 @@ class PrGreenTests(unittest.TestCase):
         self.assertFalse(pr_green.verdict(self.HEAD, [])[0])
         self.assertFalse(pr_green.verdict(self.HEAD, [self.run_("result", "cancelled")])[0])
 
+    def with_id(self, run, i):
+        return dict(run, id=i)
+
+    def test_the_newest_run_of_a_name_decides_a_skipped_draft_result_before_the_real_one_does_not_hide_it(self):
+        # G-0004: a draft run left a skipped `result` on the same commit; the real run's `result` came later (a higher id) and passed
+        runs = [self.with_id(self.run_("result", "skipped"), 1), self.with_id(self.run_("plan", "skipped"), 2),
+                self.with_id(self.run_("plan"), 11), self.with_id(self.run_("test (3.10, shard 1/3)"), 12), self.with_id(self.run_("result"), 13)]
+        ok, why = pr_green.verdict(self.HEAD, runs)
+        self.assertTrue(ok, why)
+        self.assertEqual(len(pr_green.newest(runs)), 3)
+
+    def test_planted_fault_a_skipped_draft_result_that_is_newer_than_the_real_one_is_not_green(self):
+        # the race of PR 217: the real run was cancelled by a newer skipped draft run, so the newest result is the skipped one
+        runs = [self.with_id(self.run_("plan"), 21), self.with_id(self.run_("result", "failure"), 22),
+                self.with_id(self.run_("plan", "skipped"), 31), self.with_id(self.run_("result", "skipped"), 32)]
+        ok, why = pr_green.verdict(self.HEAD, runs)
+        self.assertFalse(ok)
+        self.assertIn("`result` did not finish with success", why)
+
+    def test_an_older_cancelled_run_does_not_make_a_newer_passing_run_red_and_a_newer_failure_does(self):
+        old_cancelled = self.with_id(self.run_("test (3.10, shard 1/3)", "cancelled"), 5)
+        new_pass = self.with_id(self.run_("test (3.10, shard 1/3)"), 9)
+        self.assertTrue(pr_green.verdict(self.HEAD, [old_cancelled, new_pass, self.with_id(self.run_("result"), 10)])[0])
+        new_fail = self.with_id(self.run_("test (3.10, shard 1/3)", "failure"), 9)
+        old_pass = self.with_id(self.run_("test (3.10, shard 1/3)"), 5)
+        ok, why = pr_green.verdict(self.HEAD, [old_pass, new_fail, self.with_id(self.run_("result"), 10)])
+        self.assertFalse(ok)
+        self.assertIn("failed: test (3.10, shard 1/3)", why)
+
+    def test_runs_with_no_id_keep_the_old_behaviour(self):
+        self.assertEqual(len(pr_green.newest(self.all_green())), 5)
+
     def test_the_command_refuses_other_words(self):
         self.assertEqual(pr_green.main([]), 64)
         self.assertEqual(pr_green.main(["abc"]), 64)

@@ -113,11 +113,11 @@ class GateTests(unittest.TestCase):
         self.assertEqual(g.log_line("refuse", g.TOO_BIG, "alpha"), "goal alpha: refused, task_larger_than_cap")
         self.assertIn("fits", g.log_line("yes", None, "alpha"))
 
-    def test_this_module_is_called_by_nothing_yet(self):
+    def test_this_module_is_called_only_by_the_units_file_and_nothing_starts_or_stops_by_it(self):
         from pathlib import Path
         root = Path(__file__).resolve().parents[2]
         callers = [p.name for p in (root / "umwayi").glob("*.py") if p.name != "goalshare.py" and "goalshare" in p.read_text(encoding="utf-8")]
-        self.assertEqual(callers, [])  # when something wires it in, the docs and the claim must change in that change
+        self.assertEqual(callers, ["units.py"])  # units.py checks the sum of shares and shows the caps; no run path calls it
 
 
 if __name__ == "__main__":

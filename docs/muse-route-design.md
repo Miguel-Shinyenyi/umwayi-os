@@ -83,6 +83,8 @@ One fixed reason each, so a test can pin them and a person can search them. Ever
 | `task_larger_than_cap` | a task is bigger than an empty window |
 | `share_over_allocated` | shares would exceed 100 percent minus the reserve |
 | `yolo_refused` | `--yolo` or `--disable-sandbox` was asked for |
+| `sandbox_unconfirmed` | `--disable-approval` was asked for and Muse's sandbox cannot be confirmed (until M3) |
+| `step_cap_missing` | the goal gives no step cap, a whole number from 1 to 1000 |
 | `kiro_paused` | a goal names a Kiro role |
 
 ### The tasks, in the order I recommend
@@ -103,6 +105,7 @@ One fixed reason each, so a test can pin them and a person can search them. Ever
 - 2026-11-23 (this note): the sandbox is treated as unconfirmed until M3; `--disable-approval` is refused until then.
 - 2026-11-23 (this note): the account amounts are not written in this public repo; the owner writes them in `units.yaml`.
 - 2026-11-25 (M2, first part): `umwayi/muse.py` builds the command, scrubs the key variables, writes the hook text and checks the facts, with a fake only; it starts nothing. Two reason words are new: `sandbox_unconfirmed` (for `--disable-approval`) and `step_cap_missing`. The format of `.muse/hooks.json` is assumed to match Claude Code's and is unconfirmed until M3. The start through `agents.py` is the next part (an owner stop).
+- 2026-11-25 (the guide, G-0046): the two new reason words are kept and belong in the table above; the `public: true` mark is a key on the `muse` provider in `units.yaml`, written by the owner by hand, read and never written by the code. The key itself is not in the units.yaml parser yet.
 
 ## Open questions
 

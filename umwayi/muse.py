@@ -116,7 +116,7 @@ def check_hook_file(run_folder, gate_command: str) -> None:
 
 def check_public(public_mark) -> None:
     """Refuse with PRIVATE_REPO_NAMED unless the owner's mark is exactly True. The route never infers it: a missing mark, "true" as text
-    and 1 are all a refusal. Where the owner writes the mark is an open question (docs/muse-route-design.md, Q-c)."""
+    and 1 are all a refusal. The owner writes the mark by hand as a key `public: true` on the `muse` provider in units.yaml (the guide, G-0046); the caller reads it and no code writes it."""
     if public_mark is not True:
         raise MuseRefused(PRIVATE_REPO_NAMED)
 

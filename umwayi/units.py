@@ -44,6 +44,22 @@ Three optional keys of a provider set its stop line (M4 d): `stop_left_pct` (fre
 acceptance is left; default 5; 0 removes the stop), `five_hour_stop_pct` (default 80) and `weekly_stop_pct` (default 90), the percent of a
 subscription allowance used at which new runs stop (100 removes the stop). `heads_up` and `stop_gate` are pure: nothing calls them yet.
 
+An optional `goals` section gives a long-running goal a share of one provider's allowance (M4 h). Nothing starts or stops by it yet:
+
+    goals:
+      example-goal:              # EXAMPLE ONLY
+        provider: example-provider # a provider of the section above
+        share: 60                  # a whole percent, 1 to 100; the shares on one provider may add up to 80 at most (20 percent is the owner's)
+
+A video line (L9, the PR video rule) is the owner's cap on concept videos, in UU. It is optional, and without it videos are OFF:
+
+    video:
+      mode: on          # on or off; off means no video, whatever the numbers say
+      per_video: 50     # the most one video may cost (its estimate, written before it is made)
+      per_day: 100      # the most the videos of one day may cost together
+
+`video_gate` answers Yes (`within_cap`) or No with a fixed reason: `video_off` (mode off, no video line, or a cap of 0), `owner_off` (the owner turned videos off for this pull request), `over_per_video` or `over_per_day`. A free local render has an estimate of 0 UU and still needs the owner to turn videos on. Nothing calls the gate yet, so no video is made, written to the logbook or put on a waiting list by it.
+
 Without an acceptance a free credit or subscription provider is Ask me first; a paid provider is Ask me first on every goal, so an
 acceptance does not apply to it (`provider_gate`). Nothing here starts, stops or spends anything yet: the pacing, the heads up, the stop
 line and the goal shares are later parts of M4.
@@ -62,6 +78,7 @@ import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from umwayi import goalshare as _goalshare
 from umwayi import miniyaml
 from umwayi.errors import ConfigError
 
@@ -87,6 +104,8 @@ MAX_HORIZON_DAYS = 366
 # the limit keys a cost kind takes; a subscription needs at least one allowance
 LIMIT_KEYS = {"free_credits": ("credits_uu",), "subscription": ("five_hour_uu", "weekly_uu"), "paid": ("cap_uu",)}
 ACCEPTANCE_KEYS = ("accepted_free", "date", "amount_uu", "source")
+VIDEO_KEYS = ("mode", "per_video", "per_day")
+VIDEO_MODES = ("on", "off")
 RATE_KEYS = ("value", "date", "source")
 
 _PLATFORM = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
@@ -137,6 +156,20 @@ class ProviderUnits:
 
 
 @dataclass(frozen=True)
+class GoalShare:
+    """A long-running goal's share of one provider's allowance (M4 h): the provider and a whole percent from 1 to 100."""
+    provider: str
+    share: int
+
+
+@dataclass(frozen=True)
+class VideoUnits:
+    mode: str  # on or off
+    per_video: int  # UU
+    per_day: int  # UU
+
+
+@dataclass(frozen=True)
 class Units:
     """A valid units.yaml (or none: present False, every reading unknown under the placeholders)."""
     present: bool
@@ -146,6 +179,8 @@ class Units:
     limits: dict = field(default_factory=lambda: dict(PLACEHOLDERS))  # name -> UU
     given_limits: dict = field(default_factory=dict)  # only the limits the file names
     providers: dict = field(default_factory=dict)  # name -> ProviderUnits
+    video: VideoUnits | None = None  # None: no video line, so videos are off
+    goals: dict = field(default_factory=dict)  # name -> GoalShare (M4 h)
 
     def state(self) -> dict:
         """Every rate, limit and reading word the file states, as name -> shown value (for the change entry)."""
@@ -165,6 +200,10 @@ class Units:
         for name in LIMIT_NAMES:
             if name in self.given_limits:
                 out[f"limits.{name}"] = str(self.given_limits[name])
+        if self.video is not None:
+            out["video.mode"] = self.video.mode
+            out["video.per_video"] = str(self.video.per_video)
+            out["video.per_day"] = str(self.video.per_day)
         for name, p in sorted(self.providers.items()):
             out[f"providers.{name}.cost_kind"] = p.cost_kind
             for key, value in sorted(p.limit.items()):
@@ -176,6 +215,9 @@ class Units:
             if p.acceptance is not None:
                 a = p.acceptance
                 out[f"providers.{name}.acceptance"] = f"{a['amount_uu']} UU ({a['date']}, {a['source']})"
+        for name, g in sorted(self.goals.items()):
+            out[f"goals.{name}.provider"] = g.provider
+            out[f"goals.{name}.share"] = str(g.share)
         return out
 
 
@@ -283,8 +325,8 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
     if not isinstance(data, dict):
         return None, [Problem(1, "the file must be a mapping with version, platforms, models and limits")]
     for key in data:
-        if key not in ("version", "platforms", "models", "limits", "providers"):
-            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits and providers", key)
+        if key not in ("version", "platforms", "models", "limits", "providers", "video", "goals"):
+            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits, providers, video and goals", key)
     if data.get("version") != 1 or isinstance(data.get("version"), bool):
         problem("version must be 1", "version")
 
@@ -493,9 +535,61 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
                                             p.get("five_hour_stop_pct", DEFAULT_FIVE_HOUR_STOP_PCT),
                                             p.get("weekly_stop_pct", DEFAULT_WEEKLY_STOP_PCT))
 
+    goals: dict = {}
+    raw_goals = data.get("goals")
+    if "goals" in data and not isinstance(raw_goals, dict):
+        problem("goals must be a mapping of goal names", "goals")
+        raw_goals = {}
+    taken: dict = {}  # provider -> the shares already given, in file order
+    for name, g in (raw_goals or {}).items():
+        if not (isinstance(name, str) and _PLATFORM.match(name)):
+            problem("a goal name must be a lowercase letter, then lowercase letters, digits and '-'", "goals", name)
+            continue
+        label = f"goals.{name}"
+        if not isinstance(g, dict) or set(g) != {"provider", "share"}:
+            problem(f"{label} must be a mapping with exactly provider and share", "goals", name)
+            continue
+        prov, share = g["provider"], g["share"]
+        if not isinstance(prov, str) or prov not in providers:
+            problem(f"{label}: provider must name a provider of the providers section that is valid", "goals", name, "provider")
+            continue
+        if not isinstance(share, int) or isinstance(share, bool) or not 1 <= share <= 100:
+            problem(f"{label}: share must be a whole percent from 1 to 100", "goals", name, "share")
+            continue
+        fits, why = _goalshare.shares_ok(taken.get(prov, []), share)
+        if not fits:
+            problem(f"{label}: {why}: the shares of the goals on {prov} may not add up above "
+                    f"{100 - _goalshare.DEFAULT_RESERVE_PCT} percent (the rest is the owner's own use)", "goals", name, "share")
+            continue
+        taken.setdefault(prov, []).append(share)
+        goals[name] = GoalShare(prov, share)
+
+    video = None
+    if "video" in data:
+        raw = data["video"]
+        if not isinstance(raw, dict):
+            problem("video must be a mapping with mode, per_video and per_day", "video")
+        else:
+            before = len(problems)
+            for key in raw:
+                if key not in VIDEO_KEYS:
+                    problem(f"video: {_name(key)} is not allowed, only {', '.join(VIDEO_KEYS)}", "video", key)
+            for key in VIDEO_KEYS:
+                if key not in raw:
+                    problem(f"video needs {key}", "video")
+            if raw.get("mode") not in VIDEO_MODES and "mode" in raw:
+                problem("video: mode must be on or off", "video", "mode")
+            for key in ("per_video", "per_day"):
+                if key in raw:
+                    wrong = _number_problem(raw[key], f"video.{key}")
+                    if wrong:
+                        problem(wrong + " (UU)", "video", key)
+            if len(problems) == before:
+                video = VideoUnits(raw["mode"], raw["per_video"], raw["per_day"])
+
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
-    return Units(True, sha256, platforms, models, limits, given, providers), []
+    return Units(True, sha256, platforms, models, limits, given, providers, video, goals), []
 
 
 def load(root: Path, today: str) -> Units:
@@ -529,7 +623,8 @@ def validate(root: Path, today: str) -> tuple:
         return 64, [f"problem: {p.render()}" for p in problems] + [f"{len(problems)} problem(s) found in {UNITS_FILE}"]
     return 0, [f"ok: {UNITS_FILE} is valid: {len(units.platforms)} platform(s), {len(units.models)} model(s); limits "
                + ", ".join(f"{k} {v} UU" for k, v in units.limits.items())
-               + (f"; {len(units.providers)} provider(s)" if units.providers else "")]
+               + (f"; {len(units.providers)} provider(s)" if units.providers else "")
+               + (f"; videos {units.video.mode}" if units.video else "")]
 
 
 def pace(p: ProviderUnits, left_uu: int, today: str, days_left_in_week: int | None = None):
@@ -621,6 +716,22 @@ def stop_gate(p: ProviderUnits, left_uu=None, five_hour_used_pct=None, weekly_us
     if needs_week and weekly_used_pct >= p.weekly_stop_pct:
         return "no", "weekly_stop"
     return "yes", "within_limits"
+
+
+def video_gate(units: Units, estimate_uu: int, spent_today_uu: int = 0, pr_off: bool = False) -> tuple:
+    """(decision, reason) before a video is made (L9). decision is "yes" or "no". The reasons are fixed words: owner_off (the owner turned videos
+    off for this pull request: it wins over everything), video_off (mode off, no video line, or a cap of 0), over_per_video, over_per_day, and
+    within_cap. The estimate is the cost in UU written BEFORE the video is made; a free local render is 0. Pure: it makes, logs and stops nothing."""
+    if pr_off:
+        return "no", "owner_off"
+    v = units.video
+    if v is None or v.mode != "on" or v.per_video <= 0 or v.per_day <= 0:
+        return "no", "video_off"
+    if estimate_uu > v.per_video:
+        return "no", "over_per_video"
+    if spent_today_uu + estimate_uu > v.per_day:
+        return "no", "over_per_day"
+    return "yes", "within_cap"
 
 
 def provider_gate(units: Units, provider: str) -> tuple:
@@ -716,3 +827,22 @@ def current_micros(units: Units, platform: str, report: dict | None) -> int:
 def sha256_of(root: Path) -> str | None:
     data = read_bytes(root)
     return None if data is None else hashlib.sha256(data).hexdigest()
+
+
+def goal_lines(u: Units) -> list:
+    """The lines of `umwayi budget status` for the goal shares (M4 h): per goal, its share and the caps that follow from it.
+
+    Only a free credit provider with an acceptance has a month to share (the credits at acceptance over the horizon, Q8); for any other
+    provider the caps are not computed and the line says so. What a goal has USED is not recorded per goal yet, so the lines show the
+    full caps and say that. Pure: it reads the units and writes nothing."""
+    out = []
+    for name, g in sorted(u.goals.items()):
+        p = u.providers[g.provider]
+        head = f"goal {name}: share {g.share}% of {g.provider}"
+        if p.cost_kind != "free_credits" or p.acceptance is None:
+            out.append(head + "; the caps are not computed (they need free credits with the owner's acceptance)")
+            continue
+        c = _goalshare.caps(g.share, p.acceptance["amount_uu"], None, None, horizon_days=p.horizon_days)
+        out.append(head + f"; at most {c['monthly_left']} UU in the {p.horizon_days} day period, {c['weekly_left']} UU a week, "
+                   f"{c['daily_full']} UU a day. Use per goal is not recorded yet, so these are the full caps, not what is left.")
+    return out

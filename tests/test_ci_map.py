@@ -28,6 +28,39 @@ def tree(files):
 HEAD = "from pathlib import Path\nimport os\nREPO = Path(__file__).resolve().parent.parent\n"
 
 
+class NameClashTests(unittest.TestCase):
+    """M1b: tools/ci_map.py used to match a call to a test function by NAME across all test files. A call into code outside the tests, such as
+    `g.listing(REPO)` of the guidance module, then made another test file's own `listing(path)` look as if it read everything."""
+    OWN = HEAD + 'def listing(path):\n    return sorted(Path(path).rglob("*"))\n\n\ndef test_it():\n    listing("/tmp")\n'
+
+    def scan(self, other):
+        tmp, root = tree({"tests/__init__.py": "", "tests/test_own.py": self.OWN, "tests/test_other.py": other})
+        self.addCleanup(tmp.cleanup)
+        return ci_map.scan_python(root)
+
+    def test_planted_fault_a_call_into_a_module_outside_tests_does_not_leak_into_a_same_named_test_function(self):
+        for other in (HEAD + "from umwayi import guidance as g\nX = g.listing(REPO)\n",
+                      HEAD + "import umwayi.guidance\nX = umwayi.guidance.listing(REPO)\n",
+                      HEAD + "from umwayi.guidance import listing\nX = listing(REPO)\n"):
+            with self.subTest(other=other.split("\n")[-2]):
+                self.assertEqual(self.scan(other)["tests/test_own.py"], set())
+
+    def test_a_call_to_the_test_function_itself_still_leaks_so_the_scan_is_not_blinded(self):
+        for other in (HEAD + "from tests.test_own import listing\nX = listing(REPO)\n",
+                      HEAD + "from tests import test_own\nX = test_own.listing(REPO)\n"):
+            with self.subTest(other=other.split("\n")[-2]):
+                self.assertIn("*", self.scan(other)["tests/test_own.py"])
+
+    def test_a_same_file_call_with_the_root_still_leaks(self):
+        own = self.OWN + "\n\ndef test_two():\n    listing(REPO)\n"
+        tmp, root = tree({"tests/__init__.py": "", "tests/test_own.py": own})
+        self.addCleanup(tmp.cleanup)
+        self.assertIn("*", ci_map.scan_python(root)["tests/test_own.py"])
+
+    def test_the_real_scenarios_test_no_longer_reads_everything_through_a_clash(self):
+        self.assertNotIn("*", SCANS[0]["tests/serve/test_scenarios.py"])
+
+
 class ScannerTests(unittest.TestCase):
     def scan(self, body, extra=None):
         tmp, root = tree({"tests/__init__.py": "", "tests/test_x.py": HEAD + body, **(extra or {})})
