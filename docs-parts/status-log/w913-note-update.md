@@ -1,0 +1,4 @@
+date: 2026-11-25
+pr: 260
+what: The W9.13 note of G-0068, docs only, as an UPDATE and not a new note, because the note already exists on main (`docs/opencode-goal-helper-design.md`: the six questions with a recommendation, the exit codes 0, 2, 3 and 64, the effort refusal, the band of 5 to 40 UU) and W9.13 is already BUILT (2026-11-22; the owner accepted its recommendations). Added: the per role planning guesses (reviewer 5, tester 8, builder 25 UU, labelled guesses, no code reads them), a section on the fixed refusal `private_repo_named` for a private repository on a free route (design and tests to write first, not built), two open questions, a decisions row saying that G-0068's note and build are met except those two things, and the stale unticked W9.13 line of `tasks.md` is now ticked.
+tests: none new; the docs tests (the four parts, the links, the line count).
