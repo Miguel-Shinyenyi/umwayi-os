@@ -319,9 +319,33 @@ def _scope_env(fd, base, leaks, here):
     return _own_env(fd, here, seed)
 
 
+def _foreign_names(tree):
+    """The local names an import binds to something that is NOT a module under tests/: `os`, `Path`, `g` in
+    `from umwayi import guidance as g`. A call through one of them goes to code outside the tests, never to a test function that
+    happens to have the same name (M1b: `g.listing(REPO)` must not make a test file's own `listing(path)` read everything)."""
+    out = set()
+    for n in _walk(tree):
+        if isinstance(n, ast.Import):
+            for a in n.names:
+                if a.name.split(".")[0] != "tests":
+                    out.add((a.asname or a.name).split(".")[0])
+        elif isinstance(n, ast.ImportFrom) and not n.level and (n.module or "").split(".")[0] != "tests":
+            out.update((a.asname or a.name) for a in n.names)
+    return out
+
+
+def _call_root(func):
+    """The Name at the start of a call target: `g` for `g.listing`, `umwayi` for `umwayi.guidance.listing`, `f` for `f`."""
+    while isinstance(func, ast.Attribute):
+        func = func.value
+    return func.id if isinstance(func, ast.Name) else None
+
+
 def _leaks(trees, envs, here):
     """{function name: parameter names that receive the repository root somewhere}. Inside such a function the
-    parameter is the root, so `root / "README.md"` there is a read of README.md. Found by repeating until nothing new."""
+    parameter is the root, so `root / "README.md"` there is a read of README.md. Found by repeating until nothing new.
+    A call is matched to a test function by name only when its target is not imported from outside tests/ (M1b)."""
+    foreign = {p: _foreign_names(tree) for p, tree in trees.items()}
     defs = {}
     for tree in trees.values():
         for fd in _functions(tree):
@@ -339,6 +363,8 @@ def _leaks(trees, envs, here):
                         continue
                     f = n.func
                     name = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", "")
+                    if _call_root(f) in foreign[p]:
+                        continue
                     for params in defs.get(name, ()):
                         hits = [params[i] for i, a in enumerate(n.args) if i < len(params) and _where(a, env, here[p]) == ()]
                         hits += [k.arg for k in n.keywords if k.arg in params and _where(k.value, env, here[p]) == ()]
