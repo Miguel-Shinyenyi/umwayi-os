@@ -7,6 +7,7 @@ started with nobody told when it ended. This does them in order and stops at the
   1. the working tree is clean and the branch is not main;
   2. no other pull request is open (one at a time, drafts included);
   3. the branch has origin/main in it (otherwise: run `python -m tools.merge_main`);
+     and the docs build passes and leaves nothing changed (a status part with a bad line is caught here, before the pull request exists);
   4. the pull request text passes the same scan as CI, with the owner stop read from the changed files (tools.pr_story, K1);
   5. push, open the pull request, write its number into the status parts (tools.pr_number), commit and push once more.
 
@@ -64,6 +65,12 @@ def main(argv, run=sh, root: Path = REPO) -> int:
     run(["git", "fetch", "-q", "origin"], root)
     if run(["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"], root)[0] != 0:
         print("STOP: this branch does not hold origin/main yet. Run: python -m tools.merge_main. Nothing was pushed or opened.", file=sys.stderr)
+        return 1
+    rc, out, err = run([sys.executable, "-m", "umwayi", "goal", "docs", "build"], root)
+    _, stale, _ = run(["git", "status", "--porcelain"], root)
+    if rc != 0 or stale:
+        print("STOP: the docs build was refused or the generated docs are out of date:", (out + err)[-300:] or stale[:200], file=sys.stderr)
+        print("Fix the status part (the tests line is at most 200 characters), rebuild, commit. Nothing was pushed or opened.", file=sys.stderr)
         return 1
     _, base, _ = run(["git", "rev-parse", "origin/main"], root)
     _, head, _ = run(["git", "rev-parse", "HEAD"], root)

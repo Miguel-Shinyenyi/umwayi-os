@@ -16,9 +16,9 @@ GOOD = f"Owner stop: yes. This changes a tools script.\n\n## Story\n\n{STORY}\n\
 class Fake:
     """A stand-in for `sh`: answers by the first words of the command and records every command."""
 
-    def __init__(self, branch="feature", dirty="", open_prs="0", ancestor=0, push=0, create=("https://github.com/o/r/pull/250", 0), after_dirty="x"):
+    def __init__(self, branch="feature", dirty="", open_prs="0", ancestor=0, push=0, create=("https://github.com/o/r/pull/250", 0), after_dirty="x", docs=0):
         self.calls, self.branch, self.dirty, self.open_prs, self.ancestor, self.push = [], branch, dirty, open_prs, ancestor, push
-        self.create, self.after_dirty, self.status_calls = create, after_dirty, 0
+        self.create, self.after_dirty, self.status_calls, self.docs = create, after_dirty, 0, docs
 
     def __call__(self, args, cwd=None):
         self.calls.append(list(args))
@@ -27,13 +27,15 @@ class Fake:
             return 0, self.branch, ""
         if a[:3] == ["git", "status", "--porcelain"]:
             self.status_calls += 1
-            return 0, (self.dirty if self.status_calls == 1 else self.after_dirty), ""
+            return 0, (self.dirty if self.status_calls == 1 else "" if self.status_calls == 2 else self.after_dirty), ""  # start, after the docs build, after the number
         if a[:3] == ["gh", "pr", "list"]:
             return 0, self.open_prs, ""
         if a[:2] == ["git", "merge-base"]:
             return self.ancestor, "", ""
         if a[:2] == ["git", "rev-parse"]:
             return 0, SHA, ""
+        if "docs" in a and "build" in a:
+            return self.docs, "", "refused" if self.docs else ""
         if a[:2] == ["git", "push"]:
             return self.push, "", "denied" if self.push else ""
         if a[:3] == ["gh", "pr", "create"]:
@@ -83,6 +85,11 @@ class OpenStopsBeforeAnythingIsPushedTests(unittest.TestCase):
         fake = Fake(open_prs="")
         rc, _, err = run_open(fake)
         self.assert_stopped(fake, rc, err, "no answer")
+
+    def test_a_refused_docs_build_stops_before_the_pull_request_exists(self):
+        fake = Fake(docs=1)
+        rc, _, err = run_open(fake)
+        self.assert_stopped(fake, rc, err, "docs build was refused")
 
     def test_the_branch_does_not_hold_main(self):
         fake = Fake(ancestor=1)
