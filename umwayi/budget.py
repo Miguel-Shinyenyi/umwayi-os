@@ -321,6 +321,7 @@ def status(root: Path, day: str, today: str) -> tuple:
     if lost:
         lines.append(f"{len(lost)} reservation(s) of this day have no settle and count in full; if no agent runs now, "
                      "run umwayi budget settle-lost --by NAME")
+    lines += units.goal_lines(u)
     if pending_change(u, led) is not None:
         lines.append("units.yaml changed since the last logged change; the change is logged before the next start")
     if not u.present:

@@ -225,6 +225,15 @@ def split_blocked(pending: list) -> tuple:
     return free, blocked
 
 
+def needs_build(doc: Doc | None, pending: list) -> bool:
+    """True when fewer than keep_ready rows are local and at least one pending task is free (not blocked): the session has not finished.
+    Used by `umwayi pr queue next --check`. A queue that is not low, no pending task, or only blocked tasks give False."""
+    keep = DEFAULT_KEEP if doc is None else doc.keep_ready
+    ready = 0 if doc is None else sum(1 for r in doc.rows if r.status == "local")
+    free, _ = split_blocked(pending)
+    return ready < keep and bool(free)
+
+
 def _low(ready: int, keep: int, pending: list) -> list:
     if ready >= keep or not pending:
         return []

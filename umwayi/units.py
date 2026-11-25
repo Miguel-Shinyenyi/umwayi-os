@@ -40,6 +40,17 @@ A provider is a source of limits (M4 a, the Muse route). It is optional and does
 Two optional keys of a provider set its pacing period (M4 b): `until` (the next date the allowance renews or ends, a real date) and
 `horizon_days` (1 to 366, default 30, used when `until` is absent or already past). `pace` spreads what is left over that period.
 
+Three optional keys of a provider set its stop line (M4 d): `stop_left_pct` (free credits: stop new runs when this percent of the amount at
+acceptance is left; default 5; 0 removes the stop), `five_hour_stop_pct` (default 80) and `weekly_stop_pct` (default 90), the percent of a
+subscription allowance used at which new runs stop (100 removes the stop). `heads_up` and `stop_gate` are pure: nothing calls them yet.
+
+An optional `goals` section gives a long-running goal a share of one provider's allowance (M4 h). Nothing starts or stops by it yet:
+
+    goals:
+      example-goal:              # EXAMPLE ONLY
+        provider: example-provider # a provider of the section above
+        share: 60                  # a whole percent, 1 to 100; the shares on one provider may add up to 80 at most (20 percent is the owner's)
+
 A video line (L9, the PR video rule) is the owner's cap on concept videos, in UU. It is optional, and without it videos are OFF:
 
     video:
@@ -67,6 +78,7 @@ import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from umwayi import goalshare as _goalshare
 from umwayi import miniyaml
 from umwayi.errors import ConfigError
 
@@ -86,6 +98,8 @@ TOKEN_TYPES = ("input", "output", "cache_read", "cache_creation")
 PLATFORM_KEYS = ("reading", "fallback", "run_micros", "credit_micros", "credits_per_run")
 COST_KINDS = ("free_credits", "subscription", "paid")
 DEFAULT_HORIZON_DAYS = 30
+HEADS_UP_LEVELS = (50, 20, 10)  # percent left of the amount at acceptance that make a louder line
+DEFAULT_STOP_LEFT_PCT, DEFAULT_FIVE_HOUR_STOP_PCT, DEFAULT_WEEKLY_STOP_PCT = 5, 80, 90
 MAX_HORIZON_DAYS = 366
 # the limit keys a cost kind takes; a subscription needs at least one allowance
 LIMIT_KEYS = {"free_credits": ("credits_uu",), "subscription": ("five_hour_uu", "weekly_uu"), "paid": ("cap_uu",)}
@@ -136,6 +150,16 @@ class ProviderUnits:
     acceptance: dict | None = None  # accepted_free, date, amount_uu, source
     until: str | None = None  # the next date the allowance renews or ends
     horizon_days: int = DEFAULT_HORIZON_DAYS
+    stop_left_pct: int = DEFAULT_STOP_LEFT_PCT
+    five_hour_stop_pct: int = DEFAULT_FIVE_HOUR_STOP_PCT
+    weekly_stop_pct: int = DEFAULT_WEEKLY_STOP_PCT
+
+
+@dataclass(frozen=True)
+class GoalShare:
+    """A long-running goal's share of one provider's allowance (M4 h): the provider and a whole percent from 1 to 100."""
+    provider: str
+    share: int
 
 
 @dataclass(frozen=True)
@@ -156,6 +180,7 @@ class Units:
     given_limits: dict = field(default_factory=dict)  # only the limits the file names
     providers: dict = field(default_factory=dict)  # name -> ProviderUnits
     video: VideoUnits | None = None  # None: no video line, so videos are off
+    goals: dict = field(default_factory=dict)  # name -> GoalShare (M4 h)
 
     def state(self) -> dict:
         """Every rate, limit and reading word the file states, as name -> shown value (for the change entry)."""
@@ -190,6 +215,9 @@ class Units:
             if p.acceptance is not None:
                 a = p.acceptance
                 out[f"providers.{name}.acceptance"] = f"{a['amount_uu']} UU ({a['date']}, {a['source']})"
+        for name, g in sorted(self.goals.items()):
+            out[f"goals.{name}.provider"] = g.provider
+            out[f"goals.{name}.share"] = str(g.share)
         return out
 
 
@@ -297,8 +325,8 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
     if not isinstance(data, dict):
         return None, [Problem(1, "the file must be a mapping with version, platforms, models and limits")]
     for key in data:
-        if key not in ("version", "platforms", "models", "limits", "providers", "video"):
-            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits, providers and video", key)
+        if key not in ("version", "platforms", "models", "limits", "providers", "video", "goals"):
+            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits, providers, video and goals", key)
     if data.get("version") != 1 or isinstance(data.get("version"), bool):
         problem("version must be 1", "version")
 
@@ -429,9 +457,12 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
             continue
         before = len(problems)
         for key in p:
-            if key not in ("cost_kind", "limit", "acceptance", "until", "horizon_days"):
-                problem(f"{label}: {_name(key)} is not allowed, only cost_kind, limit, acceptance, until and horizon_days",
+            if key not in ("cost_kind", "limit", "acceptance", "until", "horizon_days", "stop_left_pct", "five_hour_stop_pct", "weekly_stop_pct"):
+                problem(f"{label}: {_name(key)} is not allowed, only cost_kind, limit, acceptance, until, horizon_days and the stop keys",
                         "providers", name, key)
+        for key in ("stop_left_pct", "five_hour_stop_pct", "weekly_stop_pct"):
+            if key in p and (isinstance(p[key], bool) or not isinstance(p[key], int) or not 0 <= p[key] <= 100):
+                problem(f"{label}: {key} must be a whole number from 0 to 100", "providers", name, key)
         if "until" in p and not _real_date(p["until"]):
             problem(f"{label}: until must be a real date YYYY-MM-DD", "providers", name, "until")
         if "horizon_days" in p and (isinstance(p["horizon_days"], bool) or not isinstance(p["horizon_days"], int)
@@ -499,7 +530,39 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
                 if ok:
                     accepted = dict(acc)
         if len(problems) == before:
-            providers[name] = ProviderUnits(kind, found, accepted, p.get("until"), p.get("horizon_days", DEFAULT_HORIZON_DAYS))
+            providers[name] = ProviderUnits(kind, found, accepted, p.get("until"), p.get("horizon_days", DEFAULT_HORIZON_DAYS),
+                                            p.get("stop_left_pct", DEFAULT_STOP_LEFT_PCT),
+                                            p.get("five_hour_stop_pct", DEFAULT_FIVE_HOUR_STOP_PCT),
+                                            p.get("weekly_stop_pct", DEFAULT_WEEKLY_STOP_PCT))
+
+    goals: dict = {}
+    raw_goals = data.get("goals")
+    if "goals" in data and not isinstance(raw_goals, dict):
+        problem("goals must be a mapping of goal names", "goals")
+        raw_goals = {}
+    taken: dict = {}  # provider -> the shares already given, in file order
+    for name, g in (raw_goals or {}).items():
+        if not (isinstance(name, str) and _PLATFORM.match(name)):
+            problem("a goal name must be a lowercase letter, then lowercase letters, digits and '-'", "goals", name)
+            continue
+        label = f"goals.{name}"
+        if not isinstance(g, dict) or set(g) != {"provider", "share"}:
+            problem(f"{label} must be a mapping with exactly provider and share", "goals", name)
+            continue
+        prov, share = g["provider"], g["share"]
+        if not isinstance(prov, str) or prov not in providers:
+            problem(f"{label}: provider must name a provider of the providers section that is valid", "goals", name, "provider")
+            continue
+        if not isinstance(share, int) or isinstance(share, bool) or not 1 <= share <= 100:
+            problem(f"{label}: share must be a whole percent from 1 to 100", "goals", name, "share")
+            continue
+        fits, why = _goalshare.shares_ok(taken.get(prov, []), share)
+        if not fits:
+            problem(f"{label}: {why}: the shares of the goals on {prov} may not add up above "
+                    f"{100 - _goalshare.DEFAULT_RESERVE_PCT} percent (the rest is the owner's own use)", "goals", name, "share")
+            continue
+        taken.setdefault(prov, []).append(share)
+        goals[name] = GoalShare(prov, share)
 
     video = None
     if "video" in data:
@@ -526,7 +589,7 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
 
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
-    return Units(True, sha256, platforms, models, limits, given, providers, video), []
+    return Units(True, sha256, platforms, models, limits, given, providers, video, goals), []
 
 
 def load(root: Path, today: str) -> Units:
@@ -588,6 +651,71 @@ def pacing_line(share_uu: int, days: int, estimate_uu: int) -> str | None:
         return None
     return (f"pacing: this goal is estimated at {estimate_uu} UU, above today's share of {share_uu} UU "
             f"(what is left spread over {days} day(s)). It may run; the allowance will not last the period at this rate.")
+
+
+def percent_left(amount_uu: int, left_uu: int) -> int:
+    """Whole percent of the amount that is left, rounded down, from 0 to 100. An amount of 0 is 0."""
+    if amount_uu <= 0:
+        return 0
+    return max(0, min(100, int(left_uu) * 100 // int(amount_uu)))
+
+
+def heads_up_level(amount_uu: int, left_uu: int):
+    """The lowest of 50, 20 and 10 that the percent left is at or under, or None when more than half is left."""
+    if amount_uu <= 0:
+        return min(HEADS_UP_LEVELS)
+    hit = [lv for lv in HEADS_UP_LEVELS if int(left_uu) * 100 <= lv * int(amount_uu)]  # exact: 50.01 percent left has not crossed 50
+    return min(hit) if hit else None
+
+
+def heads_up(p: ProviderUnits, left_uu: int, today: str, estimate_uu: int | None = None, days_left_in_week: int | None = None) -> list:
+    """The lines at the start of a goal (M4 c): the limit left, today's share, the estimate and the pacing line when the goal is over the
+    share, and a louder line when the limit left has crossed 50, 20 or 10 percent of the amount at acceptance. [] for a provider with no
+    acceptance (the gate asks first) and for a paid one (it asks on every goal; a heads up is not enough). Pure: it prints and stops nothing."""
+    if p.acceptance is None or p.cost_kind == "paid":
+        return []
+    amount = p.acceptance["amount_uu"]
+    pct = percent_left(amount, left_uu)
+    line = f"heads up: {left_uu} of {amount} UU left ({pct} percent)"
+    pace_result = pace(p, left_uu, today, days_left_in_week)
+    share = pace_result[0] if pace_result else None
+    if pace_result:
+        line += f"; today's share is {share} UU over {pace_result[1]} day(s)"
+    if estimate_uu is not None:
+        line += f"; this goal is estimated at {estimate_uu} UU"
+    out = [line + "."]
+    if pace_result and estimate_uu is not None:
+        over = pacing_line(share, pace_result[1], estimate_uu)
+        if over:
+            out.append(over)
+    level = heads_up_level(amount, left_uu)
+    if level is not None:
+        out.append(f"HEADS UP: under {level} percent of the amount at acceptance is left ({left_uu} of {amount} UU).")
+    return out
+
+
+def stop_gate(p: ProviderUnits, left_uu=None, five_hour_used_pct=None, weekly_used_pct=None) -> tuple:
+    """(decision, reason) for a NEW run (M4 d). decision is "yes", "no" or "ask". Reasons: credits_low (a free credit provider at or under the
+    stop line of the amount at acceptance, 5 percent by default, so the card on file is never charged by accident), five_hour_stop and
+    weekly_stop (a subscription at or over 80 and 90 percent of its allowance by default), use_unknown (the reading the stop needs is not
+    known: ask), paid_asks_every_goal, and within_limits. The owner moves or removes a stop by hand with the stop keys. Pure."""
+    if p.cost_kind == "paid":
+        return "ask", "paid_asks_every_goal"
+    if p.cost_kind == "free_credits":
+        if p.acceptance is None or left_uu is None:
+            return "ask", "use_unknown"
+        if p.stop_left_pct > 0 and int(left_uu) * 100 <= p.stop_left_pct * int(p.acceptance["amount_uu"]):
+            return "no", "credits_low"
+        return "yes", "within_limits"
+    needs_five = "five_hour_uu" in p.limit and p.five_hour_stop_pct < 100
+    needs_week = "weekly_uu" in p.limit and p.weekly_stop_pct < 100
+    if (needs_five and five_hour_used_pct is None) or (needs_week and weekly_used_pct is None):
+        return "ask", "use_unknown"
+    if needs_five and five_hour_used_pct >= p.five_hour_stop_pct:
+        return "no", "five_hour_stop"
+    if needs_week and weekly_used_pct >= p.weekly_stop_pct:
+        return "no", "weekly_stop"
+    return "yes", "within_limits"
 
 
 def video_gate(units: Units, estimate_uu: int, spent_today_uu: int = 0, pr_off: bool = False) -> tuple:
@@ -699,3 +827,22 @@ def current_micros(units: Units, platform: str, report: dict | None) -> int:
 def sha256_of(root: Path) -> str | None:
     data = read_bytes(root)
     return None if data is None else hashlib.sha256(data).hexdigest()
+
+
+def goal_lines(u: Units) -> list:
+    """The lines of `umwayi budget status` for the goal shares (M4 h): per goal, its share and the caps that follow from it.
+
+    Only a free credit provider with an acceptance has a month to share (the credits at acceptance over the horizon, Q8); for any other
+    provider the caps are not computed and the line says so. What a goal has USED is not recorded per goal yet, so the lines show the
+    full caps and say that. Pure: it reads the units and writes nothing."""
+    out = []
+    for name, g in sorted(u.goals.items()):
+        p = u.providers[g.provider]
+        head = f"goal {name}: share {g.share}% of {g.provider}"
+        if p.cost_kind != "free_credits" or p.acceptance is None:
+            out.append(head + "; the caps are not computed (they need free credits with the owner's acceptance)")
+            continue
+        c = _goalshare.caps(g.share, p.acceptance["amount_uu"], None, None, horizon_days=p.horizon_days)
+        out.append(head + f"; at most {c['monthly_left']} UU in the {p.horizon_days} day period, {c['weekly_left']} UU a week, "
+                   f"{c['daily_full']} UU a day. Use per goal is not recorded yet, so these are the full caps, not what is left.")
+    return out

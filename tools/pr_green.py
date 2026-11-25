@@ -20,9 +20,23 @@ OKAY = ("success", "skipped", "neutral")
 IGNORED = ("Vercel", "Vercel Preview Comments")  # deployment checks of the host, not tests
 
 
+def newest(runs: list) -> list:
+    """One run per check name: the newest, by id (G-0004). A draft run leaves skipped checks on the same commit as the real run, and a
+    run cancelled by a newer one stays in the list; only the newest run of a name says how that check ended. A run with no id counts as
+    the oldest, so a list without ids keeps its old behaviour (every run counts)."""
+    if not any("id" in r for r in runs):
+        return list(runs)
+    best: dict = {}
+    for r in runs:
+        k = r.get("name")
+        if k not in best or int(r.get("id") or 0) > int(best[k].get("id") or 0):
+            best[k] = r
+    return list(best.values())
+
+
 def verdict(head_sha: str, runs: list) -> tuple:
     """(green, reason). `runs` are check runs as the API gives them: name, status, conclusion, head_sha."""
-    mine = [r for r in runs if r.get("name") not in IGNORED]
+    mine = newest([r for r in runs if r.get("name") not in IGNORED])
     if not mine:
         return False, "no check run for this head yet"
     stale = sorted({str(r.get("head_sha"))[:7] for r in mine if r.get("head_sha") != head_sha})
@@ -57,7 +71,7 @@ def fetch(pr: int) -> tuple:
         runs = json.loads(raw).get("check_runs", [])
     except ValueError:
         return head, []
-    return head, [{"name": r.get("name"), "status": r.get("status"), "conclusion": r.get("conclusion"), "head_sha": r.get("head_sha")}
+    return head, [{"id": r.get("id"), "name": r.get("name"), "status": r.get("status"), "conclusion": r.get("conclusion"), "head_sha": r.get("head_sha")}
                   for r in runs]
 
 
