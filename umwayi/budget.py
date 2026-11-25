@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from umwayi import logbook, runlock, units
+from umwayi import credits, logbook, runlock, units
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 SOURCE = "umwayi budget"
@@ -322,6 +322,10 @@ def status(root: Path, day: str, today: str) -> tuple:
         lines.append(f"{len(lost)} reservation(s) of this day have no settle and count in full; if no agent runs now, "
                      "run umwayi budget settle-lost --by NAME")
     lines += units.goal_lines(u)
+    try:
+        lines += credits.lines(u, credits.read(root), today)
+    except ConfigError as e:
+        lines.append(f"{e}. The reading is ignored.")
     if pending_change(u, led) is not None:
         lines.append("units.yaml changed since the last logged change; the change is logged before the next start")
     if not u.present:
