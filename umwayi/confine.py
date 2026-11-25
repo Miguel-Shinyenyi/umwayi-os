@@ -193,20 +193,23 @@ def _inside(child: str, parent: str) -> bool:
 
 
 def run_paths(command: str, workdir: str, root: str, tmp: str, home: str | None, python: str, source: str,
-              config_dir: str | None = None) -> tuple:
+              config_dir: str | None = None, system_read=None) -> tuple:
     """(read paths, write paths) for one helper run, the paths that exist, sorted. Read and execute: the system folders, the folders
     of the command and of the Python that runs the hook, the umwayi source (the hook is there). Write: the work folder, a private
     temporary folder (given to the helper as TMPDIR; /tmp itself is not listed, so the broker's folder there is not reachable), and
     the helper's own config (`~/.claude`, `~/.claude.json`, or CLAUDE_CONFIG_DIR). Landlock can not take a path out of a listed
     tree, so a work folder that holds the umwayi root is refused (`profile`): the logbook and the guard files would be writable.
-    (agents.yaml already refuses such a working folder; this is the same rule at the start.)"""
-    if platform_is_not_linux():
-        raise ConfineRefused("platform")
+    (agents.yaml already refuses such a working folder; this is the same rule at the start.)
+
+    `system_read` is for a platform with no Landlock: the caller gives its own system folders and the Linux refusal is skipped. Nothing
+    but `umwayi/seatbelt.py`, behind its own check, passes it."""
+    if platform_is_not_linux() and system_read is None:
+        raise ConfineRefused("platform")  # only a caller that brings its own system folders (Seatbelt, behind its own check) may pass
     work, rt = _real(workdir), _real(root)
     if _inside(rt, work):
         raise ConfineRefused("profile")
     # F1a: no folder that can be written may hold the umwayi root or lie inside it, whichever of them it is
-    reads = set(SYSTEM_READ)
+    reads = set(SYSTEM_READ if system_read is None else system_read)
     # F1b: the install folder of the command and of Python only. The folder above them is not listed: a command at ~/bin/x would
     # have granted read and execute on all of ~. Measured need: a Claude Code install is one folder (versions/); widen only after
     # a real run shows a path it needs.

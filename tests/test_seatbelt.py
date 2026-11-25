@@ -88,9 +88,10 @@ class RefusalTests(unittest.TestCase):
                 mock.patch.object(sb, "CHECKED_ON_MAC", True):
             self.assertEqual(sb.start_allowed(), (True, ""))
 
-    def test_nothing_in_agents_uses_seatbelt_yet(self):
+    def test_agents_uses_seatbelt_only_behind_start_allowed_and_the_switch_is_off(self):
         agents_src = open(os.path.join(os.path.dirname(sb.__file__), "agents.py"), encoding="utf-8").read()
-        self.assertNotIn("seatbelt", agents_src)
+        self.assertLess(agents_src.index("seatbelt.start_allowed()"), agents_src.index("seatbelt.confined_argv("))
+        self.assertFalse(sb.CHECKED_ON_MAC)  # G-0050: wired, and refused until the owner's check
 
 
 class RunRefusalTests(unittest.TestCase):
