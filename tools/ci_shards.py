@@ -64,7 +64,7 @@ def regenerate_hint():
         from tools import generated_files
         return generated_files.regenerate_hint("tools/ci_shards.json")
     except Exception:  # the hint must never hide the real problem
-        return "To fix it, run: python -m tools.ci_shards assign-missing"
+        return "To fix it, run: python -m tools.ci_shards assign-missing && python -m tools.ci_shards rebalance"
 
 
 # ---------------------------------------------------------------- the assignment file

@@ -38,8 +38,8 @@ class RealListTests(unittest.TestCase):
         self.assertEqual([c["argv"] for c in by["docs/status-log.md"]["regenerate"]], docs)
         self.assertEqual([c["argv"] for c in by["docs/KNOWN-LIMITS.md"]["verify"]], [["python", "-m", "umwayi", "goal", "docs", "check"]])
         self.assertEqual([c["argv"] for c in by["tools/ci_map_table.md"]["regenerate"]], [["python", "-m", "tools.ci_map", "table", "--write"]])
-        self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["regenerate"]], [["python", "-m", "tools.ci_shards", "assign-missing"]])
-        self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["verify"]], [["python", "-m", "tools.ci_shards", "check"]])
+        self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["regenerate"]], [["python", "-m", "tools.ci_shards", "assign-missing"], ["python", "-m", "tools.ci_shards", "rebalance"]])
+        self.assertEqual([c["argv"] for c in by["tools/ci_shards.json"]["verify"]], [["python", "-m", "tools.ci_shards", "check"], ["python", "-m", "tools.ci_shards", "check-balance"]])
         self.assertEqual([(c["argv"], c["cwd"]) for c in by["ui/dist/build.json"]["regenerate"]],
                          [(["npm", "ci", "--ignore-scripts"], "ui"), (["node", "build.mjs"], "ui")])
         self.assertEqual([c["argv"] for c in by["ui/dist/build.json"]["verify"]], [["python", "-m", "unittest", "tests.test_ui_package"]])
@@ -114,7 +114,7 @@ class StrictReaderTests(unittest.TestCase):
 
 class HintTests(unittest.TestCase):
     def test_the_hint_is_the_exact_regenerate_command(self):
-        self.assertEqual(gf.regenerate_hint("tools/ci_shards.json"), "To fix it, run: python -m tools.ci_shards assign-missing")
+        self.assertEqual(gf.regenerate_hint("tools/ci_shards.json"), "To fix it, run: python -m tools.ci_shards assign-missing && python -m tools.ci_shards rebalance")
         self.assertEqual(gf.regenerate_hint("tools/ci_map.json"), "To fix it, run: python -m tools.ci_map update")
         self.assertEqual(gf.regenerate_hint("tools/ci_map_table.md"), "To fix it, run: python -m tools.ci_map table --write")
         self.assertEqual(gf.regenerate_hint("docs/status-log.md"), "To fix it, run: python -m umwayi goal docs build")

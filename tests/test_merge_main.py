@@ -93,7 +93,7 @@ def _make_seed(base):
         tar.extractall(seed)
     for name in ("generated_files.py", "generated_files.json", "merge_main.py", "ci_map.py", "ci_shards.py", "ci_map_table.md"):
         shutil.copy2(REPO / "tools" / name, seed / "tools" / name)
-    for args in (("tools.ci_map", "update"), ("tools.ci_shards", "assign-missing"), ("tools.ci_map", "table", "--write")):
+    for args in (("tools.ci_map", "update"), ("tools.ci_shards", "assign-missing"), ("tools.ci_shards", "rebalance"), ("tools.ci_map", "table", "--write")):
         r = subprocess.run([sys.executable, "-m", *args], cwd=seed, capture_output=True, text=True, env=ENV)
         assert r.returncode == 0, (args, r.stderr)
     git(seed, "init", "-q", "-b", "main")
@@ -292,7 +292,7 @@ class TestFileTests(MergeMainBase):
     def test_two_branches_that_each_updated_the_generated_files_by_hand_conflict_and_are_cleared(self):
         for repo, name in ((self.a, "test_w21_one.py"), (self.b, "test_w21_two.py")):
             self.new_test(repo, name)
-            for args in (("tools.ci_shards", "assign-missing"), ("tools.ci_map", "update"), ("tools.ci_map", "table", "--write")):
+            for args in (("tools.ci_shards", "assign-missing"), ("tools.ci_shards", "rebalance"), ("tools.ci_map", "update"), ("tools.ci_map", "table", "--write")):
                 self.assertEqual(self.py(repo, *args).returncode, 0)
             git(repo, "add", "-A")
             git(repo, "commit", "-qm", f"generated for {name}")
