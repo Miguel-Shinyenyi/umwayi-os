@@ -386,15 +386,8 @@ class AgentCase(unittest.TestCase):
         end = time.monotonic() + timeout
         while time.monotonic() < end:
             busy = False
-            for name in os.listdir("/proc"):
-                if not name.isdigit() or int(name) == os.getpid():
-                    continue
-                try:
-                    with open(f"/proc/{name}/cmdline", "rb") as f:
-                        cmd = f.read()
-                except OSError:
-                    continue
-                if needle in cmd and alive(int(name)):
+            for pid, cmd in command_lines():
+                if pid != os.getpid() and needle in cmd and alive(pid):
                     busy = True
                     break
             if not busy and not logbook_lock_held(self.root):  # flock: the kernel lets go when a writer dies
@@ -470,6 +463,24 @@ class AgentCase(unittest.TestCase):
                 text = line[len(f"{mode} would start: "):]
                 return json.loads(text.split(" with the prompt on stdin")[0])
         self.fail(f"no '{mode} would start' line in:\n{r.stdout}")
+
+
+def command_lines():
+    """(pid, command line as bytes) of every process: /proc on Linux, ps where there is no /proc (macOS)."""
+    if os.path.isdir("/proc"):
+        for name in os.listdir("/proc"):
+            if name.isdigit():
+                try:
+                    with open(f"/proc/{name}/cmdline", "rb") as f:
+                        yield int(name), f.read()
+                except OSError:
+                    continue
+        return
+    out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True).stdout
+    for line in out.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2 and parts[0].isdigit():
+            yield int(parts[0]), parts[1]
 
 
 def alive(pid: int) -> bool:

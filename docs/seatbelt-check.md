@@ -6,13 +6,15 @@ This page is what the owner (or Claude Code, with the owner's permission) runs o
 
 ## Current state
 
-`umwayi/seatbelt.py` is built and refused: `CHECKED_ON_MAC` is False and `agents.py` does not use it, so an enforced run with `confine: true` on a Mac is refused with reason `platform`. The self test and the `run` command are for this check. `run` refuses too while `CHECKED_ON_MAC` is False, unless you type `--i-am-testing` before the `--`; the refusal names the switch. Cooperative today, enforced where built: nothing here is enforced.
+`umwayi/seatbelt.py` is built and refused: `CHECKED_ON_MAC` is False and `agents.py` asks `start_allowed` first and builds a Seatbelt start only when it says yes (G-0050), so an enforced run with `confine: true` on a Mac is refused with reason `platform`. The self test and the `run` command are for this check. `run` refuses too while `CHECKED_ON_MAC` is False, unless you type `--i-am-testing` before the `--`; the refusal names the switch. Cooperative today, enforced where built: nothing here is enforced.
 
 The steps, from a fresh checkout of main (`git pull` in the umwayi-os folder):
 1. `python3 -m umwayi.seatbelt selftest`. Expect, in the `with_network` and `no_network` blocks: `write_inside: ok`, `write_outside: refused`, `read_unlisted: refused`; and `network: refused` in the `no_network` block (`error 61` or `ok` in the `with_network` block, which only says nobody listens on that port).
 2. `python3 -m unittest tests.test_seatbelt -v`. Expect every test to pass, including `RealMacTests`.
 3. In a scratch folder with a throwaway git repo (never your own repo), run the claude version command under the profile. Add the folder of the claude install to the read list (`python3 -c "import os,shutil;print(os.path.dirname(os.path.realpath(shutil.which('claude'))))"`):
    `python3 /PATH/TO/umwayi-os/umwayi/seatbelt.py run --read /usr --read /bin --read /System --read /Library --read /private/etc --read /dev --read /opt --read "$HOME/.claude" --read CLAUDE_INSTALL_FOLDER --write "$PWD" --i-am-testing -- "$(which claude)" --version`. Expect a version line. Do not start a Claude Code session, do not touch the Keychain, and do not paste any token, key or sign-in.
+
+Sign-in under Seatbelt (G-0059, not built yet): the design is in [the sign-in note](seatbelt-signin-design.md). When it is built, you create the token yourself, with `claude setup-token` in your own terminal, and set `CLAUDE_CODE_OAUTH_TOKEN` in the shell you run the check from. Never paste it anywhere; nobody asks for the value.
 
 What to send back: the exact output lines of steps 1 and 2 (shorten any path that holds a user name), pass or fail for each expectation, the macOS version (`sw_vers -productVersion`), and whether step 3 needed any read path beyond the list above.
 
@@ -21,6 +23,7 @@ What to send back: the exact output lines of steps 1 and 2 (shorten any path tha
 | Date | Decision | Reason |
 | --- | --- | --- |
 | 2026-11-23 | `run` refuses while `CHECKED_ON_MAC` is False; `--i-am-testing` is the owner's typed switch | Fixes item F3a: a hand test must be a deliberate act, not the default. |
+| 2026-11-25 | `agents.py` builds a Seatbelt start through `seatbelt.confined_argv`, and only when `start_allowed` says yes; the constant stays False | G-0050: Seatbelt behind a refusal that fails closed. What is left for the owner on the Mac is a real Claude Code session, not `--version`. |
 | 2026-11-23 | One check on the owner's Mac (macOS 27.0.1, Python 3.13): steps 1 to 3 passed, step 3 needed the folder of the claude install in the read list | Item S1 of the fixes file, in the Round 6 feedback. |
 
 ## Open questions
