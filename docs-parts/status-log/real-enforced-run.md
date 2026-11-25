@@ -1,0 +1,4 @@
+date: 2026-11-25
+pr: 247
+what: G-0049, the docs only note before the first real enforced run. `docs/real-enforced-run.md` says, per machine, what a real run needs (Linux: a kernel with Landlock, ABI 4 for the TCP option, `bwrap` and `socat`, Claude Code signed in, mode `enforced`, `confine: true`; the Mac: no Landlock, the Claude Code platform sandbox, and Seatbelt only after the owner's check, with CI having no macOS), the network limit 344, which agents (Claude Code first, OpenCode second, Muse after M2 part 2, Kiro paused), and what the first run would and would not prove. W36 is answered: `tests/whole_system_support.py` is fixed, `tests/agents/support.py` `wait_root_quiet` still reads `/proc` and errors on a Mac. The design note and the enforced default note link to it.
+tests: none new; the docs tests (the four parts, the links, the line count).
