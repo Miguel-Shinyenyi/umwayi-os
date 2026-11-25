@@ -278,8 +278,20 @@ _OPENCODE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 # OpenCode replaces {env:NAME} and {file:PATH} in the inline config before it reads it (NOTES, Nov 11).
 _OPENCODE_SUBSTITUTION = re.compile(r"\{(?:env|file):", re.IGNORECASE)
 
+# G-0059 build 2 (docs/seatbelt-signin-design.md): the one variable name an agent may list in `token_env`. The key is checked and recorded and
+# NOTHING passes the variable yet (the Seatbelt start is a later build and CHECKED_ON_MAC stays False); `env_keep` still refuses this name.
+TOKEN_ENV_NAMES = ("CLAUDE_CODE_OAUTH_TOKEN",)
+
+
+def token_line(name: str) -> str:
+    """The one fixed logbook line for a token variable passed to a helper: the NAME only, never a value, a length, a prefix or a hash."""
+    if name not in TOKEN_ENV_NAMES:
+        raise ValueError("not a token variable name")
+    return f"token variable {name} passed to the helper (the name only; the value was not read)"
+
+
 KEYS = ("name", "platform", "command", "transport", "workdir", "kiro_agent", "trust_tools",
-        "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine")
+        "max_turns", "timeout_minutes", "provider", "model", "env_keep", "confine", "token_env")
 REQUIRED = ("name", "platform", "command", "workdir")
 RUN, CHAT, LOGIN = "run", "chat", "login"  # LOGIN: `umwayi agent login NAME` (10.R12.9, part 7c-2)
 CLI, ACP = "cli", "acp"
@@ -307,6 +319,7 @@ class Agent:
     model: str | None = None  # platform opencode only: provider/model-id
     env_keep: tuple = ()  # W78 step 2: names (never values) an enforced start passes on besides the allow list
     confine: bool = False  # W78 step 6: an enforced `claude -p` run of this agent starts through Landlock (off by default)
+    token_env: str | None = None  # G-0059 build 2: the NAME of the owner's token variable (docs/seatbelt-signin-design.md); nothing passes it yet
 
 
 @dataclass(frozen=True)
@@ -565,6 +578,14 @@ def check_text(text: str, root: Path) -> tuple:
                         problem(f"{label}: env_keep entry {n if isinstance(n, str) and _ENV_NAME.match(n) else '(not a name)'} {why}",
                                 "agents", i, "env_keep")
                         break
+        token_env = item.get("token_env")
+        if "token_env" in item:
+            if pname != "claude-code":
+                problem(f"{label}: token_env is only for platform claude-code", "agents", i, "token_env")
+            elif token_env not in TOKEN_ENV_NAMES:
+                problem(f"{label}: token_env must be exactly {' or '.join(TOKEN_ENV_NAMES)}: a name, never a value", "agents", i, "token_env")
+            elif confine is not True:
+                problem(f"{label}: token_env needs confine: true (the token is for a confined Seatbelt start)", "agents", i, "token_env")
         provider, model = item.get("provider"), item.get("model")
         for key in ("provider", "model"):
             if pname == "opencode" and key not in item:
@@ -588,7 +609,8 @@ def check_text(text: str, root: Path) -> tuple:
             parsed.append(Agent(name, pname, cmd, transport, item["workdir"], kiro_agent,
                                 tuple(tools) if isinstance(tools, list) else (), max_turns, timeout, line("agents", i),
                                 provider if pname == "opencode" else None, model if pname == "opencode" else None,
-                                tuple(env_keep) if isinstance(env_keep, list) else (), confine is True))
+                                tuple(env_keep) if isinstance(env_keep, list) else (), confine is True,
+                                token_env if isinstance(token_env, str) and pname == "claude-code" else None))
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
     return parsed, []
