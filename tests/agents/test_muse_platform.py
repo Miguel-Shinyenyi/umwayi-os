@@ -89,7 +89,7 @@ class CheckTests(MuseCase):
         self.assertIn("META_API_KEY", lines["key variables"][1])
         self.assertIn("MUSE_TOKEN", lines["key variables"][1])
         self.assertNotIn("SECRET-VALUE", r.stdout + r.stderr)  # names only, never a value
-        self.assertIn("A Muse run is not built yet", r.stdout)
+        self.assertIn("a Muse run is not built yet", r.stdout)
 
     def test_a_hook_file_that_calls_something_else_is_refused(self):
         self.write_hook_file("echo not-the-gate")

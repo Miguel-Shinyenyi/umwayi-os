@@ -1544,6 +1544,53 @@ def _opencode_other_config(workdir: str, home: str) -> str | None:
     return None
 
 
+def muse_gate_command(root, src: Path | None = None) -> str:
+    """The command the `.muse/hooks.json` of a Muse run must call: the generic adapter of layer 9, with the umwayi root. An assumption until the real
+    check (M3) shows what Muse's hook sends and expects."""
+    return f"{python_path()} {hook_path('muse', src)} --root {os.path.realpath(str(root))}"
+
+
+def _muse_version_line(code, out, plat: Platform, command: str) -> tuple:
+    """(ok, detail, version) of `muse --version`: no answer in time, a failing exit, or an answer. No minimum is pinned, and the sign-in is not checked
+    (no command for it is known yet, M3), and the line says so. Written apart from the OpenCode checks on purpose: their mutation tests need
+    their own lines to stay unique in this file."""
+    flag = plat.version_flag
+    if code is None:
+        return False, f"{command} {flag} did not answer within {MUSE_VERSION_TIMEOUT:.0f} s", None
+    if code:
+        return False, f"{command} {flag} exited {code}", None
+    version = parse_version(out)
+    shown = f"{_show(version)} (no minimum is pinned)" if version else "answered (no version number found; no minimum is pinned)"
+    return True, shown + "; the sign-in is not checked: no command for it is known yet", version
+
+
+def _muse_checks(agent: Agent, plat: Platform, gate: Gate, root: Path, src: Path | None) -> Gate:
+    """The checks of a Muse agent, in order, the first failure ends it: command, version, hook file, key variables. Reads only; starts no model.
+    `muse --version` runs in the workdir with the allow-listed environment of `enforced_env`, so no key variable reaches it."""
+    done = _recorder(gate, ["command", "version", "hook file", "key variables"])
+    found = shutil.which(agent.command)
+    if not (found and os.path.isabs(found)):
+        done("command", False, f"{agent.command} was not found on PATH")
+        return gate
+    gate.command_path = found
+    done("command", True, f"{agent.command} found at {found}")
+    _, removed = muse.child_env(os.environ)  # the key variables a start would remove (names only)
+    code, out = _run_child([found, plat.version_flag], b"", MUSE_VERSION_TIMEOUT, agent.workdir, env=enforced_env(os.environ, agent))
+    version_ok, detail, gate.version = _muse_version_line(code, out, plat, agent.command)
+    if not done("version", version_ok, detail):
+        return gate
+    command = muse_gate_command(root, src)
+    try:
+        muse.check_hook_file(agent.workdir, command)
+        hook_ok, detail = True, ".muse/hooks.json calls the gate"
+    except muse.MuseRefused as e:
+        hook_ok, detail = False, f"{e}; the file must have a PreToolUse command `{command}`"
+    if not done("hook file", hook_ok, detail):
+        return gate
+    done("key variables", True, ("removed from the child, names only: " + ", ".join(removed)) if removed else "none set")
+    return gate
+
+
 def _opencode_checks(agent: Agent, plat: Platform, gate: Gate, src: Path | None, home: Path | None) -> Gate:
     """The six checks of an OpenCode agent (10.R13.8), in order, the first failure ends it: command, version, files,
     managed config, other config, route. Reads only. `opencode --version` runs in the workdir with the allow-listed
@@ -1594,49 +1641,6 @@ def _opencode_checks(agent: Agent, plat: Platform, gate: Gate, src: Path | None,
         done("route", False, str(e).removeprefix("agent: ").removesuffix(" Nothing was started."))
         return gate
     done("route", True, f"provider {agent.provider} (integration.use allows {integration})")
-    return gate
-
-
-def muse_gate_command(root, src: Path | None = None) -> str:
-    """The command the `.muse/hooks.json` of a Muse run must call: the generic adapter of layer 9, with the umwayi root. An assumption until the real
-    check (M3) shows what Muse's hook sends and expects."""
-    return f"{python_path()} {hook_path('muse', src)} --root {os.path.realpath(str(root))}"
-
-
-def _muse_checks(agent: Agent, plat: Platform, gate: Gate, root: Path, src: Path | None) -> Gate:
-    """The checks of a Muse agent, in order, the first failure ends it: command, version, hook file, key variables. Reads only; starts no model.
-    `muse --version` runs in the workdir with the allow-listed environment of `enforced_env`, so no key variable reaches it. There is no login check: no
-    command that checks the stored sign-in without a model call is known yet (M3), and the line says so."""
-    order = ["command", "version", "hook file", "key variables"]
-    done = _recorder(gate, order)
-    found = shutil.which(agent.command)
-    if not found or not os.path.isabs(found):
-        done("command", False, f"{agent.command} was not found on PATH")
-        return gate
-    gate.command_path = found
-    done("command", True, f"{agent.command} found at {found}")
-    _, removed = muse.child_env(os.environ)  # the key variables a start would remove (names only)
-    code, out = _run_child([found, plat.version_flag], b"", MUSE_VERSION_TIMEOUT, agent.workdir, env=enforced_env(os.environ, agent))
-    if code is None:
-        ok = done("version", False, f"{agent.command} {plat.version_flag} did not answer within {MUSE_VERSION_TIMEOUT:.0f} s")
-    elif code != 0:
-        ok = done("version", False, f"{agent.command} {plat.version_flag} exited {code}")
-    else:
-        version = parse_version(out)
-        gate.version = version
-        ok = done("version", True, (f"{_show(version)} (no minimum is pinned)" if version else "answered (no version number found; no minimum is pinned)")
-                  + "; the sign-in is not checked: no command for it is known yet")
-    if not ok:
-        return gate
-    command = muse_gate_command(root, src)
-    try:
-        muse.check_hook_file(agent.workdir, command)
-        hook_ok, detail = True, ".muse/hooks.json calls the gate"
-    except muse.MuseRefused as e:
-        hook_ok, detail = False, f"{e}; the file must have a PreToolUse command `{command}`"
-    if not done("hook file", hook_ok, detail):
-        return gate
-    done("key variables", True, ("removed from the child, names only: " + ", ".join(removed)) if removed else "none set")
     return gate
 
 

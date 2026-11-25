@@ -126,12 +126,12 @@ class BoundaryTests(unittest.TestCase):
         for word in ("subprocess", "Popen", "os.system", "os.exec", "socket", "urllib", "requests"):
             self.assertNotIn(word, src, word)
 
-    def test_nothing_in_the_package_calls_it_yet(self):
+    def test_only_agents_py_calls_it_and_only_for_the_checks_yet(self):
         import re
         root = Path(__file__).resolve().parents[1]
         pat = re.compile(r"from umwayi import[^\n]*\bmuse\b|umwayi\.muse\b|import muse\b")
         callers = [p.name for p in (root / "umwayi").glob("*.py") if p.name != "muse.py" and pat.search(p.read_text(encoding="utf-8"))]
-        self.assertEqual(callers, [])  # the start in agents.py is a later part and an owner stop of its own
+        self.assertEqual(callers, ["agents.py"])  # step 1 of M2 part 2: agents.py checks a Muse agent; no start calls it (a later step)
 
     def test_a_built_command_never_carries_a_forbidden_flag(self):
         argv = muse.command(10, "p.txt")
