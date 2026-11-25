@@ -1,4 +1,4 @@
 date: 2026-11-25
-pr: none
+pr: 240
 what: M4 h, part 2. `units.yaml` takes an optional `goals` section: a goal name, a provider of the providers section and a whole-percent `share`; the shares on one provider may add up to 80 (the 20 percent reserve), else a config error with `share_over_allocated`. `umwayi budget status` lists each goal with its full monthly, weekly and daily caps (free credits with an acceptance only; any other provider says the caps are not computed). Use per goal is not recorded yet, so the lines say they are the full caps, not what is left. Nothing starts, waits or refuses a task by a share yet. A units.yaml format change: owner stop.
 tests: `tests/budget/test_goal_shares_yaml.py` (the section, the sum, bad shares and names, the status lines); `tests/budget/test_goal_shares.py` now expects `units.py` as the only caller of the module.
