@@ -51,6 +51,15 @@ An optional `goals` section gives a long-running goal a share of one provider's 
         provider: example-provider # a provider of the section above
         share: 60                  # a whole percent, 1 to 100; the shares on one provider may add up to 80 at most (20 percent is the owner's)
 
+A video line (L9, the PR video rule) is the owner's cap on concept videos, in UU. It is optional, and without it videos are OFF:
+
+    video:
+      mode: on          # on or off; off means no video, whatever the numbers say
+      per_video: 50     # the most one video may cost (its estimate, written before it is made)
+      per_day: 100      # the most the videos of one day may cost together
+
+`video_gate` answers Yes (`within_cap`) or No with a fixed reason: `video_off` (mode off, no video line, or a cap of 0), `owner_off` (the owner turned videos off for this pull request), `over_per_video` or `over_per_day`. A free local render has an estimate of 0 UU and still needs the owner to turn videos on. Nothing calls the gate yet, so no video is made, written to the logbook or put on a waiting list by it.
+
 Without an acceptance a free credit or subscription provider is Ask me first; a paid provider is Ask me first on every goal, so an
 acceptance does not apply to it (`provider_gate`). Nothing here starts, stops or spends anything yet: the pacing, the heads up, the stop
 line and the goal shares are later parts of M4.
@@ -95,6 +104,8 @@ MAX_HORIZON_DAYS = 366
 # the limit keys a cost kind takes; a subscription needs at least one allowance
 LIMIT_KEYS = {"free_credits": ("credits_uu",), "subscription": ("five_hour_uu", "weekly_uu"), "paid": ("cap_uu",)}
 ACCEPTANCE_KEYS = ("accepted_free", "date", "amount_uu", "source")
+VIDEO_KEYS = ("mode", "per_video", "per_day")
+VIDEO_MODES = ("on", "off")
 RATE_KEYS = ("value", "date", "source")
 
 _PLATFORM = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
@@ -152,6 +163,13 @@ class GoalShare:
 
 
 @dataclass(frozen=True)
+class VideoUnits:
+    mode: str  # on or off
+    per_video: int  # UU
+    per_day: int  # UU
+
+
+@dataclass(frozen=True)
 class Units:
     """A valid units.yaml (or none: present False, every reading unknown under the placeholders)."""
     present: bool
@@ -161,6 +179,7 @@ class Units:
     limits: dict = field(default_factory=lambda: dict(PLACEHOLDERS))  # name -> UU
     given_limits: dict = field(default_factory=dict)  # only the limits the file names
     providers: dict = field(default_factory=dict)  # name -> ProviderUnits
+    video: VideoUnits | None = None  # None: no video line, so videos are off
     goals: dict = field(default_factory=dict)  # name -> GoalShare (M4 h)
 
     def state(self) -> dict:
@@ -181,6 +200,10 @@ class Units:
         for name in LIMIT_NAMES:
             if name in self.given_limits:
                 out[f"limits.{name}"] = str(self.given_limits[name])
+        if self.video is not None:
+            out["video.mode"] = self.video.mode
+            out["video.per_video"] = str(self.video.per_video)
+            out["video.per_day"] = str(self.video.per_day)
         for name, p in sorted(self.providers.items()):
             out[f"providers.{name}.cost_kind"] = p.cost_kind
             for key, value in sorted(p.limit.items()):
@@ -302,8 +325,8 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
     if not isinstance(data, dict):
         return None, [Problem(1, "the file must be a mapping with version, platforms, models and limits")]
     for key in data:
-        if key not in ("version", "platforms", "models", "limits", "providers", "goals"):
-            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits, providers and goals", key)
+        if key not in ("version", "platforms", "models", "limits", "providers", "video", "goals"):
+            problem(f"{_name(key)} is not allowed at the top, only version, platforms, models, limits, providers, video and goals", key)
     if data.get("version") != 1 or isinstance(data.get("version"), bool):
         problem("version must be 1", "version")
 
@@ -541,9 +564,32 @@ def check_text(text: str, today: str, sha256: str | None = None) -> tuple:
         taken.setdefault(prov, []).append(share)
         goals[name] = GoalShare(prov, share)
 
+    video = None
+    if "video" in data:
+        raw = data["video"]
+        if not isinstance(raw, dict):
+            problem("video must be a mapping with mode, per_video and per_day", "video")
+        else:
+            before = len(problems)
+            for key in raw:
+                if key not in VIDEO_KEYS:
+                    problem(f"video: {_name(key)} is not allowed, only {', '.join(VIDEO_KEYS)}", "video", key)
+            for key in VIDEO_KEYS:
+                if key not in raw:
+                    problem(f"video needs {key}", "video")
+            if raw.get("mode") not in VIDEO_MODES and "mode" in raw:
+                problem("video: mode must be on or off", "video", "mode")
+            for key in ("per_video", "per_day"):
+                if key in raw:
+                    wrong = _number_problem(raw[key], f"video.{key}")
+                    if wrong:
+                        problem(wrong + " (UU)", "video", key)
+            if len(problems) == before:
+                video = VideoUnits(raw["mode"], raw["per_video"], raw["per_day"])
+
     if problems:
         return None, sorted(problems, key=lambda p: p.line)
-    return Units(True, sha256, platforms, models, limits, given, providers, goals), []
+    return Units(True, sha256, platforms, models, limits, given, providers, video, goals), []
 
 
 def load(root: Path, today: str) -> Units:
@@ -577,7 +623,8 @@ def validate(root: Path, today: str) -> tuple:
         return 64, [f"problem: {p.render()}" for p in problems] + [f"{len(problems)} problem(s) found in {UNITS_FILE}"]
     return 0, [f"ok: {UNITS_FILE} is valid: {len(units.platforms)} platform(s), {len(units.models)} model(s); limits "
                + ", ".join(f"{k} {v} UU" for k, v in units.limits.items())
-               + (f"; {len(units.providers)} provider(s)" if units.providers else "")]
+               + (f"; {len(units.providers)} provider(s)" if units.providers else "")
+               + (f"; videos {units.video.mode}" if units.video else "")]
 
 
 def pace(p: ProviderUnits, left_uu: int, today: str, days_left_in_week: int | None = None):
@@ -669,6 +716,22 @@ def stop_gate(p: ProviderUnits, left_uu=None, five_hour_used_pct=None, weekly_us
     if needs_week and weekly_used_pct >= p.weekly_stop_pct:
         return "no", "weekly_stop"
     return "yes", "within_limits"
+
+
+def video_gate(units: Units, estimate_uu: int, spent_today_uu: int = 0, pr_off: bool = False) -> tuple:
+    """(decision, reason) before a video is made (L9). decision is "yes" or "no". The reasons are fixed words: owner_off (the owner turned videos
+    off for this pull request: it wins over everything), video_off (mode off, no video line, or a cap of 0), over_per_video, over_per_day, and
+    within_cap. The estimate is the cost in UU written BEFORE the video is made; a free local render is 0. Pure: it makes, logs and stops nothing."""
+    if pr_off:
+        return "no", "owner_off"
+    v = units.video
+    if v is None or v.mode != "on" or v.per_video <= 0 or v.per_day <= 0:
+        return "no", "video_off"
+    if estimate_uu > v.per_video:
+        return "no", "over_per_video"
+    if spent_today_uu + estimate_uu > v.per_day:
+        return "no", "over_per_day"
+    return "yes", "within_cap"
 
 
 def provider_gate(units: Units, provider: str) -> tuple:

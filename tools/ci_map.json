@@ -94,6 +94,7 @@
   "tests/budget/test_stop_and_heads_up.py": [],
   "tests/budget/test_telemetry.py": ["adapters"],
   "tests/budget/test_units.py": ["adapters"],
+  "tests/budget/test_video_gate.py": [],
   "tests/goal/test_approvals.py": ["umwayi.json"],
   "tests/goal/test_blocked.py": ["umwayi.json"],
   "tests/goal/test_broker_lost.py": ["umwayi.json"],
