@@ -112,7 +112,7 @@ Task 10.51, on the owner's Mac, is the real check. The build does not start unti
 7. **What it writes** in its private `HOME`, and whether anything reaches the owner's real config.
 8. **An effort flag:** whether a documented effort or reasoning option exists on that version. If none is confirmed, R9 stays.
 
-## Free routes and a private repository (design, 2026-11-25, G-0068)
+## Free routes and a private repository (2026-11-25, G-0068 and G-0076)
 
 The rule of the owner's acceptance (D-93) is that work sent over a free route may be used by the provider, so a free route takes PUBLIC work only. For OpenCode today:
 
@@ -122,7 +122,7 @@ The rule of the owner's acceptance (D-93) is that work sent over a free route ma
   marked public. The line says the next step ("only a root the owner marked public may go over a free route") and nothing is started. A local provider is never refused for this.
 - **The mark:** the owner writes `public: true` by hand and the code reads it and never writes it (G-0046 for Muse). It is never inferred from a repository name or a remote.
 - **Tests to write first:** a free route with no mark is refused and starts nothing; the same with the mark runs; a local provider with no mark runs; a mark that is `"true"` as text or `1` is no mark.
-- **Not built.** This is the design. The build is its own pull request and an owner stop (it changes the start of an agent).
+- **Built (G-0076, 2026-11-25).** `agent run` of an OpenCode agent on the free tier is refused with `private_repo_named` (exit 2, before the budget reservation, nothing started) unless `units.yaml` has the top level key `public: true`, written by the owner. Not covered: `agent chat` over the free route (a chat has no budget step), and Muse (its own refusal is Muse step 3). The repository's own `units.yaml` is not marked.
 
 ## What it does not prove
 
@@ -151,6 +151,7 @@ This would be the first code that lets OpenCode start as a goal helper, so each 
 | 2026-11-17 | Design note only; the six questions, the budget band and the stops wait for the owner. | W9.13 in tasks.md, after 10.48 (W9-Q8). |
 | 2026-11-22 | The owner accepted the recommendations of the six questions, the open questions below, the budget band, an effort refused for OpenCode, and tester and guide first, then a builder after five clean tester runs. W9.13 is built: `agent run` of an OpenCode agent (`acp.Run`, `agents.py` `_acp_run`), `goal approve` and `goal show` for an OpenCode role, a blank effort in a packet, the planted-fault tests, one whole-system scenario with a fake `opencode acp`. Not built: a rule that enforces "five clean runs"; that is advice. The owner still adds the Yes rules by hand (stop 6) and reviews the first real goal run (stop 7). | The owner's message of the same day, after the real check of 10.51 (PR 164). |
 | 2026-11-25 | W9.13 is already built (2026-11-22), so the guide's list of 2026-11-25 (a design note, then a build) is met except two things, written here as design: the per role planning guesses and the fixed refusal of a private repository on a free route. The tick of W9.13 in `tasks.md` was stale and is now ticked. | G-0068 asked for a note and a build; the note and the build exist. |
+| 2026-11-25 | The refusal is built (G-0076): the mark is one top level `public: true` in `units.yaml` (the recommendation of open question 4), and a free route is the provider `opencode` (open question 5). The owner's merge word confirms both. | G-0076: OpenCode on free models must not touch a private repository. |
 
 ## Open questions
 
