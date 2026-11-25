@@ -71,7 +71,7 @@ class PlatformTableTests(unittest.TestCase):
         self.assertEqual(p.hook, "adapters/stdio/hook.py")  # the plugin runs the layer 9 generic adapter
 
     def test_the_other_two_platforms_are_unchanged(self):
-        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro", "opencode"])
+        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro", "muse", "opencode"])
         self.assertEqual(agents.PLATFORMS["claude-code"].transports, ("cli", "acp"))
         self.assertEqual(agents.PLATFORMS["kiro"].transports, ("cli", "acp"))
         self.assertEqual(agents.PLATFORMS["claude-code"].commands, ("claude",))

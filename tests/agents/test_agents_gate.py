@@ -427,7 +427,7 @@ class ArgumentListTests(unittest.TestCase):
         self.assertEqual(agents._assert_allowed(["/bin/claude", "--bare"], skip=1), ["/bin/claude", "--bare"])
 
     def test_the_platform_table_is_fixed(self):
-        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro", "opencode"])  # opencode: part 8 (10.43)
+        self.assertEqual(sorted(agents.PLATFORMS), ["claude-code", "kiro", "muse", "opencode"])  # opencode: part 8 (10.43); muse: M2 part 2, step 1
         self.assertEqual(agents.PLATFORMS["claude-code"].commands, ("claude",))
         self.assertEqual(agents.PLATFORMS["kiro"].commands, ("kiro-cli",))
         self.assertEqual(agents.PLATFORMS["opencode"].commands, ("opencode",))

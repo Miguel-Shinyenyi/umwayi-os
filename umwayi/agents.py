@@ -61,7 +61,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 
-from umwayi import __version__, acp, budget, confine, kill, logbook, miniyaml, rules, runlock, seatbelt, taskqueue, telemetry, toolcheck, units, watched
+from umwayi import __version__, acp, budget, confine, kill, logbook, miniyaml, muse, rules, runlock, seatbelt, taskqueue, telemetry, toolcheck, units, watched
 from umwayi.errors import ConfigError, UmwayiError, UsageError
 
 AGENTS_FILE = "agents.yaml"
@@ -107,7 +107,14 @@ PLATFORMS = {
     # runs for every tool call (design.md part 8). 2.2.3 is the first release that honours every policy used.
     "opencode": Platform("opencode", ("opencode",), ("acp",), "adapters/stdio/hook.py",
                          (2, 2, 3), "--version", "integration.use, mcp.use and plugin.use need OpenCode 2.2.3 or later"),
+    # M2 part 2, step 1 (docs/muse-start-design.md): Muse Code, checks only. `agent check` works; `agent run` and `agent chat` are refused until the
+    # start is built (step 2). No minimum version is pinned until the real check (M3), and the hook is the generic adapter, as an assumption.
+    "muse": Platform("muse", ("muse",), ("cli",), "adapters/stdio/hook.py", (0, 0, 0), "--version",
+                     "no minimum version is pinned until the real check (M3)"),
 }
+MUSE_NOT_STARTED = ("agent: a Muse run is not built yet (M2 part 2, step 2): `agent check` works, `agent run` and `agent chat` are refused. "
+                    "Nothing was started.")
+MUSE_VERSION_TIMEOUT = 15.0  # seconds for `muse --version`
 
 # Part 7: Claude Code over ACP (10.R11). The adapter is a pinned npm package in adapters/claude_acp/,
 # installed by the owner (`npm ci --ignore-scripts`); umwayi never runs npm. An ACP chat runs
@@ -1059,6 +1066,8 @@ def build_argv(agent: Agent, mode: str, command_path: str, root: Path, python: s
     model and effort (W9.6) are for `agent run` of Claude Code and Kiro only; None adds nothing."""
     if mode not in (RUN, CHAT, LOGIN):
         raise UsageError("agent: the mode must be run, chat or login")
+    if agent.platform == "muse":
+        raise UsageError(MUSE_NOT_STARTED)
     if (model is not None or effort is not None) and (mode != RUN or agent.platform not in ("claude-code", "kiro")):
         raise UsageError("agent: --model and --effort are only for agent run of a Claude Code or Kiro agent")
     extra = []
@@ -1588,6 +1597,49 @@ def _opencode_checks(agent: Agent, plat: Platform, gate: Gate, src: Path | None,
     return gate
 
 
+def muse_gate_command(root, src: Path | None = None) -> str:
+    """The command the `.muse/hooks.json` of a Muse run must call: the generic adapter of layer 9, with the umwayi root. An assumption until the real
+    check (M3) shows what Muse's hook sends and expects."""
+    return f"{python_path()} {hook_path('muse', src)} --root {os.path.realpath(str(root))}"
+
+
+def _muse_checks(agent: Agent, plat: Platform, gate: Gate, root: Path, src: Path | None) -> Gate:
+    """The checks of a Muse agent, in order, the first failure ends it: command, version, hook file, key variables. Reads only; starts no model.
+    `muse --version` runs in the workdir with the allow-listed environment of `enforced_env`, so no key variable reaches it. There is no login check: no
+    command that checks the stored sign-in without a model call is known yet (M3), and the line says so."""
+    order = ["command", "version", "hook file", "key variables"]
+    done = _recorder(gate, order)
+    found = shutil.which(agent.command)
+    if not found or not os.path.isabs(found):
+        done("command", False, f"{agent.command} was not found on PATH")
+        return gate
+    gate.command_path = found
+    done("command", True, f"{agent.command} found at {found}")
+    _, removed = muse.child_env(os.environ)  # the key variables a start would remove (names only)
+    code, out = _run_child([found, plat.version_flag], b"", MUSE_VERSION_TIMEOUT, agent.workdir, env=enforced_env(os.environ, agent))
+    if code is None:
+        ok = done("version", False, f"{agent.command} {plat.version_flag} did not answer within {MUSE_VERSION_TIMEOUT:.0f} s")
+    elif code != 0:
+        ok = done("version", False, f"{agent.command} {plat.version_flag} exited {code}")
+    else:
+        version = parse_version(out)
+        gate.version = version
+        ok = done("version", True, (f"{_show(version)} (no minimum is pinned)" if version else "answered (no version number found; no minimum is pinned)")
+                  + "; the sign-in is not checked: no command for it is known yet")
+    if not ok:
+        return gate
+    command = muse_gate_command(root, src)
+    try:
+        muse.check_hook_file(agent.workdir, command)
+        hook_ok, detail = True, ".muse/hooks.json calls the gate"
+    except muse.MuseRefused as e:
+        hook_ok, detail = False, f"{e}; the file must have a PreToolUse command `{command}`"
+    if not done("hook file", hook_ok, detail):
+        return gate
+    done("key variables", True, ("removed from the child, names only: " + ", ".join(removed)) if removed else "none set")
+    return gate
+
+
 def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None = None,
                 mode: str | None = None) -> Gate:
     """Every check from 10.R6.1 (or 10.R11.6 for a Claude Code ACP chat), in order.
@@ -1606,6 +1658,8 @@ def gate_checks(agent: Agent, root, src: Path | None = None, home: Path | None =
         gate.checks.append(Check("sandbox settings", False, "refused (profile): the Claude Code ACP adapter takes no sandbox "
                                  "settings; use transport cli for this agent, or set it cooperative at your terminal"))
         return gate
+    if agent.platform == "muse":  # M2 part 2, step 1: the checks, and no start
+        return _muse_checks(agent, plat, gate, root, src)
     if agent.platform == "opencode":  # the six checks of 10.R13.8
         return _opencode_checks(agent, plat, gate, src, home)
     if is_claude_acp(agent, mode):
@@ -1718,6 +1772,9 @@ def check_agent(root, name: str, given: str | None = None, home: Path | None = N
     if not gate.gated:
         lines.append(f"Not gated: agent {agent.name} would be refused (exit 2). Nothing was started.")
         return Result(2, lines)
+    if agent.platform == "muse":
+        lines.append(f"Gated: the checks of Muse agent {agent.name} passed. {MUSE_NOT_STARTED.removeprefix('agent: ')}")
+        return Result(0, lines)
     if agent.platform == "opencode":  # the six checks of 10.R13.8; the chat itself is 10.R13.10 to 10.R13.12
         argv, _ = build_argv(agent, CHAT, gate.command_path, root, python_path())
         lines.append(f"chat would start: {json.dumps(argv)} with the allow-listed environment and the inline config; "
