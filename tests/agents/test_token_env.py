@@ -20,11 +20,13 @@ class KeyTests(AgentCase):
         self.write_agents(HEAD + extra)
         return agents.find(agents.load(self.root), "c")
 
-    def refused(self, extra):
-        self.write_agents(HEAD + extra)
-        with self.assertRaises(Exception) as cm:
-            agents.load(self.root)
-        return str(cm.exception)
+    def refused(self, extra, head=HEAD):
+        """The problem lines of agents.yaml (never the text of a line), joined; the file must have at least one."""
+        self.write_agents(head + extra)
+        loaded, problems = agents.check_text((self.root / "agents.yaml").read_text(encoding="utf-8"), self.root)
+        self.assertIsNone(loaded)
+        self.assertTrue(problems, "the file was accepted")
+        return " ".join(p.message for p in problems)
 
     def test_the_name_with_confine_true_is_accepted_and_recorded(self):
         a = self.load(f"    confine: true\n    token_env: {NAME}\n")
@@ -44,11 +46,8 @@ class KeyTests(AgentCase):
         self.assertIn("confine", self.refused(f"    confine: false\n    token_env: {NAME}\n"))
 
     def test_it_is_only_for_claude_code(self):
-        self.write_agents("agents:\n  - name: k\n    platform: kiro\n    command: kiro-cli\n    workdir: {work}\n"
-                          f"    confine: true\n    token_env: {NAME}\n")
-        with self.assertRaises(Exception) as cm:
-            agents.load(self.root)
-        self.assertIn("only for platform claude-code", str(cm.exception))
+        kiro = "agents:\n  - name: k\n    platform: kiro\n    command: kiro-cli\n    workdir: {work}\n"
+        self.assertIn("only for platform claude-code", self.refused(f"    confine: true\n    token_env: {NAME}\n", head=kiro))
 
 
 class NothingPassesItYetTests(unittest.TestCase):
