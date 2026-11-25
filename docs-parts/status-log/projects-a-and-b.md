@@ -1,0 +1,4 @@
+date: 2026-11-25
+pr: none
+what: The A and B specs as ONE pull request, harness neutral (G-0068, G-0070, G-0071), docs only. `docs/projects-a-and-b.md` is the one page for the two small projects: what each is, where its repository is (both private), where its spec and 17 tests are (A: on `main` of `mpesa-statement-analyzer`, PR 3 merged; B: PR 1 open in `link-checker`), the exact contract in plain words, a task card that works the same for a builder, a tester and a reviewer on Claude Code, OpenCode or Muse (Kiro stays on pause), the rule that free Muse and OpenCode routes take public work only (both repositories are private, so only Claude Code may work on them as they stand), and three open questions with a recommendation. Nothing is built and no code of either project exists.
+tests: none new; the docs tests (the four parts, the links, the line count).

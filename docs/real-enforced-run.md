@@ -44,6 +44,7 @@ it, and a port allow list (443 only) is not built; port 443 reaches any host. A 
 - OpenCode: the goal helper run exists (PR 174) but has no confined start. Second, after a design of its paths.
 - Muse: after M2 part 2 (the start through `agents.py`). Third.
 - Kiro: paused by the owner; its last run failed on the service, not on umwayi.
+- Projects A and B, the two small projects the harnesses build and test: [the specs note](projects-a-and-b.md).
 
 ### Older gaps to close with the run (queue item 10)
 
