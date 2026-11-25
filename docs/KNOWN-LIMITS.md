@@ -2274,7 +2274,7 @@ These are facts of the code of this change. No real Claude Code ran with it.
 
 These are facts of the code of this change.
 
-- `umwayi/seatbelt.py` makes a Seatbelt profile and runs a command through `/usr/bin/sandbox-exec`. `CHECKED_ON_MAC` is False. `agents.py` now asks `seatbelt.start_allowed` first and builds a Seatbelt start only when it says yes, so an enforced run with `confine: true` on a Mac is still refused with reason `platform`. A later pull request sets the constant after the owner's check of a real Claude Code session.
+- `umwayi/seatbelt.py` makes a Seatbelt profile and runs a command through `/usr/bin/sandbox-exec`. `CHECKED_ON_MAC` is False and `agents.py` does not use it: an enforced run with `confine: true` on a Mac is refused with reason `platform`. A later pull request wires it after the owner's check.
 - Measured on one Mac (macOS 27.0.1, Homebrew Python 3.13): a Python child under the profile writes inside its work folder, is refused writing elsewhere and reading an unlisted file, and with `no_network` is refused a connection. A Python child needed the folders above every listed path to be readable by name (the profile lists them as `literal`), or it did not start. Claude Code 2.1.330 also ran `--version` under it, with its own install folders listed for reading. Not measured: a Claude Code session (its API calls, `node` helpers, its sign-in in the Keychain), any Kiro or OpenCode helper, other macOS versions.
 - `sandbox-exec` is marked deprecated by Apple (F3c: the steps are on `docs/seatbelt-check.md`) and its profile language is not documented by Apple. A macOS update can change it.
 - The profile allows `mach-lookup` and `sysctl-read` without limit. Reading the names of the folders above a listed path is allowed.
