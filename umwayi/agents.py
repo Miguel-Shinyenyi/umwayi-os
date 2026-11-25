@@ -552,7 +552,7 @@ def check_text(text: str, root: Path) -> tuple:
                     problem(f"{label}: trust_tools names a tool twice", "agents", i, "trust_tools")
         max_turns = item.get("max_turns")
         if "max_turns" in item:
-            if pname != "claude-code":
+            if pname not in ("claude-code", "muse"):  # for Muse it is the step cap, `--max-model-steps` (M2 part 2, step 2)
                 problem(f"{label}: max_turns is only for platform claude-code", "agents", i, "max_turns")
             elif not _whole(max_turns, 1, 200):
                 problem(f"{label}: max_turns must be a whole number from 1 to 200", "agents", i, "max_turns")
