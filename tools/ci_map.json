@@ -82,6 +82,7 @@
   "tests/autonomy/test_text_blind.py": ["rules.yaml"],
   "tests/budget/test_calibrate.py": ["adapters"],
   "tests/budget/test_capture.py": ["adapters"],
+  "tests/budget/test_credits.py": [],
   "tests/budget/test_end_to_end.py": ["adapters"],
   "tests/budget/test_goal_shares.py": [],
   "tests/budget/test_goal_shares_yaml.py": [],
