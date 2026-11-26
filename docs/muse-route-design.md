@@ -107,6 +107,7 @@ One fixed reason each, so a test can pin them and a person can search them. Ever
 - 2026-11-25 (M2, first part): `umwayi/muse.py` builds the command, scrubs the key variables, writes the hook text and checks the facts, with a fake only; it starts nothing. Two reason words are new: `sandbox_unconfirmed` (for `--disable-approval`) and `step_cap_missing`. The format of `.muse/hooks.json` is assumed to match Claude Code's and is unconfirmed until M3. The start through `agents.py` is the next part (an owner stop).
 - 2026-11-25 (the guide, G-0046): the two new reason words are kept and belong in the table above; the `public: true` mark is a key on the `muse` provider in `units.yaml`, written by the owner by hand, read and never written by the code. The key itself is not in the units.yaml parser yet.
 - 2026-11-25 (M2 part 2): how a Muse run is started through `agents.py`, in four small steps, is in [the start note](muse-start-design.md).
+- 2026-11-26 (the first real run): what the stream holds, and how to print only the answer and settle from the usage line, is in [the output note](muse-output-design.md). Nothing is built.
 
 ## Open questions
 
