@@ -144,6 +144,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-26 | Step 1 of goal publish is built: the rules action `goal_publish` (`umwayi/goalpublish.py`) builds the question and asks the rules; it pushes nothing. No rule means Ask me first; it is on the never list of graded autonomy. The push and the pull request text are the next steps. | The owner made it the priority that umwayi-os push its own task branch ([the note](goal-publish-design.md)). |
 | 2026-11-26 | The owner asked that umwayi-os also watch, review CI, merge and fix pull requests itself, enforced where it can be. The design, in four steps with the layers labelled, is in [the GitHub access note](github-access-design.md). Nothing is built. | A person or a chat in the middle of every pull request is what the owner wants to remove. |
 | 2026-11-26 | The owner asked that umwayi-os push its own task branch and open the pull request. The supervisor never pushes today; the options and a recommendation are in [the goal publish note](goal-publish-design.md). Nothing is built. | The branch of a recorded build existed only on the owner's Mac. |
 | 2026-11-12 | The goal orchestration is specified as `umwayi goal`, with the roles, the packet, the states and the seven pitfalls designed out, as W9. Nothing is built and no safety rule changes. | The owner asked for the spec on Nov 12 2026 (W9.0). |
