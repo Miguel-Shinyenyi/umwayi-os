@@ -2320,6 +2320,6 @@ These are facts of the code of this change.
 - A push that fails or times out is recorded as not confirmed. After a time-out, the remote may still have the branch.
 - `umwayi/goalpush.py` starts `git push` through the private runner of `umwayi/goalgit.py`, with its own argument lists. The text of `goalgit.py` still says that it is the only place git is started for a goal and that no list holds push.
 - `docs/goal-publish-design.md` still says that nothing is built.
-- `tools/ci_map.json` was outside the scope of this task and was not given an entry for `tests/test_goalpush.py`. `tests/test_ci_map.py` is expected to fail until it has one. That test was not run, and neither were the other tests outside the two named modules.
+- The builder did not give `tests/test_goalpush.py` an entry in `tools/ci_map.json`, because that is a guard file it may not edit. The entry and the shard registry entry were added afterwards, by hand, in a separate commit of a chat session (4e5dde6), and the CI map, shard and docs tests pass. The builder did not run the tests outside the two named modules.
 - `umwayi/goalpublish.py` checks names with `match` and `$`, so it accepts a name with a newline at its end. `goalpush.py` refuses such names itself. `goalpublish.py` was not changed.
 - `goalpublish.decide` records the kill switch state but does not stop on it. A caller must check the switch itself, as `goalpush.py` does.
