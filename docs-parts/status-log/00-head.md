@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This page says where each part of umwayi-os stands and logs every pull request with its test count. It exists so the state of the project can be read in one place.
+This page says where each part of umwayi-os stands and logs every pull request with its test count. It exists so the state of the project can be read in one place. Older rows are in [the archive](status-log-archive.md).
 
 ## Current state
 
