@@ -1,0 +1,4 @@
+date: 2026-11-26
+pr: 267
+what: G-0091, a docs note on the finding of the real Muse run: `docs/muse-trust-and-hook.md`. Muse said the workspace was untrusted, ran one shell command, and umwayi's gate never saw it (the project hook file was not loaded). The note records what the run showed, what `muse exec --help` of 1.4.25 offers (`--trust-workspace`, `--disable-shell`, `--disable-write`, `--permission-profile`, the approval modes), what is not known, three options (trust the folder in a scripted way, a read only way with no tool that needs a gate, refuse Muse when the hook is not shown to have run) and a recommendation (the read only way for roles that write nothing; trust plus a canary before any builder). No Muse goal run and no agents.yaml entry for Muse; the label stays cooperative. Nothing built, no second run.
+tests: none new; the docs tests (the four parts, the links, the line count).
