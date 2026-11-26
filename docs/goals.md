@@ -145,6 +145,7 @@ Newest first. Each row names where it was decided.
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-11-26 | `tools/goal_rules.py` reads the repo's `rules.yaml` from git HEAD, not from the working file, so a goal root whose own rules file was changed and marked skip-worktree still gives the same built rules. | The first self-build root failed to rebuild its rules: the changed file had no Ask rules left to drop. |
 | 2026-11-26 | The owner chose option (c) for letting a goal build umwayi-os itself: a reviewed way to make the goal root's rules. It is `tools/goal_rules.py`, which builds them from the repo's pinned `rules.yaml` and does not change it. | The pinned `rules.yaml` asks for every Claude write; rewriting its pins was the larger and riskier change. |
 | 2026-11-26 | Step 1 of goal publish is built: the rules action `goal_publish` (`umwayi/goalpublish.py`) builds the question and asks the rules; it pushes nothing. No rule means Ask me first; it is on the never list of graded autonomy. The push and the pull request text are the next steps. | The owner made it the priority that umwayi-os push its own task branch ([the note](goal-publish-design.md)). |
 | 2026-11-26 | The owner asked that umwayi-os also watch, review CI, merge and fix pull requests itself, enforced where it can be. The design, in four steps with the layers labelled, is in [the GitHub access note](github-access-design.md). Nothing is built. | A person or a chat in the middle of every pull request is what the owner wants to remove. |

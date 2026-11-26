@@ -2,7 +2,7 @@
 
     python -m tools.goal_rules --worktrees /abs/path/ROOT-worktrees --guide NAME --builder NAME --tester NAME [--out FILE]
 
-The repo's `rules.yaml` is pinned by tests and asks the owner for every Claude Code write and shell command (`cc-ask-write`, `cc-ask-shell`).
+The repo's `rules.yaml` (read from git HEAD, so a goal root with a changed file gives the same result) is pinned by tests and asks the owner for every Claude Code write and shell command (`cc-ask-write`, `cc-ask-shell`).
 A goal run is built so that the builder writes in its own worktree, so the goal root needs different rules. This tool makes them from the
 repo file, without changing it: it drops those two Ask rules and appends (1) the builder rules of `goal.rules.example.yaml` for the worktree
 folder (a write, five commands, the No rules for chains and `git diff --output`), (2) `python3 -B -m unittest` and the read only `git log`,
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -27,6 +28,19 @@ _PATH = re.compile(r"^/[A-Za-z0-9._/-]+$")
 
 class Usage(ValueError):
     """A bad argument: the message names the argument and never echoes its value."""
+
+
+def pinned_rules_text(repo: Path = REPO) -> str:
+    """The text of the repo's rules.yaml as it is committed (git HEAD), so that a goal root whose own rules.yaml was already changed
+    (and marked skip-worktree) still gives the same result. Falls back to the file when `repo` is not a git work tree or has no commit."""
+    try:
+        done = subprocess.run(["git", "-C", str(repo), "show", "HEAD:rules.yaml"], capture_output=True, text=True, timeout=30,
+                              shell=False)
+        if done.returncode == 0 and done.stdout.strip():
+            return done.stdout
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return (repo / "rules.yaml").read_text(encoding="utf-8")
 
 
 def drop_rule(text: str, rid: str) -> str:
@@ -150,7 +164,7 @@ def main(argv=None) -> int:
     except SystemExit:
         return 64
     try:
-        text = build((REPO / "rules.yaml").read_text(encoding="utf-8"), (REPO / "goal.rules.example.yaml").read_text(encoding="utf-8"),
+        text = build(pinned_rules_text(), (REPO / "goal.rules.example.yaml").read_text(encoding="utf-8"),
                      args.worktrees, args.guide, args.builder, args.tester)
         sys.path.insert(0, str(REPO))
         from umwayi.rules import parse_rules

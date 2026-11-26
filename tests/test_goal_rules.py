@@ -127,3 +127,30 @@ class ArgumentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PinnedFromHeadTests(unittest.TestCase):
+    """A goal root whose rules.yaml was already changed (skip-worktree) must still give the same built rules."""
+
+    def git(self, d, *args):
+        import subprocess
+        return subprocess.run(["git", "-C", str(d), *args], capture_output=True, text=True, check=True)
+
+    def test_the_committed_text_is_read_not_the_changed_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            self.git(d, "init", "-q", "-b", "main")
+            self.git(d, "config", "user.email", "t@example.invalid")
+            self.git(d, "config", "user.name", "t")
+            (d / "rules.yaml").write_text(REPO_RULES, encoding="utf-8")
+            self.git(d, "add", "rules.yaml")
+            self.git(d, "commit", "-qm", "pinned")
+            (d / "rules.yaml").write_text("rules: []\n", encoding="utf-8")  # the goal root's own, already changed
+            self.assertEqual(gr.pinned_rules_text(d), REPO_RULES)
+            self.assertEqual(gr.build(gr.pinned_rules_text(d), EXAMPLE, TREES, "g-guide", "g-builder", "g-tester"), built())
+
+    def test_without_a_git_commit_the_file_is_read(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            (d / "rules.yaml").write_text("rules: []\n", encoding="utf-8")
+            self.assertEqual(gr.pinned_rules_text(d), "rules: []\n")
