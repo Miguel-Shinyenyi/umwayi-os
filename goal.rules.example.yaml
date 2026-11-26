@@ -99,3 +99,18 @@ rules: []
 #       type: tool_bash
 #       cwd__prefix: /path/to/umwayi-root-worktrees
 #       command: ["git status", "git diff", "git add", "git commit", "python3 -m unittest"]
+
+# Publishing a finished task (docs/goal-publish-design.md, step 1): the action `goal_publish` is asked before a later step may push a task
+# branch and open a draft pull request. It is built from ids and names only:
+#   {"type": "goal_publish", "goal": "G-0002", "task": "T-01", "repo": "owner/name", "branch": "umwayi/g-0002-t-01"}
+# Nothing here is Yes by default. With no rule the answer is Ask me first and nothing is published. `goal_publish` is on the never list of
+# graded autonomy. Step 1 only builds and asks (umwayi/goalpublish.py); no push exists yet. An example for one repo of yours:
+#
+# rules:
+#   - id: publish-my-project
+#     title: Publish task branches of my project
+#     text: A finished task branch of this repo may be pushed and opened as a draft pull request.
+#     verdict: yes
+#     matchers:
+#       type: goal_publish
+#       repo: [owner/name]
