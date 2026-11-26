@@ -183,6 +183,7 @@
   "tests/test_feedback_send.py": [],
   "tests/test_frontier_practices.py": [".kiro", "docs", "guidance.yaml"],
   "tests/test_generated_files.py": ["docs", "tools"],
+  "tests/test_goal_rules.py": ["rules.yaml"],
   "tests/test_goalpublish.py": [],
   "tests/test_helpers.py": ["rules.yaml"],
   "tests/test_honest.py": [".kiro", "adapters", "docs", "rules.yaml"],

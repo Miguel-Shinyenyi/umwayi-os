@@ -608,6 +608,10 @@
    "seconds": 0.0,
    "shard": 2
   },
+  "tests/test_goal_rules.py": {
+   "seconds": 19.5,
+   "shard": 2
+  },
   "tests/test_goalpublish.py": {
    "seconds": 19.5,
    "shard": 2
