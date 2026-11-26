@@ -185,6 +185,7 @@
   "tests/test_generated_files.py": ["docs", "tools"],
   "tests/test_goal_rules.py": ["rules.yaml"],
   "tests/test_goalpublish.py": [],
+  "tests/test_goalpush.py": [],
   "tests/test_helpers.py": ["rules.yaml"],
   "tests/test_honest.py": [".kiro", "adapters", "docs", "rules.yaml"],
   "tests/test_landlock_probe.py": [],
