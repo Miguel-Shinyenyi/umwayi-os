@@ -2311,3 +2311,15 @@ These are facts of the code of this change.
 - `confine.argv` has a `no_tcp` option that makes the kernel refuse a TCP connect (Landlock ABI 4 or newer), and a kernel test shows it works in the wrapper. `umwayi/agents.py` builds the command of a confined enforced run with `confine.argv(read, write, argv)` and never passes it, so inside a run with `confine: true` a TCP connection is not refused. The option refuses ALL TCP, with no allowed port, so passing it would also stop a helper that must reach its model over HTTPS; a port allow list is not built, and one that allows 443 would still allow any host on 443. So: a command could reach the network without the broker, and a `git push` with a stored login is limited only by GitHub (no push to main, a required check) and by what the run is allowed to read.
 - Even with the option, UDP and Unix sockets are not blocked by it, and the option needs a kernel with Landlock ABI 4 or newer.
 - Confinement is off by default (`confine: false`) and no real enforced goal run has finished (W40). Read with the six paths of `docs/bypass-resistance-design.md`: three have a kernel test in the wrapper (write outside, read an unlisted file, a child inherits the limit); the network path has the option but not the wiring; a stored-token push and the credential read of a real run are not proven.
+
+## Goal publish
+
+### 345. The task branch push is not yet proven against GitHub, and some docs and checks do not know about it
+
+- Only a local bare repo was tested. The push runs with the clean git environment of `umwayi/goalgit.py` (no global or system git config, no HOME) and a 20 second limit. A push to GitHub with the owner's `gh` login is likely to fail with this environment. Question Q-p2 of `docs/goal-publish-design.md` is still open.
+- A push that fails or times out is recorded as not confirmed. After a time-out, the remote may still have the branch.
+- `umwayi/goalpush.py` starts `git push` through the private runner of `umwayi/goalgit.py`, with its own argument lists. The text of `goalgit.py` still says that it is the only place git is started for a goal and that no list holds push.
+- `docs/goal-publish-design.md` still says that nothing is built.
+- The builder did not give `tests/test_goalpush.py` an entry in `tools/ci_map.json`, because that is a guard file it may not edit. The entry and the shard registry entry were added afterwards, by hand, in a separate commit of a chat session (4e5dde6), and the CI map, shard and docs tests pass. The builder did not run the tests outside the two named modules.
+- `umwayi/goalpublish.py` checks names with `match` and `$`, so it accepts a name with a newline at its end. `goalpush.py` refuses such names itself. `goalpublish.py` was not changed.
+- `goalpublish.decide` records the kill switch state but does not stop on it. A caller must check the switch itself, as `goalpush.py` does.
